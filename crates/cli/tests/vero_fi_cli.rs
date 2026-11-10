@@ -94,8 +94,11 @@ fn configure_splits_non_secret_profile_from_platform_credential_path() {
     assert!(!profile.contains("secret-software-key"));
     assert!(!profile.contains("PRIVATE KEY"));
 
-    let config =
-        std::fs::read_to_string(platform.path().join(".config/aggountant/config.json")).unwrap();
+    #[cfg(target_os = "macos")]
+    let config_file = "Library/Application Support/aggountant/config.json";
+    #[cfg(not(target_os = "macos"))]
+    let config_file = ".config/aggountant/config.json";
+    let config = std::fs::read_to_string(platform.path().join(config_file)).unwrap();
     assert!(config.contains(credential.to_string_lossy().as_ref()));
     assert!(!config.contains("secret-software-key"));
 }

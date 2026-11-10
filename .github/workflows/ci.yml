@@ -44,7 +44,7 @@ jobs:
           key: ${{ matrix.rust }}
       - run: cargo build --workspace --locked
       # Includes the golden-fixture test and the layering test.
-      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --locked --no-fail-fast
 
   lint:
     name: fmt + clippy
