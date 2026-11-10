@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "charts": [
+    {
+      "chart_version": "fi-general-2026@dd5d3f339cebfbc670f55cbd0942c775904c58523d9b07ad8eb48b589c79b63b",
+      "retained_earnings_account": "2250"
+    }
+  ]
+}

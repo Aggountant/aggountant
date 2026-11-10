@@ -1,0 +1,19 @@
+[package]
+name = "aggountant-vero-vat-api-mock"
+description = "Loopback-only contract mock for Vero SelfAssessedTaxes VAT adapter tests"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_vero_vat_api_mock"
+path = "src/lib.rs"
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+serde_json.workspace = true

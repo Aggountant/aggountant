@@ -1,0 +1,32 @@
+[package]
+name = "aggountant-import"
+description = "F23 (MVP) — deterministic camt.053 bank-statement parser: Ntry -> canonical bank-transaction rows + stable dedup key, and the lawful projection to a VoucherDraft. No account/VAT judgment (that is the skill's, per phase4-imports)."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_import"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+aggountant-domain = { path = "../domain", version = "0.1.0" }
+roxmltree = "0.20"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+aggountant-ledger = { path = "../ledger", version = "0.1.0" }
+aggountant-wire = { path = "../wire", version = "0.1.0" }
+tempfile = "3"

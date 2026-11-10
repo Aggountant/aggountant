@@ -1,0 +1,33 @@
+[package]
+name = "aggountant-ledger"
+description = "F5 — the single ledger write-port + F2 storage ports (fiscal/artifact/masterdata). ADR-1: SQLite-primary fiscal (atomic gapless CAS + hash chain), FS artifact CAS, git-native plaintext reference masterdata (diffable chart of accounts + content-hashed chart_version). The Store ports are pub(crate): no other crate references them (F16)."
+publish = false
+build = "../../build.rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_ledger"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+aggountant-wire = { path = "../wire", version = "0.1.0" }
+aggountant-domain = { path = "../domain", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+rust_decimal.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
+
+[dev-dependencies]
+tempfile = "3"
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }

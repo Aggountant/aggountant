@@ -1,0 +1,26 @@
+[package]
+name = "aggountant-wire"
+description = "F3 — Canonical wire format (RFC 8785 JCS profile, ADR-2) + hashing + strict byte-equality read path. Owned encoder, no runtime JCS dependency."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_wire"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[features]
+# Regenerate golden fixtures locally. CI never enables this — it only verifies.
+regen-goldens = []

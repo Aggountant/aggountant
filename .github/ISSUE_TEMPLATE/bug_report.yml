@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in aggountant or its skills does not work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste real bookkeeping data, bank statements, personal identity
+        codes or Vero.fi credentials. A minimal made-up example is enough.
+        Report security vulnerabilities privately as described in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `aggountant --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: Operating system and architecture, and how you installed aggountant.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The command you ran (or what you asked the agent to do) and what it did.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The command's `--json` output or error, with any personal data removed.
+      render: text

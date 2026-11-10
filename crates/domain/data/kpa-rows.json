@@ -1,0 +1,31 @@
+{
+  "policy": "fi-kpa-rows",
+  "version": "2026-01",
+  "rows": [
+    { "row_id": "IS-LIIKEVAIHTO", "statement": "income", "nature": "revenue", "order": 100, "label": "Liikevaihto", "accounts": ["30", "31", "32", "33"] },
+    { "row_id": "IS-MUUT-TUOTOT", "statement": "income", "nature": "revenue", "order": 110, "label": "Liiketoiminnan muut tuotot", "accounts": ["39"] },
+    { "row_id": "IS-MATERIAALIT", "statement": "income", "nature": "expense", "order": 200, "label": "Materiaalit ja palvelut", "accounts": ["40", "41", "44"] },
+    { "row_id": "IS-HENKILOSTO", "statement": "income", "nature": "expense", "order": 210, "label": "Henkilöstökulut", "accounts": ["50", "51", "53", "54", "55"] },
+    { "row_id": "IS-POISTOT", "statement": "income", "nature": "expense", "order": 220, "label": "Poistot ja arvonalentumiset", "accounts": ["60", "61"] },
+    { "row_id": "IS-MUUT-KULUT", "statement": "income", "nature": "expense", "order": 230, "label": "Liiketoiminnan muut kulut", "accounts": ["70", "71", "72", "73", "74", "75", "76", "77"] },
+    { "row_id": "IS-RAHOITUS-TUOTOT", "statement": "income", "nature": "revenue", "order": 300, "label": "Rahoitustuotot", "accounts": ["8000", "8010"] },
+    { "row_id": "IS-RAHOITUS-KULUT", "statement": "income", "nature": "expense", "order": 310, "label": "Rahoituskulut", "accounts": ["8300", "8350"] },
+    { "row_id": "IS-SATUNN-TUOTOT", "statement": "income", "nature": "revenue", "order": 400, "label": "Satunnaiset tuotot", "accounts": ["8600"] },
+    { "row_id": "IS-SATUNN-KULUT", "statement": "income", "nature": "expense", "order": 410, "label": "Satunnaiset kulut", "accounts": ["8650", "8800", "8820"] },
+    { "row_id": "IS-TULOVEROT", "statement": "income", "nature": "expense", "order": 500, "label": "Tuloverot", "accounts": ["8900", "8950"] },
+
+    { "row_id": "BS-AINEETTOMAT", "statement": "balance", "nature": "assets", "order": 100, "label": "Aineettomat hyödykkeet", "accounts": ["10"] },
+    { "row_id": "BS-AINEELLISET", "statement": "balance", "nature": "assets", "order": 110, "label": "Aineelliset hyödykkeet", "accounts": ["11", "13"] },
+    { "row_id": "BS-SIJOITUKSET", "statement": "balance", "nature": "assets", "order": 120, "label": "Sijoitukset", "accounts": ["12"] },
+    { "row_id": "BS-VAIHTO", "statement": "balance", "nature": "assets", "order": 200, "label": "Vaihto-omaisuus", "accounts": ["15"] },
+    { "row_id": "BS-SAAMISET", "statement": "balance", "nature": "assets", "order": 210, "label": "Saamiset", "accounts": ["17"] },
+    { "row_id": "BS-RAHOITUSARVOP", "statement": "balance", "nature": "assets", "order": 220, "label": "Rahoitusarvopaperit", "accounts": ["18"] },
+    { "row_id": "BS-RAHAT", "statement": "balance", "nature": "assets", "order": 230, "label": "Rahat ja pankkisaamiset", "accounts": ["19"] },
+
+    { "row_id": "BS-OMA-PAAOMA", "statement": "balance", "nature": "equity_liabilities", "order": 300, "label": "Oma pääoma", "accounts": ["20", "22"] },
+    { "row_id": "BS-TILINP-SIIRROT", "statement": "balance", "nature": "equity_liabilities", "order": 310, "label": "Tilinpäätössiirtojen kertymä", "accounts": ["23"] },
+    { "row_id": "BS-VARAUKSET", "statement": "balance", "nature": "equity_liabilities", "order": 320, "label": "Pakolliset varaukset", "accounts": ["24"] },
+    { "row_id": "BS-PITKA-VELKA", "statement": "balance", "nature": "equity_liabilities", "order": 400, "label": "Pitkäaikainen vieras pääoma", "accounts": ["25"] },
+    { "row_id": "BS-LYHYT-VELKA", "statement": "balance", "nature": "equity_liabilities", "order": 410, "label": "Lyhytaikainen vieras pääoma", "accounts": ["26", "27", "29"] }
+  ]
+}

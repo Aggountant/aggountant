@@ -1,0 +1,37 @@
+{
+  "catalog": "fi-tulorekisteri-tulolajit",
+  "catalog_date": "2026-01-01",
+  "codes": [
+    {
+      "code": "101",
+      "name": "Palkka yhteensä",
+      "payroll_supported": true
+    },
+    {
+      "code": "201",
+      "name": "Aikapalkka",
+      "payroll_supported": true
+    },
+    {
+      "code": "216",
+      "name": "Muu korvaus",
+      "payroll_supported": true
+    },
+    {
+      "code": "233",
+      "name": "Voittopalkkio",
+      "payroll_supported": true
+    },
+    {
+      "code": "311",
+      "name": "Kilometrikorvaus (verovapaa)",
+      "payroll_supported": false
+    },
+    {
+      "code": "331",
+      "name": "Päiväraha",
+      "payroll_supported": false
+    }
+  ],
+  "source": "https://www.vero.fi/globalassets/tulorekisteri/dokumentaatio-2026/wages-codes-income-types-2026.xlsx"
+}

@@ -1,0 +1,107 @@
+{
+  "table": "fi-vat-rates",
+  "editions": [
+    {
+      "rate_class": "domestic-standard",
+      "valid_from": "2024-09-01",
+      "valid_to": null,
+      "percent": "25.5"
+    },
+    {
+      "rate_class": "domestic-standard",
+      "valid_from": "2013-01-01",
+      "valid_to": "2024-08-31",
+      "percent": "24.0"
+    },
+    {
+      "rate_class": "domestic-reduced-1",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "percent": "13.5"
+    },
+    {
+      "rate_class": "domestic-reduced-1",
+      "valid_from": "2013-01-01",
+      "valid_to": "2025-12-31",
+      "percent": "14.0"
+    },
+    {
+      "rate_class": "domestic-reduced-2",
+      "valid_from": "2013-01-01",
+      "valid_to": null,
+      "percent": "10.0"
+    },
+    {
+      "rate_class": "zero-rated",
+      "valid_from": "2013-01-01",
+      "valid_to": null,
+      "percent": "0.0"
+    },
+    {
+      "rate_class": "eu-goods",
+      "valid_from": "2013-01-01",
+      "valid_to": null,
+      "percent": "0.0"
+    },
+    {
+      "rate_class": "eu-services",
+      "valid_from": "2013-01-01",
+      "valid_to": null,
+      "percent": "0.0"
+    },
+    {
+      "rate_class": "domestic-passenger-transport",
+      "valid_from": "2013-01-01",
+      "valid_to": "2022-12-31",
+      "percent": "10.0"
+    },
+    {
+      "rate_class": "domestic-passenger-transport",
+      "valid_from": "2023-01-01",
+      "valid_to": "2023-04-30",
+      "percent": "0.0"
+    },
+    {
+      "rate_class": "domestic-passenger-transport",
+      "valid_from": "2023-05-01",
+      "valid_to": "2024-12-31",
+      "percent": "10.0"
+    },
+    {
+      "rate_class": "domestic-passenger-transport",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31",
+      "percent": "14.0"
+    },
+    {
+      "rate_class": "domestic-passenger-transport",
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "percent": "13.5"
+    },
+    {
+      "rate_class": "domestic-electricity",
+      "valid_from": "2013-01-01",
+      "valid_to": "2022-11-30",
+      "percent": "24.0"
+    },
+    {
+      "rate_class": "domestic-electricity",
+      "valid_from": "2022-12-01",
+      "valid_to": "2023-04-30",
+      "percent": "10.0"
+    },
+    {
+      "rate_class": "domestic-electricity",
+      "valid_from": "2023-05-01",
+      "valid_to": "2024-08-31",
+      "percent": "24.0"
+    },
+    {
+      "rate_class": "domestic-electricity",
+      "valid_from": "2024-09-01",
+      "valid_to": null,
+      "percent": "25.5"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/model",
+    "crates/wire",
+    "crates/domain",
+    "crates/import",
+    "crates/ledger",
+    "crates/broker",
+    "crates/vero-vat-api-mock",
+    "crates/process",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+authors = ["Jari Mustonen <jari.mustonen@iki.fi>"]
+license = "MIT"
+repository = "https://github.com/aggountant/aggountant"
+homepage = "https://github.com/aggountant/aggountant"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+thiserror = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+rust_decimal = { version = "1.36", default-features = false, features = ["std"] }
+sha2 = "0.10"
+hex = "0.4"
+
+[profile.release]
+strip = true
+lto = true
+
+# shipshape-dist:managed — cargo-dist build profile; refresh with /shipshape-dist.
+[profile.dist]
+inherits = "release"
+lto = "thin"

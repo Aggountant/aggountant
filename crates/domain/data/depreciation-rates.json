@@ -1,0 +1,27 @@
+{
+  "table": "fi-depreciation-rates",
+  "version": "2026-01",
+  "editions": [
+    {
+      "asset_class": "koneet-ja-kalusto",
+      "valid_from": "2020-01-01",
+      "valid_to": null,
+      "method": "reducing-balance",
+      "rate_percent": "25.0"
+    },
+    {
+      "asset_class": "rakennukset",
+      "valid_from": "2020-01-01",
+      "valid_to": null,
+      "method": "reducing-balance",
+      "rate_percent": "7.0"
+    },
+    {
+      "asset_class": "aineettomat-oikeudet",
+      "valid_from": "2020-01-01",
+      "valid_to": null,
+      "method": "straight-line",
+      "rate_percent": "10.0"
+    }
+  ]
+}

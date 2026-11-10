@@ -1,0 +1,31 @@
+[package]
+name = "aggountant-process"
+description = "F10 — the git-native process engine: Run/Journal/Lease/EffectState/Gate for workflow Runs (ADR-1 process namespace, ADR-6 close-period). Derives Run state from effect states (no materialized status). Drives the Ledger for the authoritative fiscal transitions; fiscal wins on resume."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_process"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+aggountant-ledger = { path = "../ledger", version = "0.1.0" }
+aggountant-domain = { path = "../domain", version = "0.1.0" }
+aggountant-broker = { path = "../broker", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rust_decimal.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

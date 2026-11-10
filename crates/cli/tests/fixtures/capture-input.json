@@ -1,0 +1,57 @@
+{
+  "period": "2026-03",
+  "topic": "vat-deductibility",
+  "question": "Is VAT fully deductible for this fictional domestic business service?",
+  "facts": [
+    {
+      "key": "expense_nature",
+      "value": "fictional domestic business service"
+    },
+    {
+      "key": "business_use",
+      "value": "full"
+    }
+  ],
+  "raw_source": "FICTIONAL DOMESTIC SERVICE RECEIPT\nNET EUR 100.00\nVAT EUR 25.50\nTOTAL EUR 125.50",
+  "nature": "fully-deductible",
+  "receipt_vat": {
+    "amount": "25.50",
+    "currency": "EUR"
+  },
+  "claimed_business_share": "1",
+  "document_date": "2026-02-28",
+  "knowledge_slug": "fictional-domestic-service-vat",
+  "draft": {
+    "document_date": "2026-02-28",
+    "posting_date": "2026-03-10",
+    "description": "Fictional domestic business service",
+    "attachment_ref": "<ARTIFACT_REF_FROM_ATTACH>",
+    "postings": [
+      {
+        "account": "7690",
+        "amount": {
+          "amount": "100.00",
+          "currency": "EUR"
+        },
+        "side": "debit"
+      },
+      {
+        "account": "1763",
+        "amount": {
+          "amount": "25.50",
+          "currency": "EUR"
+        },
+        "side": "debit"
+      },
+      {
+        "account": "1910",
+        "amount": {
+          "amount": "125.50",
+          "currency": "EUR"
+        },
+        "side": "credit"
+      }
+    ]
+  },
+  "tool_results": []
+}

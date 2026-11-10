@@ -1,0 +1,451 @@
+//! S2 process-engine tests: the derived-Run-state bet, the gate, resume, the
+//! crash-injection reconcile gate (invariant 4), and workflow versioning.
+
+use std::fs;
+
+use aggountant_domain::PolicySet;
+use aggountant_ledger::{Ledger, PeriodState};
+use aggountant_model::PeriodId;
+use aggountant_process::{current_workflow_version, EffectStatus, ProcessEngine, RunStatus, Seam};
+
+fn q1() -> PeriodId {
+    PeriodId::parse("2026-Q1").unwrap()
+}
+
+/// Init a fiscal home and return its path (owned by the tempdir).
+fn init_home() -> tempfile::TempDir {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    home
+}
+
+fn effect_status(view: &aggountant_process::RunView, key: &str) -> EffectStatus {
+    view.effects.iter().find(|e| e.key == key).unwrap().status
+}
+
+#[test]
+fn happy_path_open_closing_gate_sealed() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    // Parked on the gate; transition Succeeded, seal still Planned.
+    assert_eq!(started.status, RunStatus::AwaitingGate);
+    assert_eq!(
+        effect_status(&started, "transition"),
+        EffectStatus::Succeeded
+    );
+    assert_eq!(effect_status(&started, "seal"), EffectStatus::Planned);
+    assert_eq!(started.gates.len(), 1);
+    assert_eq!(started.gates[0].gate_id, "ApproveClose");
+    assert!(started.gates[0].answered.is_none());
+
+    // Fiscal is authoritative: the period is already Closing.
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Closing
+    );
+
+    let done = engine
+        .answer(&started.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(effect_status(&done, "seal"), EffectStatus::Succeeded);
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Sealed
+    );
+    assert!(ledger.verify().unwrap().ok);
+}
+
+#[test]
+fn run_status_is_derived_not_stored() {
+    // `show` must reconstruct status by folding effects — there is no status
+    // field in the journal to read. We assert the derivation transitions purely
+    // as a function of the recorded effect states.
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+
+    let shown = engine.show(&started.run_id).unwrap();
+    assert_eq!(shown.status, RunStatus::AwaitingGate);
+    // Sanity: the derived status is a pure function of effects+gates.
+    assert_eq!(shown.effects.len(), 2);
+    assert!(shown.gates[0].answered.is_none());
+
+    engine
+        .answer(&started.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(
+        engine.show(&started.run_id).unwrap().status,
+        RunStatus::Completed
+    );
+}
+
+#[test]
+fn reject_gate_declines_the_close_without_sealing() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+
+    let after = engine
+        .answer(&started.run_id, "ApproveClose", "reject")
+        .unwrap();
+    assert_eq!(after.status, RunStatus::Rejected);
+    assert_eq!(effect_status(&after, "seal"), EffectStatus::Planned);
+    // The period was never sealed — it stays Closing for the driver to resolve.
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Closing
+    );
+}
+
+#[test]
+fn invalid_gate_answer_is_rejected() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let err = engine
+        .answer(&started.run_id, "ApproveClose", "maybe")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_ANSWER");
+}
+
+// --- Invariant 4: resume reads authoritative fiscal PeriodState (fiscal wins) --
+
+#[test]
+fn resume_reconciles_crash_between_fiscal_commit_and_effectstate() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+
+    // Crash the run right after the fiscal COMMIT of TransitionPeriod, before the
+    // process EffectState (and the gate) are written.
+    let crashed = engine
+        .start_close_period_seam(&q1(), &PolicySet::default(), Seam::CrashAfterFiscalCommit)
+        .unwrap();
+    let run_id = crashed.run_id.clone();
+
+    // Process side: the transition is stuck Executing, no gate opened.
+    assert_eq!(
+        effect_status(&crashed, "transition"),
+        EffectStatus::Executing
+    );
+    assert!(crashed.gates.is_empty());
+    // Fiscal side (authoritative): the period IS Closing, owned by the run.
+    let ledger = Ledger::open(home.path()).unwrap();
+    let fiscal = ledger.period_view(&q1()).unwrap();
+    assert_eq!(fiscal.state, PeriodState::Closing);
+    assert_eq!(fiscal.owning_run_id.as_deref(), Some(run_id.as_str()));
+
+    // Resume (fresh engine = fresh process) reconciles the process EffectState to
+    // fiscal — never the reverse — and converges to the parked-at-gate state.
+    let resumed = ProcessEngine::open(home.path()).resume(&run_id).unwrap();
+    assert_eq!(
+        effect_status(&resumed, "transition"),
+        EffectStatus::Succeeded
+    );
+    assert_eq!(resumed.status, RunStatus::AwaitingGate);
+    assert_eq!(resumed.gates.len(), 1);
+
+    // And the reconciled run can be driven to a clean seal.
+    let done = ProcessEngine::open(home.path())
+        .answer(&run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Sealed
+    );
+    assert!(ledger.verify().unwrap().ok);
+}
+
+#[test]
+fn resume_completes_an_approved_but_crashed_seal() {
+    // The wedge the review found: approve the gate, crash before SealPeriod. The
+    // gate is answered, so the "open the gate" converge branch is skipped — resume
+    // must instead complete the seal, or the period is stuck Closing forever.
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    let crashed = engine
+        .answer_seam(
+            &run_id,
+            "ApproveClose",
+            "approve",
+            Seam::CrashAfterGateAnswer,
+        )
+        .unwrap();
+    assert_eq!(effect_status(&crashed, "seal"), EffectStatus::Planned);
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Closing
+    );
+
+    // Resume completes the approved-but-unsealed close.
+    let resumed = ProcessEngine::open(home.path()).resume(&run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::Completed);
+    assert_eq!(effect_status(&resumed, "seal"), EffectStatus::Succeeded);
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Sealed
+    );
+    assert!(ledger.verify().unwrap().ok);
+}
+
+#[test]
+fn resume_is_idempotent_after_convergence() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let crashed = engine
+        .start_close_period_seam(&q1(), &PolicySet::default(), Seam::CrashAfterFiscalCommit)
+        .unwrap();
+    let run_id = crashed.run_id;
+
+    let first = engine.resume(&run_id).unwrap();
+    let second = engine.resume(&run_id).unwrap();
+    // A second resume adds no new reconciliation and keeps the same derived state.
+    assert_eq!(first.status, second.status);
+    assert_eq!(second.status, RunStatus::AwaitingGate);
+    assert_eq!(second.gates.len(), 1, "no duplicate gate opened");
+    // Exactly one reconcile event for the transition.
+    let reconciles = engine
+        .journal(&run_id)
+        .unwrap()
+        .iter()
+        .filter(|e| e.event_type == "effect_reconciled")
+        .count();
+    assert_eq!(reconciles, 1);
+}
+
+// --- Workflow versioning ---------------------------------------------------
+
+#[test]
+fn resume_refuses_a_version_mismatch_until_migrated() {
+    let home = init_home();
+    // Start under the real version.
+    let v1 = current_workflow_version();
+    let engine_v1 = ProcessEngine::open_with_version(home.path(), v1);
+    let started = engine_v1
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    // A newer engine version refuses to resume.
+    let engine_v2 = ProcessEngine::open_with_version(home.path(), "wf-deadbeefdeadbeef");
+    let err = engine_v2.resume(&run_id).unwrap_err();
+    assert_eq!(err.error_code(), "WORKFLOW_VERSION_MISMATCH");
+
+    // Migrate, then the newer engine resumes cleanly.
+    engine_v2.migrate(&run_id).unwrap();
+    let resumed = engine_v2.resume(&run_id).unwrap();
+    assert_eq!(resumed.workflow_version, "wf-deadbeefdeadbeef");
+    assert_eq!(resumed.status, RunStatus::AwaitingGate);
+}
+
+// --- Lease + journal integrity + not-found ---------------------------------
+
+#[test]
+fn a_held_lease_blocks_another_driver() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    // Plant a fresh (non-expired) lease as if another driver held it.
+    let lease = home
+        .path()
+        .join("process")
+        .join("runs")
+        .join(&run_id)
+        .join("lease");
+    let future = (chrono::Utc::now() + chrono::Duration::seconds(120)).to_rfc3339();
+    fs::write(&lease, format!("{future}\n")).unwrap();
+
+    let err = engine.resume(&run_id).unwrap_err();
+    assert_eq!(err.error_code(), "RUN_LEASED");
+
+    // A read (`show`) needs no lease and still works.
+    assert!(engine.show(&run_id).is_ok());
+}
+
+#[test]
+fn a_stale_lease_is_stealable() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    // A lease from a crashed driver, already expired.
+    let lease = home
+        .path()
+        .join("process")
+        .join("runs")
+        .join(&run_id)
+        .join("lease");
+    let past = (chrono::Utc::now() - chrono::Duration::seconds(1)).to_rfc3339();
+    fs::write(&lease, format!("{past}\n")).unwrap();
+
+    // resume steals it and proceeds.
+    assert!(engine.resume(&run_id).is_ok());
+}
+
+#[test]
+fn unknown_run_is_not_found() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    assert_eq!(
+        engine.show("cp-does-not-exist").unwrap_err().error_code(),
+        "RUN_NOT_FOUND"
+    );
+    assert_eq!(
+        engine.resume("cp-does-not-exist").unwrap_err().error_code(),
+        "RUN_NOT_FOUND"
+    );
+}
+
+#[test]
+fn tampered_journal_is_detected() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    // Corrupt the first event file's payload without fixing its hash.
+    let ev = home
+        .path()
+        .join("process")
+        .join("runs")
+        .join(&run_id)
+        .join("events")
+        .join("000001.json");
+    let body = fs::read_to_string(&ev).unwrap();
+    let tampered = body.replace("close-period", "tampered-workflow");
+    assert_ne!(
+        body, tampered,
+        "the substitution must actually change bytes"
+    );
+    fs::write(&ev, tampered).unwrap();
+
+    let err = engine.show(&run_id).unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT");
+}
+
+#[test]
+fn monthly_close_is_independent_and_overlap_obligations_block() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let july = PeriodId::parse("2026-07").unwrap();
+    let quarter = PeriodId::parse("2026-Q3").unwrap();
+    let obligation = engine
+        .obligations()
+        .create(
+            &quarter,
+            "missing",
+            "missing receipt",
+            "2026-08-31",
+            "capture",
+        )
+        .unwrap();
+    let error = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(error.error_code(), "OPEN_OBLIGATION");
+    engine.obligations().resolve(&obligation.id).unwrap();
+
+    let started = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap();
+    let done = engine
+        .answer(&started.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        Ledger::open(home.path())
+            .unwrap()
+            .period_view(&july)
+            .unwrap()
+            .state,
+        PeriodState::Sealed
+    );
+}
+
+#[test]
+fn monthly_obligation_blocks_legacy_quarter_close() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    engine
+        .obligations()
+        .create(
+            &PeriodId::parse("2026-07").unwrap(),
+            "missing",
+            "missing receipt",
+            "2026-08-31",
+            "capture",
+        )
+        .unwrap();
+    let error = engine
+        .start_close_period(&PeriodId::parse("2026-Q3").unwrap(), &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(error.error_code(), "OPEN_OBLIGATION");
+}
+
+#[test]
+fn malformed_obligation_period_fails_visibly() {
+    let home = init_home();
+    let root = home.path().join("process/obligations");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("bad.json"),
+        r#"{
+          "id":"bad","period":"2026-7","kind":"missing",
+          "description":"bad stored period","deadline":"2026-08-31",
+          "created_by_run":"capture","status":"open"
+        }"#,
+    )
+    .unwrap();
+    let error = ProcessEngine::open(home.path())
+        .start_close_period(&PeriodId::parse("2026-07").unwrap(), &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(error.error_code(), "JOURNAL_CORRUPT");
+    assert!(error.to_string().contains("invalid period"));
+}
+
+#[test]
+fn malformed_resolved_obligation_does_not_block() {
+    let home = init_home();
+    let root = home.path().join("process/obligations");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("old.json"),
+        r#"{
+          "id":"old","period":"2026-7","kind":"old",
+          "description":"resolved legacy data","deadline":"2026-08-31",
+          "created_by_run":"capture","status":"resolved"
+        }"#,
+    )
+    .unwrap();
+    assert!(ProcessEngine::open(home.path())
+        .start_close_period(&PeriodId::parse("2026-07").unwrap(), &PolicySet::default())
+        .is_ok());
+}

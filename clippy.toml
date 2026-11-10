@@ -1,0 +1,8 @@
+# D1: never use floats in the money path. The lint applies workspace-wide;
+# the only legitimate use of `f32`/`f64` in this codebase is sanity-checking
+# rate-row parsing in aggountant-core/src/vat.rs — Phase 2 migrates that to
+# `rust_decimal` so the lint can hold without exceptions.
+disallowed-types = [
+    { path = "f32", reason = "money / accounting values must use rust_decimal::Decimal (D1)" },
+    { path = "f64", reason = "money / accounting values must use rust_decimal::Decimal (D1)" },
+]

@@ -1,0 +1,37 @@
+# Structure-only manifest for the aggountant Project View glasspad space.
+# NOT content — only title / nav order / grouping / template. Content lives in the
+# per-page .md files. Home page = the first page. ../AGENTS.md covers the ADRs
+# and plans.
+title: aggountant — projektinäkymä
+template: prose
+
+groups:
+  - label: Suunnitelmat
+    members:
+      - slug: camt-import-identity-plan
+        title: CAMT-tuonnin tapahtumaidentiteetti
+        desc: Toteutusta odottava suunnitelma päällekkäisten vientien, lähdesormenjälkien ja erän atomisuuden ratkaisemiseksi.
+
+  - label: Odottavat ADR:t (toteutus kesken)
+    members:
+      - slug: adr-3-fiscal-store
+        title: ADR-3 · Fiscal
+        children:
+          - { slug: adr-3-fiscal-store-kirjanpitajalle, title: · Kirjanpitäjälle }
+          - { slug: adr-3-fiscal-store-arkkitehdille, title: · Arkkitehdille }
+      - slug: adr-4-cost-centre
+        title: ADR-4 · Cost-centre
+        children:
+          - { slug: adr-4-cost-centre-kirjanpitajalle, title: · Kirjanpitäjälle }
+          - { slug: adr-4-cost-centre-arkkitehdille, title: · Arkkitehdille }
+      - slug: adr-5-seal-timing
+        title: ADR-5 · Seal
+        children:
+          - { slug: adr-5-seal-timing-kirjanpitajalle, title: · Kirjanpitäjälle }
+          - { slug: adr-5-seal-timing-arkkitehdille, title: · Arkkitehdille }
+          - { slug: seal-timing-research, title: · Taustatutkimus }
+      - slug: adr-8-chart-adoption
+        title: ADR-8 · Tilikartan adoptio
+        children:
+          - { slug: adr-8-chart-adoption-kirjanpitajalle, title: · Kirjanpitäjälle }
+          - { slug: adr-8-chart-adoption-arkkitehdille, title: · Arkkitehdille }

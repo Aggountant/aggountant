@@ -1,0 +1,36 @@
+[package]
+name = "aggountant"
+description = "Finnish bookkeeping, VAT returns and financial statements from the command line, built to be driven by an AI agent."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
+
+# Ship this binary through cargo-dist even though the crate is not published to crates.io.
+[package.metadata.dist]
+dist = true
+
+[[bin]]
+name = "aggountant"
+path = "src/main.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+aggountant-domain = { path = "../domain", version = "0.1.0" }
+aggountant-import = { path = "../import", version = "0.1.0" }
+aggountant-ledger = { path = "../ledger", version = "0.1.0" }
+aggountant-broker = { path = "../broker", version = "0.1.0" }
+aggountant-process = { path = "../process", version = "0.1.0" }
+clap = { version = "4", features = ["derive"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+aggountant-vero-vat-api-mock = { path = "../vero-vat-api-mock" }

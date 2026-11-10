@@ -1,0 +1,25 @@
+[package]
+name = "aggountant-model"
+description = "F1 — Model layer: validating newtypes + local voucher invariants. Depends on no other aggountant crate (layer floor)."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_model"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rust_decimal.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

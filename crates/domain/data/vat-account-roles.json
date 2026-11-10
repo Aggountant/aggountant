@@ -1,0 +1,21 @@
+{
+  "table": "fi-vat-account-roles",
+  "charts": [
+    {
+      "chart_version": "fi-general-2026@dd5d3f339cebfbc670f55cbd0942c775904c58523d9b07ad8eb48b589c79b63b",
+      "active": true,
+      "accounts": [
+        { "account": "1763", "role": "input-vat" },
+        { "account": "2939", "role": "tagged-only", "generated_role": "output" }
+      ],
+      "domestic_input_account": "1763",
+      "reverse_charge_targets": [
+        { "scope": "eu-services", "input_account": "1763", "output_account": "2939" },
+        { "scope": "non-eu-services", "input_account": "1763", "output_account": "2939" }
+      ],
+      "mistag_guards": [
+        { "account": "7010", "dedicated_rate_class": "domestic-electricity" }
+      ]
+    }
+  ]
+}

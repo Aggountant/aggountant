@@ -1,0 +1,28 @@
+[package]
+name = "aggountant-domain"
+description = "F4 (minimal) + F6 (policy stub) — pure, I/O-free domain functions. S1: assemble a voucher draft; no ALV/payroll/depreciation calculation."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_domain"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rust_decimal.workspace = true
+sha2.workspace = true
+hex.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -1,0 +1,39 @@
+[package]
+name = "aggountant-broker"
+description = "F11 + F12 + F9(outbox) — the edge substrate: Broker/Registry/Vault, the AdapterError taxonomy, the six O-24 modules (cred/retry/prov/assurance/idempotency/redaction), Envelope/ContinuationToken, the RequestResponse/Subscription/Stream traits, concrete adapters (Vero VAT API, vero-verotili, synthetic-submit, pankki-maksu), and the provenance/idempotency/outbox substrate with RemoteOutcome::Unknown + per-attempt sent_hash. Talks to model/domain/wire only — no Ledger, no Store ports (F16)."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "aggountant_broker"
+path = "src/lib.rs"
+
+[dependencies]
+aggountant-model = { path = "../model", version = "0.1.0" }
+aggountant-domain = { path = "../domain", version = "0.1.0" }
+aggountant-wire = { path = "../wire", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rusqlite = { version = "0.41", features = ["bundled", "fallible_uint"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+rust_decimal.workspace = true
+x509-parser = "0.16"
+time = "0.3.47"
+
+ring = "0.17"
+base64 = "0.22"
+roxmltree = "0.20"
+
+[dev-dependencies]
+tempfile = "3"
+aggountant-vero-vat-api-mock = { path = "../vero-vat-api-mock" }

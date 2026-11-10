@@ -1,0 +1,23 @@
+{
+  "table": "fi-payroll-rates",
+  "editions": [
+    {
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31",
+      "tyel_employee_pct": "7.15",
+      "tyel_employer_pct": "17.38",
+      "sava_employer_pct": "1.87",
+      "unemployment_employee_pct": "0.59",
+      "unemployment_employer_pct": "0.20"
+    },
+    {
+      "valid_from": "2026-01-01",
+      "valid_to": null,
+      "tyel_employee_pct": "7.15",
+      "tyel_employer_pct": "17.38",
+      "sava_employer_pct": "1.53",
+      "unemployment_employee_pct": "0.59",
+      "unemployment_employer_pct": "0.20"
+    }
+  ]
+}
