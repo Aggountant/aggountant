@@ -305,6 +305,9 @@ fn serve(
         }
         match listener.accept() {
             Ok((stream, _)) => {
+                // BSD and macOS hand out accepted sockets that inherit the
+                // listener's non-blocking mode; Linux does not.
+                let _ = stream.set_nonblocking(false);
                 let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
                 let scenario = Arc::clone(&scenario);
                 let state = Arc::clone(&state);
