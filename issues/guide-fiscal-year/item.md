@@ -3,7 +3,7 @@ created: 2026-11-12
 updated: 2026-11-12
 type: task
 reporter: conductor
-status: open
+status: in-progress
 priority: normal
 related: ['@non-calendar-fiscal-year']
 preparation: ready
