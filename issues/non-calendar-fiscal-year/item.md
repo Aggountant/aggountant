@@ -3,7 +3,7 @@ created: 2026-11-12
 updated: 2026-11-12
 type: feature
 reporter: jari
-status: open
+status: in-progress
 priority: high
 related: ['@contra-accounts-fiscal-periods']
 preparation: ready
