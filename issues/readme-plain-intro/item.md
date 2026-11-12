@@ -3,12 +3,14 @@ created: 2026-11-12
 updated: 2026-11-12
 type: improvement
 reporter: jari
-status: in-progress
+status: done
 priority: normal
 preparation: ready
 lane: docs-readme
 lane_seq: 1
 collision: [README.md]
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # README: say plainly what aggountant does and how it is used
