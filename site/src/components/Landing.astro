@@ -14,10 +14,10 @@ type Who = 'both' | 'agent' | 'you';
 const prefix = Astro.props.lang === 'fi' ? '/' : '/en/';
 const text = {
   fi: {
-    description: 'Pidä osakeyhtiösi kirjanpito keskustelemalla tekoälyagentin kanssa.',
-    title: 'Pidä osakeyhtiösi kirjanpito <em>keskustelemalla</em> tekoälyagentin kanssa.',
+    description: 'Hoida osakeyhtiösi kirjanpito omalla agentillasi.',
+    title: 'Hoida osakeyhtiösi kirjanpito omalla agentillasi.',
     tagline:
-      'Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset.',
+      'Puhtaasti avointa lähdekoodia (MIT). Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset.',
     guide: 'Lue käyttäjän opas',
     early: 'Lähde mukaan',
     voucher: {
@@ -36,7 +36,7 @@ const text = {
     },
     why: 'Miksi',
     quote:
-      'Agenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta. Agentti tekee sen, ja sinä hyväksyt.',
+      'Agenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta.',
     whyBody:
       'Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa. Kirjanpito on tavallisia tiedostoja omalla koneellasi, ja aggountant on avointa lähdekoodia.',
     monthTitle: 'Yksi kuukausi: Esimerkki Oy, maaliskuu',
@@ -55,7 +55,7 @@ const text = {
     readyTitle: 'Valmis oikeaan kirjanpitoon',
     ready: ['Pankkitiliotteen tuonti', 'Ostokuitit ALV-käsittelyineen', 'Kuukauden sulku ja kuukausiraportit', 'ALV-ilmoitus suoraan tai OmaVerossa', 'Matkakorvaukset Tulorekisteriin'],
     notYetTitle: 'Ei vielä',
-    notYet: ['Palkat', 'Oma automaattinen kuittihaku', 'Tilinpäätös'],
+    notYet: ['Palkat', 'Tilinpäätös'],
     statusLink: ['Mitä on valmista ja mitä ei', 'kertoo jokaisesta, mitä teet sen sijaan.'],
     joinTitle: 'Lähde mukaan ensimmäisten joukossa',
     join: 'Jos pyörität pientä suomalaista osakeyhtiötä ja haluat pitää kirjanpidon näin, voimme tavata ja käydä tilanteesi läpi. Kehitämme sitä, mitä varhaiset käyttäjät tarvitsevat seuraavaksi. aggountant on avointa lähdekoodia, ja kehittäjät ja kirjanpitäjät ovat myös tervetulleita.',
@@ -64,10 +64,10 @@ const text = {
     footNote: 'Avointa lähdekoodia (MIT) · Esimerkki Oy ja luvut ovat keksittyjä',
   },
   en: {
-    description: "Keep a Finnish limited company's books by talking to an AI agent.",
-    title: "Keep your limited company's books by <em>talking</em> to an AI agent.",
+    description: "Run a Finnish limited company's books with your own agent.",
+    title: "Run your limited company's books with your own agent.",
     tagline:
-      'The agent prepares the vouchers from the bank statement and receipts. You review and approve. aggountant records the books permanently and makes the filings.',
+      'Purely open source (MIT). The agent prepares the vouchers from the bank statement and receipts. You review and approve. aggountant records the books permanently and makes the filings.',
     guide: 'Read the user guide',
     early: 'Join as an early user',
     voucher: {
@@ -86,7 +86,7 @@ const text = {
     },
     why: 'Why',
     quote:
-      'In the age of AI agents, nobody should have to pay for a basic service like bookkeeping. The agent can do it, and you approve.',
+      'In the age of AI agents, nobody should have to pay for a basic service like bookkeeping.',
     whyBody:
       "The goal is that a small Finnish company runs its bookkeeping from start to finish without an accounting firm, every statutory filing included, in a few quarter-hours of work a month. The books are plain files on your own computer, and aggountant is open source.",
     monthTitle: 'One month: Esimerkki Oy, March',
@@ -105,7 +105,7 @@ const text = {
     readyTitle: 'Ready for real bookkeeping',
     ready: ['Bank statement import', 'Purchase receipts with their VAT', 'Closing a month and monthly reports', 'The VAT return, direct or in OmaVero', 'Travel allowances to the Incomes Register'],
     notYetTitle: 'Not yet',
-    notYet: ['Wages', 'Built-in automated receipt hunt', 'Year-end financial statements'],
+    notYet: ['Wages', 'Year-end financial statements'],
     statusLink: ['What is ready and what is not', 'says what to do instead for each.'],
     joinTitle: 'Join as an early user',
     join: 'If you run a small Finnish limited company and want to keep your books this way, we can meet and go through your situation together. We build what early users need next. aggountant is open source, and developers and bookkeepers are welcome too.',
