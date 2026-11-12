@@ -11,18 +11,15 @@ interface Props {
 
 type Who = 'both' | 'agent' | 'you';
 
-// The hero names the agents people already use; one at a time, in place.
+// The agents people already use. The hero voucher names them one at a time
+// on its prepared-by line (the script at the end); the first is the static one.
 const agents = ['Claude Code', 'Codex', 'OpenCode', 'Pi', 'Gemini CLI'];
-const rotor = (lead: string, generic: string) =>
-  `${lead} <span class="agg-rotor" aria-hidden="true">${agents
-    .map((a, i) => `<span style="--i:${i}">${a}</span>`)
-    .join('')}</span><span class="sr-only">${generic} (${agents.join(', ')})</span>`;
 
 const prefix = Astro.props.lang === 'fi' ? '/' : '/en/';
 const text = {
   fi: {
     description: 'Hoida firmasi kirjanpito omalla agentillasi: Claude Code, Codex, OpenCode, Pi tai muu.',
-    title: rotor('Hoida firmasi kirjanpito', 'omalla agentillasi'),
+    title: 'Hoida firmasi kirjanpito omalla agentillasi.',
     tagline:
       'Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset. Puhtaasti avointa lähdekoodia (MIT).',
     guide: 'Lue käyttäjän opas',
@@ -39,7 +36,11 @@ const text = {
         ['Pankkitili', '', '124,00'],
       ],
       total: ['Yhteensä', '124,00', '124,00'],
-      note: 'Agentti ehdotti, sinä hyväksyit. Sinetöityä tositetta ei muuteta; virhe korjataan uudella tositteella.',
+      prepared: 'Laatinut',
+      approved: 'Hyväksynyt',
+      you: 'Sinä',
+      date: '2.4.2026',
+      sr: `Tositteen laatii agenttisi, esimerkiksi ${agents.slice(0, -1).join(', ')} tai ${agents.at(-1)}. Sinä hyväksyt sen, ja se sinetöidään.`,
     },
     why: 'Miksi',
     quote:
@@ -72,7 +73,7 @@ const text = {
   },
   en: {
     description: "Do your company's books with your own agent: Claude Code, Codex, OpenCode, Pi or another.",
-    title: rotor("Do your company's books with", 'your own agent'),
+    title: "Do your company's books with your own agent.",
     tagline:
       'The agent prepares the vouchers from the bank statement and receipts. You review and approve. aggountant records the books permanently and makes the filings. Purely open source (MIT).',
     guide: 'Read the user guide',
@@ -89,7 +90,11 @@ const text = {
         ['Bank account', '', '124.00'],
       ],
       total: ['Total', '124.00', '124.00'],
-      note: 'The agent proposed it, you approved it. A sealed voucher is never edited; a mistake is corrected with a new voucher.',
+      prepared: 'Prepared by',
+      approved: 'Approved by',
+      you: 'You',
+      date: '2 Apr 2026',
+      sr: `Your agent prepares the voucher, for example ${agents.slice(0, -1).join(', ')} or ${agents.at(-1)}. You approve it, and it is sealed.`,
     },
     why: 'Why',
     quote:
@@ -136,7 +141,11 @@ const voucher = `
       <tr class="total"><td>${v.total[0]}</td><td class="num">${v.total[1]}</td><td class="num">${v.total[2]}</td></tr>
     </tbody>
   </table>
-  <p class="agg-voucher-note">${v.note}</p>
+  <dl class="agg-turns" aria-hidden="true" data-agents="${agents.join('|')}">
+    <dt>${v.prepared}</dt><dd><span class="agg-agent">${agents[0]}</span></dd>
+    <dt class="agg-after">${v.approved}</dt><dd class="agg-after"><span class="agg-you">${v.you}</span> · ${v.date}</dd>
+  </dl>
+  <p class="sr-only">${v.sr}</p>
 </aside>`;
 ---
 
@@ -227,6 +236,48 @@ const voucher = `
   </div>
 </StarlightPage>
 
+<script>
+  // The hero voucher's sequence: the agent's name is typed onto the
+  // prepared-by line, your approval appears, the seal lands; it holds,
+  // clears and the next agent takes its turn. With reduced motion (or no
+  // script) the voucher stays in its final state with the first agent.
+  const turns = document.querySelector<HTMLElement>('.agg-turns');
+  const voucher = turns?.closest('.agg-voucher');
+  const agent = turns?.querySelector<HTMLElement>('.agg-agent');
+  if (turns && voucher && agent && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const agents = (turns.dataset.agents ?? '').split('|');
+    const after = [...voucher.querySelectorAll<HTMLElement>('.agg-after, .agg-stamp')];
+    const stamp = voucher.querySelector<HTMLElement>('.agg-stamp');
+    const approval = after.filter((el) => el !== stamp);
+    const show = (els: HTMLElement[], on: boolean) =>
+      els.forEach((el) => el.classList.toggle('agg-off', !on));
+    let i = 0;
+    const type = (name: string, n: number) => {
+      agent.classList.add('agg-typing');
+      agent.textContent = name.slice(0, n);
+      if (n < name.length) return void setTimeout(() => type(name, n + 1), 55);
+      agent.classList.remove('agg-typing');
+      setTimeout(() => show(approval, true), 600);
+      setTimeout(() => stamp && show([stamp], true), 1100);
+      setTimeout(erase, 1100 + 3600);
+    };
+    const erase = () => {
+      show(after, false);
+      const step = () => {
+        agent.classList.add('agg-typing');
+        agent.textContent = (agent.textContent ?? '').slice(0, -1);
+        if (agent.textContent) return void setTimeout(step, 28);
+        i = (i + 1) % agents.length;
+        setTimeout(() => type(agents[i], 1), 350);
+      };
+      setTimeout(step, 250);
+    };
+    show(after, false);
+    agent.textContent = '';
+    setTimeout(() => type(agents[0], 1), 400);
+  }
+</script>
+
 <style is:global>
   /* Hero: the promise on the left, the sealed voucher on the right. */
   [data-has-hero] .hero {
@@ -239,27 +290,6 @@ const voucher = `
     line-height: 1.12;
     letter-spacing: -0.01em;
     color: var(--sl-color-white);
-  }
-  /* Agent names take turns in one grid cell, so the line never reflows. */
-  .agg-rotor {
-    display: inline-grid;
-    vertical-align: bottom;
-  }
-  .agg-rotor > span {
-    grid-area: 1 / 1;
-    white-space: nowrap;
-    border-bottom: 2px solid var(--agg-seal);
-    opacity: 0;
-    animation: agg-rotor 12.5s calc(var(--i) * 2.5s) infinite backwards;
-  }
-  @keyframes agg-rotor {
-    0% { opacity: 0; transform: translateY(0.35em); }
-    4%, 17% { opacity: 1; transform: none; }
-    21%, 100% { opacity: 0; transform: translateY(-0.35em); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .agg-rotor > span { animation: none; }
-    .agg-rotor > span:first-child { opacity: 1; }
   }
   [data-has-hero] .hero .copy > * {
     max-width: 34em;
@@ -284,8 +314,24 @@ const voucher = `
     [data-has-hero] .hero .actions {
       justify-content: flex-start;
     }
+    /* On a phone the voucher sits between the title and the tagline, so the
+       agent's name is on the first screen. */
+    [data-has-hero] .hero .stack,
+    [data-has-hero] .hero .copy {
+      display: contents;
+    }
+    [data-has-hero] .hero h1 {
+      order: 0;
+    }
     [data-has-hero] .hero > .hero-html {
+      order: 1;
+      margin-block: 0.5rem 0.75rem;
+    }
+    [data-has-hero] .hero .tagline {
       order: 2;
+    }
+    [data-has-hero] .hero .actions {
+      order: 3;
     }
   }
   @media (min-width: 50rem) {
@@ -373,11 +419,76 @@ const voucher = `
     letter-spacing: 0.14em;
     opacity: 0.85;
   }
-  .agg-voucher-note {
-    margin-top: 0.75rem !important;
+  /* Who did what: the agent prepared it, you approved it, then it was sealed.
+     The script plays this as a sequence; the markup is its final state. */
+  .agg-turns {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.375rem 1rem;
+    align-items: end;
+    margin: 1rem 0 0;
+  }
+  .agg-turns dt {
+    padding-bottom: 0.25rem;
     font-family: var(--agg-sans);
-    font-size: 0.8125rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--agg-ink-soft);
+  }
+  .agg-turns dd {
+    margin: 0;
+    min-height: 1.5em;
+    line-height: 1.25;
+    white-space: nowrap;
+    border-bottom: 1px dotted var(--sl-color-white);
+    font-family: var(--agg-sans);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    color: var(--agg-ink-soft);
+  }
+  /* Wide enough for the longest name, so typing never reflows the line. */
+  .agg-agent {
+    display: inline-block;
+    min-width: 11ch;
+    font-family: var(--sl-font-mono);
+    font-size: 1.3125rem;
+    letter-spacing: -0.01em;
+    color: var(--sl-color-white);
+  }
+  .agg-agent.agg-typing::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 0.9em;
+    margin-inline-start: 2px;
+    vertical-align: -0.08em;
+    background: currentColor;
+  }
+  .agg-you {
+    font-family: var(--agg-serif);
+    font-size: 1.1875rem;
+    font-style: italic;
+    letter-spacing: 0;
+    color: var(--sl-color-white);
+  }
+  .agg-after,
+  .agg-stamp {
+    transition: opacity 220ms ease-out, transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .agg-after.agg-off {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  .agg-stamp.agg-off {
+    opacity: 0;
+    transform: rotate(-8deg) scale(1.25);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .agg-after,
+    .agg-stamp {
+      transition: none;
+    }
   }
 
   /* Body sections: numbered like paragraphs of a statute. */
