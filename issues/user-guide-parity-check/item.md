@@ -3,13 +3,15 @@ created: 2026-11-12
 updated: 2026-11-12
 type: task
 reporter: jari
-status: in-progress
+status: done
 priority: normal
 related: ['@user-docs-design']
 preparation: ready
 lane: user-guide
 lane_seq: 3
 collision: [scripts/ci-local.sh]
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # Gate: user guide language pairs, links and practice material
