@@ -44,8 +44,13 @@ and 7 (the €124.00 licence example is the guide's own), and the not-ready list
   debug build of this tree (`aggountant 0.1.0`): `skill install` default
   target is `~/.claude/skills` and `--target` exists; `voucher verify` exists.
 - Platform claims match the contract's `distributions[].platforms`.
-- `shipshape audit`: see the closing report for before/after; no new README
-  gap.
+- `shipshape audit` (shipshape 0.12.4) before and after: the same two gaps,
+  `code-of-conduct` (absent) and `readme-command-help:aggountant` (unknown).
+  The second cannot be settled by the audit because aggountant has no
+  `version --json` command (tracked as `cli-version-command`); the commands
+  were verified by hand as above. No new README gap.
+- `scripts/ci-local.sh`: all steps ran and passed (fmt, clippy, cargo-deny,
+  build and test on stable and 1.89.0).
 
 ## Facts for the guide redesign (not edited here)
 
