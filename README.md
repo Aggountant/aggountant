@@ -35,8 +35,8 @@ Esimerkki Oy's owner does March's books in an afternoon:
    proposes the account and the VAT treatment, and collects what it cannot
    settle into a few questions, such as whether a restaurant bill was a
    customer meeting.
-3. **The owner approves.** The agent shows the vouchers as one batch. A
-   €124.00 software licence, for example, becomes €98.80 of IT expenses, €25.20
+3. **The owner approves.** The agent shows each proposed voucher for
+   approval. A €124.00 software licence, for example, becomes €98.80 of IT expenses, €25.20
    of VAT receivable and €124.00 out of the bank account. After approval the
    vouchers are sealed: numbered and never edited again. A mistake is corrected
    with a new voucher, as Finnish accounting law requires.
