@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · kierros 3: Laatija tositteella</title>
+<style>
+  :root {
+    --paper: #f5f1e6; --card: #fffdf7; --edge: #d8d0bb; --ink: #1f2a33; --ink-soft: #55606a;
+    --rule: rgba(80,120,140,.13); --margin: #b4493c; --seal: #2f5d50;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Charter, "Bitstream Charter", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.7;
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(180deg, transparent 0, transparent calc(1.8rem - 1px), var(--rule) calc(1.8rem - 1px), var(--rule) 1.8rem); }
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 2px solid var(--ink); font-family: var(--sans); font-size: 14px; }
+  .mark { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 20px; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+  .top nav a { color: var(--ink-soft); text-decoration: none; margin-left: 18px; }
+  .hero { max-width: 1080px; margin: 0 auto; padding: 48px 24px 56px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 48px; align-items: start; }
+  @media (max-width: 800px) { .hero { grid-template-columns: 1fr; gap: 32px; padding: 32px 18px 40px; } }
+  h1 { font-weight: 400; font-size: clamp(34px, 5vw, 56px); line-height: 1.12; letter-spacing: -.01em; margin: 0 0 22px; }
+  .tagline { font-size: 20px; color: var(--ink-soft); margin: 0 0 26px; max-width: 34em; }
+  .actions { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--sans); }
+  .btn { display: inline-block; padding: 12px 20px; border: 1.5px solid var(--ink); color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 600; background: var(--paper); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .voucher { position: relative; background: var(--card); border: 1px solid var(--edge); box-shadow: 0 1px 0 var(--edge), 0 12px 30px -18px rgba(31,42,51,.35); padding: 22px 22px 18px; font-family: var(--mono); font-size: 14px; margin-top: 12px; }
+  .voucher p { margin: 0; }
+  .v-head { padding-right: 104px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .v-title { font-family: var(--serif); font-size: 19px; margin: 4px 0 14px !important; }
+  .voucher table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .voucher th { text-align: left; font-weight: 400; color: var(--ink-soft); font-size: 12px; border-bottom: 1px solid var(--ink); padding: 4px 0; }
+  .voucher td { padding: 6px 0; border-bottom: 1px dotted var(--edge); }
+  .voucher .num { text-align: right; white-space: nowrap; padding-left: 12px; }
+  .voucher tr.total td { border-bottom: 3px double var(--ink); font-weight: 700; }
+  .stamp { position: absolute; right: 16px; top: 14px; transform: rotate(-8deg); color: var(--seal); border: 2px solid var(--seal); border-radius: 4px; padding: 3px 8px; font-family: var(--sans); font-weight: 800; font-size: 12px; letter-spacing: .14em; opacity: .85; }
+  .v-note { margin-top: 12px !important; font-family: var(--sans); font-size: 13px; color: var(--ink-soft); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .sign { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; margin-top: 14px; font-size: 13px; }
+  .sign dt { font-family: var(--sans); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); align-self: end; padding-bottom: 3px; }
+  .sign dd { margin: 0; border-bottom: 1px dotted var(--ink); min-height: 1.6em; white-space: nowrap; }
+  .sign .typed::after { content: ""; display: inline-block; width: 1px; height: 1em; margin-left: 1px; vertical-align: -.15em; background: var(--ink); opacity: 0; }
+  .sign .typed.live::after { animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 1; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="#1f2a33" stroke-width="1.5"/><path d="M6 9h14M6 13h14M6 17h9" stroke="#1f2a33" stroke-width="1.5"/><path d="M9 1.5v23" stroke="#b4493c" stroke-width="1.5"/></svg> aggountant</a>
+  <nav><a href="https://aggountant.dev/guide/">Opas</a><a href="https://github.com/aggountant/aggountant">GitHub</a></nav>
+</header>
+<div class="hero">
+  <div>
+    <h1>Hoida firmasi kirjanpito omalla agentillasi.</h1>
+    <p class="tagline">Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset. Puhtaasti avointa lähdekoodia (MIT).</p>
+    <div class="actions">
+      <a class="btn primary" href="https://aggountant.dev/guide/">Lue käyttäjän opas</a>
+      <a class="btn" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+    </div>
+  </div>
+  <aside class="voucher" aria-label="Esimerkkitosite">
+      <span class="stamp">SINETÖITY</span>
+      <p class="v-head">Tosite 47 · Esimerkki Oy</p>
+      <p class="v-title">Ohjelmistolisenssi, maaliskuu</p>
+      <table>
+        <thead><tr><th>Tili</th><th class="num">Debet</th><th class="num">Kredit</th></tr></thead>
+        <tbody>
+          <tr><td>IT-kulut</td><td class="num">98,80</td><td class="num"></td></tr>
+          <tr><td>ALV-saaminen 25,5 %</td><td class="num">25,20</td><td class="num"></td></tr>
+          <tr><td>Pankkitili</td><td class="num"></td><td class="num">124,00</td></tr>
+          <tr class="total"><td>Yhteensä</td><td class="num">124,00</td><td class="num">124,00</td></tr>
+        </tbody>
+      </table>
+      <dl class="sign">
+        <dt>Laatinut</dt><dd><span class="typed" aria-hidden="true">Claude Code</span><span class="sr-only">agentti, esimerkiksi Claude Code, Codex, OpenCode, Pi tai Gemini CLI</span></dd>
+        <dt>Hyväksynyt</dt><dd>Sinä · 2.4.2026</dd>
+      </dl>
+      <p class="v-note">Agentti ehdotti, sinä hyväksyit. Sinetöityä tositetta ei muuteta; virhe korjataan uudella tositteella.</p>
+    </aside>
+</div>
+<script>
+  (function () {
+    var el = document.querySelector('.sign .typed');
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var names = ['Claude Code', 'Codex', 'OpenCode', 'Pi', 'Gemini CLI'], i = 0, n = names[0].length, typing = false;
+    function tick() {
+      var name = names[i];
+      if (typing) {
+        n++; el.textContent = name.slice(0, n);
+        if (n < name.length) return setTimeout(tick, 70 + Math.random() * 60);
+        typing = false; return setTimeout(tick, 2600);
+      }
+      n--; el.textContent = name.slice(0, Math.max(n, 0));
+      if (n > 0) return setTimeout(tick, 35);
+      i = (i + 1) % names.length; typing = true; setTimeout(tick, 350);
+    }
+    el.classList.add('live');
+    setTimeout(tick, 2600);
+  })();
+</script>
+</body>
+</html>

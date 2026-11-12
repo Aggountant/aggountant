@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · agentin nimi heron otsikossa, kierros 3</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9e7e2; color: #1d1d1d; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 28px 32px 8px; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; color: #555; max-width: 60em; }
+  .grid { display: grid; gap: 28px; padding: 24px 32px 48px; }
+  @media (max-width: 700px) { .grid { padding: 16px; } header { padding: 20px 16px 0; } }
+  .dir { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .dir h2 { margin: 0 0 4px; font-size: 19px; }
+  .dir h2 a { color: inherit; }
+  .dir p { margin: 0 0 12px; font-size: 14px; color: #555; }
+  .frames { display: flex; gap: 16px; align-items: flex-start; }
+  .desk { flex: 1; aspect-ratio: 1440 / 700; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 6px; }
+  .desk iframe { position: absolute; top: 0; left: 0; width: 1440px; height: 700px; border: 0; transform-origin: 0 0; }
+  .phone { width: 220px; flex: none; aspect-ratio: 390 / 844; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; }
+  .phone iframe { position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0; transform-origin: 0 0; transform: scale(.5641); }
+  @media (max-width: 700px) { .phone { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agentin nimi heron otsikossa: kolme vaihtoehtoa</h1>
+  <p>Pääkirja-heron otsikko, alaotsikko ja sinetöity tosite. Avaa vaihtoehto otsikosta koko kokoon; kehyksissä työpöytä (1440 px) ja puhelin (390 px). Perustelut ovat tiedostossa README.md.</p>
+</header>
+<div class="grid">
+  <div class="dir"><h2><a href="a-lomakekentta.html">A · Lomakekenttä</a></h2><p>Nimi kirjoitetaan otsikon tyhjään kenttään kuin kirjoituskoneella: kirjain kerrallaan, kursori, kiinteä leveys.</p>
+    <div class="frames"><div class="desk"><iframe src="a-lomakekentta.html" title="A · Lomakekenttä työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="a-lomakekentta.html" title="A · Lomakekenttä puhelin" loading="lazy"></iframe></div></div></div>
+  <div class="dir"><h2><a href="b-hiljainen.html">B · Hiljainen</a></h2><p>Ei animaatiota. "omalla agentillasi", ja nimet pienellä viivojen välissä otsikon alla.</p>
+    <div class="frames"><div class="desk"><iframe src="b-hiljainen.html" title="B · Hiljainen työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="b-hiljainen.html" title="B · Hiljainen puhelin" loading="lazy"></iframe></div></div></div>
+  <div class="dir"><h2><a href="c-laatija.html">C · Laatija tositteella</a></h2><p>Otsikko pysyy paikallaan; tositteen "Laatinut"-kenttään kirjoittuu agentin nimi, "Hyväksynyt: Sinä".</p>
+    <div class="frames"><div class="desk"><iframe src="c-laatija.html" title="C · Laatija tositteella työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="c-laatija.html" title="C · Laatija tositteella puhelin" loading="lazy"></iframe></div></div></div>
+</div>
+<script>
+  // Scale each 1440 px desktop frame to the width of its box.
+  function fit() {
+    document.querySelectorAll('.desk').forEach(function (box) {
+      box.querySelector('iframe').style.transform = 'scale(' + box.clientWidth / 1440 + ')';
+    });
+  }
+  addEventListener('resize', fit);
+  fit();
+</script>
+</body>
+</html>
