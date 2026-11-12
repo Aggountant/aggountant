@@ -8,11 +8,16 @@
 aggountant lets you keep a Finnish limited company's books by talking to an AI
 agent.
 
-You hand the agent the month's bank statement and receipts. It works out the
-entries and the VAT, asks you only what it cannot work out, and shows you the
-result. When you approve, aggountant records the entries permanently, closes the
-month and sends the VAT return to the Finnish Tax Administration. Nothing is
-recorded or sent without your approval.
+The goal is that you can run a small Finnish company's bookkeeping from start
+to finish without hiring an accounting firm: every statutory obligation is
+handled, and the whole year's bookkeeping takes a few quarter-hours of
+prompting a month. We are not there yet; [Status](#status) says how far we are.
+
+You and the agent gather the month's bank statement and receipts. The agent
+works out the entries and the VAT, asks you only what it cannot work out, and
+shows you the result. When you approve, aggountant records the entries
+permanently, closes the month and sends the VAT return to the Finnish Tax
+Administration. Nothing is recorded or sent without your approval.
 
 - [A month with aggountant](#a-month-with-aggountant)
 - [Status](#status)
@@ -25,27 +30,30 @@ recorded or sent without your approval.
 
 ## A month with aggountant
 
-Esimerkki Oy's owner does March's books in an afternoon:
+Say you run Esimerkki Oy and it is time for March:
 
-1. **Hand over the material.** They download March's bank statement from the
-   bank (the camt.053 or camt.052 file; Holvi's "Electronic account statement"
-   export works) and put the month's receipts in the folder the agent knows to
-   look in. Then they tell the agent: "let's do March".
+1. **You and the agent gather the material.** Tell the agent "let's do
+   March". It collects the bank statement (the camt.053 or camt.052 file;
+   Holvi's "Electronic account statement" export works) and the month's
+   receipts from wherever you keep them: your email, a folder, your phone's
+   photo library, or the bank and other services through an API or by using
+   the browser on your computer. What the agent can reach depends on what you
+   give it access to; anything it cannot fetch, you hand it yourself.
 2. **The agent prepares.** For each bank transaction it finds the receipt,
    proposes the account and the VAT treatment, and collects what it cannot
    settle into a few questions, such as whether a restaurant bill was a
    customer meeting.
-3. **The owner approves.** The agent shows each proposed voucher for
-   approval. A €124.00 software licence, for example, becomes €98.80 of IT
-   expenses, €25.20 of VAT receivable and €124.00 out of the bank account. After approval the
-   vouchers are sealed: numbered and never edited again. A mistake is corrected
-   with a new voucher, as Finnish accounting law requires.
-4. **The month is closed.** Once the bank balance matches the statement, the
-   owner approves closing March, and nothing more can be booked into it.
-5. **VAT is filed.** aggountant computes the VAT return from the closed month.
-   With the owner's approval it sends the return straight to Vero.fi, or the
-   owner enters the figures in OmaVero by hand. The tax itself is paid in the
-   bank or OmaVero as usual; aggountant pays nothing.
+3. **You approve.** The agent shows you each proposed voucher. A €124.00
+   software licence, for example, becomes €98.80 of IT expenses, €25.20 of
+   VAT receivable and €124.00 out of the bank account. After your approval the
+   vouchers are sealed: numbered and never edited again. A mistake is
+   corrected with a new voucher, as Finnish accounting law requires.
+4. **The month is closed.** Once the bank balance matches the statement, you
+   approve closing March, and nothing more can be booked into it.
+5. **VAT is filed.** aggountant computes the VAT return from the closed
+   month. With your approval it sends the return straight to Vero.fi, or you
+   enter the figures in OmaVero by hand. You pay the tax in your bank or
+   OmaVero as usual; aggountant pays nothing.
 
 A monthly report (income statement and balance sheet) comes out as an HTML
 page to open in a browser.
@@ -61,9 +69,16 @@ with their VAT, closing a month, monthly reports, the VAT return (filed directly
 to Vero.fi or by hand), and tax-free travel allowances (mileage and per diems)
 reported to Tulorekisteri, the Incomes Register.
 
-Not ready yet: paying and reporting wages, automatic receipt search from email,
-and the year-end financial statements (tilinpäätös). The commands exist, but do
+Not ready yet: paying and reporting wages, aggountant's own automated receipt
+hunt (`hunt-receipts`; your agent can still look for receipts with its own
+tools), and the year-end financial statements (tilinpäätös). The commands exist, but do
 not use them for real books; the user guide explains what to do instead.
+
+**We are looking for early users.** If you run a small Finnish company and
+want to keep your own books this way, tell us about your company and what you
+need in [GitHub Discussions](https://github.com/aggountant/aggountant/discussions)
+or by opening an issue. We answer quickly and build what early users actually
+need next.
 
 aggountant is for one person keeping one company's books on their own
 computer. It is not a hosted or multi-user service, and it does not file on
