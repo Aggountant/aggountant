@@ -3,13 +3,15 @@ created: 2026-11-12
 updated: 2026-11-12
 type: task
 reporter: conductor
-status: in-progress
+status: done
 priority: normal
 related: ['@non-calendar-fiscal-year']
 preparation: ready
 lane: user-guide
 lane_seq: 5
 collision: [docs/user]
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # User guide: non-calendar fiscal years
