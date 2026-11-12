@@ -1,47 +1,74 @@
 # aggountant — user guide
 
-This guide explains how to keep your company's books with aggountant and an AI
-agent. It covers what you do yourself, what the agent does for you, and what
-you approve before anything is stored permanently or sent to an authority.
+You keep your company's books with an AI agent. The agent prepares vouchers
+from bank statements and receipts, you approve them, and aggountant records the
+books permanently and files the returns. This guide tells you what you do, what
+the agent does, and what you approve before anything is stored or sent to an
+authority.
 
-The guide is written for a company owner or bookkeeper, not a programmer. It
-includes commands because the agent runs them, and you should be able to
-recognise what it is doing. Every example uses the fictional company Esimerkki
-Oy, and all figures are made up.
+aggountant is at version 0.1 and already keeps the real books of a few
+companies. Not everything is ready yet:
+[What is ready and what is not](reference/status.md).
 
-aggountant is built for Finnish bookkeeping. Finnish terms that have no exact
-English equivalent, such as ALV (Finnish VAT), OmaVero (the Tax
-Administration's online service) and Tulorekisteri (the Incomes Register), are
-kept in Finnish and explained where they first appear and in the
-[glossary](09-glossary.md). The Finnish original of this guide is in
-[`../fi/`](../fi/README.md).
+The requests to the agent in this guide are examples, not magic words. You can
+say the same thing in your own words. The examples are about the fictional
+company Esimerkki Oy, and the figures are made up. aggountant is built for
+Finnish bookkeeping, so Finnish names of taxes, authorities and services, such
+as ALV (Finnish VAT), OmaVero and Tulorekisteri, stay in Finnish and are
+explained where they first appear and in the [glossary](reference/glossary.md).
+The Finnish original of this guide is in [`../fi/`](../fi/README.md).
 
-## Contents
+## Start here
 
-1. [What aggountant is and who it is for](01-what-aggountant-is.md)
-2. [Installation and setting up a company home](02-installation-and-company-home.md)
-3. [The agent and its skills](03-agent-and-skills.md)
-4. [The monthly cycle: bank, receipts and period close](04-monthly-cycle.md)
-5. [VAT and Vero.fi](05-vat-and-vero-fi.md)
-6. [Payroll and Tulorekisteri](06-payroll-and-tulorekisteri.md)
-7. [Financial statements, reports and fiscal-year status](07-financial-statements-and-reports.md)
-8. [Errors and recovery](08-errors-and-recovery.md)
-9. [Glossary](09-glossary.md)
+1. [Is aggountant for you?](start/is-it-for-you.md)
+2. [Install aggountant and its skills](start/install.md)
+3. [Practise your first month](start/practice-month.md)
+4. [Set up your company's books](start/set-up-company.md)
 
-## What is ready and what is not
+## Every month
 
-aggountant is at an early stage (version 0.1). These parts are already used
-for real bookkeeping:
+- [Do a month's bookkeeping from start to finish](tasks/monthly-routine.md):
+  links to every step
+- [Import the bank statement](tasks/import-bank-statement.md)
+- [Record receipts and purchase invoices](tasks/record-receipts.md)
+- [Record a sales invoice, payroll or another manual entry](tasks/record-other-entries.md)
+- [See how the month went](tasks/monthly-report.md)
+- [Close the month](tasks/close-month.md)
+- [File the VAT return in OmaVero](tasks/file-vat-omavero.md) or
+  [send it directly to the Tax Administration](tasks/file-vat-direct.md)
 
-- recording vouchers and archiving their attachments
-- importing bank statements (camt.053 and camt.052)
-- booking ordinary purchase receipts, including their VAT treatment
-- closing a month
-- monthly reports
-- filing the VAT return directly with the Finnish Tax Administration, or by
-  hand in OmaVero
-- reporting tax-free travel allowances to Tulorekisteri.
+## Once or occasionally
 
-Payroll, automatic receipt search and the year-end close are in the program,
-but they cannot yet be used for real bookkeeping. Their chapters explain why
-and what to do instead.
+- [Set up direct VAT filing](tasks/set-up-vero-api.md), including certificate
+  renewal
+- [Report travel allowances to Tulorekisteri](tasks/report-travel-allowances.md)
+- [Correct a wrong voucher](tasks/correct-voucher.md)
+- [Back up and restore your books](tasks/back-up-and-restore.md)
+- [Upgrade aggountant](tasks/upgrade.md)
+
+## At year end
+
+- [Prepare the financial statements](tasks/year-end.md)
+
+## When something goes wrong
+
+- [When something goes wrong](troubleshooting.md): by symptom
+- [Error codes](reference/error-codes.md): by the code on screen
+
+## How aggountant works
+
+- [You, the agent and aggountant](concepts/division-of-work.md)
+- [Sealing and approval](concepts/sealing-and-approval.md)
+- [Periods, closing and the fiscal year](concepts/periods.md)
+- [How the VAT treatment is decided](concepts/vat-treatment.md)
+- [Filings and uncertain outcomes](concepts/filings.md)
+- [The company home: what is stored where](concepts/company-home.md)
+- [For bookkeepers](concepts/for-bookkeepers.md)
+
+## Reference
+
+- [What is ready and what is not](reference/status.md)
+- [Error codes](reference/error-codes.md)
+- [Vero.fi readiness blockers](reference/vero-fi-blockers.md)
+- [Commands at a glance](reference/commands.md)
+- [Glossary](reference/glossary.md)

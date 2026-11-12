@@ -76,10 +76,6 @@ order, translated; the page title is in the page's language. A new page, or a
 change to a fact, a command or a limitation, goes into every language in the
 same commit. Finnish is written first.
 
-Until issue `user-guide-rewrite-en` lands, `en/` still has the old numbered
-chapters. In that window a fact change goes into the Finnish page and the
-English chapter that carries the same fact.
-
 ## Format
 
 Plain Markdown that GitHub renders and mdBook could render later without
@@ -105,7 +101,13 @@ Natural English in `en/`, not a literal translation: Finnish statutory and
 service names (ALV, OmaVero, Tulorekisteri, tilinpäätös, Y-tunnus, Ilmoitin.fi)
 and the Finnish account names of the chart stay in Finnish with an English
 explanation where they first appear, because that is what the user sees in the
-authorities' services and in aggountant's output.
+authorities' services and in aggountant's output. Account names, VAT return
+field names and the Finnish words of the report are quoted as they appear,
+with the English in parentheses: "1910 Pankkitili (bank account)". The tax
+itself is "VAT" in English prose; "ALV" is explained on the front page and in
+the glossary. Figures and dates use English notation (€2,376.00, 20 March);
+aggountant's own output is quoted exactly as it prints. In `en/` the owner is
+"you", the assistant "the agent", and `erikoiskirjaus` is a "manual entry".
 
 ## Examples, practice material and privacy
 

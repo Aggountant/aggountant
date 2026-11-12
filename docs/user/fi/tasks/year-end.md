@@ -56,7 +56,7 @@ aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
 ## Valmis, kun
 
 - Tilinpäätöksen tekijällä on vuoden raportit, tositteet ja liitteet.
-- Tilinpäätöskirjaukset on kirjattu aggountantiin.
+- Olet sopinut tekijän kanssa, miten tilinpäätöskirjaukset huomioidaan.
 
 ## Rajoitukset
 

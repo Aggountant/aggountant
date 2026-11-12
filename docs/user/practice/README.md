@@ -1,7 +1,8 @@
 # Harjoitusaineisto
 
 Tämä hakemisto on oppaan harjoituskuukauden aineisto:
-[Harjoittele ensimmäinen kuukausi](../fi/start/practice-month.md). Yritys,
+[Harjoittele ensimmäinen kuukausi](../fi/start/practice-month.md), englanniksi
+[Practise your first month](../en/start/practice-month.md). Yritys,
 tilinumero, vastapuolet ja summat on keksitty. Esimerkki Oy, Pilvipalvelu Oy ja
 Toimistotarvike Oy eivät ole oikeita yrityksiä.
 
