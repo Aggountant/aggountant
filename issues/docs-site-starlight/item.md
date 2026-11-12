@@ -37,7 +37,7 @@ it.
 
 ## Acceptance Criteria
 
-- [ ] `npm ci && npm run build` in the site directory produces the site from `docs/user/` without copying the Markdown; fi default, en switchable, search works locally.
-- [ ] A Pages deploy workflow and a build step in CI; the site build fails on a broken internal link.
-- [ ] Links between guide pages work both on GitHub and on the site.
-- [ ] README links to https://aggountant.dev; `docs/user/AGENTS.md` describes how the site is built.
+- [x] `npm ci && npm run build` in the site directory produces the site from `docs/user/` without copying the Markdown; fi default, en switchable, search works locally.
+- [x] A Pages deploy workflow and a build step in CI; the site build fails on a broken internal link.
+- [x] Links between guide pages work both on GitHub and on the site.
+- [x] README links to https://aggountant.dev; `docs/user/AGENTS.md` describes how the site is built.
