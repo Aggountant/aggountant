@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · suunta A: Pääkirja</title>
+<style>
+  :root {
+    --paper: #f5f1e6;
+    --paper-2: #ece6d6;
+    --ink: #1f2a33;
+    --ink-soft: #55606a;
+    --rule: #d3dde1;
+    --margin: #b4493c;
+    --seal: #2f5d50;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Charter, "Bitstream Charter", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.6;
+    /* Ruled ledger paper: horizontal lines every line-height, red margin line. */
+    background:
+      linear-gradient(90deg, transparent 0, transparent calc(var(--gutter) - 2px), var(--margin) calc(var(--gutter) - 2px), var(--margin) calc(var(--gutter) - 1px), transparent calc(var(--gutter) - 1px)),
+      repeating-linear-gradient(180deg, transparent 0, transparent 28.4px, var(--rule) 28.4px, var(--rule) 28.8px);
+    --gutter: 64px;
+  }
+  @media (max-width: 640px) { body { --gutter: 20px; font-size: 17px; } }
+  a { color: var(--ink); text-decoration-color: var(--margin); text-underline-offset: 3px; }
+  a:hover { color: var(--margin); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 0 calc(var(--gutter) + 24px); }
+  @media (max-width: 640px) { .wrap { padding: 0 18px 0 calc(var(--gutter) + 14px); } }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 28px 0 18px; border-bottom: 2px solid var(--ink);
+    flex-wrap: wrap;
+  }
+  .mark { font-family: var(--mono); font-size: 20px; letter-spacing: .02em; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+  .mark svg { width: 26px; height: 26px; }
+  nav.top a { font-family: var(--sans); font-size: 14px; margin-left: 18px; text-decoration: none; color: var(--ink-soft); }
+  nav.top a:hover { color: var(--ink); }
+  @media (max-width: 640px) { nav.top a { margin: 0 14px 0 0; } }
+
+  .hero { display: grid; grid-template-columns: 1.25fr 1fr; gap: 48px; padding: 64px 0 56px; align-items: start; }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 32px; padding: 40px 0; } }
+  .kicker { font-family: var(--mono); font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--margin); margin: 0 0 14px; }
+  h1 { font-weight: 400; font-size: clamp(34px, 5vw, 56px); line-height: 1.12; margin: 0 0 24px; letter-spacing: -.01em; }
+  h1 em { font-style: italic; color: var(--seal); }
+  .lede { font-size: 20px; color: var(--ink-soft); margin: 0 0 28px; max-width: 34em; }
+  .actions { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--sans); }
+  .btn { display: inline-block; padding: 12px 20px; border: 1.5px solid var(--ink); text-decoration: none; font-size: 15px; font-weight: 600; background: var(--paper); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:hover { background: var(--seal); border-color: var(--seal); color: var(--paper); }
+
+  /* The voucher card on the hero */
+  .voucher { background: #fffdf7; border: 1px solid #d8d0bb; box-shadow: 0 1px 0 #d8d0bb, 0 12px 30px -18px rgba(31,42,51,.35); padding: 22px 22px 18px; position: relative; font-family: var(--mono); font-size: 14px; }
+  .voucher h3 { padding-right: 104px; font-family: var(--sans); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 4px; font-weight: 600; }
+  .voucher .title { font-family: var(--serif); font-size: 19px; margin: 0 0 14px; }
+  table.entries { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.entries th { text-align: left; font-weight: 400; color: var(--ink-soft); font-size: 12px; border-bottom: 1px solid var(--ink); padding: 4px 0; }
+  table.entries td { padding: 6px 0; border-bottom: 1px dotted #c8c0aa; }
+  table.entries .num { text-align: right; white-space: nowrap; }
+  table.entries tr.total td { border-bottom: 3px double var(--ink); font-weight: 700; }
+  .stamp { position: absolute; right: 16px; top: 14px; transform: rotate(-8deg); color: var(--seal); border: 2px solid var(--seal); border-radius: 4px; padding: 3px 8px; font-family: var(--sans); font-weight: 800; font-size: 12px; letter-spacing: .14em; opacity: .85; }
+  .voucher .note { margin: 12px 0 0; font-family: var(--sans); font-size: 13px; color: var(--ink-soft); }
+
+  section { padding: 56px 0; border-top: 1px solid var(--ink); }
+  section > h2 { font-weight: 400; font-size: clamp(26px, 3.4vw, 36px); margin: 0 0 8px; }
+  .section-no { font-family: var(--mono); font-size: 13px; color: var(--margin); letter-spacing: .1em; }
+
+  .philo { display: grid; grid-template-columns: 1fr 1.4fr; gap: 48px; }
+  @media (max-width: 900px) { .philo { grid-template-columns: 1fr; gap: 16px; } }
+  blockquote { margin: 0; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.35; font-style: italic; border-left: 3px solid var(--margin); padding-left: 20px; }
+  .philo p { margin: 0 0 1em; }
+
+  /* Month as a journal: one ruled row per step */
+  ol.journal { list-style: none; margin: 28px 0 0; padding: 0; counter-reset: step; }
+  ol.journal li { display: grid; grid-template-columns: 120px 110px 1fr 180px; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  ol.journal li:first-child { border-top: 2px solid var(--ink); }
+  .date { font-family: var(--mono); font-size: 14px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .who { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; justify-self: start; }
+  .who.you { background: var(--ink); color: var(--paper); }
+  .who.agent { border: 1.5px solid var(--ink); }
+  .who.both { background: repeating-linear-gradient(135deg, var(--paper-2) 0 6px, transparent 6px 12px); border: 1.5px solid var(--ink); }
+  .what strong { display: block; font-size: 20px; font-weight: 600; }
+  .what span { color: var(--ink-soft); font-size: 16px; }
+  .fig { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
+  .fig small { display: block; color: var(--ink-soft); font-size: 12px; }
+  @media (max-width: 760px) {
+    ol.journal li { grid-template-columns: 1fr auto; gap: 6px 12px; }
+    .date { grid-column: 1; }
+    .who { grid-column: 2; justify-self: end; }
+    .what { grid-column: 1 / -1; }
+    .fig { grid-column: 1 / -1; text-align: left; }
+  }
+  .guarantee { margin: 28px 0 0; padding: 16px 20px; background: #fffdf7; border: 1px solid #d8d0bb; font-size: 17px; display: flex; gap: 14px; align-items: center; }
+  .guarantee svg { flex: none; width: 34px; height: 34px; }
+
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 24px; }
+  @media (max-width: 760px) { .status { grid-template-columns: 1fr; gap: 20px; } }
+  .status h3 { font-family: var(--sans); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 8px; }
+  .status ul { margin: 0; padding: 0; list-style: none; }
+  .status li { padding: 6px 0 6px 28px; border-bottom: 1px dotted #c8c0aa; position: relative; }
+  .status li::before { position: absolute; left: 0; font-family: var(--mono); }
+  .ready li::before { content: "✓"; color: var(--seal); }
+  .notyet li::before { content: "–"; color: var(--margin); }
+
+  .join { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: center; }
+  @media (max-width: 760px) { .join { grid-template-columns: 1fr; gap: 20px; } }
+  .join p { margin: 0 0 1em; }
+
+  footer { border-top: 2px solid var(--ink); padding: 24px 0 48px; font-family: var(--sans); font-size: 14px; color: var(--ink-soft); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--ink-soft); margin-right: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="mark" href="#">
+      <svg viewBox="0 0 26 26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="#1f2a33" stroke-width="1.5"/><path d="M6 9h14M6 13h14M6 17h9" stroke="#1f2a33" stroke-width="1.5"/><path d="M9 1.5v23" stroke="#b4493c" stroke-width="1.5"/></svg>
+      aggountant
+    </a>
+    <nav class="top">
+      <a href="https://aggountant.dev/guide/">Opas</a>
+      <a href="https://aggountant.dev/en/guide/">In English</a>
+      <a href="https://github.com/aggountant/aggountant">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="kicker">Suomalaisen osakeyhtiön kirjanpito</p>
+      <h1>Pidä osakeyhtiösi kirjanpito <em>keskustelemalla</em> tekoälyagentin kanssa.</h1>
+      <p class="lede">Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://aggountant.dev/guide/">Lue käyttäjän opas</a>
+        <a class="btn" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+      </div>
+    </div>
+    <aside class="voucher" aria-label="Esimerkkitosite">
+      <span class="stamp">SINETÖITY</span>
+      <h3>Tosite 47 · Esimerkki Oy</h3>
+      <p class="title">Ohjelmistolisenssi, maaliskuu</p>
+      <table class="entries">
+        <thead><tr><th>Tili</th><th class="num">Debet</th><th class="num">Kredit</th></tr></thead>
+        <tbody>
+          <tr><td>IT-kulut</td><td class="num">98,80</td><td class="num"></td></tr>
+          <tr><td>ALV-saaminen 25,5 %</td><td class="num">25,20</td><td class="num"></td></tr>
+          <tr><td>Pankkitili</td><td class="num"></td><td class="num">124,00</td></tr>
+          <tr class="total"><td>Yhteensä</td><td class="num">124,00</td><td class="num">124,00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Agentti ehdotti, sinä hyväksyit. Sinetöityä tositetta ei muuteta; virhe korjataan uudella tositteella.</p>
+    </aside>
+  </div>
+
+  <section class="philo" aria-labelledby="miksi">
+    <div>
+      <div class="section-no">§ 1</div>
+      <h2 id="miksi">Miksi</h2>
+    </div>
+    <div>
+      <blockquote>Agenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta. Agentti tekee sen, ja sinä hyväksyt.</blockquote>
+      <p style="margin-top:1.2em">Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa. Kirjanpito on tavallisia tiedostoja omalla koneellasi, ja aggountant on avointa lähdekoodia.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="kuukausi">
+    <div class="section-no">§ 2</div>
+    <h2 id="kuukausi">Yksi kuukausi: Esimerkki Oy, maaliskuu</h2>
+    <ol class="journal">
+      <li>
+        <span class="date">2.4. klo 9.05</span><span class="who both">Yhdessä</span>
+        <div class="what"><strong>Keräätte aineiston</strong><span>"Tehdään maaliskuu." Agentti hakee tiliotteen ja kuitit sieltä, minne sillä on pääsy; loput annat itse.</span></div>
+        <div class="fig">38 tapahtumaa<small>21 kuittia</small></div>
+      </li>
+      <li>
+        <span class="date">2.4. klo 9.12</span><span class="who agent">Agentti</span>
+        <div class="what"><strong>Agentti valmistelee</strong><span>Yhdistää kuitit tapahtumiin, ehdottaa tilit ja ALV-käsittelyn ja kysyy vain sen, mitä ei saa selville: "Oliko 64,50 €:n ravintolalasku asiakastapaaminen?"</span></div>
+        <div class="fig">38 ehdotusta<small>2 kysymystä</small></div>
+      </li>
+      <li>
+        <span class="date">2.4. klo 9.20</span><span class="who you">Sinä</span>
+        <div class="what"><strong>Sinä hyväksyt</strong><span>Katsot tositteet läpi. Hyväksynnän jälkeen ne sinetöidään: numeroidaan, eikä niitä enää muuteta.</span></div>
+        <div class="fig">tositteet 40–77<small>sinetöity</small></div>
+      </li>
+      <li>
+        <span class="date">2.4. klo 9.24</span><span class="who you">Sinä</span>
+        <div class="what"><strong>Kuukausi suljetaan</strong><span>Pankkitilin saldo täsmää tiliotteeseen. Hyväksyt sulun, eikä maaliskuulle voi enää kirjata.</span></div>
+        <div class="fig">12&nbsp;480,15&nbsp;€<small>= tiliote</small></div>
+      </li>
+      <li>
+        <span class="date">2.4. klo 9.26</span><span class="who agent">Agentti</span>
+        <div class="what"><strong>ALV ilmoitetaan</strong><span>ALV-ilmoitus lasketaan suljetusta kuukaudesta. Hyväksynnälläsi se lähtee suoraan Verohallinnolle, tai syötät luvut OmaVeroon itse.</span></div>
+        <div class="fig">1&nbsp;342,60&nbsp;€<small>maksettava ALV</small></div>
+      </li>
+    </ol>
+    <div class="guarantee">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="none" stroke="#2f5d50" stroke-width="2"/><circle cx="17" cy="17" r="11" fill="none" stroke="#2f5d50" stroke-width="1" stroke-dasharray="2 2"/><path d="M11 17.5l4 4 8-9" fill="none" stroke="#2f5d50" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Mitään ei tallenneta eikä lähetetä viranomaiselle ilman hyväksyntääsi.</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="tila">
+    <div class="section-no">§ 3</div>
+    <h2 id="tila">Missä ollaan</h2>
+    <p>Versio 0.1. aggountantilla pidetään jo muutaman tilitoimistottoman yrityksen oikeaa kirjanpitoa. Tavallinen kuukausityö on hyvässä kunnossa; harvinaisemmat tapaukset täydentyvät sitä mukaa kuin niitä tulee vastaan.</p>
+    <div class="status">
+      <div class="ready">
+        <h3>Valmis oikeaan kirjanpitoon</h3>
+        <ul>
+          <li>Pankkitiliotteen tuonti</li>
+          <li>Ostokuitit ALV-käsittelyineen</li>
+          <li>Kuukauden sulku ja kuukausiraportit</li>
+          <li>ALV-ilmoitus suoraan tai OmaVerossa</li>
+          <li>Matkakorvaukset Tulorekisteriin</li>
+        </ul>
+      </div>
+      <div class="notyet">
+        <h3>Ei vielä</h3>
+        <ul>
+          <li>Palkat</li>
+          <li>Oma automaattinen kuittihaku</li>
+          <li>Tilinpäätös</li>
+        </ul>
+        <p style="font-size:15px;color:var(--ink-soft);margin-top:10px"><a href="https://aggountant.dev/reference/status/">Mitä on valmista ja mitä ei</a> kertoo jokaisesta, mitä teet sen sijaan.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="join" aria-labelledby="mukaan">
+    <div>
+      <div class="section-no">§ 4</div>
+      <h2 id="mukaan">Lähde mukaan ensimmäisten joukossa</h2>
+      <p>Jos pyörität pientä suomalaista osakeyhtiötä ja haluat pitää kirjanpidon näin, voimme tavata ja käydä tilanteesi läpi. Kehitämme sitä, mitä varhaiset käyttäjät tarvitsevat seuraavaksi. Kehittäjät ja kirjanpitäjät ovat myös tervetulleita.</p>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+      <a class="btn" href="https://github.com/aggountant/aggountant">GitHub</a>
+    </div>
+  </section>
+
+  <footer>
+    <div><a href="https://aggountant.dev/guide/">Opas suomeksi</a><a href="https://aggountant.dev/en/guide/">Guide in English</a><a href="https://github.com/aggountant/aggountant">GitHub</a></div>
+    <div>Avointa lähdekoodia (MIT) · Esimerkit ja luvut ovat keksittyjä</div>
+  </footer>
+</div>
+</body>
+</html>

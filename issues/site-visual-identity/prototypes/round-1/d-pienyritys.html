@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · suunta D: Pienyritys</title>
+<style>
+  :root {
+    --cream: #fbf3e4;
+    --card: #fffaf1;
+    --ink: #2b2420;
+    --ink-soft: #6e625a;
+    --terra: #c4553a;
+    --forest: #2f5a3c;
+    --mustard: #e3a93b;
+    --sky: #cfe3e0;
+    --line: #ecdcc2;
+    --round: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", "Quicksand", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.6; }
+  a { color: var(--forest); }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 640px) { .wrap { padding: 0 16px; } }
+  h1, h2, h3, .mark, .btn { font-family: var(--round); }
+
+  header.top { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; flex-wrap: wrap; gap: 10px; }
+  .mark { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 21px; color: var(--ink); text-decoration: none; }
+  .mark svg { width: 34px; height: 34px; }
+  nav a { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; margin-left: 8px; padding: 6px 12px; border-radius: 999px; }
+  nav a:hover { background: var(--line); }
+  @media (max-width: 640px) { nav a { margin: 0 4px 0 0; padding: 6px 10px; } }
+
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; padding: 36px 0 64px; }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 16px; padding: 16px 0 40px; } }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 14px 5px 8px; font-size: 14px; font-weight: 600; margin-bottom: 18px; }
+  .pill i { width: 20px; height: 20px; border-radius: 50%; background: var(--forest); display: inline-grid; place-items: center; color: #fff; font-style: normal; font-size: 12px; }
+  h1 { font-size: clamp(34px, 5vw, 58px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; font-weight: 800; }
+  h1 mark { background: linear-gradient(transparent 62%, var(--mustard) 62%, var(--mustard) 92%, transparent 92%); color: inherit; padding: 0 2px; }
+  .lede { font-size: 19px; color: var(--ink-soft); margin: 0 0 26px; max-width: 30em; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 13px 22px; border-radius: 14px; font-weight: 800; font-size: 16px; text-decoration: none; color: var(--ink); background: var(--card); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); transition: transform .1s, box-shadow .1s; }
+  .btn:hover { transform: translate(1px,1px); box-shadow: 2px 2px 0 var(--ink); }
+  .btn.primary { background: var(--terra); color: #fff; }
+  .illus { width: 100%; height: auto; max-width: 520px; justify-self: center; }
+
+  section { padding: 56px 0; }
+  h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; letter-spacing: -.015em; margin: 0 0 12px; font-weight: 800; }
+  .center { text-align: center; max-width: 720px; margin: 0 auto 36px; }
+  .center p { color: var(--ink-soft); margin: 0; }
+
+  .philo { background: var(--forest); color: #f4efe3; border-radius: 32px; padding: 52px; display: grid; grid-template-columns: auto 1fr; gap: 36px; align-items: center; }
+  .philo h2 { color: #fff; }
+  .philo p { margin: 0 0 .8em; color: #dfe8de; }
+  .philo svg { width: 150px; height: 150px; }
+  @media (max-width: 760px) { .philo { grid-template-columns: 1fr; padding: 30px 22px; gap: 12px; border-radius: 24px; } .philo svg { width: 90px; height: 90px; } }
+
+  .month { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; position: relative; }
+  .mcard { background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 18px 18px 20px; position: relative; }
+  .mcard .icon { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; margin-bottom: 12px; }
+  .mcard .icon svg { width: 34px; height: 34px; }
+  .mcard .step { font-family: var(--round); font-weight: 800; font-size: 13px; color: var(--ink-soft); }
+  .mcard h3 { margin: 2px 0 6px; font-size: 18px; hyphens: auto; line-height: 1.2; }
+  .mcard p { margin: 0; font-size: 15px; color: var(--ink-soft); line-height: 1.45; }
+  .badge { justify-self: start; display: inline-block; font-family: var(--round); font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 10px; margin-top: 12px; }
+  .badge.you { background: var(--terra); color: #fff; }
+  .badge.agent { background: var(--sky); color: var(--forest); }
+  .badge.both { background: var(--mustard); color: var(--ink); }
+  .mcard.you { border-color: var(--terra); box-shadow: 4px 4px 0 var(--terra); }
+  .figure { margin-top: 10px; font-family: var(--mono); font-size: 13px; background: var(--cream); border-radius: 10px; padding: 6px 10px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 1020px) { .month { grid-template-columns: 1fr 1fr; } .month .mcard:last-child { grid-column: 1 / -1; } }
+  @media (max-width: 560px) {
+    .month { grid-template-columns: 1fr; }
+    .mcard { display: grid; grid-template-columns: 56px 1fr; gap: 0 14px; }
+    .mcard .icon { grid-row: span 5; margin: 0; }
+  }
+  .clock { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 28px; font-family: var(--round); font-weight: 700; font-size: 18px; flex-wrap: wrap; text-align: center; }
+
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .status { grid-template-columns: 1fr; } }
+  .box { background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 24px; }
+  .box h3 { margin: 0 0 8px; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+  .box ul { margin: 0; padding: 0; list-style: none; }
+  .box li { padding: 6px 0; border-bottom: 1px dashed var(--line); display: flex; gap: 10px; align-items: baseline; }
+  .box li:last-child { border-bottom: 0; }
+  .box.ready li::before { content: "✓"; color: var(--forest); font-weight: 800; }
+  .box.later li::before { content: "◔"; color: var(--mustard); font-weight: 800; }
+  .honest { grid-column: 1 / -1; background: var(--sky); border-color: var(--sky); display: flex; gap: 18px; align-items: center; }
+  .honest p { margin: 0; }
+  .honest b { font-family: var(--round); }
+
+  .join { background: var(--card); border: 2px solid var(--ink); border-radius: 32px; box-shadow: 6px 6px 0 var(--ink); padding: 44px; display: grid; grid-template-columns: 1fr auto; gap: 30px; align-items: center; margin-bottom: 56px; }
+  .join p { margin: 0; color: var(--ink-soft); max-width: 40em; }
+  @media (max-width: 820px) { .join { grid-template-columns: 1fr; padding: 28px 22px; border-radius: 24px; } }
+
+  footer { padding: 20px 0 44px; color: var(--ink-soft); font-size: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 2px dashed var(--line); }
+  footer a { color: var(--ink-soft); margin-right: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="mark" href="#">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="2" width="30" height="30" rx="10" fill="#c4553a"/><path d="M10 11h14M10 16h14M10 21h8" stroke="#fffaf1" stroke-width="2.6" stroke-linecap="round"/><circle cx="24" cy="23" r="5" fill="#e3a93b" stroke="#fffaf1" stroke-width="2"/></svg>
+      aggountant
+    </a>
+    <nav>
+      <a href="https://aggountant.dev/guide/">Opas</a>
+      <a href="https://aggountant.dev/en/guide/">English</a>
+      <a href="https://github.com/aggountant/aggountant">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <span class="pill"><i>✓</i> Jo oikeassa käytössä · versio 0.1</span>
+      <h1>Pidä osakeyhtiösi kirjanpito <mark>keskustelemalla</mark> tekoälyagentin kanssa.</h1>
+      <p class="lede">Kuitit, tiliote ja ALV-ilmoitus hoituvat juttelemalla. Agentti tekee työn, sinä sanot "hyväksyn", ja pääset takaisin omiin töihisi.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://aggountant.dev/guide/">Lue käyttäjän opas</a>
+        <a class="btn" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+      </div>
+    </div>
+    <!-- Illustration: a shoebox of receipts, a laptop with a chat, a coffee cup -->
+    <svg class="illus" viewBox="0 0 520 400" role="img" aria-label="Kuittilaatikko, kannettava ja kahvikuppi">
+      <ellipse cx="260" cy="360" rx="230" ry="22" fill="#ecdcc2"/>
+      <!-- receipts -->
+      <g transform="rotate(-8 120 200)">
+        <path d="M70 120h90v150l-9-6-9 6-9-6-9 6-9-6-9 6-9-6-9 6-9-6-9 6z" fill="#fffaf1" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M84 145h60M84 165h44M84 185h52M84 225h60" stroke="#c9b89c" stroke-width="5" stroke-linecap="round"/>
+        <path d="M84 245h28" stroke="#c4553a" stroke-width="6" stroke-linecap="round"/>
+      </g>
+      <g transform="rotate(10 170 210)">
+        <path d="M130 140h80v130l-8-5-8 5-8-5-8 5-8-5-8 5-8-5-8 5-8-5-8 5z" fill="#fffaf1" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M144 165h50M144 185h36M144 225h50" stroke="#c9b89c" stroke-width="5" stroke-linecap="round"/>
+      </g>
+      <!-- shoebox -->
+      <path d="M50 250h190l-12 100H62z" fill="#e3a93b" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M40 240h210v22H40z" fill="#f0c063" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+      <text x="145" y="312" text-anchor="middle" font-family="ui-rounded, system-ui, sans-serif" font-weight="800" font-size="22" fill="#2b2420">MAALISKUU</text>
+      <!-- laptop -->
+      <path d="M270 140h200a12 12 0 0 1 12 12v150H258V152a12 12 0 0 1 12-12z" fill="#2f5a3c" stroke="#2b2420" stroke-width="3"/>
+      <rect x="274" y="156" width="192" height="134" rx="6" fill="#fffaf1"/>
+      <path d="M236 302h268l-14 30H250z" fill="#c9b89c" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+      <!-- chat bubbles -->
+      <rect x="326" y="168" width="134" height="26" rx="13" fill="#c4553a"/>
+      <text x="393" y="185" text-anchor="middle" font-family="ui-rounded, system-ui, sans-serif" font-weight="700" font-size="11" fill="#fff">Tehdään maaliskuu</text>
+      <rect x="286" y="204" width="128" height="40" rx="12" fill="#cfe3e0"/>
+      <path d="M298 218h96M298 230h64" stroke="#2f5a3c" stroke-width="4" stroke-linecap="round" opacity=".6"/>
+      <rect x="370" y="254" width="88" height="26" rx="13" fill="#c4553a"/>
+      <text x="414" y="272" text-anchor="middle" font-family="ui-rounded, system-ui, sans-serif" font-weight="700" font-size="12" fill="#fff">Hyväksyn ✓</text>
+      <!-- coffee -->
+      <path d="M440 330h50l-6 30h-38z" fill="#fffaf1" stroke="#2b2420" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M490 336c12 0 12 16 0 16" fill="none" stroke="#2b2420" stroke-width="3"/>
+      <path d="M455 318c-4-8 4-10 0-18M470 318c-4-8 4-10 0-18" fill="none" stroke="#c9b89c" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <section class="philo">
+    <svg viewBox="0 0 150 150" aria-hidden="true"><circle cx="75" cy="75" r="70" fill="#e3a93b"/><circle cx="75" cy="75" r="56" fill="none" stroke="#2b2420" stroke-width="3" stroke-dasharray="6 6"/><text x="75" y="92" text-anchor="middle" font-family="ui-rounded, system-ui, sans-serif" font-weight="800" font-size="48" fill="#2b2420">0 €</text></svg>
+    <div>
+      <h2>Kirjanpito on perustoiminto. Siitä ei pitäisi joutua maksamaan.</h2>
+      <p>Tekoälyagenttien aikana agentti voi tehdä kirjanpidon, ja sinä hyväksyt. Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien.</p>
+      <p>Kirjanpito pysyy omalla koneellasi tavallisina tiedostoina, ja aggountant on avointa lähdekoodia.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="center">
+      <h2>Näin Esimerkki Oy:n maaliskuu menee</h2>
+      <p>Kuvitteellinen yritys, keksityt luvut. Punaisella reunuksella ne kohdat, joissa päätös on sinun.</p>
+    </div>
+    <div class="month">
+      <div class="mcard">
+        <div class="icon" style="background:#fbe6b8"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M5 12h24l-3 17H8z" fill="#e3a93b" stroke="#2b2420" stroke-width="2.2" stroke-linejoin="round"/><path d="M11 12V8h12v4" fill="none" stroke="#2b2420" stroke-width="2.2"/></svg></div>
+        <span class="step">1</span>
+        <h3>Keräätte aineiston</h3>
+        <p>Tiliote ja kuitit sähköpostista, kansiosta tai puhelimesta.</p>
+        <div class="figure">38 tapahtumaa, 21 kuittia</div>
+        <span class="badge both">Sinä + agentti</span>
+      </div>
+      <div class="mcard">
+        <div class="icon" style="background:var(--sky)"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="5" y="5" width="24" height="24" rx="6" fill="#fffaf1" stroke="#2f5a3c" stroke-width="2.2"/><path d="M10 12h14M10 17h14M10 22h8" stroke="#2f5a3c" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+        <span class="step">2</span>
+        <h3>Agentti valmistelee</h3>
+        <p>Tilit ja ALV ehdotettuna. Kysyy vain sen, mitä ei itse tiedä.</p>
+        <div class="figure">"Oliko 64,50 € asiakaslounas?"</div>
+        <span class="badge agent">Agentti</span>
+      </div>
+      <div class="mcard you">
+        <div class="icon" style="background:#f6d3c8"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="#c4553a"/><path d="M11 17.5l4 4 8-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <span class="step">3</span>
+        <h3>Sinä hyväksyt</h3>
+        <p>Lisenssi 124,00 € → IT-kulut 98,80 € ja ALV 25,20 €. Sitten se sinetöidään.</p>
+        <div class="figure">38 tositetta sinetöity</div>
+        <span class="badge you">Sinä</span>
+      </div>
+      <div class="mcard you">
+        <div class="icon" style="background:#f6d3c8"><svg viewBox="0 0 34 34" aria-hidden="true"><rect x="8" y="15" width="18" height="14" rx="3" fill="#c4553a"/><path d="M12 15v-4a5 5 0 0 1 10 0v4" fill="none" stroke="#2b2420" stroke-width="2.4"/></svg></div>
+        <span class="step">4</span>
+        <h3>Kuukausi suljetaan</h3>
+        <p>Pankkisaldo täsmää tiliotteeseen, ja maaliskuu lukitaan.</p>
+        <div class="figure">12&nbsp;480,15&nbsp;€ ✓</div>
+        <span class="badge you">Sinä</span>
+      </div>
+      <div class="mcard">
+        <div class="icon" style="background:#d9e8d6"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M5 17l23-11-7 23-4-9z" fill="#2f5a3c" stroke="#2b2420" stroke-width="2" stroke-linejoin="round"/></svg></div>
+        <span class="step">5</span>
+        <h3>ALV ilmoitetaan</h3>
+        <p>Hyväksynnälläsi suoraan Verohallinnolle tai käsin OmaVeroon.</p>
+        <div class="figure">ALV 1&nbsp;342,60&nbsp;€</div>
+        <span class="badge agent">Agentti</span>
+      </div>
+    </div>
+    <p class="clock">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="12" fill="#fffaf1" stroke="#2b2420" stroke-width="2.4"/><path d="M15 15V3a12 12 0 0 1 12 12z" fill="#e3a93b"/><path d="M15 8v7h5" stroke="#2b2420" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
+      Tavoite: muutama vartti kuukaudessa. Mitään ei tallenneta eikä lähetetä ilman hyväksyntääsi.
+    </p>
+  </section>
+
+  <section>
+    <div class="center"><h2>Missä mennään</h2></div>
+    <div class="status">
+      <div class="box honest">
+        <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true" style="flex:none"><circle cx="22" cy="22" r="20" fill="#fffaf1"/><text x="22" y="29" text-anchor="middle" font-family="ui-rounded, system-ui, sans-serif" font-weight="800" font-size="16" fill="#2f5a3c">0.1</text></svg>
+        <p><b>Versio 0.1, ja jo oikeassa käytössä.</b> Muutama tilitoimistoton yritys pitää kirjanpitonsa aggountantilla. Kaikki ei ole vielä valmista, ja <a href="https://aggountant.dev/reference/status/">opas kertoo suoraan, mikä on</a>.</p>
+      </div>
+      <div class="box ready">
+        <h3>Valmista</h3>
+        <ul><li>Pankkitiliotteen tuonti</li><li>Ostokuitit ja ALV</li><li>Kuukauden sulku ja raportit</li><li>ALV-ilmoitus</li><li>Matkakorvaukset Tulorekisteriin</li></ul>
+      </div>
+      <div class="box later">
+        <h3>Tekeillä</h3>
+        <ul><li>Palkat</li><li>Oma automaattinen kuittihaku</li><li>Tilinpäätös</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="join">
+    <div>
+      <h2>Tule mukaan ensimmäisten joukkoon</h2>
+      <p>Pyöritätkö pientä osakeyhtiötä? Tavataan ja katsotaan yrityksesi tilanne yhdessä. Teemme seuraavaksi sen, mitä sinä tarvitset. Kehittäjät ja kirjanpitäjät ovat yhtä lailla tervetulleita.</p>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+      <a class="btn" href="https://github.com/aggountant/aggountant">GitHub</a>
+    </div>
+  </div>
+
+  <footer>
+    <div><a href="https://aggountant.dev/guide/">Opas suomeksi</a><a href="https://aggountant.dev/en/guide/">Guide in English</a><a href="https://github.com/aggountant/aggountant">GitHub</a></div>
+    <div>Avointa lähdekoodia (MIT) · Esimerkki Oy on keksitty</div>
+  </footer>
+</div>
+</body>
+</html>

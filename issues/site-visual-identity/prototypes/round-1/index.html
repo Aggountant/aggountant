@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · etusivun suunnat, kierros 1</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e9e7e2; color: #1d1d1d; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 28px 32px 8px; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; color: #555; max-width: 60em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(620px, 1fr)); gap: 28px; padding: 24px 32px 48px; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; padding: 16px; } header { padding: 20px 16px 0; } }
+  .dir { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .dir h2 { margin: 0 0 4px; font-size: 19px; }
+  .dir h2 a { color: inherit; }
+  .dir p { margin: 0 0 12px; font-size: 14px; color: #555; }
+  .frames { display: flex; gap: 12px; align-items: flex-start; }
+  /* Desktop frame: a 1440 px page scaled down; phone frame: 390 px scaled down. */
+  .desk { flex: 1; aspect-ratio: 1440 / 1100; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 6px; }
+  .desk iframe { position: absolute; top: 0; left: 0; width: 1440px; height: 1100px; border: 0; transform-origin: 0 0; }
+  .phone { width: 130px; flex: none; aspect-ratio: 390 / 844; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; }
+  .phone iframe { position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0; transform-origin: 0 0; transform: scale(.3333); }
+  @media (max-width: 700px) { .phone { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>aggountant.dev: etusivun visuaaliset suunnat, kierros 1</h1>
+  <p>Neljä erilaista suuntaa samalla sisällöllä. Avaa suunta otsikosta koko kokoon; kehyksissä työpöytä (1440 px) ja puhelin (390 px). Perustelut ovat tiedostossa README.md.</p>
+</header>
+<div class="grid">
+  <div class="dir">
+    <h2><a href="a-paakirja.html">A · Pääkirja</a></h2>
+    <p>Rauhallinen pohjoismainen tilikirja: viivoitettu paperi, serif-otsikot, taulukkonumerot, sinetöity tosite.</p>
+    <div class="frames"><div class="desk"><iframe src="a-paakirja.html" title="A työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="a-paakirja.html" title="A puhelin" loading="lazy"></iframe></div></div>
+  </div>
+  <div class="dir">
+    <h2><a href="b-keskustelu.html">B · Keskustelu</a></h2>
+    <p>Agentin kanssa käyty keskustelu kantaa sivua: chat-ikkuna, kahden sarakkeen kuukausi, rauhallinen vihreä.</p>
+    <div class="frames"><div class="desk"><iframe src="b-keskustelu.html" title="B työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="b-keskustelu.html" title="B puhelin" loading="lazy"></iframe></div></div>
+  </div>
+  <div class="dir">
+    <h2><a href="c-toimitus.html">C · Toimitus</a></h2>
+    <p>Rohkea typografinen lehtiulkoasu: valtava groteskiotsikko, yksi punainen, isot numerot 1–5.</p>
+    <div class="frames"><div class="desk"><iframe src="c-toimitus.html" title="C työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="c-toimitus.html" title="C puhelin" loading="lazy"></iframe></div></div>
+  </div>
+  <div class="dir">
+    <h2><a href="d-pienyritys.html">D · Pienyritys</a></h2>
+    <p>Lämmin ja ystävällinen: pyöreä kirjasin, terrakotta ja metsänvihreä, piirretty kuittilaatikko ja kortit.</p>
+    <div class="frames"><div class="desk"><iframe src="d-pienyritys.html" title="D työpöytä" loading="lazy"></iframe></div><div class="phone"><iframe src="d-pienyritys.html" title="D puhelin" loading="lazy"></iframe></div></div>
+  </div>
+</div>
+<script>
+  // Scale each 1440 px desktop frame to the width of its box.
+  function fit() {
+    document.querySelectorAll('.desk').forEach(function (box) {
+      box.querySelector('iframe').style.transform = 'scale(' + box.clientWidth / 1440 + ')';
+    });
+  }
+  addEventListener('resize', fit);
+  fit();
+</script>
+</body>
+</html>
