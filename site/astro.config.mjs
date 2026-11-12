@@ -19,6 +19,11 @@ export default defineConfig({
         en: { label: 'English', lang: 'en' },
       },
       // The Pääkirja (ledger) identity: theme, logo and light-first paper.
+      favicon: '/favicon.svg',
+      head: [
+        { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '32x32' } },
+        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
+      ],
       customCss: ['./src/styles/ledger.css'],
       components: {
         SiteTitle: './src/components/SiteTitle.astro',

@@ -1,3 +1,5 @@
+<img src="site/public/logo.svg" alt="" width="56" height="56">
+
 # aggountant
 
 <!-- shipshape-readme:badges-start -->
