@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aggountant · kierros 4: agentin nimi tositteen laatijana</title>
+<style>
+  /* ---- Pääkirja context (the live site's tokens) ---- */
+  :root {
+    --paper: #f5f1e6; --card: #fffdf7; --edge: #d8d0bb; --ink: #1f2a33; --ink-soft: #55606a;
+    --rule: rgba(80,120,140,.13); --rule-strong: #d3dde1; --margin: #b4493c; --seal: #2f5d50;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Charter, "Bitstream Charter", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.7;
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(180deg, transparent 0, transparent calc(1.8rem - 1px), var(--rule) calc(1.8rem - 1px), var(--rule) 1.8rem); }
+  a { color: var(--ink); text-decoration-color: var(--margin); text-underline-offset: .2em; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 2px solid var(--ink); font-family: var(--sans); font-size: 14px; }
+  .mark { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 20px; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+  .top nav a { color: var(--ink-soft); text-decoration: none; margin-left: 18px; }
+  @media (max-width: 640px) { header.top { padding: 12px 16px; } .top nav a { margin-left: 12px; } }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 640px) { .wrap { padding: 0 18px; } }
+
+  /* Hero: title and body on the left, voucher on the right. On a phone the
+     voucher moves up under the title, so the agent's name is on the first screen. */
+  .hero { display: grid; grid-template-columns: 1.25fr 1fr; grid-template-rows: auto 1fr;
+    grid-template-areas: "title voucher" "body voucher"; gap: 0 48px; padding: 48px 0 56px; align-items: start; }
+  .h-title { grid-area: title; }
+  .h-body { grid-area: body; }
+  .h-voucher { grid-area: voucher; margin-top: 12px; }
+  @media (max-width: 800px) {
+    .hero { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: "title" "voucher" "body"; padding: 24px 0 40px; }
+    .h-voucher { margin: 0 0 24px; }
+  }
+  h1 { font-weight: 400; font-size: clamp(30px, 5vw, 56px); line-height: 1.12; letter-spacing: -.01em; margin: 0 0 22px; }
+  .tagline { font-size: 20px; color: var(--ink-soft); margin: 0 0 26px; max-width: 34em; }
+  @media (max-width: 640px) { .tagline { font-size: 18px; } }
+  .actions { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--sans); }
+  .btn { display: inline-block; padding: 12px 20px; border: 1.5px solid var(--ink); color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 600; background: var(--paper); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:hover { background: var(--seal); border-color: var(--seal); }
+
+  /* The voucher */
+  .voucher { position: relative; background: var(--card); border: 1px solid var(--edge); box-shadow: 0 1px 0 var(--edge), 0 12px 30px -18px rgba(31,42,51,.35); padding: 22px 22px 18px; font-family: var(--mono); font-size: 14px; }
+  @media (max-width: 640px) { .voucher { padding: 16px 16px 14px; font-size: 13px; } }
+  .voucher p { margin: 0; }
+  .v-head { padding-right: 124px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .v-title { font-family: var(--serif); font-size: 19px; margin: 4px 0 12px !important; }
+  .voucher table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .voucher th { text-align: left; font-weight: 400; color: var(--ink-soft); font-size: 12px; border-bottom: 1px solid var(--ink); padding: 4px 0; }
+  .voucher td { padding: 5px 0; border-bottom: 1px dotted var(--edge); }
+  .voucher .num { text-align: right; white-space: nowrap; padding-left: 12px; }
+  .voucher tr.total td { border-bottom: 3px double var(--ink); font-weight: 700; }
+  .stamp { position: absolute; right: 16px; top: 14px; transform: rotate(-8deg); color: var(--seal); border: 2px solid var(--seal); border-radius: 4px; padding: 3px 8px; font-family: var(--sans); font-weight: 800; font-size: 12px; letter-spacing: .14em; opacity: .85; }
+  .cap { font-family: var(--sans); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+
+  /* Agent names stacked in one grid cell: the slot is as wide as the longest
+     name, so swapping never reflows the line. */
+  .names { display: inline-grid; white-space: nowrap; }
+  .names > span { grid-area: 1 / 1; opacity: 0; transition: opacity 200ms ease-out; }
+  .names > span.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .names > span { transition: none; } }
+
+  /* Below the hero: the start of § 1, for context. */
+  section.philo { display: grid; grid-template-columns: 1fr 1.4fr; gap: 48px; padding: 56px 0 120px; border-top: 1px solid var(--ink); }
+  @media (max-width: 800px) { section.philo { grid-template-columns: 1fr; gap: 12px; padding: 40px 0 120px; } }
+  .no { font-family: var(--mono); font-size: 13px; color: var(--margin); letter-spacing: .1em; }
+  section.philo h2 { font-weight: 400; font-size: clamp(26px, 3.4vw, 36px); margin: 0; }
+  section.philo blockquote { margin: 0 0 1em; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.35; font-style: italic; border-left: 3px solid var(--margin); padding-left: 20px; }
+  section.philo p { margin: 0; color: #333e47; }
+
+  /* ---- Variant 1: Allekirjoitus (scale) ---- */
+  .sig { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 6px 28px; margin-top: 20px; align-items: end; }
+  .sig .cap { align-self: start; }
+  .sig .line { border-bottom: 1.5px solid var(--ink); padding-bottom: 2px; line-height: 1.1; }
+  .sig .agent { font-family: var(--mono); font-size: clamp(24px, 2.3vw, 30px); letter-spacing: -.02em; color: var(--ink); }
+  .sig .you { font-family: var(--serif); font-style: italic; font-size: clamp(26px, 2.5vw, 32px); }
+  @media (max-width: 640px) { .sig { margin-top: 16px; gap: 0 18px; } }
+
+  /* ---- Variant 2: Lipuke (placement) ---- */
+  .tab { display: inline-flex; align-items: baseline; gap: 12px; margin-left: 22px; padding: 8px 14px 7px; background: var(--ink); color: var(--paper); position: relative; z-index: 1; }
+  .tab .cap { color: rgba(245,241,230,.7); }
+  .tab .names { font-family: var(--mono); font-size: 20px; letter-spacing: -.01em; line-height: 1.2; }
+  .lipuke .voucher { border-top: 3px solid var(--ink); }
+  .approved { display: flex; gap: 12px; align-items: baseline; margin-top: 14px; padding-top: 2px; border-bottom: 1px dotted var(--ink); }
+  .approved .who { font-family: var(--serif); font-style: italic; font-size: 17px; }
+  @media (max-width: 640px) { .tab { margin-left: 16px; } .tab .names { font-size: 18px; } }
+
+  /* ---- Variant 3: Vuorot (motion) ---- */
+  .turns { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin-top: 16px; align-items: end; }
+  .turns dt { padding-bottom: 4px; }
+  .turns dd { margin: 0; border-bottom: 1px dotted var(--ink); min-height: 1.5em; white-space: nowrap; line-height: 1.25; }
+  .turns .agent { font-family: var(--mono); font-size: 21px; letter-spacing: -.01em; display: inline-block; min-width: 11ch; }
+  .turns .agent.typing::after { content: ""; display: inline-block; width: 2px; height: .9em; margin-left: 2px; vertical-align: -.08em; background: var(--ink); }
+  .turns .you { font-family: var(--serif); font-style: italic; font-size: 19px; }
+  .vuorot .approve, .vuorot .stamp { transition: opacity 220ms ease-out, transform 220ms var(--ease-out); }
+  .vuorot .approve.off { opacity: 0; transform: translateY(4px); }
+  .vuorot .stamp { transform-origin: 50% 50%; }
+  .vuorot .stamp.off { opacity: 0; transform: rotate(-8deg) scale(1.25); }
+  @media (prefers-reduced-motion: reduce) { .vuorot .approve, .vuorot .stamp { transition: none; } }
+
+  /* ---- Picker (PICKER.md, verbatim) ---- */
+  .proto-picker {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(10, 10, 10, 0.82);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 8px 24px rgba(0, 0, 0, 0.24),
+      0 2px 6px rgba(0, 0, 0, 0.12);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .proto-picker-highlight {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    height: 28px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    will-change: transform;
+  }
+
+  /* The slide is enabled only after first paint (data-ready), so load doesn't animate. */
+  .proto-picker[data-ready] .proto-picker-highlight {
+    transition:
+      transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+      width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+  }
+
+  .proto-picker-item {
+    position: relative; /* sits above the highlight */
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.55);
+    font: inherit;
+    cursor: pointer;
+    transition: color 150ms ease-out;
+  }
+
+  .proto-picker-item:hover {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .proto-picker-item:active {
+    transform: scale(0.97);
+  }
+
+  .proto-picker-item:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 2px;
+  }
+
+  .proto-picker-item[data-active] {
+    color: #fff;
+  }
+
+  .proto-picker-divider {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .proto-picker-replay {
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  .proto-picker[data-position="top"] {
+    bottom: auto;
+    top: 24px;
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="#1f2a33" stroke-width="1.5"/><path d="M6 9h14M6 13h14M6 17h9" stroke="#1f2a33" stroke-width="1.5"/><path d="M9 1.5v23" stroke="#b4493c" stroke-width="1.5"/></svg> aggountant</a>
+  <nav><a href="https://aggountant.dev/guide/">Opas</a><a href="https://aggountant.dev/en/guide/">English</a><a href="https://github.com/aggountant/aggountant">GitHub</a></nav>
+</header>
+
+<main class="wrap">
+  <div id="stage"></div>
+  <section class="philo" aria-labelledby="miksi">
+    <div><div class="no">§ 1</div><h2 id="miksi">Miksi</h2></div>
+    <div>
+      <blockquote>Agenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta.</blockquote>
+      <p>Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa. Kirjanpito on tavallisia tiedostoja omalla koneellasi, ja aggountant on avointa lähdekoodia.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="proto-picker" aria-label="Prototype variants">
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+  <button class="proto-picker-item" data-active aria-current="true">Allekirjoitus</button>
+  <button class="proto-picker-item">Lipuke</button>
+  <button class="proto-picker-item">Vuorot</button>
+  <span class="proto-picker-divider" aria-hidden="true"></span>
+  <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+</nav>
+
+<script>
+  // ---- Variant markup ----
+  const AGENTS = ['Claude Code', 'Codex', 'OpenCode', 'Pi', 'Gemini CLI'];
+  const SR = '<span class="sr-only">agentti, esimerkiksi Claude Code, Codex, OpenCode, Pi tai Gemini CLI</span>';
+  const names = () => `<span class="names" aria-hidden="true">${AGENTS.map((a, i) => `<span${i ? '' : ' class="on"'}>${a}</span>`).join('')}</span>${SR}`;
+
+  const entries = `
+      <p class="v-head">Tosite 47 · Esimerkki Oy</p>
+      <p class="v-title">Ohjelmistolisenssi, maaliskuu</p>
+      <table>
+        <thead><tr><th>Tili</th><th class="num">Debet</th><th class="num">Kredit</th></tr></thead>
+        <tbody>
+          <tr><td>IT-kulut</td><td class="num">98,80</td><td class="num"></td></tr>
+          <tr><td>ALV-saaminen 25,5 %</td><td class="num">25,20</td><td class="num"></td></tr>
+          <tr><td>Pankkitili</td><td class="num"></td><td class="num">124,00</td></tr>
+          <tr class="total"><td>Yhteensä</td><td class="num">124,00</td><td class="num">124,00</td></tr>
+        </tbody>
+      </table>`;
+
+  const hero = (cls, behaviour, voucher) => `
+  <div class="hero ${cls}" data-behaviour="${behaviour}">
+    <h1 class="h-title">Hoida firmasi kirjanpito omalla agentillasi.</h1>
+    <div class="h-voucher">${voucher}</div>
+    <div class="h-body">
+      <p class="tagline">Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset. Puhtaasti avointa lähdekoodia (MIT).</p>
+      <div class="actions">
+        <a class="btn primary" href="https://aggountant.dev/guide/">Lue käyttäjän opas</a>
+        <a class="btn" href="https://aggountant.dev/start/early-users/">Lähde mukaan</a>
+      </div>
+    </div>
+  </div>`;
+
+  const variants = [
+    // Allekirjoitus: the prepared-by and approved-by lines become a signature
+    // block at signature size; the machine signs in typewriter, you in ink.
+    () => hero('allekirjoitus', 'cycle', `
+    <aside class="voucher" aria-label="Esimerkkitosite">
+      <span class="stamp">SINETÖITY</span>${entries}
+      <div class="sig">
+        <div class="line agent">${names()}</div><div class="line you">Sinä</div>
+        <span class="cap">Laatinut · agentti</span><span class="cap">Hyväksynyt · 2.4.2026</span>
+      </div>
+    </aside>`),
+
+    // Lipuke: the prepared-by name is a dark label clipped to the top of the
+    // voucher, the first thing the eye meets; approval closes the slip below.
+    () => hero('lipuke', 'cycle', `
+    <div class="tab"><span class="cap">Laatinut</span>${names()}</div>
+    <aside class="voucher" aria-label="Esimerkkitosite">
+      <span class="stamp">SINETÖITY</span>${entries}
+      <p class="approved"><span class="cap">Hyväksynyt</span><span class="who">Sinä</span><span class="cap" style="margin-left:auto">2.4.2026</span></p>
+    </aside>`),
+
+    // Vuorot: the division of work as a sequence. The agent's name is typed
+    // onto the voucher, then your approval appears, then the seal lands.
+    () => hero('vuorot', 'sequence', `
+    <aside class="voucher" aria-label="Esimerkkitosite">
+      <span class="stamp">SINETÖITY</span>${entries}
+      <dl class="turns">
+        <dt class="cap">Laatinut</dt><dd><span class="agent" aria-hidden="true">Claude Code</span>${SR}</dd>
+        <dt class="cap approve">Hyväksynyt</dt><dd class="approve"><span class="you">Sinä</span> <span class="cap">· 2.4.2026</span></dd>
+      </dl>
+    </aside>`),
+  ];
+
+  // ---- Variant behaviour: started whenever the stage re-mounts ----
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+  function cycle(root) {
+    if (reduced) return;
+    const spans = [...root.querySelectorAll('.names > span')];
+    let i = 0;
+    (function next() {
+      later(() => {
+        spans[i].classList.remove('on');
+        i = (i + 1) % spans.length;
+        spans[i].classList.add('on');
+        next();
+      }, 3200);
+    })();
+  }
+
+  function sequence(root) {
+    if (reduced) return; // the markup's final state: Claude Code, approved, sealed
+    const agent = root.querySelector('.agent');
+    const after = [...root.querySelectorAll('.approve'), root.querySelector('.stamp')];
+    let i = 0;
+    const hide = () => after.forEach((el) => el.classList.add('off'));
+    function type(name, n) {
+      agent.classList.add('typing');
+      agent.textContent = name.slice(0, n);
+      if (n < name.length) return later(() => type(name, n + 1), 55);
+      agent.classList.remove('typing');
+      later(() => after.slice(0, 2).forEach((el) => el.classList.remove('off')), 600);
+      later(() => after[2].classList.remove('off'), 1100);
+      later(erase, 1100 + 3600);
+    }
+    function erase() {
+      hide();
+      const step = () => {
+        agent.classList.add('typing');
+        agent.textContent = agent.textContent.slice(0, -1);
+        if (agent.textContent) return later(step, 28);
+        i = (i + 1) % AGENTS.length;
+        later(() => type(AGENTS[i], 1), 350);
+      };
+      later(step, 250);
+    }
+    hide();
+    agent.textContent = '';
+    later(() => type(AGENTS[0], 1), 400);
+  }
+
+  new MutationObserver(() => {
+    timers.forEach(clearTimeout);
+    timers = [];
+    const root = document.querySelector('#stage [data-behaviour]');
+    if (!root) return;
+    ({ cycle, sequence })[root.dataset.behaviour](root);
+  }).observe(document.getElementById('stage'), { childList: true });
+
+  // ---- Picker wiring (PICKER.md, verbatim) ----
+  // `variants` is an array of render functions, one per variant, in picker order.
+  const stage = document.getElementById('stage');
+  const picker = document.querySelector('.proto-picker');
+  const highlight = picker.querySelector('.proto-picker-highlight');
+  const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+  const replay = picker.querySelector('.proto-picker-replay');
+  let current = 0;
+
+  function moveHighlight() {
+    const el = items[current];
+    highlight.style.width = el.offsetWidth + 'px';
+    highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+  }
+
+  function mount(i) {
+    stage.innerHTML = '';
+    // Clear first, render next frame, so entrance animations re-run.
+    requestAnimationFrame(() => { stage.innerHTML = variants[i](); });
+  }
+
+  function setActive(i) {
+    if (i < 0 || i >= variants.length) return;
+    current = i;
+    items.forEach((el, j) => {
+      el.toggleAttribute('data-active', j === i);
+      if (j === i) el.setAttribute('aria-current', 'true');
+      else el.removeAttribute('aria-current');
+    });
+    moveHighlight();
+    const url = new URL(location);
+    url.searchParams.set('v', i + 1);
+    history.replaceState(null, '', url);
+    mount(i);
+  }
+
+  items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+  replay?.addEventListener('click', () => mount(current));
+  window.addEventListener('resize', moveHighlight);
+
+  document.addEventListener('keydown', (e) => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const num = parseInt(e.key, 10);
+    if (num >= 1 && num <= variants.length) setActive(num - 1);
+    else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+    else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+    else if (e.key === 'r' || e.key === 'R') mount(current);
+  });
+
+  setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+  // Enable the slide only after first paint, so load doesn't animate.
+  requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+</script>
+</body>
+</html>
