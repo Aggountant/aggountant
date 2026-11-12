@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-12
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: test-flakes
 lane_seq: 1
 collision: [crates/vero-vat-api-mock]
+closed: 2026-11-12
 ---
 
 # Flaky mTLS mock test: untrusted-CA handshake sometimes ends in Broken pipe
@@ -34,3 +35,9 @@ the server recorded no request stays.
 
 - [ ] 50 consecutive runs of the `mtls` test pass on stable and on the MSRV.
 - [ ] The test still fails if the mock accepts the untrusted client.
+
+## Resolution
+
+### 2026-11-12T07:24:46Z · @issuectl
+
+Fixed in the preceding commit: 2/300 failures before, 0/300 after; the no-certificate test had the same cause.
