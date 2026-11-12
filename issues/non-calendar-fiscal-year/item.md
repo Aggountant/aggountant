@@ -3,13 +3,15 @@ created: 2026-11-12
 updated: 2026-11-12
 type: feature
 reporter: jari
-status: in-progress
+status: done
 priority: high
 related: ['@contra-accounts-fiscal-periods']
 preparation: ready
 lane: year-end
 lane_seq: 0
 collision: [crates/ledger, crates/domain/src/statements.rs]
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # Support fiscal years that do not follow the calendar year
