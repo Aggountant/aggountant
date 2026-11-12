@@ -4,8 +4,10 @@ This directory is the user guide: how a person runs their own company's
 bookkeeping with aggountant and an AI agent. `fi/` is the Finnish original
 and `en/` its English counterpart; both describe the same tool with the same
 facts. `practice/` holds the synthetic material for the practice-month
-tutorial and is shared by both languages. The guide is read on GitHub as plain
-Markdown, not as a glasspad space.
+tutorial and is shared by both languages. The guide is read in two places from
+the same files: on GitHub as plain Markdown, and as the website
+https://aggountant.dev, which `site/` builds from these files in place (see
+"The site" below). It is not a glasspad space.
 
 The readers are, in order: the owner who keeps their own company's books
 (primary), a bookkeeper who keeps them on the owner's behalf or receives the
@@ -78,11 +80,43 @@ same commit. Finnish is written first.
 
 ## Format
 
-Plain Markdown that GitHub renders and mdBook could render later without
-rewriting: one H1 per page, only relative links to `.md` files, anchors that
-are the heading's own slug, and no GitHub-only syntax beyond `<details>`. The
-repository's contract is `docs_site: none`; a site is an `OSS-RELEASE.md`
-change, not a guide edit.
+Plain Markdown that renders the same on GitHub and on the site: no
+frontmatter, one H1 per page (the site uses it as the page title), only
+relative links to `.md` files, anchors that are the heading's own slug, and no
+GitHub-only syntax beyond `<details>`. Write links for GitHub; the site
+rewrites them when it builds.
+
+## The site
+
+`site/` is an Astro Starlight project that reads `docs/user/fi/` and
+`docs/user/en/` where they are; nothing is copied, so a guide edit needs no
+site change. `site/guide.mjs` holds everything that adapts the guide to the
+site:
+
+- page URLs: Finnish is the root locale and English is under `/en/`; the path
+  minus `.md` is the URL (`fi/tasks/close-month.md` is `/tasks/close-month/`,
+  `en/…` is `/en/tasks/close-month/`), and `README.md` is `/guide/`, because
+  `/` is the landing page;
+- the page title is the H1, which is dropped from the body so it is not shown
+  twice;
+- relative links are rewritten to site URLs at build time; a link outside
+  `fi/` and `en/` (the practice material, `CONTRIBUTING.md`) goes to the file
+  on GitHub;
+- the sidebar is generated from the Finnish front page: one group per `##`
+  section in its order, with the pages that section links to. The group names
+  in English come from the English front page's headings in the same position.
+  A page appears in the sidebar by being linked from the front page, which
+  every page already must be.
+
+The landing page at `/` and `/en/` is `site/src/components/Landing.astro`, a
+short front door in the README's voice that points into the guide; it is the
+only site text that is not in `docs/user/`, so keep it to what the README
+already says. Build locally with `npm ci && npm run build` in `site/` (Node.js
+22.22 or newer); `npm run preview` serves the result with search working.
+Versions are pinned in `site/package.json` and `site/package-lock.json`.
+`.github/workflows/pages.yml` publishes `site/dist` to GitHub Pages on every
+push to `main` that touches the guide or the site; `site/public/CNAME` sets
+the domain.
 
 ## Writing
 
@@ -130,6 +164,8 @@ together.
 `scripts/check-user-guide.sh` runs in `scripts/ci-local.sh` and hosted CI. It
 fails when a `fi/` page has no `en/` page at the same path or the other way
 round, when a pair's heading levels differ in number or order, when a relative
-link or its `#anchor` does not resolve, or when the practice month fails
-against the freshly built binary. It does not check wording, translated
+link or its `#anchor` does not resolve, when the site does not build or a link
+or `#anchor` does not resolve on the site (starlight-links-validator checks
+the built pages), or when the practice month fails against the freshly built
+binary. The site build needs `npm`. It does not check wording, translated
 heading text, or external URLs.

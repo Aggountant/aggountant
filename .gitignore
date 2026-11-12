@@ -6,3 +6,8 @@ target/
 **/*.rs.bk
 Cargo.lock.bak
 
+
+# User-guide site (site/): dependencies and build output
+site/node_modules/
+site/dist/
+site/.astro/

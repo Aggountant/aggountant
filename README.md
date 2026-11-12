@@ -8,7 +8,8 @@
 aggountant lets you keep a Finnish limited company's books by talking to an AI
 agent.
 
-**User guide:** [suomeksi](docs/user/fi/README.md) ·
+**User guide:** [aggountant.dev](https://aggountant.dev) ·
+[suomeksi](docs/user/fi/README.md) ·
 [in English](docs/user/en/README.md) ·
 [Join as an early user](docs/user/en/start/early-users.md)
 
@@ -138,7 +139,8 @@ The skills are written in Finnish, but you can talk to the agent in English.
 ## Documentation
 
 The user guide explains the monthly cycle, VAT and Vero.fi, travel allowances,
-year-end status and recovering from errors:
+year-end status and recovering from errors. Read it at
+<https://aggountant.dev> or here in the repository:
 
 - in Finnish: [`docs/user/fi/`](docs/user/fi/README.md)
 - in English: [`docs/user/en/`](docs/user/en/README.md)

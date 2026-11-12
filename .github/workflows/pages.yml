@@ -1,0 +1,56 @@
+name: Site
+
+# Publishes the user guide (docs/user/, built by site/) to GitHub Pages at
+# https://aggountant.dev. The CNAME file in site/public/ sets the custom
+# domain. Pull requests build the site in CI's user-guide job instead.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/user/**
+      - site/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build site
+    if: github.repository == 'aggountant/aggountant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -3,8 +3,12 @@
 #   1. every docs/user/fi/ page has an en/ page at the same path and vice
 #      versa, and each pair has the same heading levels in the same order;
 #   2. every relative link in docs/user/ resolves, including its #anchor;
-#   3. the practice month (docs/user/practice/run-practice-month.sh) imports
+#   3. the site (site/, published at https://aggountant.dev) builds from the
+#      guide, and every internal link and #anchor resolves on the site too;
+#   4. the practice month (docs/user/practice/run-practice-month.sh) imports
 #      its material and runs the tutorial's commands in a throwaway home.
+#
+# The site build needs Node.js and npm (see site/package.json for the version).
 #
 # Usage: check-user-guide.sh [path-to-aggountant]
 # Without a path, the aggountant binary is built with cargo first.
@@ -107,6 +111,19 @@ if errors:
     sys.exit(1)
 print(f"{len(pages['fi'])} page pairs and their links are in step")
 PY
+
+printf -- '-- site build --\n'
+if ! command -v npm >/dev/null 2>&1; then
+  printf 'error: npm is required to build the user-guide site in site/; install Node.js 22.22 or newer\n' >&2
+  exit 1
+fi
+# The build log is long; show it only when the build fails.
+if ! site_log="$(cd site && npm ci --no-audit --no-fund --loglevel=error 2>&1 && npm run --silent build 2>&1)"; then
+  printf '%s\n' "$site_log" >&2
+  printf 'check-user-guide: the site in site/ does not build\n' >&2
+  exit 1
+fi
+printf 'site build ok\n'
 
 printf -- '-- practice month --\n'
 if [[ $# -gt 0 ]]; then

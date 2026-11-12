@@ -1,0 +1,67 @@
+---
+// The site's front door in both languages: what aggountant is, why, and
+// where to go next. The guide itself is docs/user/; this page only points
+// into it.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+interface Props {
+  lang: 'fi' | 'en';
+}
+
+const prefix = Astro.props.lang === 'fi' ? '/' : '/en/';
+const text = {
+  fi: {
+    title: 'aggountant',
+    tagline: 'Pidä osakeyhtiösi kirjanpito keskustelemalla tekoälyagentin kanssa.',
+    guide: 'Lue käyttäjän opas',
+    early: 'Lähde mukaan',
+    body: [
+      'Tekoälyagenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta: agentti tekee sen, ja sinä hyväksyt. Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa.',
+      'Sinä ja agentti keräätte kuukauden tiliotteen ja kuitit. Agentti päättelee kirjaukset ja ALV:n, kysyy sinulta vain sen, mitä ei itse saa selville, ja näyttää tuloksen. Kun hyväksyt, aggountant tallentaa tositteet pysyvästi, sulkee kuukauden ja lähettää ALV-ilmoituksen Verohallinnolle. Mitään ei tallenneta eikä lähetetä ilman hyväksyntääsi.',
+      'aggountant on versiossa 0.1, ja sillä pidetään jo muutaman yrityksen oikeaa kirjanpitoa. Kaikki ei ole vielä valmista; opas kertoo, mikä on.',
+    ],
+    links: [
+      ['Mitä on valmista ja mitä ei', 'reference/status/'],
+      ['Onko aggountant sinulle?', 'start/is-it-for-you/'],
+      ['Guide in English', '/en/guide/'],
+    ],
+  },
+  en: {
+    title: 'aggountant',
+    tagline: "Keep a Finnish limited company's books by talking to an AI agent.",
+    guide: 'Read the user guide',
+    early: 'Join as an early user',
+    body: [
+      'In the age of AI agents, nobody should have to pay for a basic service like bookkeeping: the agent can do it, and you approve. The goal is that a small Finnish company runs its bookkeeping from start to finish without an accounting firm, every statutory filing included, in a few quarter-hours of work a month.',
+      "You and the agent gather the month's bank statement and receipts. The agent works out the entries and the VAT, asks you only what it cannot work out, and shows you the result. When you approve, aggountant records the vouchers permanently, closes the month and sends the VAT return to the Finnish Tax Administration. Nothing is recorded or sent without your approval.",
+      'aggountant is at version 0.1 and already keeps the real books of a few companies. Not everything is ready yet; the guide says what is.',
+    ],
+    links: [
+      ['What is ready and what is not', 'reference/status/'],
+      ['Is aggountant for you?', 'start/is-it-for-you/'],
+      ['Opas suomeksi', '/guide/'],
+    ],
+  },
+}[Astro.props.lang];
+const href = (target: string) => (target.startsWith('/') ? target : prefix + target);
+---
+
+<StarlightPage
+  frontmatter={{
+    title: text.title,
+    description: text.tagline,
+    template: 'splash',
+    hero: {
+      tagline: text.tagline,
+      actions: [
+        { text: text.guide, link: `${prefix}guide/`, icon: 'right-arrow' },
+        { text: text.early, link: `${prefix}start/early-users/`, variant: 'minimal' },
+      ],
+    },
+  }}
+>
+  {text.body.map((paragraph) => <p>{paragraph}</p>)}
+  <ul>
+    {text.links.map(([label, target]) => <li><a href={href(target)}>{label}</a></li>)}
+  </ul>
+</StarlightPage>
