@@ -1285,7 +1285,7 @@ impl Ledger {
                 }
             } else if !period.is_month() {
                 let (first, last) = period.month_bounds();
-                let overlaps = [first, last].into_iter().any(|month| {
+                let overlaps = (first..=last).any(|month| {
                     Date::from_ymd(period.year(), month.into(), 1)
                         .is_ok_and(|day| fiscal_year.contains(day))
                 });
@@ -1419,6 +1419,11 @@ impl Ledger {
                  year, never a future one"
             ));
             return Err(self.refuse_attribution(err, &request_hash, voucher_number, actor));
+        }
+        // The target is a fiscal-year label; it must name a year that exists, or the
+        // voucher would leave its own year's statements without entering any other.
+        if let Err(error) = self.fiscal_year(effective_year) {
+            return Err(self.refuse_attribution(error, &request_hash, voucher_number, actor));
         }
         let result = self.fiscal.attribute_adjustment(&AttributionRequest {
             voucher_number,

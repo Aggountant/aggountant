@@ -347,14 +347,97 @@ fn a_sealed_year_keeps_its_dates() {
 }
 
 #[test]
-fn active_quarters_inside_a_non_calendar_year_are_refused() {
+fn quarters_cannot_be_closed_inside_a_non_calendar_year() {
+    // Review (verifier) finding: closing and VAT-filing a quarter inside a
+    // non-calendar year would leave that year impossible to seal.
     let home = init_home();
     let ledger = Ledger::open(home.path()).unwrap();
     ledger
         .define_fiscal_year(d("2026-07-01"), d("2027-06-30"), "test")
         .unwrap();
-    close(&ledger, &PeriodId::parse("2026-Q3").unwrap());
-    let err = ledger.year_close_periods(2027).unwrap_err();
-    assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT");
-    assert!(err.to_string().contains("2026-Q3"), "{err}");
+    let before = ledger.rejection_count().unwrap();
+    for quarter in ["2026-Q3", "2027-Q1", "2027-Q4"] {
+        let err = ledger
+            .begin_close(&PeriodId::parse(quarter).unwrap(), "close-q", "test")
+            .unwrap_err();
+        assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT", "{quarter}");
+        assert!(err.to_string().contains("closed by month"), "{err}");
+    }
+    assert_eq!(ledger.rejection_count().unwrap(), before + 3);
+    // Months close normally, and a calendar company keeps its quarters.
+    close(&ledger, &PeriodId::parse("2026-07").unwrap());
+    let calendar_home = init_home();
+    let calendar = Ledger::open(calendar_home.path()).unwrap();
+    close(&calendar, &PeriodId::parse("2026-Q3").unwrap());
+}
+
+#[test]
+fn a_definition_may_not_remove_or_redate_an_attributed_year() {
+    // Review finding 1: an attribution names a fiscal year by label; a definition
+    // that removes that label (an 18-month year swallowing it) would turn the
+    // voucher into prior-year activity of the next year.
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_year(&ledger, 2026);
+    let adjustment = seal(&ledger, "2028-01-01", "7690", "1910", "100.00", "adj");
+    ledger
+        .attribute_adjustment(adjustment, 2027, "cy-2027", "test")
+        .unwrap();
+    let err = ledger
+        .define_fiscal_year(d("2027-01-01"), d("2028-06-30"), "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "FISCAL_YEAR_CONFLICT");
+    assert!(err.to_string().contains("attributed"), "{err}");
+    // Shortening 2027 to six months would also change what the attribution means.
+    let err = ledger
+        .define_fiscal_year(d("2027-01-01"), d("2027-06-30"), "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "FISCAL_YEAR_CONFLICT");
+}
+
+#[test]
+fn an_attribution_must_name_an_existing_fiscal_year() {
+    // Review finding 2.
+    let (_home, ledger) = july_company();
+    let adjustment = seal(&ledger, "2027-07-15", "7690", "1910", "30.00", "accrual");
+    let before = ledger.rejection_count().unwrap();
+    let err = ledger
+        .attribute_adjustment(adjustment, 2026, "cy-2026", "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "FISCAL_YEAR_UNDEFINED");
+    assert_eq!(ledger.rejection_count().unwrap(), before + 1);
+    assert!(ledger.adjustment_attribution(adjustment).unwrap().is_none());
+}
+
+#[test]
+fn a_definition_may_not_strand_active_quarter_coverage() {
+    // Review finding 3: a non-calendar fiscal year closes by month, and a calendar
+    // year cannot mix active months and quarters, so a definition that puts an
+    // active (here: VAT-filed) quarter's calendar year into a non-calendar fiscal
+    // year would leave the year impossible to close.
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal(&ledger, "2027-02-01", "1910", "3000", "100.00", "sale");
+    close(&ledger, &PeriodId::parse("2027-Q1").unwrap());
+    let err = ledger
+        .define_fiscal_year(d("2027-01-01"), d("2027-06-30"), "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "FISCAL_YEAR_CONFLICT");
+    assert!(err.to_string().contains("2027-Q1"), "{err}");
+
+    // A quarter in a calendar year the definition leaves alone is fine.
+    ledger
+        .define_fiscal_year(d("2028-01-01"), d("2028-06-30"), "test")
+        .unwrap();
+}
+
+#[test]
+fn a_definition_starting_mid_year_may_not_orphan_an_active_quarter() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    close(&ledger, &PeriodId::parse("2026-Q1").unwrap());
+    let err = ledger
+        .define_fiscal_year(d("2026-07-01"), d("2027-06-30"), "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "FISCAL_YEAR_CONFLICT");
 }

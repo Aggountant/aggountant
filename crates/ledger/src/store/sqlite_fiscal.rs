@@ -593,6 +593,37 @@ impl FiscalStore for SqliteFiscalStore {
                 req.period_id
             ))
         })?;
+        // A fiscal year that is not a calendar year closes by month, and a calendar
+        // year cannot mix active months and quarters (below), so a quarter may only
+        // become active in a calendar year that is wholly one calendar fiscal year.
+        // Otherwise a closed and VAT-filed quarter would leave its fiscal year
+        // impossible to seal.
+        if req.to != PeriodState::Open
+            && !requested.is_month()
+            && !quarters_allowed_in(&load_calendar(&tx)?, requested.year())?
+        {
+            let err = LedgerError::PeriodTransitionConflict(format!(
+                "period {} cannot transition {}→{}: calendar year {} is not one calendar fiscal \
+                 year, and a fiscal year that is not a calendar year is closed by month",
+                req.period_id,
+                req.from.as_str(),
+                req.to.as_str(),
+                requested.year()
+            ));
+            insert_rejection(
+                &tx,
+                &RejectionRecord {
+                    reason_code: err.error_code().to_string(),
+                    request_hash: String::new(),
+                    actor: req.actor.clone(),
+                    target: format!("fiscal:period:{}", req.period_id),
+                    note: err.to_string(),
+                },
+            )?;
+            tx.commit()?;
+            return Err(err);
+        }
+
         let existing = read_period_row_opt(&tx, &req.period_id)?;
         let cur = existing
             .clone()
@@ -1118,25 +1149,67 @@ impl FiscalStore for SqliteFiscalStore {
             )?);
         }
 
-        // A year with recorded state keeps its exact dates.
+        // A year with recorded state (a year row, or adjustments attributed to it by
+        // label) keeps its exact dates; otherwise a label could vanish or change range
+        // under an immutable record.
         let mut changed = None;
         {
-            let mut stmt = tx.prepare("SELECT year FROM fiscal_year ORDER BY year")?;
-            let years = stmt.query_map([], |r| r.get::<_, i32>(0))?;
-            for year in years {
-                let year = year?;
+            let mut stmt = tx.prepare(
+                "SELECT year, 'has a year-state row' FROM fiscal_year
+                 UNION
+                 SELECT DISTINCT effective_year, 'has attributed adjustments'
+                 FROM adjustment_attribution
+                 ORDER BY 1",
+            )?;
+            let years =
+                stmt.query_map([], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, String>(1)?)))?;
+            for row in years {
+                let (year, why) = row?;
                 if old.year(year).ok() != new.year(year).ok() {
-                    changed = Some(year);
+                    changed = Some((year, why));
                     break;
                 }
             }
         }
-        if let Some(year) = changed {
+        if let Some((year, why)) = changed {
             return Err(refuse(
                 tx,
                 format!(
-                    "fiscal year {}..{} would change the dates of fiscal year {year}, which \
-                     already has recorded state",
+                    "fiscal year {}..{} would change or remove fiscal year {year}, which {why}",
+                    req.year.start(),
+                    req.year.end()
+                ),
+            )?);
+        }
+
+        // A fiscal year that is not a calendar year closes by month, and one calendar
+        // year cannot mix active months and quarters. An active quarter therefore needs
+        // its whole calendar year to stay in calendar fiscal years.
+        let mut stranded = None;
+        {
+            let mut stmt = tx.prepare(
+                "SELECT period_id FROM period WHERE state <> 'Open' OR vat_filed = 1
+                 ORDER BY period_id",
+            )?;
+            let ids = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            for id in ids {
+                let id = id?;
+                let period = PeriodId::parse(&id).map_err(|error| {
+                    LedgerError::Store(format!("invalid period_id {id:?} in fiscal store: {error}"))
+                })?;
+                if !period.is_month() && !quarters_allowed_in(&new, period.year())? {
+                    stranded = Some(id);
+                    break;
+                }
+            }
+        }
+        if let Some(id) = stranded {
+            return Err(refuse(
+                tx,
+                format!(
+                    "fiscal year {}..{} would put active quarter {id} in a calendar year that is \
+                     not one calendar fiscal year; a fiscal year that is not a calendar year is \
+                     closed by month, and a calendar year cannot mix months and quarters",
                     req.year.start(),
                     req.year.end()
                 ),
@@ -1841,6 +1914,22 @@ fn fiscal_years_of_period(
         }
     }
     Ok(years)
+}
+
+/// Whether calendar year `year` may carry active quarter coverage: every one of its
+/// months lies in one calendar fiscal year. The define path and the period-transition
+/// path both ask this, so neither order of operations can strand a quarter.
+fn quarters_allowed_in(calendar: &FiscalCalendar, year: i32) -> Result<bool, LedgerError> {
+    for month in 1..=12 {
+        let day = Date::from_ymd(year, month, 1)?;
+        if !calendar
+            .year_of(day)
+            .is_ok_and(|fiscal_year| fiscal_year.is_calendar_year())
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 /// The fiscal calendar from the append-only definitions. A row that does not form a
