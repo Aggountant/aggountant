@@ -321,6 +321,14 @@ fn serve(
                             let _ = handle(&mut stream, &scenario, &state);
                             stream.conn.send_close_notify();
                             let _ = stream.conn.complete_io(&mut stream.sock);
+                            // A TLS 1.3 client sends its request before learning
+                            // that its certificate was refused. Closing with that
+                            // data unread makes the kernel reset the connection,
+                            // and the client sees a broken pipe instead of the
+                            // alert. Half-close and drain until the client hangs up.
+                            let _ = stream.sock.shutdown(std::net::Shutdown::Write);
+                            let mut sink = [0u8; 4096];
+                            while matches!(stream.sock.read(&mut sink), Ok(n) if n > 0) {}
                         }
                     } else {
                         let mut stream = stream;
