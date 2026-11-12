@@ -3,13 +3,15 @@ created: 2026-11-12
 updated: 2026-11-12
 type: feature
 reporter: jari
-status: in-progress
+status: done
 priority: normal
 related: ['@user-docs-design']
 preparation: ready
 lane: user-guide
 lane_seq: 4
 collision: [docs/user, .github/workflows]
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # Publish the user guide at aggountant.dev with Astro Starlight
