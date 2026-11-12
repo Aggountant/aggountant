@@ -35,7 +35,7 @@ aggountant on tehty pienelle yritykselle, jonka kirjanpitoa hoitaa yksi
 luotettu ihminen, tavallisesti omistaja itse, agentin avustamana. Se sopii
 sinulle, jos:
 
-- yrityksesi on pieni suomalainen osakeyhtiö, jonka tilikausi on kalenterivuosi
+- yrityksesi on pieni suomalainen osakeyhtiö
 - pankkisi antaa tiliotteen sähköisenä camt.053- tai camt.052-tiedostona.
   Holvin tiliote on koeteltu, muiden pankkien tiedostoja ei vielä ole
 - osaat käynnistää päätteessä toimivan agentin, kuten Claude Coden, mutta et

@@ -35,8 +35,7 @@ between versions. If you want to join early, we can also meet:
 aggountant is made for a small company whose books are kept by one trusted
 person, usually the owner, with the help of an agent. It suits you if:
 
-- your company is a small Finnish limited company whose fiscal year is the
-  calendar year
+- your company is a small Finnish limited company
 - your bank provides the statement as an electronic camt.053 or camt.052 file.
   Holvi's statement has been tried in practice; other banks' files have not yet
 - you can start an agent that runs in a terminal, such as Claude Code, but

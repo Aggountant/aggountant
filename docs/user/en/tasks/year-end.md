@@ -21,12 +21,12 @@ and hand it over.
    The agent shows each month's state and checks the chain. Every month must
    be `sealed` and `vat_filed true`.
 
-2. **Ask for December's report.**
+2. **Ask for the report for the fiscal year's last month.**
 
    > Make a monthly report for December in HTML.
 
-   The report has the balance sheet at the end of December and the income
-   statement since the start of the year.
+   The report has the balance sheet at the end of the fiscal year's last
+   month and the income statement since the start of the fiscal year.
 
 3. **Gather the material to hand over.** Ask the agent to put the monthly
    reports, the list of vouchers and the archived attachments into a folder

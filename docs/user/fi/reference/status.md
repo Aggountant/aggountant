@@ -107,8 +107,16 @@ kirjataan seuraavalle kaudelle. Jos sulku on jo hylätty, katso
 
 ### Tilikausi ja kaudet
 
-- **Tilikausi on aina kalenterivuosi.** Muuta tilikautta ei vielä tueta
-  (`contra-accounts-fiscal-periods`).
+- **Kalenterivuodesta poikkeava tilikausi suljetaan kuukausittain.**
+  Neljännesvuosisulku on käytettävissä vain kalenterivuoden tilikaudelle.
+- **Kaksi tilikautta ei voi päättyä samana kalenterivuonna.** Tilikauden
+  muutos tehdään yhdellä enintään 18 kuukauden siirtymätilikaudella.
+- **Poistoja ei lasketa tilikaudelle, joka ei ole 12 kuukautta.**
+  Tilinpäätösajo kieltäytyy niistä; kirjaa sen tilikauden poistot tavallisena
+  tositteena.
+- **Tilikauden määrittelyä ei voi muuttaa.** Sen perään voi määritellä uuden,
+  mutta ei niin, että jo kirjattuja tositteita siirtyisi toiselle
+  tilikaudelle.
 - **Samana vuonna ei voi sulkea sekä kuukausia että neljännesvuosia.**
   Kuukausi on suositeltu ja koeteltu vaihtoehto.
 

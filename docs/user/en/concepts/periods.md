@@ -7,10 +7,19 @@ a close.
 
 ## The fiscal year and periods
 
-aggountant treats the fiscal year as the calendar year. The year is closed
-period by period, either monthly (`2026-03`) or quarterly (`2026-Q1`), but
-you cannot use both in the same year. Monthly is the recommended and tried
-option. A fiscal year other than the calendar year is not yet supported.
+The fiscal year is the calendar year unless you define another one. A
+company whose fiscal year runs, for example, from 1 July to 30 June defines
+it once when the books are set up, and later years follow it. A first fiscal
+year, or the year in which the fiscal year changes, can be shorter or longer
+than 12 months, at most 18 months (Accounting Act 1:4). A fiscal year is
+named by the calendar year it ends in: 1.7.2026–30.6.2027 is fiscal year
+2027. Two fiscal years cannot end in the same calendar year; if you change
+your fiscal year, use one longer transition year instead.
+
+The year is closed period by period. A calendar fiscal year is closed either
+monthly (`2026-03`) or quarterly (`2026-Q1`), but you cannot use both in the
+same year; monthly is the recommended and tried option. A fiscal year that is
+not the calendar year is always closed monthly.
 
 The VAT return is made for the same period the books are closed by: a month
 or a quarter. Direct VAT filing has been tried with monthly periods.
@@ -60,7 +69,8 @@ obligation list is therefore empty.
 
 ## Fiscal-year status
 
-A fiscal year's state is `open` or `sealed`. A sealed fiscal year also has a
+A fiscal year's state is `open` or `sealed`. `aggountant fiscal-year show`
+also shows the year's first and last day and its length in months. A sealed fiscal year also has a
 checksum of its financial statements. The fiscal year is sealed by the
 year-end run, which cannot yet be used for real financial statements, so
 normally the fiscal year is in the state `open`

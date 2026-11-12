@@ -15,8 +15,6 @@ myöhemmin.
   mieluiten kaupparekisteriotteesta.
 - Jos yritys siirtyy toisesta kirjanpito-ohjelmasta: vanhan järjestelmän
   saldoluettelo (tase) viimeiseltä päivältä, jonka vanha järjestelmä kattaa.
-- Yrityksesi tilikausi on kalenterivuosi. Muuta tilikautta ei vielä tueta
-  ([Mitä on valmista ja mitä ei](../reference/status.md#tilikausi-ja-kaudet)).
 
 ## Näin teet sen
 
@@ -39,6 +37,10 @@ myöhemmin.
    järjestelmän tilikarttaa. Se tallentaa vastaukset lähteineen yrityksen
    tietovarastoon. Anna lähteeksi kaupparekisteriote tai vanhan järjestelmän
    raportti, ei muistinvaraista vastausta: tieto ohjaa myöhemmin agentin työtä.
+   Jos tilikausi ei ole kalenterivuosi, agentti kirjaa sen myös kirjanpitoon
+   (`fiscal-year define`) ennen ensimmäistä tositetta. Se määrittelee
+   tilikauden, johon ensimmäinen tosite osuu; seuraavat tilikaudet jatkuvat
+   itsestään.
 
 4. **Tarkista ja hyväksy avaavat saldot.** Jos yritys tulee toisesta
    järjestelmästä, agentti kirjaa vanhan järjestelmän saldot yhtenä
@@ -47,6 +49,11 @@ myöhemmin.
    - Tositteen päivä on **vanhan järjestelmän viimeinen päivä**. Jos se
      päivätään uuden kirjanpidon ensimmäiselle päivälle, koko aiempi tulos
      näkyy ensimmäisen kuukauden tuloksena.
+
+     Jos yritys siirtyy aggountantiin sellaisen tilikauden alussa, joka ei
+     ala 1.1., avaavat saldot päivätään tilikauden ensimmäiselle päivälle,
+     koska kirjanpidossa ei ole sitä edeltävää tilikautta. Tilikauden alussa
+     saldoissa on vain tasetilejä, joten tämä ei siirrä tulosta.
    - Jokainen saldo vastaa saldoluetteloa, ja tosite täsmää.
 
    Uudella yrityksellä ei ole avaavia saldoja. Ensimmäinen tapahtuma on
@@ -81,6 +88,7 @@ aggountant config path
 aggountant config show
 aggountant chart list
 aggountant knowledge company add < tieto.json
+aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
 aggountant voucher draft < avaavat-saldot.json
 aggountant voucher validate < avaavat-saldot.json
 aggountant voucher seal < avaavat-saldot-sinetointi.json

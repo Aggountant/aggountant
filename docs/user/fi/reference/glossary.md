@@ -138,8 +138,10 @@ tai 7690 Atk-laite- ja ohjelmistokulut.
 **Tilikartta.** Yrityksen kirjanpidon tililuettelo. `init` luo oletustilikartan,
 jonka näet komennolla `aggountant chart list`.
 
-**Tilikausi.** Vuosi, jolta tilinpäätös tehdään. aggountantissa tilikausi on
-kalenterivuosi.
+**Tilikausi.** Vuosi, jolta tilinpäätös tehdään. Se on yleensä 12 kuukautta;
+ensimmäinen tilikausi tai tilikausi, jona sitä muutetaan, voi olla enintään 18
+kuukautta. aggountantissa tilikausi on kalenterivuosi, ellei muuta tilikautta
+määritellä, ja tilikausi nimetään sen kalenterivuoden mukaan, jona se päättyy.
 
 **Tilinpäätös.** Tilikauden päätteeksi laadittava tuloslaskelma, tase ja
 liitetiedot.

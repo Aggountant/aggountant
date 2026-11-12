@@ -31,7 +31,10 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `ALREADY_INITIALIZED` | setting up a home was run on an existing home | nothing; the home already exists and was not touched |
 | `APPROVAL_REQUIRED` | an entry was attempted without an approved preview | preview and approval first |
 | `CAPTURE_PREPARATION_CHANGED` | the receipt details, the proposal or the chart of accounts changed after approval | a new preview and a new approval ([Sealing and approval](../concepts/sealing-and-approval.md)) |
+| `FISCAL_YEAR_CONFLICT` | a fiscal-year definition would move recorded vouchers or a closed year to another fiscal year | read the message; a definition cannot change what has already been recorded |
+| `FISCAL_YEAR_UNDEFINED` | the date is before the company's first fiscal year, or no fiscal year ends in the given year | check the date or the year; `fiscal-year list` shows the definitions |
 | `GATE_NOT_OPEN` | the approval has already been answered or is not open | ask the agent to show the run's state |
+| `INVALID_FISCAL_YEAR` | the fiscal year is longer than 18 months, does not start on the first or end on the last day of a month, or does not follow the earlier fiscal years | correct the dates (Accounting Act 1:4) |
 | `INVALID_INPUT` | the input has the wrong shape or an unknown field | the agent fixes the input |
 | `MASTERDATA_NOT_INITIALIZED` | the home has no chart of accounts | wrong home, or the home has not been set up ([When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared)) |
 | `MISSING_ASSIGNMENT` | a transaction on the bank statement has no entry, so the whole statement was rejected | the agent completes the entries ([Import the bank statement](../tasks/import-bank-statement.md)) |
@@ -40,7 +43,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `PERIOD_CLOSING` | the period's close is in progress | approve the close or record it in the next period ([Close the month](../tasks/close-month.md)) |
 | `PERIOD_NOT_SEALED` | a VAT return was attempted for a period that has not been closed | close the period first |
 | `PERIOD_SEALED` | the period is closed | record it in the next open period |
-| `PERIOD_TRANSITION_CONFLICT` | the period's state does not allow the requested change, for example the period has already been filed, the close was rejected, or months and quarters are being mixed in the same year | read the message; a filed period is not filed again ([When something goes wrong](../troubleshooting.md)) |
+| `PERIOD_TRANSITION_CONFLICT` | the period's state does not allow the requested change, for example the period has already been filed, the close was rejected, or months and quarters are being mixed in the same year, or a quarter is closed in a fiscal year that is not the calendar year | read the message; a filed period is not filed again ([When something goes wrong](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | the run cannot be found | check that the command hit the right home |
 | `VAT_CURRENCY` | the VAT return figures cannot be formed; also when the period's VAT is negative because of corrections | [What is ready and what is not](status.md#vat-return) |
 | `VAT_FIGURES_MISMATCH` | the VAT return figures do not match the books | the agent uses the preview's figures |

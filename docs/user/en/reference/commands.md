@@ -21,7 +21,7 @@ the program tells you those itself, with `aggountant --help` and, for example,
 | `obligation` | open obligations and resolving them | [Periods](../concepts/periods.md#obligations) |
 | `run` | the month's close run: start, approval, resume, status and moving to a new version | [Close the month](../tasks/close-month.md) |
 | `period` | a period's state (`open`, `closing`, `sealed`) and its VAT filing status | [Periods](../concepts/periods.md) |
-| `fiscal-year` | a fiscal year's state (`open`, `sealed`) | [Periods](../concepts/periods.md#fiscal-year-status) |
+| `fiscal-year` | a fiscal year's dates and state (`open`, `sealed`); defining a fiscal year that is not the calendar year | [Periods](../concepts/periods.md#fiscal-year-status) |
 | `file-vat` | VAT return preview, direct submission, status reconciliation and recording a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [directly](../tasks/file-vat-direct.md) |
 | `vero-fi` | direct filing settings, the readiness check and the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | the employee register | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |

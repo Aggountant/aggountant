@@ -16,9 +16,6 @@ unfinished setup can be continued later.
   at hand, preferably from the trade register extract (kaupparekisteriote).
 - If the company is moving from another bookkeeping program: the old system's
   balance list (balance sheet) for the last day the old system covers.
-- Your company's fiscal year is the calendar year. Other fiscal years are not
-  yet supported
-  ([What is ready and what is not](../reference/status.md#fiscal-year-and-periods)).
 
 ## How to do it
 
@@ -42,7 +39,10 @@ unfinished setup can be continued later.
    and whether to continue the old system's chart of accounts. It saves your
    answers with their sources in the company knowledge store. Give a trade
    register extract or a report from the old system as the source, not an
-   answer from memory: this information guides the agent's work later.
+   answer from memory: this information guides the agent's work later. If the
+   fiscal year is not the calendar year, the agent also records it in the
+   books (`fiscal-year define`) before the first voucher. It defines the
+   fiscal year the first voucher falls in; later years follow on their own.
 
 4. **Check and approve the opening balances.** If the company comes from
    another system, the agent records the old system's balances as one
@@ -51,6 +51,12 @@ unfinished setup can be continued later.
    - The voucher is dated **the old system's last day**. If it is dated the
      first day of the new books, the whole earlier result shows up as the
      first month's result.
+
+     If the company moves to aggountant at the start of a fiscal year that
+     does not begin on 1 January, the opening balances are dated the first
+     day of that fiscal year, because the books have no fiscal year before
+     it. At the start of a fiscal year the balances contain only
+     balance-sheet accounts, so this does not move any result.
    - Every balance matches the balance list, and the voucher balances.
 
    A new company has no opening balances. Its first transaction is usually the
@@ -87,6 +93,7 @@ aggountant config path
 aggountant config show
 aggountant chart list
 aggountant knowledge company add < fact.json
+aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
 aggountant voucher draft < opening-balances.json
 aggountant voucher validate < opening-balances.json
 aggountant voucher seal < opening-balances-seal.json

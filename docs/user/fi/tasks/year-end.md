@@ -19,11 +19,12 @@ aineiston ja luovutat sen.
    Agentti näyttää jokaisen kuukauden tilan ja tarkistaa ketjun. Jokaisen
    kuukauden pitää olla `sealed` ja `vat_filed true`.
 
-2. **Pyydä joulukuun raportti.**
+2. **Pyydä tilikauden viimeisen kuukauden raportti.**
 
    > Tee joulukuusta kuukausiraportti HTML-muodossa.
 
-   Raportissa on joulukuun lopun tase ja tuloslaskelma vuoden alusta.
+   Raportissa on tilikauden viimeisen kuukauden lopun tase ja tuloslaskelma
+   tilikauden alusta.
 
 3. **Kokoa luovutettava aineisto.** Pyydä agenttia kokoamaan kuukausiraportit,
    tositeluettelo ja arkistoidut liitteet kansioon, jonka voit antaa

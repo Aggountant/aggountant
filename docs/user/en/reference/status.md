@@ -110,8 +110,16 @@ has already been rejected, see
 
 ### Fiscal year and periods
 
-- **The fiscal year is always the calendar year.** Other fiscal years are not
-  yet supported (`contra-accounts-fiscal-periods`).
+- **A fiscal year other than the calendar year is closed monthly.** Quarterly
+  closing is available only for calendar fiscal years.
+- **Two fiscal years cannot end in the same calendar year.** A change of
+  fiscal year is made with one transition year of at most 18 months.
+- **Depreciation is not calculated for a fiscal year that is not 12 months
+  long.** The year-end run refuses it; record that year's depreciation as an
+  ordinary voucher.
+- **A fiscal-year definition cannot be changed.** It can only be followed by a
+  new one, and not in a way that would move recorded vouchers to another
+  fiscal year.
 - **You cannot close both months and quarters in the same year.** Monthly is
   the recommended and tried option.
 

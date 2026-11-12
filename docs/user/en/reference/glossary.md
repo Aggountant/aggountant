@@ -99,7 +99,10 @@ fingerprint is not secret, and you can use it to tell, for example, the Tax
 Administration's support which certificate you mean.
 
 **Fiscal year (tilikausi).** The year for which financial statements are
-prepared. In aggountant the fiscal year is the calendar year.
+prepared. It is usually 12 months; a first fiscal year or the year in which
+it changes can be at most 18 months. In aggountant it is the calendar year
+unless another fiscal year is defined, and a fiscal year is named by the
+calendar year it ends in.
 
 **Ilmoitin.fi.** The Tax Administration's service for sending return files.
 aggountant does not prepare Ilmoitin.fi files.

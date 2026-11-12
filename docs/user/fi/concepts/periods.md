@@ -6,11 +6,20 @@ missä tiloissa ne voivat olla ja miksi avoin asia voi estää sulun.
 
 ## Tilikausi ja kaudet
 
-aggountant käsittelee tilikauden kalenterivuotena. Vuosi suljetaan
-kausittain, joko kuukausittain (`2026-03`) tai neljännesvuosittain
-(`2026-Q1`), mutta samana vuonna ei voi käyttää molempia. Kuukausi on
-suositeltu ja koeteltu vaihtoehto. Kalenterivuodesta poikkeavaa tilikautta ei
-vielä tueta.
+Tilikausi on kalenterivuosi, ellei sille määritellä muuta. Yritys, jonka
+tilikausi on esimerkiksi 1.7.–30.6., määrittelee sen kerran kirjanpidon
+käyttöönotossa, ja seuraavat tilikaudet jatkuvat sen mukaan. Ensimmäinen
+tilikausi tai tilikausi, jona tilikautta muutetaan, voi olla 12 kuukautta
+lyhyempi tai pidempi, kuitenkin enintään 18 kuukautta (kirjanpitolaki 1:4).
+Tilikausi nimetään sen kalenterivuoden mukaan, jona se päättyy:
+1.7.2026–30.6.2027 on tilikausi 2027. Kaksi tilikautta ei voi päättyä samana
+kalenterivuonna; jos muutat tilikautta, käytä yhtä pidempää siirtymätilikautta.
+
+Vuosi suljetaan kausittain. Kalenterivuoden tilikausi suljetaan joko
+kuukausittain (`2026-03`) tai neljännesvuosittain (`2026-Q1`), mutta samana
+vuonna ei voi käyttää molempia; kuukausi on suositeltu ja koeteltu
+vaihtoehto. Kalenterivuodesta poikkeava tilikausi suljetaan aina
+kuukausittain.
 
 ALV-ilmoitus tehdään samalle kaudelle, jolla kirjanpito suljetaan: kuukaudelle
 tai neljännekselle. Suoraa ALV-ilmoittamista on koeteltu kuukausikausilla.
@@ -59,7 +68,9 @@ käytössä velvoitelista on siksi tyhjä.
 
 ## Tilikauden tila
 
-Tilikauden tila on `open` tai `sealed`. Sinetöidyllä tilikaudella on myös
+Tilikauden tila on `open` tai `sealed`. `aggountant fiscal-year show`
+näyttää myös tilikauden ensimmäisen ja viimeisen päivän ja pituuden
+kuukausina. Sinetöidyllä tilikaudella on myös
 tilinpäätöslaskelmien tarkiste. Tilikauden sinetöi tilinpäätösajo, jota ei
 vielä voi käyttää oikeaan tilinpäätökseen, joten tavallisesti tilikausi on
 tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.md)).

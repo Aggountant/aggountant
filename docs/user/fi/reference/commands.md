@@ -21,7 +21,7 @@ ole: ne kertoo ohjelma itse, `aggountant --help` ja esimerkiksi
 | `obligation` | avoimet velvoitteet ja niiden ratkaiseminen | [Kaudet](../concepts/periods.md#velvoitteet) |
 | `run` | kuukauden sulkuajo: aloitus, hyväksyntä, jatkaminen, tila ja siirto uuteen versioon | [Sulje kuukausi](../tasks/close-month.md) |
 | `period` | kauden tila (`open`, `closing`, `sealed`) ja ALV-ilmoituksen tila | [Kaudet](../concepts/periods.md) |
-| `fiscal-year` | tilikauden tila (`open`, `sealed`) | [Kaudet](../concepts/periods.md#tilikauden-tila) |
+| `fiscal-year` | tilikauden päivät ja tila (`open`, `sealed`); kalenterivuodesta poikkeavan tilikauden määrittely | [Kaudet](../concepts/periods.md#tilikauden-tila) |
 | `file-vat` | ALV-ilmoituksen esikatselu, suora lähetys, tilan selvitys ja käsin tehdyn ilmoituksen kirjaus | [Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md), [suoraan](../tasks/file-vat-direct.md) |
 | `vero-fi` | suoran ilmoittamisen asetukset, valmiuden tarkistus ja hyväksyntätestit | [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md) |
 | `employee` | työntekijärekisteri | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
