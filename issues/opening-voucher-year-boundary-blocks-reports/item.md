@@ -2,13 +2,17 @@
 created: 2026-11-12
 updated: 2026-11-12
 type: bug
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: other
 provenance_detail: observed while implementing non-calendar-fiscal-year
 source_ref: taskfleet:01m77hp9gbv26hpbdcfxjgc38m/observation:year-boundary-opening-voucher
 originating_run: 01m77hp9gbv26hpbdcfxjgc38m
 originating_run_kind: spinoff
+lane: year-end
+lane_seq: 1
+collision: [crates/ledger]
+preparation: ready
 ---
 
 # Opening voucher dated the old system's last day blocks every report at a year-boundary start
