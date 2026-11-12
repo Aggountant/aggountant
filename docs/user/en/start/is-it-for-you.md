@@ -27,7 +27,8 @@ aggountant is at version 0.1 and already keeps the books of a few companies
 that have no accounting firm. Features are added as these companies meet new
 situations. That is why ordinary monthly work is in good shape, while rarer
 cases are filled in step by step. Commands and file formats may still change
-between versions.
+between versions. If you want to join early, we can also meet:
+[Join as an early user](early-users.md).
 
 ## Who it suits
 
@@ -97,5 +98,6 @@ company.
 ## See also
 
 - [Install aggountant and its skills](install.md)
+- [Join as an early user](early-users.md)
 - [For bookkeepers](../concepts/for-bookkeepers.md)
 - [What is ready and what is not](../reference/status.md)

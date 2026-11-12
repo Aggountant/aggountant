@@ -26,7 +26,8 @@ yrityksen kirjanpitoa, jolla ei ole tilitoimistoa. Ominaisuuksia lisätään
 sitä mukaa kuin nämä yritykset kohtaavat uusia tilanteita. Siksi tavallinen
 kuukausityö on hyvässä kunnossa, ja harvinaisemmat tapaukset täydentyvät
 vähitellen. Komennot ja tiedostomuodot voivat vielä muuttua versioiden
-välillä.
+välillä. Jos haluat mukaan ensimmäisten joukossa, voimme myös tavata:
+[Lähde mukaan ensimmäisten joukossa](early-users.md).
 
 ## Kenelle se sopii
 
@@ -96,5 +97,6 @@ käyttöön omassa yrityksessäsi.
 ## Katso myös
 
 - [Asenna aggountant ja skillit](install.md)
+- [Lähde mukaan ensimmäisten joukossa](early-users.md)
 - [Kirjanpitäjälle](../concepts/for-bookkeepers.md)
 - [Mitä on valmista ja mitä ei](../reference/status.md)

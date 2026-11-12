@@ -8,10 +8,16 @@
 aggountant lets you keep a Finnish limited company's books by talking to an AI
 agent.
 
-The goal is that you can run a small Finnish company's bookkeeping from start
-to finish without hiring an accounting firm: every statutory obligation is
-handled, and the whole year's bookkeeping takes a few quarter-hours of
-prompting a month. We are not there yet; [Status](#status) says how far we are.
+**User guide:** [suomeksi](docs/user/fi/README.md) ·
+[in English](docs/user/en/README.md) ·
+[Join as an early user](docs/user/en/start/early-users.md)
+
+In the age of AI agents, nobody should have to pay for a basic service like
+bookkeeping: the agent can do it, and you approve. The goal is that you can
+run a small Finnish company's bookkeeping from start to finish without hiring
+an accounting firm: every statutory obligation is handled, and the whole
+year's bookkeeping takes a few quarter-hours of prompting a month. We are not
+there yet; [Status](#status) says how far we are.
 
 You and the agent gather the month's bank statement and receipts. The agent
 works out the entries and the VAT, asks you only what it cannot work out, and
@@ -76,11 +82,12 @@ hunt (`hunt-receipts`; your agent can still look for receipts with its own
 tools), and the year-end financial statements (tilinpäätös). The commands exist, but do
 not use them for real books; the user guide explains what to do instead.
 
-**We are looking for early users.** If you run a small Finnish company and
-want to keep your own books this way, tell us about your company and what you
-need in [GitHub Discussions](https://github.com/aggountant/aggountant/discussions)
-or by opening an issue. We answer quickly and build what early users actually
-need next.
+**Join us.** We are looking for early users and contributors. If you run a
+small Finnish company and want to keep your books this way, we can meet and go
+through your situation together, and we build what early users need next.
+aggountant is open source, and we hope others join in developing it in the
+open-source spirit. See [Join as an early user](docs/user/en/start/early-users.md)
+([suomeksi](docs/user/fi/start/early-users.md)).
 
 aggountant is for one person keeping one company's books on their own
 computer. It is not a hosted or multi-user service, and it does not file on
