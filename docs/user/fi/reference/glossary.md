@@ -1,4 +1,4 @@
-# 9. Sanasto
+# Sanasto
 
 Tämä sanasto selittää kirjanpidon ja aggountantin sanat, joihin törmäät
 käytössä. Termit ovat aakkosjärjestyksessä. Suluissa on englanninkielinen nimi
@@ -10,8 +10,8 @@ eikä lähetä mitään ilman hyväksyntääsi.
 
 **Ajo (run).** Monivaiheinen tehtävä, joka tallentaa etenemisensä ja jota voi
 jatkaa keskeytyksen jälkeen, esimerkiksi kauden sulku tai ALV-ilmoitus. Ajolla
-on tunniste, kuten `cp-…` (sulku), `fv-…` (ALV-ilmoitus) tai `wr-…`
-(Tulorekisteri-ilmoitus).
+on tunniste, kuten `cp-…` (sulku), `fv-…` (ALV-ilmoitus), `wr-…`
+(Tulorekisteri-ilmoitus) tai `cy-…` (tilinpäätös).
 
 **ALV-ilmoitus.** Kauden arvonlisäverotiedot Verohallinnolle numeroiduilla
 kentillä. aggountantissa ilmoitus tehdään suljetun kauden luvuista joko suoraan
@@ -43,8 +43,12 @@ lähetyksen aikana yhteys katkesi tai palvelu vastasi virheellä, eikä tiedetä
 menikö ilmoitus perille. Ilmoitusta ei lähetetä uudelleen, vaan tila kysytään
 viranomaiselta.
 
+**Erikoiskirjaus.** Tosite, jonka agentti kokoaa vienti kerrallaan, koska tiliotteen tuonti tai kuittireitti ei sovi siihen, esimerkiksi myyntilasku, palkkatosite, avaavat saldot tai korjaus.
+
 **Esikatselu.** Komennon ajo niin, että se näyttää lopputuloksen mutta ei
 tallenna mitään. Hyväksyt esikatselun ennen varsinaista tallennusta.
+
+**Harjoituskoti.** Erillinen yrityskoti, jossa harjoitellaan oppaan harjoitusaineistolla. Se ei liity oikeaan kirjanpitoon, ja sen voi poistaa.
 
 **Hyväksyntä.** Nimenomainen päätöksesi ennen pysyvää tai oikeusvaikutteista
 tekoa. Hyväksyntä on sidottu siihen, mitä sinulle näytettiin. Jos sisältö
@@ -59,6 +63,8 @@ aggountant ei laadi Ilmoitin.fi-tiedostoja.
 
 **Jaksotus.** Tulon tai menon kirjaaminen sille kaudelle, jolle se kuuluu,
 vaikka raha liikkuisi toisella kaudella.
+
+**Kattavuus (completeness).** Kuukausiraportin merkintä siitä, onko kaikki aineisto kirjattu. Se on aina "varmistamaton", koska ohjelma ei voi tietää sitä. Sen arvioit sinä ja agentti lähteitä vasten.
 
 **Kauden sulku.** Kauden kirjanpidon lukitseminen. Sulun jälkeen kaudelle ei voi
 kirjata, ja ALV-ilmoitus tehdään sen luvuista.
@@ -157,6 +163,8 @@ korvaukset.
 **Tuotantolupa.** Verohallinnon lupa käyttää rajapintaa oikeisiin
 ilmoituksiin hyväksyntätestien jälkeen.
 
+**Vahvistamaton tapahtuma.** Tiliotteen rivi, jota pankki ei ole vielä kirjannut, esimerkiksi korttivaraus. aggountant ei tuo sitä, vaan se kirjataan siltä tiliotteelta, jolla se on toteutunut.
+
 **Vakuutus.** Vahvistuksesi asiasta, jota ohjelma ei voi itse tarkistaa,
 esimerkiksi että ohjelmisto on rekisteröity tai tuotantolupa myönnetty. Ohjelma
 luottaa vakuutukseesi.
@@ -176,10 +184,15 @@ ALV-ilmoituksen suoraan.
 
 **Vienti.** Tositteen yksi rivi: tili, summa ja puoli (debet tai kredit).
 
+**Y-tunnus.** Yrityksen tunnus kaupparekisterissä ja verotuksessa.
+
 **Yrityksen tietovarasto.** Kodin `knowledge/company/`-hakemisto, johon agentti
 tallentaa yrityksen faktat ja käytännöt lähteineen ja historioineen.
 
 **Yrityskoti.** Hakemisto, jossa on yhden yrityksen koko kirjanpito: tilikartta,
 tositteet, liitteet, kausien tila ja asetukset.
 
-**Y-tunnus.** Yrityksen tunnus kaupparekisterissä ja verotuksessa.
+## Katso myös
+
+- [Komennot lyhyesti](commands.md)
+- [Virhekoodit](error-codes.md)

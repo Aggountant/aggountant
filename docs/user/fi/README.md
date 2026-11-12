@@ -1,40 +1,70 @@
 # aggountant — käyttäjän opas
 
-Tämä opas kertoo, miten pidät yrityksesi kirjanpitoa aggountantilla ja
-tekoälyagentilla: mitä teet itse, mitä agentti tekee puolestasi ja mitä sinä
-hyväksyt ennen kuin mikään tallentuu pysyvästi tai lähtee viranomaiselle.
+Pidät yrityksesi kirjanpitoa tekoälyagentin kanssa. Agentti valmistelee
+tositteet tiliotteista ja kuiteista, sinä hyväksyt, ja aggountant tallentaa
+kirjanpidon pysyvästi ja tekee ilmoitukset. Tämä opas kertoo, mitä sinä teet,
+mitä agentti tekee ja mitä hyväksyt ennen kuin mikään tallentuu tai lähtee
+viranomaiselle.
 
-Opas on kirjoitettu yrityksen omistajalle tai kirjanpitäjälle, ei ohjelmoijalle.
-Komentoja on mukana, koska agentti ajaa niitä ja sinun on hyvä tunnistaa, mitä
-se tekee. Kaikki esimerkit koskevat kuvitteellista Esimerkki Oy:tä, ja luvut on
-keksitty. Oppaan englanninkielinen versio on hakemistossa
-[`../en/`](../en/README.md).
+aggountant on versiossa 0.1, ja sillä pidetään jo muutaman yrityksen oikeaa
+kirjanpitoa. Kaikki ei ole vielä valmista:
+[Mitä on valmista ja mitä ei](reference/status.md).
 
-## Sisällys
+Oppaan pyynnöt agentille ovat esimerkkejä, eivät taikasanoja. Voit sanoa saman
+omin sanoin. Esimerkit koskevat kuvitteellista Esimerkki Oy:tä, ja luvut on
+keksitty. Englanninkielinen opas on hakemistossa [`../en/`](../en/README.md).
 
-1. [Mikä aggountant on ja kenelle](01-mika-aggountant-on.md)
-2. [Asennus ja yrityskodin perustaminen](02-asennus-ja-yrityskoti.md)
-3. [Agentti ja skillit](03-agentti-ja-skillit.md)
-4. [Kuukausikierto: pankki, kuitit ja kauden sulku](04-kuukausikierto.md)
-5. [ALV ja Vero.fi](05-alv-ja-vero-fi.md)
-6. [Palkat ja Tulorekisteri](06-palkat-ja-tulorekisteri.md)
-7. [Tilinpäätös, raportit ja tilikauden tila](07-tilinpaatos-ja-raportit.md)
-8. [Virhetilanteet ja palautuminen](08-virhetilanteet.md)
-9. [Sanasto](09-sanasto.md)
+## Aloita tästä
 
-## Mitä on valmista ja mitä ei
+1. [Onko aggountant sinulle?](start/is-it-for-you.md)
+2. [Asenna aggountant ja skillit](start/install.md)
+3. [Harjoittele ensimmäinen kuukausi](start/practice-month.md)
+4. [Ota yrityksesi kirjanpito käyttöön](start/set-up-company.md)
 
-aggountant on varhaisessa vaiheessa (versio 0.1). Näillä osilla pidetään jo
-oikeaa kirjanpitoa:
+## Joka kuukausi
 
-- tositteiden tallentaminen ja liitteiden arkistointi
-- pankkitiliotteen tuonti (camt.053 ja camt.052)
-- tavallisten ostokuittien kirjaaminen ALV-käsittelyineen
-- kuukauden sulku
-- kuukausiraportit
-- ALV-ilmoitus suoraan Verohallinnolle tai käsin OmaVerossa
-- verovapaiden matkakorvausten ilmoitus Tulorekisteriin.
+- [Kuukauden kirjanpito alusta loppuun](tasks/monthly-routine.md): tästä
+  linkit kaikkiin vaiheisiin
+- [Tuo pankin tiliote](tasks/import-bank-statement.md)
+- [Kirjaa kuitit ja ostolaskut](tasks/record-receipts.md)
+- [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](tasks/record-other-entries.md)
+- [Katso, miten kuukausi meni](tasks/monthly-report.md)
+- [Sulje kuukausi](tasks/close-month.md)
+- [Tee ALV-ilmoitus OmaVerossa](tasks/file-vat-omavero.md) tai
+  [lähetä se suoraan Verohallinnolle](tasks/file-vat-direct.md)
 
-Palkka-ajo, kuittien automaattinen haku ja tilinpäätös ovat ohjelmassa, mutta
-niitä ei vielä voi käyttää oikeaan kirjanpitoon. Kyseiset luvut kertovat syyn ja
-sen, mitä teet niiden sijaan.
+## Kerran tai harvoin
+
+- [Ota suora ALV-ilmoittaminen käyttöön](tasks/set-up-vero-api.md), myös
+  varmenteen vaihto
+- [Ilmoita matkakorvaukset Tulorekisteriin](tasks/report-travel-allowances.md)
+- [Korjaa virheellinen tosite](tasks/correct-voucher.md)
+- [Varmuuskopioi ja palauta kirjanpito](tasks/back-up-and-restore.md)
+- [Päivitä aggountant](tasks/upgrade.md)
+
+## Vuoden lopussa
+
+- [Valmistele tilinpäätös](tasks/year-end.md)
+
+## Kun jokin menee vikaan
+
+- [Kun jokin menee vikaan](troubleshooting.md): oireen mukaan
+- [Virhekoodit](reference/error-codes.md): ruudulla näkyvän koodin mukaan
+
+## Näin aggountant toimii
+
+- [Sinä, agentti ja aggountant](concepts/division-of-work.md)
+- [Sinetöinti ja hyväksyntä](concepts/sealing-and-approval.md)
+- [Kaudet, sulku ja tilikausi](concepts/periods.md)
+- [Miten ALV-käsittely päätetään](concepts/vat-treatment.md)
+- [Viranomaisilmoitukset ja epävarma lopputulos](concepts/filings.md)
+- [Yrityskoti: mitä tallentuu minne](concepts/company-home.md)
+- [Kirjanpitäjälle](concepts/for-bookkeepers.md)
+
+## Hakuteos
+
+- [Mitä on valmista ja mitä ei](reference/status.md)
+- [Virhekoodit](reference/error-codes.md)
+- [Vero.fi-valmiuden esteet](reference/vero-fi-blockers.md)
+- [Komennot lyhyesti](reference/commands.md)
+- [Sanasto](reference/glossary.md)

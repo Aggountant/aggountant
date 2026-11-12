@@ -1,0 +1,16 @@
+HARJOITUSAINEISTO – kuvitteellinen lasku, ei oikea yritys
+
+Pilvipalvelu Oy
+
+LASKU 2026-0311
+Laskun päivä:   11.3.2026
+Eräpäivä:       25.3.2026
+Viite:          PP-2026-0311
+
+Asiakas:        Esimerkki Oy, Y-tunnus 1234567-1
+
+Palvelinvuokra maaliskuu 2026          98,80 €
+ALV 25,5 %                             25,20 €
+Yhteensä                              124,00 €
+
+Maksettu tililtä FI21 1234 5600 0007 85 14.3.2026.

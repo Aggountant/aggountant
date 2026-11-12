@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Harjoitusaineisto: kuvitteellisen Esimerkki Oy:n tiliote. Yritys, IBAN,
+     vastapuolet ja summat on keksitty. Käytetään oppaan sivulla
+     docs/user/fi/start/practice-month.md. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>ESIMERKKI-STMT-2026-03</MsgId>
+      <CreDtTm>2026-04-01T06:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>2026-03</Id>
+      <CreDtTm>2026-04-01T06:00:00</CreDtTm>
+      <Acct>
+        <Id>
+          <IBAN>FI2112345600000785</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr>
+          <Nm>Esimerkki Oy</Nm>
+        </Ownr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">0.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-03-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">2376.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-03-31</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <Amt Ccy="EUR">124.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-14</Dt></BookgDt>
+        <ValDt><Dt>2026-03-14</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0314-001</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>PP-2026-0311</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Pilvipalvelu Oy</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-0311 palvelinvuokra maaliskuu</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">2500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-03-20</Dt></BookgDt>
+        <ValDt><Dt>2026-03-20</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0320-002</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Maija Meikäläinen</Nm>
+              </Dbtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Osakepääoma</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">50.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>PDNG</Sts>
+        <BookgDt><Dt>2026-03-31</Dt></BookgDt>
+        <AcctSvcrRef>ESIM-2026-0331-PDNG</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf>
+              <Ustrd>Vahvistamaton korttivaraus</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>
