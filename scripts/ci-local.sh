@@ -98,4 +98,7 @@ for toolchain in stable "$MSRV"; do
   rustup run "$toolchain" cargo test --workspace --locked
 done
 
+printf '\n== user guide ==\n'
+rustup run stable scripts/check-user-guide.sh
+
 printf '\nAll local CI gates passed.\n'

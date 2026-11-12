@@ -124,3 +124,12 @@ the practice month against a binary in a throwaway home and checks the figures
 `start/practice-month.md` quotes; when a command, input shape or output the
 tutorial uses changes, run it and update the script, the material and the page
 together.
+
+## The gate
+
+`scripts/check-user-guide.sh` runs in `scripts/ci-local.sh` and hosted CI. It
+fails when a `fi/` page has no `en/` page at the same path or the other way
+round, when a pair's heading levels differ in number or order, when a relative
+link or its `#anchor` does not resolve, or when the practice month fails
+against the freshly built binary. It does not check wording, translated
+heading text, or external URLs.

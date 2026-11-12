@@ -73,3 +73,16 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories bans licenses sources
+
+  # The user guide: fi/en page pairs, relative links and anchors, and the
+  # practice month run against the freshly built binary in a throwaway home.
+  user-guide:
+    name: user guide
+    if: github.repository == 'aggountant/aggountant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: scripts/check-user-guide.sh
