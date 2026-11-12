@@ -2,13 +2,17 @@
 created: 2026-11-12
 updated: 2026-11-12
 type: bug
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: other
 provenance_detail: agent observation while verifying the user-docs design against the binary
 source_ref: taskfleet:01m779qnvqysm7q5z9wcs3sgma/observation:bank-row-already-recorded-receipt
 originating_run: 01m779qnvqysm7q5z9wcs3sgma
 originating_run_kind: spinoff
+lane: bank-import
+lane_seq: 0
+collision: [crates/import, skills/capture-receipt/SKILL.md]
+preparation: pending
 ---
 
 # Guide says a bank row for an already recorded receipt is not recorded again, but the import requires every row
