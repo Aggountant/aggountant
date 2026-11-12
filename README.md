@@ -60,9 +60,11 @@ page to open in a browser.
 
 ## Status
 
-Early: version 0.1. aggountant keeps the live books of one Finnish limited
-company, but it has had one user so far. Expect rough edges and commands and
-file formats that still change between versions.
+Version 0.1, and already in real use: aggountant keeps the books of a few
+Finnish companies that have no accounting firm. Features are added as these
+companies run into new situations, so the common monthly work is in good shape
+and the rarer cases are filled in as they come up. Commands and file formats
+can still change between versions.
 
 Ready for real bookkeeping: bank statement import, ordinary purchase receipts
 with their VAT, closing a month, monthly reports, the VAT return (filed directly
