@@ -44,3 +44,7 @@ or get a docs site is part of the proposal.
 ### 2026-11-12T07:32:24Z · @conductor
 
 Jari 12.11.2026: first drafts follow the seven recommendations. The decision list stays open; Jari returns to it after reading the drafts.
+
+### 2026-11-12T09:33:26Z · @conductor
+
+Jari 12.11.2026: decision 4 changes to a site now: Astro Starlight at aggountant.dev (@docs-site-starlight). The other decisions stay open.
