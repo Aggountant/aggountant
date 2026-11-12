@@ -2,5 +2,5 @@
   <title>aggountant</title>
   <rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="#1f2a33" stroke-width="1.5"/>
   <path d="M6 9h14M6 13h14M6 17h9" stroke="#1f2a33" stroke-width="1.5"/>
-  <path d="M9 1.5v23" stroke="#b4493c" stroke-width="1.5"/>
+  <path d="M9 2.25v21.5" stroke="#b4493c" stroke-width="1.5"/>
 </svg>
