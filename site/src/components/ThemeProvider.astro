@@ -1,0 +1,13 @@
+---
+// Starlight's theme provider with one change: without a stored choice the
+// site opens in the light (paper) theme rather than following the system.
+// The theme menu still offers dark, light and auto.
+import Default from '@astrojs/starlight/components/ThemeProvider.astro';
+---
+
+<script is:inline>
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme') === null) {
+    localStorage.setItem('starlight-theme', 'light');
+  }
+</script>
+<Default />

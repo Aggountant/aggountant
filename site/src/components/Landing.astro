@@ -1,67 +1,602 @@
 ---
-// The site's front door in both languages: what aggountant is, why, and
-// where to go next. The guide itself is docs/user/; this page only points
-// into it.
+// The site's front door in both languages: what aggountant is, why, a month
+// with the agent, where it stands, and where to go next. The guide itself is
+// docs/user/; this page only points into it. Esimerkki Oy and its figures
+// are made up.
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 
 interface Props {
   lang: 'fi' | 'en';
 }
 
+type Who = 'both' | 'agent' | 'you';
+
 const prefix = Astro.props.lang === 'fi' ? '/' : '/en/';
 const text = {
   fi: {
-    title: 'aggountant',
-    tagline: 'Pidä osakeyhtiösi kirjanpito keskustelemalla tekoälyagentin kanssa.',
+    description: 'Pidä osakeyhtiösi kirjanpito keskustelemalla tekoälyagentin kanssa.',
+    title: 'Pidä osakeyhtiösi kirjanpito <em>keskustelemalla</em> tekoälyagentin kanssa.',
+    tagline:
+      'Agentti valmistelee tositteet tiliotteesta ja kuiteista. Sinä katsot ja hyväksyt. aggountant tallentaa kirjanpidon pysyvästi ja tekee ilmoitukset.',
     guide: 'Lue käyttäjän opas',
     early: 'Lähde mukaan',
-    body: [
-      'Tekoälyagenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta: agentti tekee sen, ja sinä hyväksyt. Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa.',
-      'Sinä ja agentti keräätte kuukauden tiliotteen ja kuitit. Agentti päättelee kirjaukset ja ALV:n, kysyy sinulta vain sen, mitä ei itse saa selville, ja näyttää tuloksen. Kun hyväksyt, aggountant tallentaa tositteet pysyvästi, sulkee kuukauden ja lähettää ALV-ilmoituksen Verohallinnolle. Mitään ei tallenneta eikä lähetetä ilman hyväksyntääsi.',
-      'aggountant on versiossa 0.1, ja sillä pidetään jo muutaman yrityksen oikeaa kirjanpitoa. Kaikki ei ole vielä valmista; opas kertoo, mikä on.',
-    ],
-    links: [
-      ['Mitä on valmista ja mitä ei', 'reference/status/'],
-      ['Onko aggountant sinulle?', 'start/is-it-for-you/'],
-      ['Guide in English', '/en/guide/'],
-    ],
+    voucher: {
+      label: 'Esimerkkitosite',
+      stamp: 'SINETÖITY',
+      head: 'Tosite 47 · Esimerkki Oy',
+      title: 'Ohjelmistolisenssi, maaliskuu',
+      cols: ['Tili', 'Debet', 'Kredit'],
+      rows: [
+        ['IT-kulut', '98,80', ''],
+        ['ALV-saaminen 25,5 %', '25,20', ''],
+        ['Pankkitili', '', '124,00'],
+      ],
+      total: ['Yhteensä', '124,00', '124,00'],
+      note: 'Agentti ehdotti, sinä hyväksyit. Sinetöityä tositetta ei muuteta; virhe korjataan uudella tositteella.',
+    },
+    why: 'Miksi',
+    quote:
+      'Agenttien aikana kenenkään ei pitäisi joutua maksamaan kirjanpidon kaltaisesta perustoiminnosta. Agentti tekee sen, ja sinä hyväksyt.',
+    whyBody:
+      'Tavoite on, että pieni suomalainen yritys hoitaa kirjanpitonsa alusta loppuun ilman tilitoimistoa, kaikki lakisääteiset ilmoitukset mukaan lukien, muutamalla vartilla kuukaudessa. Kirjanpito on tavallisia tiedostoja omalla koneellasi, ja aggountant on avointa lähdekoodia.',
+    monthTitle: 'Yksi kuukausi: Esimerkki Oy, maaliskuu',
+    who: { both: 'Yhdessä', agent: 'Agentti', you: 'Sinä' } as Record<Who, string>,
+    steps: [
+      ['2.4. klo 9.05', 'both', 'Keräätte aineiston', '”Tehdään maaliskuu.” Agentti hakee tiliotteen ja kuitit sieltä, minne sillä on pääsy: sähköpostista, kansiosta tai puhelimesta. Loput annat itse.', '38 tapahtumaa', '21 kuittia'],
+      ['2.4. klo 9.12', 'agent', 'Agentti valmistelee', 'Etsii jokaiselle tapahtumalle kuitin, ehdottaa tilin ja ALV-käsittelyn ja kysyy vain sen, mitä ei saa selville: ”Oliko 64,50 euron ravintolalasku asiakastapaaminen?”', '38 ehdotusta', '2 kysymystä'],
+      ['2.4. klo 9.20', 'you', 'Sinä hyväksyt', 'Agentti näyttää jokaisen ehdotetun tositteen, ja sinä hyväksyt sen. Hyväksytty tosite sinetöidään: se numeroidaan, eikä sitä enää muuteta.', 'tositteet 40–77', 'yksi kerrallaan'],
+      ['2.4. klo 9.48', 'you', 'Kuukausi suljetaan', 'Kun pankkitilin saldo täsmää tiliotteeseen, hyväksyt sulun, eikä maaliskuulle voi enää kirjata.', '12 480,15 €', '= tiliote'],
+      ['2.4. klo 9.50', 'agent', 'ALV ilmoitetaan', 'ALV-ilmoitus lasketaan suljetusta kuukaudesta. Hyväksynnälläsi se lähtee suoraan Verohallinnolle, tai syötät luvut OmaVeroon itse. Veron maksat tavalliseen tapaan.', '1 342,60 €', 'maksettava ALV'],
+    ] as [string, Who, string, string, string, string][],
+    guarantee: 'Mitään ei tallenneta eikä lähetetä viranomaiselle ilman hyväksyntääsi.',
+    statusTitle: 'Missä ollaan',
+    status:
+      'Versio 0.1, ja jo oikeassa käytössä: aggountantilla pidetään muutaman tilitoimistottoman yrityksen kirjanpitoa. Ominaisuuksia lisätään sitä mukaa kuin nämä yritykset kohtaavat uusia tilanteita, joten tavallinen kuukausityö on hyvässä kunnossa ja harvinaisemmat tapaukset täydentyvät. Komennot ja tiedostomuodot voivat vielä muuttua.',
+    readyTitle: 'Valmis oikeaan kirjanpitoon',
+    ready: ['Pankkitiliotteen tuonti', 'Ostokuitit ALV-käsittelyineen', 'Kuukauden sulku ja kuukausiraportit', 'ALV-ilmoitus suoraan tai OmaVerossa', 'Matkakorvaukset Tulorekisteriin'],
+    notYetTitle: 'Ei vielä',
+    notYet: ['Palkat', 'Oma automaattinen kuittihaku', 'Tilinpäätös'],
+    statusLink: ['Mitä on valmista ja mitä ei', 'kertoo jokaisesta, mitä teet sen sijaan.'],
+    joinTitle: 'Lähde mukaan ensimmäisten joukossa',
+    join: 'Jos pyörität pientä suomalaista osakeyhtiötä ja haluat pitää kirjanpidon näin, voimme tavata ja käydä tilanteesi läpi. Kehitämme sitä, mitä varhaiset käyttäjät tarvitsevat seuraavaksi. aggountant on avointa lähdekoodia, ja kehittäjät ja kirjanpitäjät ovat myös tervetulleita.',
+    isItForYou: 'Onko aggountant sinulle?',
+    footer: [['Opas suomeksi', '/guide/'], ['Guide in English', '/en/guide/']],
+    footNote: 'Avointa lähdekoodia (MIT) · Esimerkki Oy ja luvut ovat keksittyjä',
   },
   en: {
-    title: 'aggountant',
-    tagline: "Keep a Finnish limited company's books by talking to an AI agent.",
+    description: "Keep a Finnish limited company's books by talking to an AI agent.",
+    title: "Keep your limited company's books by <em>talking</em> to an AI agent.",
+    tagline:
+      'The agent prepares the vouchers from the bank statement and receipts. You review and approve. aggountant records the books permanently and makes the filings.',
     guide: 'Read the user guide',
     early: 'Join as an early user',
-    body: [
-      'In the age of AI agents, nobody should have to pay for a basic service like bookkeeping: the agent can do it, and you approve. The goal is that a small Finnish company runs its bookkeeping from start to finish without an accounting firm, every statutory filing included, in a few quarter-hours of work a month.',
-      "You and the agent gather the month's bank statement and receipts. The agent works out the entries and the VAT, asks you only what it cannot work out, and shows you the result. When you approve, aggountant records the vouchers permanently, closes the month and sends the VAT return to the Finnish Tax Administration. Nothing is recorded or sent without your approval.",
-      'aggountant is at version 0.1 and already keeps the real books of a few companies. Not everything is ready yet; the guide says what is.',
-    ],
-    links: [
-      ['What is ready and what is not', 'reference/status/'],
-      ['Is aggountant for you?', 'start/is-it-for-you/'],
-      ['Opas suomeksi', '/guide/'],
-    ],
+    voucher: {
+      label: 'Voucher example',
+      stamp: 'SEALED',
+      head: 'Voucher 47 · Esimerkki Oy',
+      title: 'Software licence, March',
+      cols: ['Account', 'Debit', 'Credit'],
+      rows: [
+        ['IT expenses', '98.80', ''],
+        ['VAT receivable 25.5%', '25.20', ''],
+        ['Bank account', '', '124.00'],
+      ],
+      total: ['Total', '124.00', '124.00'],
+      note: 'The agent proposed it, you approved it. A sealed voucher is never edited; a mistake is corrected with a new voucher.',
+    },
+    why: 'Why',
+    quote:
+      'In the age of AI agents, nobody should have to pay for a basic service like bookkeeping. The agent can do it, and you approve.',
+    whyBody:
+      "The goal is that a small Finnish company runs its bookkeeping from start to finish without an accounting firm, every statutory filing included, in a few quarter-hours of work a month. The books are plain files on your own computer, and aggountant is open source.",
+    monthTitle: 'One month: Esimerkki Oy, March',
+    who: { both: 'Together', agent: 'Agent', you: 'You' } as Record<Who, string>,
+    steps: [
+      ['2 Apr 9:05', 'both', 'You gather the material', '“Let’s do March.” The agent collects the bank statement and receipts from wherever it has access: your email, a folder, your phone. Anything it cannot fetch, you hand it yourself.', '38 transactions', '21 receipts'],
+      ['2 Apr 9:12', 'agent', 'The agent prepares', 'It finds the receipt for each transaction, proposes the account and the VAT treatment, and asks only what it cannot work out: “Was the €64.50 restaurant bill a customer meeting?”', '38 proposals', '2 questions'],
+      ['2 Apr 9:20', 'you', 'You approve', 'The agent shows you each proposed voucher, and you approve it. An approved voucher is sealed: numbered and never edited again.', 'vouchers 40–77', 'one at a time'],
+      ['2 Apr 9:48', 'you', 'The month is closed', 'Once the bank balance matches the statement, you approve closing March, and nothing more can be booked into it.', '€12,480.15', '= statement'],
+      ['2 Apr 9:50', 'agent', 'VAT is filed', 'The VAT return is computed from the closed month. With your approval it goes straight to the Finnish Tax Administration, or you enter the figures in OmaVero yourself. You pay the tax as usual.', '€1,342.60', 'VAT payable'],
+    ] as [string, Who, string, string, string, string][],
+    guarantee: 'Nothing is recorded or sent to an authority without your approval.',
+    statusTitle: 'Where it stands',
+    status:
+      'Version 0.1, and already in real use: aggountant keeps the books of a few Finnish companies that have no accounting firm. Features are added as these companies run into new situations, so the common monthly work is in good shape and the rarer cases are filled in as they come up. Commands and file formats can still change.',
+    readyTitle: 'Ready for real bookkeeping',
+    ready: ['Bank statement import', 'Purchase receipts with their VAT', 'Closing a month and monthly reports', 'The VAT return, direct or in OmaVero', 'Travel allowances to the Incomes Register'],
+    notYetTitle: 'Not yet',
+    notYet: ['Wages', 'Built-in automated receipt hunt', 'Year-end financial statements'],
+    statusLink: ['What is ready and what is not', 'says what to do instead for each.'],
+    joinTitle: 'Join as an early user',
+    join: 'If you run a small Finnish limited company and want to keep your books this way, we can meet and go through your situation together. We build what early users need next. aggountant is open source, and developers and bookkeepers are welcome too.',
+    isItForYou: 'Is aggountant for you?',
+    footer: [['Guide in English', '/en/guide/'], ['Opas suomeksi', '/guide/']],
+    footNote: 'Open source (MIT) · Esimerkki Oy and its figures are made up',
   },
 }[Astro.props.lang];
 const href = (target: string) => (target.startsWith('/') ? target : prefix + target);
+const github = 'https://github.com/aggountant/aggountant';
+const v = text.voucher;
+const voucher = `
+<aside class="agg-voucher" aria-label="${v.label}">
+  <span class="agg-stamp">${v.stamp}</span>
+  <p class="agg-voucher-head">${v.head}</p>
+  <p class="agg-voucher-title">${v.title}</p>
+  <table>
+    <thead><tr><th>${v.cols[0]}</th><th class="num">${v.cols[1]}</th><th class="num">${v.cols[2]}</th></tr></thead>
+    <tbody>
+      ${v.rows.map(([a, d, c]) => `<tr><td>${a}</td><td class="num">${d}</td><td class="num">${c}</td></tr>`).join('')}
+      <tr class="total"><td>${v.total[0]}</td><td class="num">${v.total[1]}</td><td class="num">${v.total[2]}</td></tr>
+    </tbody>
+  </table>
+  <p class="agg-voucher-note">${v.note}</p>
+</aside>`;
 ---
 
 <StarlightPage
   frontmatter={{
-    title: text.title,
-    description: text.tagline,
+    title: 'aggountant',
+    description: text.description,
     template: 'splash',
     hero: {
+      title: text.title,
       tagline: text.tagline,
+      image: { html: voucher },
       actions: [
-        { text: text.guide, link: `${prefix}guide/`, icon: 'right-arrow' },
-        { text: text.early, link: `${prefix}start/early-users/`, variant: 'minimal' },
+        { text: text.guide, link: `${prefix}guide/`, variant: 'primary' },
+        { text: text.early, link: `${prefix}start/early-users/`, variant: 'secondary' },
       ],
     },
   }}
 >
-  {text.body.map((paragraph) => <p>{paragraph}</p>)}
-  <ul>
-    {text.links.map(([label, target]) => <li><a href={href(target)}>{label}</a></li>)}
-  </ul>
+  <div class="not-content agg-landing">
+    <section class="agg-philo" aria-labelledby="agg-why">
+      <div>
+        <div class="agg-no">§ 1</div>
+        <h2 id="agg-why">{text.why}</h2>
+      </div>
+      <div>
+        <blockquote>{text.quote}</blockquote>
+        <p>{text.whyBody}</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="agg-month">
+      <div class="agg-no">§ 2</div>
+      <h2 id="agg-month">{text.monthTitle}</h2>
+      <ol class="agg-journal">
+        {text.steps.map(([when, who, title, body, fig, sub]) => (
+          <li>
+            <span class="agg-date">{when}</span>
+            <span class={`agg-who agg-${who}`}>{text.who[who]}</span>
+            <div class="agg-what"><strong>{title}</strong><span>{body}</span></div>
+            <div class="agg-fig">{fig}<small>{sub}</small></div>
+          </li>
+        ))}
+      </ol>
+      <div class="agg-guarantee">
+        <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="none" stroke="currentColor" stroke-width="2"></circle><circle cx="17" cy="17" r="11" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"></circle><path d="M11 17.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        <span>{text.guarantee}</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="agg-status">
+      <div class="agg-no">§ 3</div>
+      <h2 id="agg-status">{text.statusTitle}</h2>
+      <p>{text.status}</p>
+      <div class="agg-status">
+        <div class="agg-ready">
+          <h3>{text.readyTitle}</h3>
+          <ul>{text.ready.map((item) => <li>{item}</li>)}</ul>
+        </div>
+        <div class="agg-notyet">
+          <h3>{text.notYetTitle}</h3>
+          <ul>{text.notYet.map((item) => <li>{item}</li>)}</ul>
+          <p class="agg-small"><a href={href('reference/status/')}>{text.statusLink[0]}</a> {text.statusLink[1]}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="agg-join" aria-labelledby="agg-join">
+      <div>
+        <div class="agg-no">§ 4</div>
+        <h2 id="agg-join">{text.joinTitle}</h2>
+        <p>{text.join}</p>
+        <p class="agg-small"><a href={href('start/is-it-for-you/')}>{text.isItForYou}</a></p>
+      </div>
+      <div class="agg-actions">
+        <a class="agg-btn agg-primary" href={href('start/early-users/')}>{text.early}</a>
+        <a class="agg-btn" href={github}>GitHub</a>
+      </div>
+    </section>
+
+    <footer class="agg-foot">
+      <div>
+        {text.footer.map(([label, target]) => <a href={target}>{label}</a>)}
+        <a href={github}>GitHub</a>
+      </div>
+      <div>{text.footNote}</div>
+    </footer>
+  </div>
 </StarlightPage>
+
+<style is:global>
+  /* Hero: the promise on the left, the sealed voucher on the right. */
+  [data-has-hero] .hero {
+    padding-block: 3rem 3.5rem;
+    align-items: start;
+  }
+  [data-has-hero] .hero h1 {
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5vw, 3.5rem);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    color: var(--sl-color-white);
+  }
+  [data-has-hero] .hero h1 em {
+    color: var(--agg-seal);
+  }
+  [data-has-hero] .hero .copy > * {
+    max-width: 34em;
+  }
+  [data-has-hero] .hero .tagline {
+    font-size: 1.25rem;
+    color: var(--agg-ink-soft);
+  }
+  [data-has-hero] .hero .actions {
+    gap: 0.875rem;
+  }
+  [data-has-hero] .hero > .hero-html {
+    width: 100%;
+    margin: 0;
+  }
+  @media (max-width: 49.99rem) {
+    [data-has-hero] .hero .stack,
+    [data-has-hero] .hero .copy {
+      text-align: start;
+      align-items: flex-start;
+    }
+    [data-has-hero] .hero .actions {
+      justify-content: flex-start;
+    }
+    [data-has-hero] .hero > .hero-html {
+      order: 2;
+    }
+  }
+  @media (min-width: 50rem) {
+    [data-has-hero] .hero {
+      grid-template-columns: 1.25fr 1fr;
+      gap: 3rem;
+    }
+    [data-has-hero] .hero > .hero-html {
+      width: 100%;
+      margin-top: 1rem;
+    }
+  }
+  /* The hero and body sit in one panel; no top hairline for the body. */
+  [data-has-hero] .sl-markdown-content {
+    margin-top: 0 !important;
+  }
+
+  .agg-voucher {
+    position: relative;
+    width: 100%;
+    background: var(--agg-card);
+    border: 1px solid var(--agg-edge);
+    box-shadow: 0 1px 0 var(--agg-edge), 0 12px 30px -18px rgba(31, 42, 51, 0.35);
+    padding: 1.375rem 1.375rem 1.125rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    text-align: start;
+    color: var(--sl-color-white);
+  }
+  .agg-voucher p {
+    margin: 0;
+  }
+  .agg-voucher-head {
+    padding-right: 6.5rem;
+    font-family: var(--agg-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--agg-ink-soft);
+  }
+  .agg-voucher-title {
+    font-family: var(--agg-serif);
+    font-size: 1.1875rem;
+    margin: 0.25rem 0 0.875rem !important;
+  }
+  .agg-voucher table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  .agg-voucher th {
+    text-align: start;
+    font-weight: 400;
+    color: var(--agg-ink-soft);
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--sl-color-white);
+    padding: 0.25rem 0;
+  }
+  .agg-voucher td {
+    padding: 0.375rem 0;
+    border-bottom: 1px dotted var(--agg-edge);
+  }
+  .agg-voucher .num {
+    text-align: end;
+    white-space: nowrap;
+    padding-inline-start: 0.75rem;
+  }
+  .agg-voucher tr.total td {
+    border-bottom: 3px double var(--sl-color-white);
+    font-weight: 700;
+  }
+  .agg-stamp {
+    position: absolute;
+    right: 1rem;
+    top: 0.875rem;
+    transform: rotate(-8deg);
+    color: var(--agg-seal);
+    border: 2px solid var(--agg-seal);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-family: var(--agg-sans);
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    opacity: 0.85;
+  }
+  .agg-voucher-note {
+    margin-top: 0.75rem !important;
+    font-family: var(--agg-sans);
+    font-size: 0.8125rem;
+    color: var(--agg-ink-soft);
+  }
+
+  /* Body sections: numbered like paragraphs of a statute. */
+  .agg-landing {
+    color: var(--sl-color-gray-2);
+    font-size: 1.0625rem;
+  }
+  .agg-landing section {
+    padding: 3.5rem 0;
+    border-top: 1px solid var(--sl-color-white);
+  }
+  .agg-landing h2 {
+    font-weight: 400;
+    font-size: clamp(1.625rem, 3.4vw, 2.25rem);
+    line-height: 1.2;
+    margin: 0 0 0.5rem;
+    color: var(--sl-color-white);
+  }
+  .agg-landing p {
+    margin: 0 0 1em;
+  }
+  .agg-landing a {
+    color: var(--sl-color-white);
+    text-decoration-color: var(--agg-margin);
+    text-underline-offset: 0.2em;
+  }
+  .agg-landing a:hover {
+    color: var(--agg-margin);
+  }
+  .agg-no {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.1em;
+    color: var(--agg-margin);
+  }
+  .agg-small {
+    font-size: 0.9375rem;
+    color: var(--agg-ink-soft);
+  }
+
+  .agg-philo {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 3rem;
+  }
+  .agg-philo blockquote {
+    margin: 0 0 1.2em;
+    font-size: clamp(1.375rem, 2.6vw, 1.875rem);
+    line-height: 1.35;
+    font-style: italic;
+    color: var(--sl-color-white);
+    border-inline-start: 3px solid var(--agg-margin);
+    padding-inline-start: 1.25rem;
+  }
+
+  .agg-journal {
+    list-style: none;
+    margin: 1.75rem 0 0;
+    padding: 0;
+  }
+  .agg-journal li {
+    display: grid;
+    grid-template-columns: 7.5rem 6.5rem 1fr 10rem;
+    gap: 1.25rem;
+    padding: 1.125rem 0;
+    border-bottom: 1px solid var(--agg-rule-strong);
+    align-items: baseline;
+  }
+  .agg-journal li:first-child {
+    border-top: 2px solid var(--sl-color-white);
+  }
+  .agg-date {
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+    color: var(--agg-ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .agg-who {
+    font-family: var(--agg-sans);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    justify-self: start;
+    border: 1.5px solid var(--sl-color-white);
+    color: var(--sl-color-white);
+  }
+  .agg-who.agg-you {
+    background: var(--sl-color-white);
+    color: var(--sl-color-black);
+  }
+  .agg-who.agg-both {
+    background: repeating-linear-gradient(135deg, var(--agg-rule-strong) 0 6px, transparent 6px 12px);
+  }
+  .agg-what strong {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+  .agg-what span {
+    color: var(--agg-ink-soft);
+    font-size: 1rem;
+  }
+  .agg-fig {
+    font-family: var(--sl-font-mono);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+  }
+  .agg-fig small {
+    display: block;
+    color: var(--agg-ink-soft);
+    font-size: 0.75rem;
+  }
+  .agg-guarantee {
+    margin-top: 1.75rem;
+    padding: 1rem 1.25rem;
+    background: var(--agg-card);
+    border: 1px solid var(--agg-edge);
+    display: flex;
+    gap: 0.875rem;
+    align-items: center;
+    color: var(--sl-color-white);
+  }
+  .agg-guarantee svg {
+    flex: none;
+    width: 2.125rem;
+    height: 2.125rem;
+    color: var(--agg-seal);
+  }
+
+  .agg-status {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    margin-top: 1.5rem;
+  }
+  .agg-status h3 {
+    font-family: var(--agg-sans);
+    font-size: 0.8125rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 0.5rem;
+    color: var(--sl-color-white);
+  }
+  .agg-status ul {
+    margin: 0 0 0.75rem;
+    padding: 0;
+    list-style: none;
+  }
+  .agg-status li {
+    padding: 0.375rem 0 0.375rem 1.75rem;
+    border-bottom: 1px dotted var(--agg-edge);
+    position: relative;
+  }
+  .agg-status li::before {
+    position: absolute;
+    left: 0;
+    font-family: var(--sl-font-mono);
+  }
+  .agg-ready li::before {
+    content: '✓';
+    color: var(--agg-seal);
+  }
+  .agg-notyet li::before {
+    content: '–';
+    color: var(--agg-margin);
+  }
+
+  .agg-join {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 2.5rem;
+    align-items: center;
+  }
+  .agg-actions {
+    display: flex;
+    gap: 0.875rem;
+    flex-wrap: wrap;
+  }
+  .agg-btn {
+    display: inline-block;
+    padding: 0.75rem 1.25rem;
+    border: 1.5px solid var(--sl-color-white);
+    font-family: var(--agg-sans);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    background: var(--agg-paper);
+  }
+  .agg-btn.agg-primary {
+    background: var(--sl-color-white);
+    color: var(--sl-color-black) !important;
+  }
+  .agg-btn.agg-primary:hover {
+    background: var(--agg-seal);
+    border-color: var(--agg-seal);
+  }
+
+  .agg-foot {
+    border-top: 2px solid var(--sl-color-white);
+    padding: 1.5rem 0 1rem;
+    font-family: var(--agg-sans);
+    font-size: 0.875rem;
+    color: var(--agg-ink-soft);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .agg-foot a {
+    color: var(--agg-ink-soft) !important;
+    margin-inline-end: 1rem;
+  }
+
+  @media (max-width: 56rem) {
+    .agg-philo,
+    .agg-join,
+    .agg-status {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+  }
+  @media (max-width: 47.5rem) {
+    .agg-journal li {
+      grid-template-columns: 1fr auto;
+      gap: 0.375rem 0.75rem;
+    }
+    .agg-date {
+      grid-column: 1;
+    }
+    .agg-who {
+      grid-column: 2;
+      justify-self: end;
+    }
+    .agg-what,
+    .agg-fig {
+      grid-column: 1 / -1;
+    }
+    .agg-fig {
+      text-align: start;
+    }
+  }
+</style>

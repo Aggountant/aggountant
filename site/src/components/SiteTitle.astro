@@ -1,0 +1,35 @@
+---
+// The header's site title: the ledger-page logo (site/public/logo.svg) and
+// the name in monospace. The logo is inlined so its ink follows the theme.
+const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="site-title">
+  <svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true">
+    <rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+    <path d="M6 9h14M6 13h14M6 17h9" stroke="currentColor" stroke-width="1.5"></path>
+    <path d="M9 1.5v23" stroke="var(--agg-margin)" stroke-width="1.5"></path>
+  </svg>
+  <span translate="no">{siteTitle}</span>
+</a>
+
+<style>
+  .site-title {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--sl-color-white);
+    font-family: var(--__sl-font-mono);
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  svg {
+    flex: none;
+  }
+  span {
+    overflow: hidden;
+  }
+</style>

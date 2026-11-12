@@ -1,0 +1,352 @@
+/*
+ * The Pääkirja (ledger) identity for aggountant.dev: ruled paper, ink,
+ * a red margin line and a green seal; book serif for reading, sans for the
+ * interface, monospace tabular figures. Light is the paper; dark is the
+ * same ledger at night. Only Starlight's variables and its rendered markup
+ * are styled here; the guide's Markdown stays as it is.
+ */
+
+:root {
+  --agg-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Charter,
+    'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
+  --agg-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --sl-font: var(--agg-serif);
+  --sl-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'DejaVu Sans Mono', Menlo, Consolas,
+    monospace;
+
+  --sl-text-body: 1.0625rem;
+  --sl-line-height: 1.7;
+  --sl-line-height-headings: 1.18;
+  --sl-content-width: 46rem;
+
+  /* Ledger at night: dark ink paper, pale lines, the same red and green, lighter. */
+  --agg-paper: #161c21;
+  --agg-card: #1c242a;
+  --agg-ink: #e4ddcd;
+  --agg-ink-soft: #a4aaa9;
+  --agg-rule: rgba(205, 218, 224, 0.07);
+  --agg-rule-strong: rgba(205, 218, 224, 0.12);
+  --agg-edge: #34404a;
+  --agg-margin: #d0705f;
+  --agg-seal: #7fb5a3;
+
+  --sl-color-white: #f1ebdd;
+  --sl-color-gray-1: #e4ddcd;
+  --sl-color-gray-2: #cfc9bb;
+  --sl-color-gray-3: #a4aaa9;
+  --sl-color-gray-4: #737b7e;
+  --sl-color-gray-5: #34404a;
+  --sl-color-gray-6: #1c242a;
+  --sl-color-black: #161c21;
+
+  --sl-color-accent-low: #23332e;
+  --sl-color-accent: #7fb5a3;
+  --sl-color-accent-high: #e4ddcd;
+
+  --sl-color-text: var(--sl-color-gray-2);
+  --sl-color-text-accent: var(--sl-color-white);
+  --sl-color-text-invert: #161c21;
+  --sl-color-bg: var(--agg-paper);
+  --sl-color-bg-nav: var(--agg-paper);
+  --sl-color-bg-sidebar: #141a1e;
+  --sl-color-bg-inline-code: #232d34;
+  --sl-color-bg-accent: #e4ddcd;
+  --sl-color-hairline-light: var(--agg-edge);
+  --sl-color-hairline: var(--agg-edge);
+  --sl-color-hairline-shade: #0f1417;
+}
+
+:root[data-theme='light'] {
+  --agg-paper: #f5f1e6;
+  --agg-card: #fffdf7;
+  --agg-ink: #1f2a33;
+  --agg-ink-soft: #55606a;
+  --agg-rule: rgba(80, 120, 140, 0.13);
+  --agg-rule-strong: #d3dde1;
+  --agg-edge: #d8d0bb;
+  --agg-margin: #b4493c;
+  --agg-seal: #2f5d50;
+
+  --sl-color-white: #1f2a33;
+  --sl-color-gray-1: #26313a;
+  --sl-color-gray-2: #333e47;
+  --sl-color-gray-3: #55606a;
+  --sl-color-gray-4: #8b8a80;
+  --sl-color-gray-5: #d8d0bb;
+  --sl-color-gray-6: #ece6d6;
+  --sl-color-gray-7: #f0ebdf;
+  --sl-color-black: #f5f1e6;
+
+  --sl-color-accent-low: #e3ece6;
+  --sl-color-accent: #2f5d50;
+  --sl-color-accent-high: #1f2a33;
+
+  --sl-color-text-accent: #1f2a33;
+  --sl-color-text-invert: #f5f1e6;
+  --sl-color-bg-nav: var(--agg-paper);
+  --sl-color-bg-sidebar: #efeadd;
+  --sl-color-bg-inline-code: #ece6d6;
+  --sl-color-bg-accent: #1f2a33;
+  --sl-color-hairline-light: var(--agg-edge);
+  --sl-color-hairline: var(--agg-edge);
+  --sl-color-hairline-shade: var(--agg-edge);
+}
+
+/* Paper: faint horizontal rules down the reading column. */
+body {
+  background-color: var(--agg-paper);
+}
+.main-frame {
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent calc(1.8rem - 1px),
+    var(--agg-rule) calc(1.8rem - 1px),
+    var(--agg-rule) 1.8rem
+  );
+}
+
+/* Pages without a sidebar (the landing page) get the red margin line the
+   sidebar's edge draws elsewhere, just left of the centred column. */
+@media (min-width: 50rem) {
+  html:not([data-has-sidebar]) .main-frame {
+    --agg-margin-x: max(1rem, calc(50% - var(--sl-content-width) / 2 - 2.5rem));
+    background-image:
+      linear-gradient(
+        90deg,
+        transparent calc(var(--agg-margin-x) - 1px),
+        var(--agg-margin) calc(var(--agg-margin-x) - 1px),
+        var(--agg-margin) var(--agg-margin-x),
+        transparent var(--agg-margin-x)
+      ),
+      repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent calc(1.8rem - 1px),
+        var(--agg-rule) calc(1.8rem - 1px),
+        var(--agg-rule) 1.8rem
+      );
+  }
+}
+
+/* Header: the ledger's ruled head, a heavy ink line below. */
+.header {
+  border-bottom: 2px solid var(--sl-color-white) !important;
+  font-family: var(--agg-sans);
+}
+.header :is(button, select, input) {
+  font-family: var(--agg-sans);
+}
+starlight-theme-select label {
+  --sl-select-width: 7.5em !important;
+}
+
+/* Sidebar: the margin. Its edge is the red margin line of the page. */
+.sidebar-pane {
+  border-inline-end: 1px solid var(--agg-margin) !important;
+  font-family: var(--agg-sans);
+}
+.sidebar-content {
+  font-size: var(--sl-text-sm);
+}
+.sidebar-content .large {
+  font-family: var(--agg-serif);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+.sidebar-content .group-label .large {
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--agg-margin);
+}
+.sidebar-content a {
+  border-radius: 0;
+}
+.sidebar-content a[aria-current='page'] {
+  font-weight: 600;
+}
+
+/* Right-hand table of contents and pagination: interface, so sans. */
+starlight-toc,
+mobile-starlight-toc,
+.pagination-links,
+.sl-link-button,
+.content-panel footer {
+  font-family: var(--agg-sans);
+}
+starlight-toc h2,
+mobile-starlight-toc .toggle {
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--agg-margin);
+}
+mobile-starlight-toc .toggle {
+  border-radius: 0;
+  background: var(--agg-card);
+}
+.pagination-links a {
+  border-radius: 0;
+  border-color: var(--agg-edge);
+  background: var(--agg-card);
+  box-shadow: none;
+}
+.pagination-links a:hover {
+  border-color: var(--sl-color-white);
+}
+
+/* Page title and headings: book serif, ink, regular weight. */
+.content-panel + .content-panel {
+  border-top: 1px solid var(--sl-color-white);
+}
+h1#_top {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--sl-color-white);
+}
+.sl-markdown-content :is(h2, h3, h4, h5) {
+  font-weight: 400;
+  color: var(--sl-color-white);
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--agg-rule-strong);
+}
+.sl-markdown-content h3 {
+  font-weight: 600;
+}
+
+/* Links: ink with a red underline, as in a hand-kept ledger. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--sl-color-white);
+  text-decoration-color: var(--agg-margin);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+  color: var(--agg-margin);
+}
+.sl-markdown-content strong {
+  color: var(--sl-color-white);
+}
+
+/* Inline code and figures. */
+.sl-markdown-content code:not(:where(.not-content *)) {
+  border-radius: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tables: a ledger page. Ink rule under the head, dotted rules between rows. */
+.sl-markdown-content table:not(:where(.not-content *)) {
+  font-variant-numeric: tabular-nums;
+  border-collapse: collapse;
+  background: var(--agg-card);
+  border: 1px solid var(--agg-edge);
+  font-size: var(--sl-text-sm);
+}
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) {
+  border: 0;
+  border-bottom: 1px dotted var(--agg-edge);
+  padding: 0.5rem 0.75rem;
+}
+.sl-markdown-content th:not(:where(.not-content *)) {
+  font-family: var(--agg-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--agg-ink-soft);
+  background: transparent;
+  border-bottom: 1.5px solid var(--sl-color-white);
+}
+.sl-markdown-content tr:last-child td:not(:where(.not-content *)) {
+  border-bottom: 0;
+}
+
+/* Blockquotes: the margin note. */
+.sl-markdown-content blockquote:not(:where(.not-content *)) {
+  border-inline-start: 3px solid var(--agg-margin);
+  font-style: italic;
+}
+
+/* <details> command blocks: a filed slip under the page. */
+.sl-markdown-content details:not(:where(.not-content *)) {
+  border: 1px solid var(--agg-edge);
+  border-inline-start: 3px solid var(--agg-edge);
+  background: var(--agg-card);
+  padding: 0.5rem 1rem;
+}
+.sl-markdown-content details:not(:where(.not-content *)):hover,
+.sl-markdown-content details[open]:not(:where(.not-content *)) {
+  border-inline-start-color: var(--agg-seal);
+}
+.sl-markdown-content summary:not(:where(.not-content *)) {
+  font-family: var(--agg-sans);
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+  color: var(--agg-ink-soft);
+}
+.sl-markdown-content details[open] > summary:not(:where(.not-content *)) {
+  color: var(--sl-color-white);
+}
+.sl-markdown-content details .expressive-code {
+  margin-bottom: 0.25rem;
+}
+
+/* Asides: notes clipped to the page, square, coloured by the left edge. */
+.starlight-aside {
+  border-radius: 0;
+  border: 1px solid var(--agg-edge);
+  border-inline-start: 3px solid var(--sl-color-asides-border);
+  background: var(--agg-card);
+}
+.starlight-aside__title {
+  font-family: var(--agg-sans);
+  font-size: var(--sl-text-sm);
+  letter-spacing: 0.04em;
+}
+.starlight-aside--note {
+  --sl-color-asides-border: var(--sl-color-white);
+  --sl-color-asides-text-accent: var(--sl-color-white);
+}
+.starlight-aside--tip {
+  --sl-color-asides-border: var(--agg-seal);
+  --sl-color-asides-text-accent: var(--agg-seal);
+}
+.starlight-aside--caution,
+.starlight-aside--danger {
+  --sl-color-asides-border: var(--agg-margin);
+  --sl-color-asides-text-accent: var(--agg-margin);
+}
+
+/* Buttons: square, ink on paper. */
+.sl-link-button {
+  border-radius: 0;
+  font-weight: 600;
+}
+.sl-link-button.primary {
+  background: var(--sl-color-white);
+  border-color: var(--sl-color-white);
+  color: var(--sl-color-black);
+}
+.sl-link-button.primary:hover {
+  background: var(--agg-seal);
+  border-color: var(--agg-seal);
+  color: var(--sl-color-black);
+}
+.sl-link-button.secondary {
+  border: 1.5px solid var(--sl-color-white);
+  color: var(--sl-color-white);
+  background: var(--agg-paper);
+}
+
+/* Search box and select menus: square. */
+site-search button[data-open-modal] {
+  border-radius: 0;
+  background: var(--agg-card);
+}

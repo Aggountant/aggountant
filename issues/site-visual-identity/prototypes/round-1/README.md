@@ -52,7 +52,7 @@ and the agent stays in the background.
 
 Conversation first. The hero is a chat window where "Sinä" says "Tehdään
 maaliskuu", the agent answers with what it found and one question with
-answer chips, and then shows a proposed voucher with a "Hyväksy kaikki 38"
+answer chips, and then shows a proposed voucher with a "Hyväksy tosite 47"
 button. The month is a thread with two sides: agent steps on the left, your
 steps on the right (dark green), shared steps across the middle; at phone
 width it folds into one numbered timeline. Typography is the system sans
@@ -109,3 +109,10 @@ Jari picks one direction, or a combination (for example B's chat hero with
 A's ledger month), and comments. The next round iterates on that choice. The
 content and figures above can be reused as they are. Carrying the result into
 `site/` (the Starlight theme and `Landing.astro`, fi and en) is a later round.
+
+## Correction made in round 2
+
+Round 1 showed batch approval ("Hyväksy kaikki 38" in B, "Katsot tositteet
+läpi" in A). That was wrong: today the agent shows each proposed voucher and
+you approve it one at a time. Batch approval is only the open issue
+`month-batch-approval`. A, B and D now say per-voucher approval.
