@@ -1,6 +1,6 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-12
 type: improvement
 status: open
 priority: normal
@@ -36,3 +36,9 @@ the chart.
 - [ ] An 18-month first fiscal year is accepted; a longer one is rejected with a clear error.
 - [ ] Accumulated depreciation is presented correctly without relying on a negative asset balance.
 - [ ] Primary-source citation (kirjanpitolaki) for the allowed fiscal-year lengths.
+
+## Comments
+
+### 2026-11-12T09:31:13Z · @conductor
+
+Non-calendar fiscal years split out to @non-calendar-fiscal-year (high priority, 12.11.2026); this issue keeps the contra-account kind.
