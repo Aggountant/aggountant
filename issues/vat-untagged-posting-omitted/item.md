@@ -2,13 +2,17 @@
 created: 2026-11-12
 updated: 2026-11-12
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: other
 provenance_detail: agent observation while verifying the Finnish user guide against the binary
 source_ref: taskfleet:01m77aregmn19w8kh2w2zetxwf/observation:untagged-vat-posting
 originating_run: 01m77aregmn19w8kh2w2zetxwf
 originating_run_kind: spinoff
+lane: vat-calculation
+lane_seq: 0
+collision: [crates/domain/src/vat/code.rs, crates/domain/src/vat/guards.rs]
+preparation: ready
 ---
 
 # Untagged VAT posting on a VAT account is silently left out of the VAT return
