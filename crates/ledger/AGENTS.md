@@ -64,3 +64,27 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   `Sealed → Open/Closing` edge requires `ClosingAuthority`, is a logged CAS
   transition, and is refused once the period's return is filed; from then on
   the only path is a correction voucher in the next open period.
+
+## Fiscal years
+
+- **Length is set by kirjanpitolaki 1:4** (1336/1997, Finlex
+  <https://www.finlex.fi/fi/lainsaadanto/1997/1336>): "Tilikausi on 12
+  kuukautta. Toimintaa aloitettaessa tai lopetettaessa taikka tilinpäätöksen
+  ajankohtaa muutettaessa tilikausi saa olla tätä lyhyempi tai pitempi,
+  kuitenkin enintään 18 kuukautta." There is no minimum; aggountant accepts
+  1–18 whole months and cannot check the reason, so it does not try.
+- **A fiscal year is labelled by the calendar year it ends in**, and that `i32`
+  is what the year row, transition log, attributions, opening sources and
+  statements store. A calendar year's label is the year itself, which is why
+  homes from before fiscal-year definitions needed no migration. Labels must
+  stay unique and increasing, so two fiscal years ending in one calendar year
+  are refused rather than numbered; labels can skip a value after an 18-month
+  year, so the previous year comes from the calendar, never `year - 1`.
+- **The definitions live in the fiscal store, not in git masterdata.** They
+  decide which sealed vouchers a sealed year covers, so they are written under
+  the seal's writer lock, append-only, and a definition that would move a
+  sealed voucher to another year or change the dates of a year with recorded
+  state is refused. Map a date to its year only through `FiscalCalendar`
+  (`model`); never derive a fiscal year from `PeriodId::year()` or a date's
+  calendar year. Monthly and quarterly periods, VAT periods and the payroll tax
+  year stay calendar-based by law.

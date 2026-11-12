@@ -43,6 +43,18 @@ vai siirrytäänkö aggountantin oletustilikarttaan). Nämä ovat juuri sitä ti
 kaikki myöhemmät skillit lukevat ensin, ja rekisteriote tai aiemman järjestelmän
 raportti on niille parempi lähde kuin muistinvarainen vastaus.
 
+**Tilikausi ohjelmalle**, jos se ei ole kalenterivuosi. Kalenterivuosi on oletus eikä
+vaadi mitään. Muuten määrittele ennen ensimmäistä tositetta se tilikausi, johon
+ensimmäinen tosite osuu: `aggountant fiscal-year define --start <alku> --end <loppu>`.
+Alku on kuukauden ensimmäinen ja loppu kuukauden viimeinen päivä, ja pituus on
+enintään 18 kuukautta (kirjanpitolaki 1:4). Seuraavat tilikaudet jatkuvat 12 kuukauden
+mittaisina. Tilikausi tunnistetaan sen kalenterivuoden mukaan, jona se päättyy:
+1.7.2026–30.6.2027 on tilikausi 2027. Ensimmäistä määriteltyä tilikautta edeltävälle
+päivälle ei ole tilikautta, ellei se ala 1.1., joten tilikauden alussa siirtyvän
+yrityksen avaava tosite päivätään tilikauden ensimmäiselle päivälle (siinä on silloin
+vain tasetilejä). Määrittely on pysyvä, ja ohjelma kieltäytyy määrittelystä, joka
+siirtäisi jo sinetöidyn tositteen toiselle tilikaudelle.
+
 **Avaavat saldot**, kun yritys siirtyy toisesta järjestelmästä. Ne kirjataan tavallisena
 sinetöitynä tositteena `voucher seal`-polkua pitkin, lähdesaldoluettelo liitteenä.
 Muunnos aiemman järjestelmän tileiltä aggountantin tileille kannattaa kirjata omaksi
@@ -58,7 +70,7 @@ päivätään ensimmäiselle uudelle päivälle, koko aiempi tulos näkyy ensimm
 kuukausituloksena. Sinetöityä tositetta ei poisteta, joten virhe korjataan
 vastakirjauksella ja uudella tositteella, ja ketjuun jää kolme tositetta yhden sijaan.
 Aja avauksen jälkeen `report statements` ensimmäiselle uudelle kuukaudelle ja katso, että
-sen kuukausitulos on nolla ennen uusia tapahtumia, vuoden alusta kertynyt tulos ja tase
+sen kuukausitulos on nolla ennen uusia tapahtumia, tilikauden alusta kertynyt tulos ja tase
 vastaavat lähderaporttia ja pankkitilin saldo vastaa tiliotetta.
 
 **Katkaisuhetken avoimet asiat**, jotka eivät näy saldoluettelosta. Kysy nämä

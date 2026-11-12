@@ -157,7 +157,7 @@ fn statements_carry_prior_balances_and_stay_balanced() {
     };
     let data = ledger.fiscal_year_data(2026).unwrap();
     let s = compute_statements(
-        2026,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         &data.vouchers,
         &chart,
@@ -255,7 +255,7 @@ fn tase_erittelyt_reflects_carried_opening_balances_in_closing_balances() {
     // No 2026 activity of its own: the erittely closing balance is purely the opening.
     let data = ledger.fiscal_year_data(2026).unwrap();
     let te = tase_erittelyt(
-        2026,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         &data.vouchers,
         &chart,

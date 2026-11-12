@@ -20,16 +20,17 @@ use rusqlite::types::ToSql;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use sha2::{Digest, Sha256};
 
-use aggountant_model::{Hash, PeriodId};
+use aggountant_model::{Date, FiscalCalendar, FiscalYear, Hash, ModelError, PeriodId};
 
 use crate::error::LedgerError;
 use crate::period::{FiscalYearState, PeriodState};
 use crate::store::migrations::{self, Migration};
 use crate::store::{
-    AttributionRequest, AttributionResult, BuiltVoucher, CommitResult, FiscalSnapshot, FiscalStore,
-    FiscalYearRow, FiscalYearTransitionRequest, IdempotencyConflict, PeriodGate, PeriodRow,
-    RejectionRecord, StoredAttribution, StoredFiscalYearTransition, StoredPeriodTransition,
-    StoredProvenance, StoredRejection, StoredVoucher, TransitionRequest,
+    AttributionRequest, AttributionResult, BuiltVoucher, CommitResult, DefinitionResult,
+    FiscalSnapshot, FiscalStore, FiscalYearDefinitionRequest, FiscalYearRow,
+    FiscalYearTransitionRequest, IdempotencyConflict, PeriodGate, PeriodRow, RejectionRecord,
+    StoredAttribution, StoredFiscalYearTransition, StoredPeriodTransition, StoredProvenance,
+    StoredRejection, StoredVoucher, TransitionRequest,
 };
 
 const SERIES: &str = "main";
@@ -206,6 +207,20 @@ const MIGRATIONS: &[Migration] = &[
               ALTER TABLE period_transition ADD COLUMN manual_evidence_ref TEXT;
               ALTER TABLE period_transition ADD COLUMN remote_status_evidence_ref TEXT;",
     },
+    // v7 (issue `non-calendar-fiscal-year`): explicit fiscal-year definitions,
+    // append-only. No rows means calendar years, so an existing home reads exactly as
+    // before. The calendar derived from these rows (`FiscalCalendar`) decides which
+    // fiscal year every voucher belongs to, which is why it lives here, written in the
+    // same writer lock that seals vouchers and years.
+    Migration {
+        version: 7,
+        sql: "CREATE TABLE IF NOT EXISTS fiscal_year_definition(
+                 start_date TEXT PRIMARY KEY,
+                 end_date TEXT NOT NULL,
+                 actor TEXT NOT NULL,
+                 recorded_at TEXT NOT NULL
+              );",
+    },
 ];
 
 pub(crate) struct SqliteFiscalStore {
@@ -362,6 +377,24 @@ impl FiscalStore for SqliteFiscalStore {
         // A posting date can be governed by either a new calendar-month row or its
         // retained legacy-quarter row. At most those two canonical ids can contain
         // the date, so use indexed lookups rather than scanning period history.
+        // Every voucher must belong to a fiscal year, or no statement projection could
+        // place it. Read in the writer lock, so a concurrent definition cannot slip in.
+        if let Err(error) = load_calendar(&tx)?.year_of(gate.posting_date) {
+            let refusal = LedgerError::Model(error);
+            insert_rejection(
+                &tx,
+                &RejectionRecord {
+                    reason_code: refusal.error_code().to_string(),
+                    request_hash: provenance.request_hash.clone(),
+                    actor: provenance.actor.clone(),
+                    target: format!("fiscal:date:{}", gate.posting_date),
+                    note: refusal.to_string(),
+                },
+            )?;
+            tx.commit()?;
+            return Ok(CommitResult::Refused(refusal));
+        }
+
         let containing = [
             PeriodId::month_containing(gate.posting_date),
             PeriodId::containing(gate.posting_date),
@@ -528,7 +561,8 @@ impl FiscalStore for SqliteFiscalStore {
         // there is no window. The VAT-filing self-edge (`Sealed→Sealed`) is exempt —
         // filing does not change the ledger figures the year seal bound.
         if !(req.from == PeriodState::Sealed && req.to == PeriodState::Sealed) {
-            if let Some(year) = year_of_period(&req.period_id) {
+            let calendar = load_calendar(&tx)?;
+            for year in fiscal_years_of_period(&calendar, &req.period_id)? {
                 let fy = read_fiscal_year_row(&tx, year)?;
                 if fy.state == FiscalYearState::Sealed {
                     let err = LedgerError::PeriodTransitionConflict(format!(
@@ -1012,6 +1046,117 @@ impl FiscalStore for SqliteFiscalStore {
         Ok(new_row)
     }
 
+    fn fiscal_calendar(&self) -> Result<FiscalCalendar, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        load_calendar(&guard)
+    }
+
+    fn define_fiscal_year(
+        &self,
+        req: &FiscalYearDefinitionRequest,
+    ) -> Result<DefinitionResult, LedgerError> {
+        let mut guard = self.conn.lock().unwrap();
+        // The seal's writer lock: no voucher or year seal can land between the check
+        // against recorded state and the append.
+        let tx = guard.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let old = load_calendar(&tx)?;
+        if old.defined().contains(&req.year) {
+            tx.commit()?;
+            return Ok(DefinitionResult::Replayed(old));
+        }
+        let new = old.with_definition(req.year)?;
+
+        let refuse =
+            |tx: rusqlite::Transaction<'_>, note: String| -> Result<LedgerError, LedgerError> {
+                let err = LedgerError::FiscalYearConflict(note);
+                insert_rejection(
+                    &tx,
+                    &RejectionRecord {
+                        reason_code: err.error_code().to_string(),
+                        request_hash: String::new(),
+                        actor: req.actor.clone(),
+                        target: format!("fiscal:year-definition:{}", req.year.start()),
+                        note: err.to_string(),
+                    },
+                )?;
+                tx.commit()?;
+                Ok(err)
+            };
+
+        // A sealed voucher keeps the fiscal year it was sealed into.
+        let mut moved = None;
+        {
+            let mut stmt =
+                tx.prepare("SELECT number, canonical_bytes FROM vouchers ORDER BY number")?;
+            let rows =
+                stmt.query_map([], |r| Ok((r.get::<_, u64>(0)?, r.get::<_, Vec<u8>>(1)?)))?;
+            for row in rows {
+                let (number, canonical) = row?;
+                let date = aggountant_wire::decode_voucher_body(&canonical)?.posting_date();
+                let before = old.year_of(date).ok().map(|y| y.year());
+                let after = new.year_of(date).ok().map(|y| y.year());
+                if before != after {
+                    moved = Some((number, date, before, after));
+                    break;
+                }
+            }
+        }
+        if let Some((number, date, before, after)) = moved {
+            let label =
+                |year: Option<i32>| year.map_or("no fiscal year".to_string(), |y| y.to_string());
+            return Err(refuse(
+                tx,
+                format!(
+                    "fiscal year {}..{} would move sealed voucher {number} (dated {date}) from \
+                     fiscal year {} to {}; a definition may not change the year of anything \
+                     already sealed",
+                    req.year.start(),
+                    req.year.end(),
+                    label(before),
+                    label(after)
+                ),
+            )?);
+        }
+
+        // A year with recorded state keeps its exact dates.
+        let mut changed = None;
+        {
+            let mut stmt = tx.prepare("SELECT year FROM fiscal_year ORDER BY year")?;
+            let years = stmt.query_map([], |r| r.get::<_, i32>(0))?;
+            for year in years {
+                let year = year?;
+                if old.year(year).ok() != new.year(year).ok() {
+                    changed = Some(year);
+                    break;
+                }
+            }
+        }
+        if let Some(year) = changed {
+            return Err(refuse(
+                tx,
+                format!(
+                    "fiscal year {}..{} would change the dates of fiscal year {year}, which \
+                     already has recorded state",
+                    req.year.start(),
+                    req.year.end()
+                ),
+            )?);
+        }
+
+        tx.execute(
+            "INSERT INTO fiscal_year_definition(start_date, end_date, actor, recorded_at)
+             VALUES(?1, ?2, ?3, ?4)",
+            params![
+                req.year.start().to_string(),
+                req.year.end().to_string(),
+                req.actor,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        tx.commit()?;
+        Ok(DefinitionResult::Recorded(new))
+    }
+
     fn read_voucher(&self, number: u64) -> Result<Option<StoredVoucher>, LedgerError> {
         let guard = self.conn.lock().unwrap();
         let raw = guard
@@ -1436,8 +1581,11 @@ impl FiscalStore for SqliteFiscalStore {
             out
         };
 
+        let calendar = load_calendar(&tx)?;
+
         Ok(FiscalSnapshot {
             vouchers,
+            calendar,
             head_number: head_num,
             head_hash: hash_from_blob(&head_blob)?,
             rejections,
@@ -1674,8 +1822,50 @@ fn latest_attribution_hash(conn: &Connection) -> Result<Hash, LedgerError> {
 
 /// Parse the calendar year from a canonical month or quarter period id (for the S6
 /// fiscal-year-sealed transition guard). `None` if the shape is unexpected.
-fn year_of_period(period_id: &str) -> Option<i32> {
-    PeriodId::parse(period_id).ok().map(|period| period.year())
+/// The labels of every fiscal year a period overlaps (a calendar quarter can straddle
+/// two non-calendar years). Days outside any fiscal year contribute nothing.
+fn fiscal_years_of_period(
+    calendar: &FiscalCalendar,
+    period_id: &str,
+) -> Result<Vec<i32>, LedgerError> {
+    let period = PeriodId::parse(period_id)
+        .map_err(|error| LedgerError::Store(format!("invalid period_id {period_id:?}: {error}")))?;
+    let (first, last) = period.month_bounds();
+    let mut years = Vec::new();
+    for month in first..=last {
+        let day = Date::from_ymd(period.year(), month.into(), 1)?;
+        match calendar.year_of(day) {
+            Ok(year) if !years.contains(&year.year()) => years.push(year.year()),
+            Ok(_) | Err(ModelError::FiscalYearUndefined(_)) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(years)
+}
+
+/// The fiscal calendar from the append-only definitions. A row that does not form a
+/// valid calendar fails closed: year attribution must never be guessed.
+fn load_calendar(conn: &Connection) -> Result<FiscalCalendar, LedgerError> {
+    let mut stmt = conn
+        .prepare("SELECT start_date, end_date FROM fiscal_year_definition ORDER BY start_date")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    let mut defined = Vec::new();
+    for row in rows {
+        let (start, end) = row?;
+        let year = Date::parse(&start)
+            .and_then(|start| FiscalYear::new(start, Date::parse(&end)?))
+            .map_err(|error| {
+                LedgerError::Store(format!(
+                    "invalid fiscal_year_definition {start}..{end} in fiscal store: {error}"
+                ))
+            })?;
+        defined.push(year);
+    }
+    FiscalCalendar::new(defined).map_err(|error| {
+        LedgerError::Store(format!(
+            "fiscal_year_definition rows do not form a calendar: {error}"
+        ))
+    })
 }
 
 fn implicit_open_year(year: i32) -> FiscalYearRow {
@@ -1946,7 +2136,7 @@ mod migration_tests {
         let dir = tempfile::tempdir().unwrap();
         let store = SqliteFiscalStore::open(&dir.path().join("fiscal.sqlite")).unwrap();
         let conn = store.conn.lock().unwrap();
-        assert_eq!(user_version(&conn), 6);
+        assert_eq!(user_version(&conn), 7);
         let next: i64 = conn
             .query_row(
                 "SELECT next_number FROM counter WHERE series='main'",
@@ -1998,7 +2188,7 @@ mod migration_tests {
         let path = dir.path().join("fiscal.sqlite");
         drop(SqliteFiscalStore::open(&path).unwrap());
         let store = SqliteFiscalStore::open(&path).unwrap();
-        assert_eq!(user_version(&store.conn.lock().unwrap()), 6);
+        assert_eq!(user_version(&store.conn.lock().unwrap()), 7);
     }
 
     #[test]
@@ -2017,7 +2207,7 @@ mod migration_tests {
 
         migrations::apply(&mut conn, "fiscal", MIGRATIONS).unwrap();
 
-        assert_eq!(user_version(&conn), 6);
+        assert_eq!(user_version(&conn), 7);
         let version: String = conn
             .query_row(
                 "SELECT software_version FROM vouchers WHERE number = 1",

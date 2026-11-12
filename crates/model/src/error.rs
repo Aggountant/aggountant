@@ -39,6 +39,10 @@ pub enum ModelError {
     InvalidPersonId(String),
     #[error("INVALID_VERO_FILING_IDENTITY: {0}")]
     InvalidVeroFilingIdentity(String),
+    #[error("INVALID_FISCAL_YEAR: {0}")]
+    InvalidFiscalYear(String),
+    #[error("FISCAL_YEAR_UNDEFINED: {0}")]
+    FiscalYearUndefined(String),
 }
 
 impl ModelError {
@@ -62,6 +66,8 @@ impl ModelError {
             ModelError::InvalidIban(_) => "INVALID_IBAN",
             ModelError::InvalidPersonId(_) => "INVALID_PERSON_ID",
             ModelError::InvalidVeroFilingIdentity(_) => "INVALID_VERO_FILING_IDENTITY",
+            ModelError::InvalidFiscalYear(_) => "INVALID_FISCAL_YEAR",
+            ModelError::FiscalYearUndefined(_) => "FISCAL_YEAR_UNDEFINED",
         }
     }
 }

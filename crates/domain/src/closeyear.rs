@@ -16,7 +16,7 @@ use std::sync::OnceLock;
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
-use aggountant_model::{AccountId, Currency, Date, Money, Posting, Side, VoucherDraft};
+use aggountant_model::{AccountId, Currency, Date, FiscalYear, Money, Posting, Side, VoucherDraft};
 
 use crate::DomainError;
 
@@ -219,14 +219,30 @@ fn require_nonneg_eur(m: &Money, what: &str) -> Result<(), DomainError> {
 }
 
 /// Compute the year's depreciation for a set of assets, resolving each asset class's
-/// method + rate from the dated policy as of `fiscal_year_end` (31.12 of the closing
-/// year). Deterministic and total over well-formed EUR input; an unknown class or an
+/// method + rate from the dated policy as of the fiscal year's last day.
+/// Deterministic and total over well-formed EUR input; an unknown class or an
 /// unresolvable date fails loudly rather than silently omitting an asset.
+///
+/// The rates are annual. A fiscal year that is not 12 months (kirjanpitolaki 1:4
+/// allows 1–18) is refused rather than prorated, because how the plan and the
+/// EVL maximum scale to its length is a judgement this function does not make.
 pub fn compute_depreciation(
-    fiscal_year_end: Date,
+    fiscal_year: &FiscalYear,
     assets: &[AssetInput],
     table: &DepreciationRateTable,
 ) -> Result<Vec<DepreciationLine>, DomainError> {
+    if !assets.is_empty() && fiscal_year.months() != 12 {
+        return Err(DomainError::Depreciation(format!(
+            "fiscal year {} ({}..{}) is {} months; depreciation rates are annual and are not \
+             prorated for a shorter or longer fiscal year. Book this year's depreciation as \
+             an ordinary voucher and leave assets out of the close-year input",
+            fiscal_year.year(),
+            fiscal_year.start(),
+            fiscal_year.end(),
+            fiscal_year.months()
+        )));
+    }
+    let fiscal_year_end = fiscal_year.end();
     let mut lines = Vec::with_capacity(assets.len());
     for asset in assets {
         require_nonneg_eur(&asset.acquisition_cost, "acquisition_cost")?;
@@ -374,7 +390,7 @@ mod tests {
     fn reducing_balance_depreciates_book_value_at_the_class_rate() {
         // koneet-ja-kalusto @ 25 %: 8000 book value → 2000.00.
         let lines = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
             depreciation_rate_table(),
         )
@@ -389,7 +405,7 @@ mod tests {
         // aineettomat-oikeudet @ 10 % straight-line: 10000 cost → 1000.00, even
         // though the book value has already dropped to 6000.
         let lines = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("aineettomat-oikeudet", "10000.00", "6000.00")],
             depreciation_rate_table(),
         )
@@ -402,7 +418,7 @@ mod tests {
     fn depreciation_is_clamped_to_the_remaining_book_value() {
         // 25 % of 100 book value = 25, but book value is only 10 → clamp to 10.00.
         let lines = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("koneet-ja-kalusto", "10000.00", "10.00")],
             depreciation_rate_table(),
         )
@@ -410,7 +426,7 @@ mod tests {
         assert_eq!(lines[0].amount.amount_str(), "2.50");
         // 25 % of 10.00 = 2.50, which is below book value, so no clamp fired here.
         let lines2 = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("koneet-ja-kalusto", "10000.00", "1.00")],
             depreciation_rate_table(),
         )
@@ -424,7 +440,7 @@ mod tests {
         // book_value_start 0 → 0.00 depreciation → the line is skipped (a leftover
         // fully-depreciated asset in the input must not fail the close).
         let lines = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("koneet-ja-kalusto", "10000.00", "0.00")],
             depreciation_rate_table(),
         )
@@ -435,7 +451,7 @@ mod tests {
     #[test]
     fn an_unknown_asset_class_is_refused() {
         let err = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("lentokoneet", "10000.00", "10000.00")],
             depreciation_rate_table(),
         )
@@ -444,9 +460,35 @@ mod tests {
     }
 
     #[test]
+    fn a_fiscal_year_that_is_not_twelve_months_is_refused() {
+        let short = FiscalYear::new(date("2026-07-01"), date("2026-12-31")).unwrap();
+        let err = compute_depreciation(
+            &short,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            depreciation_rate_table(),
+        )
+        .unwrap_err();
+        assert_eq!(err.error_code(), "DEPRECIATION");
+        assert!(err.to_string().contains("6 months"), "{err}");
+        // Without assets there is nothing to prorate.
+        assert!(compute_depreciation(&short, &[], depreciation_rate_table())
+            .unwrap()
+            .is_empty());
+        // A non-calendar 12-month year depreciates normally.
+        let july = FiscalYear::new(date("2026-07-01"), date("2027-06-30")).unwrap();
+        let lines = compute_depreciation(
+            &july,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            depreciation_rate_table(),
+        )
+        .unwrap();
+        assert_eq!(lines[0].amount.amount_str(), "2000.00");
+    }
+
+    #[test]
     fn depreciation_voucher_is_balanced() {
         let lines = compute_depreciation(
-            date("2026-12-31"),
+            &FiscalYear::calendar(2026).unwrap(),
             &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
             depreciation_rate_table(),
         )

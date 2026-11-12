@@ -75,6 +75,10 @@ pub enum LedgerError {
     #[error("CHART_VERSION_CHANGED: {0}")]
     ChartVersionChanged(String),
     /// An employee lookup (get/accumulate) found no record in the PII store (F7).
+    /// A fiscal-year definition would change the year of something already
+    /// recorded (issue `non-calendar-fiscal-year`).
+    #[error("FISCAL_YEAR_CONFLICT: {0}")]
+    FiscalYearConflict(String),
     #[error("EMPLOYEE_NOT_FOUND: {0}")]
     EmployeeNotFound(String),
     /// A statement/erittelyt projection folded for a close-package hash failed in the
@@ -118,6 +122,7 @@ impl LedgerError {
             LedgerError::MasterDataNotInitialized(_) => "MASTERDATA_NOT_INITIALIZED",
             LedgerError::MasterDataCorrupt(_) => "MASTERDATA_CORRUPT",
             LedgerError::ChartVersionChanged(_) => "CHART_VERSION_CHANGED",
+            LedgerError::FiscalYearConflict(_) => "FISCAL_YEAR_CONFLICT",
             LedgerError::EmployeeNotFound(_) => "EMPLOYEE_NOT_FOUND",
             LedgerError::Statements(e) => e.error_code(),
             LedgerError::InvalidHash(_) => "INVALID_HASH",

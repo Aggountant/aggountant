@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use aggountant_model::{
-    Account, AccountKind, Currency, Money, OpeningBalance, OpeningBalanceSource, PeriodId,
+    Account, AccountKind, Currency, Date, FiscalYear, Money, OpeningBalance, OpeningBalanceSource,
     VoucherBody,
 };
 
@@ -169,6 +169,11 @@ pub struct StatementRow {
 #[serde(deny_unknown_fields)]
 pub struct Statements {
     pub fiscal_year: i32,
+    /// The dates of a fiscal year that is not a calendar year. Absent for a calendar
+    /// year, so a calendar year's statement bytes (and hash) are what they were before
+    /// fiscal-year definitions existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period: Option<StatementPeriod>,
     /// `tuloslaskelma` rows, in policy order.
     pub income: Vec<StatementRow>,
     /// `tase` rows, in policy order.
@@ -190,6 +195,23 @@ pub struct Statements {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opening_balance_source: Option<OpeningBalanceSource>,
     pub provenance: StatementProvenance,
+}
+
+/// The first and last day of a non-calendar fiscal year.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StatementPeriod {
+    pub start: Date,
+    pub end: Date,
+}
+
+impl StatementPeriod {
+    fn of(fiscal_year: &FiscalYear) -> Option<Self> {
+        (!fiscal_year.is_calendar_year()).then(|| Self {
+            start: fiscal_year.start(),
+            end: fiscal_year.end(),
+        })
+    }
 }
 
 impl Statements {
@@ -246,18 +268,20 @@ fn row_for_account<'a>(
 }
 
 fn validate_opening_context(
-    fiscal_year: i32,
+    fiscal_year: &FiscalYear,
     opening: &OpeningBalance,
     provenance: &StatementProvenance,
 ) -> Result<(), DomainError> {
-    if opening.fiscal_year() != fiscal_year {
+    if opening.fiscal_year() != fiscal_year.year() {
         return Err(DomainError::Statements(format!(
-            "opening balance is for {}, not fiscal year {fiscal_year}",
-            opening.fiscal_year()
+            "opening balance is for {}, not fiscal year {}",
+            opening.fiscal_year(),
+            fiscal_year.year()
         )));
     }
     if let OpeningBalanceSource::ExternalCutover {
         target_chart_version,
+        live_period,
         ..
     } = opening.source()
     {
@@ -265,6 +289,19 @@ fn validate_opening_context(
             return Err(DomainError::Statements(format!(
                 "opening cut-over targets chart {target_chart_version}, but the projection uses {}",
                 provenance.chart_version
+            )));
+        }
+        let (first, last) = live_period.month_bounds();
+        let inside = |month: u8| {
+            Date::from_ymd(live_period.year(), month.into(), 1)
+                .is_ok_and(|day| fiscal_year.contains(day))
+        };
+        if !inside(first) || !inside(last) {
+            return Err(DomainError::Statements(format!(
+                "cut-over live period {live_period} is not in fiscal year {} ({}..{})",
+                fiscal_year.year(),
+                fiscal_year.start(),
+                fiscal_year.end()
             )));
         }
     }
@@ -284,7 +321,7 @@ fn eur_str(d: Decimal) -> String {
 /// currency fails loudly (a mis-mapping is a policy error surfaced at the gate, never
 /// a silent omission — `s6-spec-ahead.md §2.3`).
 pub fn compute_statements(
-    fiscal_year: i32,
+    fiscal_year: &FiscalYear,
     opening_balance: Option<&OpeningBalance>,
     vouchers: &[VoucherBody],
     chart: &[Account],
@@ -332,7 +369,7 @@ pub fn compute_statements(
         }
     }
     for voucher in vouchers {
-        if PeriodId::containing(voucher.posting_date()).year() != fiscal_year {
+        if !fiscal_year.contains(voucher.posting_date()) {
             continue;
         }
         for posting in voucher.postings() {
@@ -464,7 +501,8 @@ pub fn compute_statements(
     let balanced = assets_total == eq_liab_total;
 
     Ok(Statements {
-        fiscal_year,
+        fiscal_year: fiscal_year.year(),
+        period: StatementPeriod::of(fiscal_year),
         income,
         balance,
         result: eur_str(result),
@@ -525,7 +563,7 @@ impl TaseErittelyt {
 /// non-zero closing balance, its normal balance + the (sorted) voucher numbers that
 /// touched it.
 pub fn tase_erittelyt(
-    fiscal_year: i32,
+    fiscal_year: &FiscalYear,
     opening_balance: Option<&OpeningBalance>,
     vouchers: &[VoucherBody],
     chart: &[Account],
@@ -572,7 +610,7 @@ pub fn tase_erittelyt(
         }
     }
     for voucher in vouchers {
-        if PeriodId::containing(voucher.posting_date()).year() != fiscal_year {
+        if !fiscal_year.contains(voucher.posting_date()) {
             continue;
         }
         for posting in voucher.postings() {
@@ -620,7 +658,7 @@ pub fn tase_erittelyt(
     lines.sort_by(|a, b| a.account.cmp(&b.account));
 
     Ok(TaseErittelyt {
-        fiscal_year,
+        fiscal_year: fiscal_year.year(),
         lines,
         provenance,
     })
@@ -671,6 +709,10 @@ mod tests {
     }
     fn date(s: &str) -> Date {
         Date::parse(s).unwrap()
+    }
+
+    fn y2026() -> FiscalYear {
+        FiscalYear::calendar(2026).unwrap()
     }
 
     fn prov() -> StatementProvenance {
@@ -745,8 +787,15 @@ mod tests {
                 ],
             ),
         ];
-        let s =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         assert_eq!(s.result, "8000.00");
         let liikevaihto = s
             .income
@@ -793,8 +842,15 @@ mod tests {
                 ],
             ),
         ];
-        let s =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         assert!(s.balanced, "balance-sheet identity must hold: {s:?}");
         assert_eq!(s.assets_total, "13000.00");
         // equity+liabilities now folds in the year's result via the synthetic
@@ -839,8 +895,15 @@ mod tests {
                 ],
             ),
         ];
-        let s =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         assert_eq!(s.result, "-300.00");
         assert!(s.balanced, "a loss year still balances: {s:?}");
         let tulos = s
@@ -871,8 +934,8 @@ mod tests {
                 ("8300", "50.00", Side::Credit),
             ],
         )];
-        let err =
-            compute_statements(2026, None, &vouchers, &chart, kpa_policy(), prov()).unwrap_err();
+        let err = compute_statements(&y2026(), None, &vouchers, &chart, kpa_policy(), prov())
+            .unwrap_err();
         assert_eq!(err.error_code(), "STATEMENTS");
     }
 
@@ -897,9 +960,113 @@ mod tests {
                 ],
             ),
         ];
-        let s =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         assert_eq!(s.result, "1000.00");
+    }
+
+    #[test]
+    fn a_july_to_june_year_folds_its_own_dates_and_states_them() {
+        let year = FiscalYear::new(date("2026-07-01"), date("2027-06-30")).unwrap();
+        let sale = |number, day| {
+            voucher(
+                number,
+                day,
+                &[
+                    ("1910", "100.00", Side::Debit),
+                    ("3000", "100.00", Side::Credit),
+                ],
+            )
+        };
+        let vouchers = vec![
+            sale(1, "2026-06-30"),
+            sale(2, "2026-07-01"),
+            sale(3, "2027-06-30"),
+            sale(4, "2027-07-01"),
+        ];
+        let s = compute_statements(&year, None, &vouchers, &test_chart(), kpa_policy(), prov())
+            .unwrap();
+        assert_eq!(s.fiscal_year, 2027);
+        assert_eq!(s.result, "200.00");
+        assert_eq!(
+            s.period,
+            Some(StatementPeriod {
+                start: date("2026-07-01"),
+                end: date("2027-06-30")
+            })
+        );
+        let te = tase_erittelyt(&year, None, &vouchers, &test_chart(), prov()).unwrap();
+        assert_eq!(te.lines[0].closing_balance, "200.00");
+
+        // A calendar year serializes exactly as before fiscal-year definitions.
+        let calendar = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
+        assert!(calendar.period.is_none());
+        assert!(!String::from_utf8(calendar.canonical_bytes())
+            .unwrap()
+            .contains("\"period\""));
+    }
+
+    #[test]
+    fn a_cutover_live_period_must_lie_in_the_opening_fiscal_year() {
+        use aggountant_model::{Hash, PeriodId};
+        let year = FiscalYear::new(date("2026-07-01"), date("2027-06-30")).unwrap();
+        let opening = |live: &str| {
+            OpeningBalance::new(
+                2027,
+                vec![
+                    Posting {
+                        account: AccountId::new("1910").unwrap(),
+                        amount: eur_money("1.00"),
+                        side: Side::Debit,
+                        vat_code: None,
+                    },
+                    Posting {
+                        account: AccountId::new("2000").unwrap(),
+                        amount: eur_money("1.00"),
+                        side: Side::Credit,
+                        vat_code: None,
+                    },
+                ],
+                OpeningBalanceSource::ExternalCutover {
+                    prior_year: 2026,
+                    source_head_hash: Hash::from_bytes([1; 32]),
+                    source_chart_version: "old".into(),
+                    target_chart_version: prov().chart_version,
+                    account_mapping_hash: Hash::from_bytes([2; 32]),
+                    live_period: PeriodId::parse(live).unwrap(),
+                },
+            )
+            .unwrap()
+        };
+        let run = |live: &str| {
+            compute_statements(
+                &year,
+                Some(&opening(live)),
+                &[],
+                &test_chart(),
+                kpa_policy(),
+                prov(),
+            )
+        };
+        assert!(run("2026-09").is_ok());
+        assert!(run("2027-Q2").is_ok());
+        assert_eq!(run("2026-06").unwrap_err().error_code(), "STATEMENTS");
+        assert_eq!(run("2027-Q3").unwrap_err().error_code(), "STATEMENTS");
     }
 
     #[test]
@@ -933,8 +1100,15 @@ mod tests {
                 ],
             ),
         ];
-        let s =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         // Aineelliset = 1150 (8000, debit-normal) + 1160 (−2000, credit balance on an
         // asset account) = 6000.
         let aineelliset = s
@@ -974,11 +1148,25 @@ mod tests {
                 ],
             ),
         ];
-        let s1 =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s1 = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         // Same sealed inputs + pinned policy → identical bytes + hash.
-        let s2 =
-            compute_statements(2026, None, &vouchers, &test_chart(), kpa_policy(), prov()).unwrap();
+        let s2 = compute_statements(
+            &y2026(),
+            None,
+            &vouchers,
+            &test_chart(),
+            kpa_policy(),
+            prov(),
+        )
+        .unwrap();
         assert_eq!(s1.canonical_bytes(), s2.canonical_bytes());
         assert_eq!(s1.statements_hash(), s2.statements_hash());
         // Pin the exact hash: any layout, label, formatting, or policy drift that
@@ -1017,7 +1205,8 @@ mod tests {
             ],
         )];
         let all: Vec<VoucherBody> = vouchers.into_iter().chain(vouchers2).collect();
-        let err = compute_statements(2026, None, &all, &chart, kpa_policy(), prov()).unwrap_err();
+        let err =
+            compute_statements(&y2026(), None, &all, &chart, kpa_policy(), prov()).unwrap_err();
         assert_eq!(err.error_code(), "STATEMENTS");
     }
 
@@ -1041,7 +1230,7 @@ mod tests {
                 ],
             ),
         ];
-        let te = tase_erittelyt(2026, None, &vouchers, &test_chart(), prov()).unwrap();
+        let te = tase_erittelyt(&y2026(), None, &vouchers, &test_chart(), prov()).unwrap();
         let bank = te.lines.iter().find(|l| l.account == "1910").unwrap();
         assert_eq!(bank.closing_balance, "15000.00");
         assert_eq!(

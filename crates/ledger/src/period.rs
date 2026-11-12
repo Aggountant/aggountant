@@ -19,7 +19,7 @@
 
 use serde::Serialize;
 
-use aggountant_model::PeriodId;
+use aggountant_model::{Date, PeriodId};
 
 /// The authoritative fiscal state of a period (ADR-6 §1). `Open` is the implicit
 /// state of a period that has never transitioned.
@@ -149,7 +149,11 @@ impl FiscalYearState {
 /// (`fiscal-year show`). A year that never sealed reads back `Open`.
 #[derive(Debug, Clone, Serialize)]
 pub struct FiscalYearView {
+    /// The label: the calendar year in which the fiscal year ends.
     pub year: i32,
+    pub start: Date,
+    pub end: Date,
+    pub months: u32,
     pub state: FiscalYearState,
     /// The `statements_hash` the `ApproveStatements` gate bound and `SealYear`
     /// locked — `None` until the year is sealed (what-was-approved == what-was-sealed).
@@ -160,6 +164,20 @@ pub struct FiscalYearView {
     /// `fold(fiscal_year_transition) == fiscal_year` verification.
     pub head_seq: u64,
     pub head_hash: String,
+}
+
+/// The result of `fiscal-year define` (issue `non-calendar-fiscal-year`).
+#[derive(Debug, Clone, Serialize)]
+pub struct FiscalYearDefinitionView {
+    /// The label: the calendar year in which the defined fiscal year ends.
+    pub year: i32,
+    pub start: Date,
+    pub end: Date,
+    pub months: u32,
+    /// Where the following (12-month) fiscal year starts.
+    pub next_start: Date,
+    /// True when the identical definition already existed.
+    pub replayed: bool,
 }
 
 /// A derived, read-only projection of one `adjustment_attribution` event (issue

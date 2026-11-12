@@ -83,17 +83,12 @@ impl OpeningBalance {
                 source.prior_year()
             )));
         }
-        if let OpeningBalanceSource::PriorFiscalYear { prior_year, .. } = &source {
-            if prior_year.checked_add(1) != Some(fiscal_year) {
-                return Err(ModelError::InvalidOpeningBalance(format!(
-                    "prior fiscal year {prior_year} cannot directly open {fiscal_year}"
-                )));
-            }
-        }
+        // Which year directly precedes `fiscal_year`, and which months it spans, depend
+        // on the company's fiscal calendar: the Ledger takes the prior year from the
+        // calendar and the Domain checks the live period against the year's dates.
         if let OpeningBalanceSource::ExternalCutover {
             source_chart_version,
             target_chart_version,
-            live_period,
             ..
         } = &source
         {
@@ -101,11 +96,6 @@ impl OpeningBalance {
                 return Err(ModelError::InvalidOpeningBalance(
                     "cut-over chart versions must not be empty".into(),
                 ));
-            }
-            if live_period.year() != fiscal_year {
-                return Err(ModelError::InvalidOpeningBalance(format!(
-                    "cut-over live period {live_period} is not in fiscal year {fiscal_year}"
-                )));
             }
         }
         check_postings(&postings)?;

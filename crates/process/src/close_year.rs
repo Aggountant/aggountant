@@ -150,6 +150,10 @@ impl ProcessEngine {
         let year = input.year;
         let ledger = Ledger::open(&self.home)?;
 
+        // The year's dates come from the company's fiscal calendar; `year` is the
+        // calendar year the fiscal year ends in.
+        let fiscal_year = ledger.fiscal_year(year)?;
+
         // Precondition A: the year must not already be sealed (idempotent refusal).
         let fy = ledger.fiscal_year_view(year)?;
         if fy.state == FiscalYearState::Sealed {
@@ -182,7 +186,7 @@ impl ProcessEngine {
         );
         for c in crate::intake::Intake::open(&self.home).list()? {
             if c.status == crate::intake::MatchStatus::Pending
-                && c.date.get(0..4) == Some(&year.to_string())
+                && Date::parse(&c.date).is_ok_and(|date| fiscal_year.contains(date))
             {
                 blockers.push(format!("unresolved-intake:{}", c.id));
             }
@@ -208,35 +212,50 @@ impl ProcessEngine {
             input.corrections.iter().map(|c| c.correction_id.as_str()),
         )?;
 
-        // Compute the actual first open period in the target year for adjustments.
-        // An already-active target year owns its granularity; otherwise continue the
-        // closing year's mode (monthly books continue at January, legacy books at Q1).
-        let target_year = year + 1;
-        let target_months = (1..=12)
-            .map(|month| PeriodId::new_month(target_year, month))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
-        let target_quarters = (1..=4)
-            .map(|quarter| PeriodId::new(target_year, quarter))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
-        let month_active = target_months.iter().try_fold(false, |active, period| {
-            Ok::<_, ProcessError>(active || ledger.period_view(period)?.state != PeriodState::Open)
-        })?;
-        let quarter_active = target_quarters.iter().try_fold(false, |active, period| {
-            Ok::<_, ProcessError>(active || ledger.period_view(period)?.state != PeriodState::Open)
-        })?;
-        if month_active && quarter_active {
-            return Err(ProcessError::CloseYearBlocked(format!(
-                "close-year for {year} is blocked: target year {target_year} has mixed active month and quarter coverage"
-            )));
-        }
-        let target_periods = if month_active
-            || (!quarter_active && subperiods.first().is_some_and(PeriodId::is_month))
-        {
-            target_months
+        // Compute the actual first open period in the next fiscal year for adjustments.
+        // A calendar target year owns its granularity once active; otherwise it
+        // continues the closing year's mode (monthly books continue at January, legacy
+        // books at Q1). A non-calendar fiscal year is closed by its months only.
+        let next_year = ledger
+            .fiscal_calendar()?
+            .next(&fiscal_year)
+            .map_err(aggountant_ledger::LedgerError::from)?;
+        let target_year = next_year.year();
+        let target_periods = if next_year.is_calendar_year() {
+            let target_months = (1..=12)
+                .map(|month| PeriodId::new_month(target_year, month))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
+            let target_quarters = (1..=4)
+                .map(|quarter| PeriodId::new(target_year, quarter))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
+            let month_active = target_months.iter().try_fold(false, |active, period| {
+                Ok::<_, ProcessError>(
+                    active || ledger.period_view(period)?.state != PeriodState::Open,
+                )
+            })?;
+            let quarter_active = target_quarters.iter().try_fold(false, |active, period| {
+                Ok::<_, ProcessError>(
+                    active || ledger.period_view(period)?.state != PeriodState::Open,
+                )
+            })?;
+            if month_active && quarter_active {
+                return Err(ProcessError::CloseYearBlocked(format!(
+                    "close-year for {year} is blocked: target year {target_year} has mixed active month and quarter coverage"
+                )));
+            }
+            if month_active
+                || (!quarter_active && subperiods.first().is_some_and(PeriodId::is_month))
+            {
+                target_months
+            } else {
+                target_quarters
+            }
         } else {
-            target_quarters
+            next_year
+                .month_periods()
+                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?
         };
         let next_open = target_periods
             .into_iter()
@@ -253,12 +272,21 @@ impl ProcessEngine {
             })?;
 
         // Compute poistot (Domain) — a bad asset class / unresolvable rate fails here.
-        let doc_date = Date::from_ymd(year, 12, 31)
-            .map_err(|e| ProcessError::Store(format!("bad fiscal-year end: {e}")))?;
-        let posting_date = Date::from_ymd(target_year, u32::from(next_open.month_bounds().0), 1)
-            .map_err(|e| ProcessError::Store(format!("bad next-open date: {e}")))?;
-        let depreciation = compute_depreciation(doc_date, &input.assets, depreciation_rate_table())
-            .map_err(map_domain)?;
+        let doc_date = fiscal_year.end();
+        let posting_date =
+            Date::from_ymd(next_open.year(), u32::from(next_open.month_bounds().0), 1)
+                .map_err(|e| ProcessError::Store(format!("bad next-open date: {e}")))?;
+        // A depreciation refusal (unknown class, a fiscal year that is not 12 months)
+        // is something the caller must resolve before the close can start.
+        let depreciation =
+            compute_depreciation(&fiscal_year, &input.assets, depreciation_rate_table()).map_err(
+                |e| {
+                    ProcessError::CloseYearBlocked(format!(
+                        "close-year for {year} is blocked: {}: {e}",
+                        e.error_code()
+                    ))
+                },
+            )?;
         // Validate every adjustment + correction draft assembles now (fail fast).
         for line in &depreciation {
             depreciation_voucher(line, doc_date, posting_date).map_err(map_domain)?;
@@ -297,7 +325,7 @@ impl ProcessEngine {
             policy_set: policy_set.id.clone(),
             period: subperiods
                 .last()
-                .expect("calendar year has selected subperiods")
+                .expect("a fiscal year has selected subperiods")
                 .to_string(),
         })?;
         for (key, ty) in [
@@ -601,9 +629,12 @@ impl ProcessEngine {
             effect_key: EFFECT_SEAL_ADJ.to_string(),
         })?;
         let ledger = Ledger::open(&self.home)?;
-        let depreciation =
-            compute_depreciation(doc_date, &state.input.assets, depreciation_rate_table())
-                .map_err(map_domain)?;
+        let depreciation = compute_depreciation(
+            &ledger.fiscal_year(state.year)?,
+            &state.input.assets,
+            depreciation_rate_table(),
+        )
+        .map_err(map_domain)?;
         let seal =
             |draft: &aggountant_model::VoucherDraft, nk: String| -> Result<(), ProcessError> {
                 ledger
@@ -780,7 +811,7 @@ impl ProcessEngine {
             kpa_policy_version: kpa_policy_version().to_string(),
         };
         compute_statements(
-            state.year,
+            &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
@@ -800,7 +831,7 @@ impl ProcessEngine {
             kpa_policy_version: kpa_policy_version().to_string(),
         };
         let te = tase_erittelyt(
-            state.year,
+            &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
@@ -819,10 +850,12 @@ impl ProcessEngine {
     fn build_liitetiedot(&self, state: &CloseYearState) -> Result<Liitetiedot, ProcessError> {
         use std::collections::BTreeMap;
         let ledger = Ledger::open(&self.home)?;
-        let doc_date = parse_date(&state.doc_date)?;
-        let depreciation =
-            compute_depreciation(doc_date, &state.input.assets, depreciation_rate_table())
-                .map_err(map_domain)?;
+        let depreciation = compute_depreciation(
+            &ledger.fiscal_year(state.year)?,
+            &state.input.assets,
+            depreciation_rate_table(),
+        )
+        .map_err(map_domain)?;
         let mut notes: BTreeMap<String, aggountant_domain::statements::DepreciationNote> =
             BTreeMap::new();
         for line in &depreciation {
@@ -866,7 +899,7 @@ impl ProcessEngine {
             let data = ledger.fiscal_year_data(state.year)?;
             let chart = ledger.chart_list(None)?;
             tase_erittelyt(
-                state.year,
+                &data.fiscal_year,
                 data.opening_balance.as_ref(),
                 &data.vouchers,
                 &chart,

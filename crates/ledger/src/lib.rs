@@ -33,15 +33,16 @@ use aggountant_domain::{
     StatementProvenance,
 };
 use aggountant_model::{
-    Account, AccountId, AccountKind, Currency, Date, Hash, Money, OpeningBalance,
-    OpeningBalanceSource, PeriodId, Posting, Side, VoucherBody, VoucherDraft,
+    Account, AccountId, AccountKind, Currency, Date, FiscalCalendar, FiscalYear, Hash, Money,
+    OpeningBalance, OpeningBalanceSource, PeriodId, Posting, Side, VoucherBody, VoucherDraft,
 };
 
 pub use employee::EmployeeState;
 pub use error::LedgerError;
 pub use period::{
-    AdjustmentAttributionView, ClosingAuthority, FilingAuthority, FiscalYearState, FiscalYearView,
-    ManualVatFilingEvidence, PeriodState, PeriodView, VatFilingReceipt,
+    AdjustmentAttributionView, ClosingAuthority, FilingAuthority, FiscalYearDefinitionView,
+    FiscalYearState, FiscalYearView, ManualVatFilingEvidence, PeriodState, PeriodView,
+    VatFilingReceipt,
 };
 pub use reports::{
     render_monthly_report_html, BalanceSection, IncomeSection, MonthlyReportOptions,
@@ -62,9 +63,10 @@ use store::sqlite_fiscal::{
 use store::sqlite_pii::SqlitePiiStore;
 use store::{
     ArtifactStore, AttributionRequest, AttributionResult, BuiltVoucher, CommitResult,
-    EmployeeStore, FiscalStore, FiscalYearTransitionRequest, MasterDataRefStore, PeriodGate,
-    PeriodRow, RejectionRecord, StoredAttribution, StoredFiscalYearTransition,
-    StoredPeriodTransition, StoredProvenance, StoredVoucher, TransitionRequest,
+    DefinitionResult, EmployeeStore, FiscalStore, FiscalYearDefinitionRequest,
+    FiscalYearTransitionRequest, MasterDataRefStore, PeriodGate, PeriodRow, RejectionRecord,
+    StoredAttribution, StoredFiscalYearTransition, StoredPeriodTransition, StoredProvenance,
+    StoredVoucher, TransitionRequest,
 };
 
 fn eur() -> Currency {
@@ -289,6 +291,8 @@ pub struct SoftwareVersionSpan {
 /// One consistent set of first-class inputs to a fiscal-year projection.
 #[derive(Debug, Clone)]
 pub struct FiscalYearData {
+    /// The fiscal year's dates, from the company's fiscal calendar.
+    pub fiscal_year: FiscalYear,
     pub opening_balance: Option<OpeningBalance>,
     /// Projection-only voucher views. Attributed adjustments may be re-dated into
     /// their statement year; use [`Ledger::year_vouchers`] for original sealed bodies.
@@ -316,9 +320,12 @@ pub struct VerifyReport {
 }
 
 /// Project an authoritative `fiscal_year` row into the public read view (S6).
-fn row_to_year_view(row: store::FiscalYearRow) -> FiscalYearView {
+fn row_to_year_view(row: store::FiscalYearRow, fiscal_year: &FiscalYear) -> FiscalYearView {
     FiscalYearView {
         year: row.year,
+        start: fiscal_year.start(),
+        end: fiscal_year.end(),
+        months: fiscal_year.months(),
         state: row.state,
         statements_hash: row.statements_hash,
         sealed_by_run_id: row.owning_run_id,
@@ -915,6 +922,8 @@ impl Ledger {
     /// separate domain data and never consume an in-band voucher number.
     pub fn fiscal_year_data(&self, year: i32) -> Result<FiscalYearData, LedgerError> {
         let snapshot = self.fiscal.verification_snapshot()?;
+        let calendar = &snapshot.calendar;
+        let fiscal_year = calendar.year(year)?;
         let effective_of: BTreeMap<u64, i32> = snapshot
             .attributions
             .iter()
@@ -934,7 +943,7 @@ impl Ledger {
         let mut has_prior = false;
         for stored in &snapshot.vouchers {
             let body = aggountant_wire::decode_voucher_body(&stored.canonical)?;
-            let posting_year = PeriodId::containing(body.posting_date()).year();
+            let posting_year = calendar.year_of(body.posting_date())?.year();
             let statement_year = effective_of
                 .get(&stored.number)
                 .copied()
@@ -978,7 +987,7 @@ impl Ledger {
                 if posting_year == year {
                     vouchers.push(body);
                 } else {
-                    vouchers.push(redate_into_year(&body, year)?);
+                    vouchers.push(redate_into_year(&body, &fiscal_year)?);
                 }
             } else if statement_year < year {
                 has_prior = true;
@@ -1030,9 +1039,9 @@ impl Ledger {
         // State safety depends on prior authoritative activity, not its net amount:
         // an offsetting/unbalanced-later history must not bypass the Y-1 seal gate.
         let sealed_prior = if has_prior {
-            let prior_year = year.checked_sub(1).ok_or_else(|| {
-                LedgerError::Store(format!("cannot derive prior fiscal year for {year}"))
-            })?;
+            // Labels can skip a value after an 18-month year: the prior year comes from
+            // the calendar, never from `year - 1`.
+            let prior_year = calendar.previous(&fiscal_year)?.year();
             let prior = snapshot
                 .fiscal_years
                 .iter()
@@ -1087,6 +1096,7 @@ impl Ledger {
         };
 
         Ok(FiscalYearData {
+            fiscal_year,
             opening_balance,
             vouchers,
         })
@@ -1105,7 +1115,7 @@ impl Ledger {
         let mut vouchers = Vec::new();
         for stored in &snapshot.vouchers {
             let body = aggountant_wire::decode_voucher_body(&stored.canonical)?;
-            let posting_year = PeriodId::containing(body.posting_date()).year();
+            let posting_year = snapshot.calendar.year_of(body.posting_date())?.year();
             let statement_year = effective_of
                 .get(&stored.number)
                 .copied()
@@ -1120,7 +1130,62 @@ impl Ledger {
     /// The authoritative fiscal-year state (`fiscal-year show`; S6). A year that
     /// never sealed reads back `Open`.
     pub fn fiscal_year_view(&self, year: i32) -> Result<FiscalYearView, LedgerError> {
-        Ok(row_to_year_view(self.fiscal.read_fiscal_year(year)?))
+        let fiscal_year = self.fiscal_year(year)?;
+        Ok(row_to_year_view(
+            self.fiscal.read_fiscal_year(year)?,
+            &fiscal_year,
+        ))
+    }
+
+    /// The company's fiscal calendar: calendar years unless fiscal years have been
+    /// defined (issue `non-calendar-fiscal-year`).
+    pub fn fiscal_calendar(&self) -> Result<FiscalCalendar, LedgerError> {
+        self.fiscal.fiscal_calendar()
+    }
+
+    /// The fiscal year labelled `year` (the calendar year it ends in);
+    /// `FISCAL_YEAR_UNDEFINED` if no fiscal year ends in that calendar year.
+    pub fn fiscal_year(&self, year: i32) -> Result<FiscalYear, LedgerError> {
+        Ok(self.fiscal_calendar()?.year(year)?)
+    }
+
+    /// The fiscal year containing `date`.
+    pub fn fiscal_year_of(&self, date: Date) -> Result<FiscalYear, LedgerError> {
+        Ok(self.fiscal_calendar()?.year_of(date)?)
+    }
+
+    /// Define one fiscal year (issue `non-calendar-fiscal-year`): the first year of a
+    /// company whose year is not the calendar year, or a change of fiscal year. Years
+    /// after it continue as 12-month years. Definitions are append-only, and one that
+    /// would move a sealed voucher to another fiscal year or change the dates of a
+    /// year with recorded state is refused (`FISCAL_YEAR_CONFLICT`). The length rule
+    /// of kirjanpitolaki 1:4 (at most 18 months) is enforced by [`FiscalYear::new`].
+    /// Repeating an identical definition replays.
+    pub fn define_fiscal_year(
+        &self,
+        start: Date,
+        end: Date,
+        actor: &str,
+    ) -> Result<FiscalYearDefinitionView, LedgerError> {
+        let year = FiscalYear::new(start, end)?;
+        let (calendar, replayed) =
+            match self
+                .fiscal
+                .define_fiscal_year(&FiscalYearDefinitionRequest {
+                    year,
+                    actor: actor.to_string(),
+                })? {
+                DefinitionResult::Recorded(calendar) => (calendar, false),
+                DefinitionResult::Replayed(calendar) => (calendar, true),
+            };
+        Ok(FiscalYearDefinitionView {
+            year: year.year(),
+            start: year.start(),
+            end: year.end(),
+            months: year.months(),
+            next_start: calendar.next(&year)?.start(),
+            replayed,
+        })
     }
 
     /// The [`close_package_hash`] for `year`, with the two ledger-derivable components
@@ -1171,7 +1236,7 @@ impl Ledger {
         // Domain projection failures propagate with their own code preserved (the
         // `LedgerError::Statements` variant wraps `DomainError`, not a flattened string).
         let statements = compute_statements(
-            year,
+            &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
@@ -1179,7 +1244,7 @@ impl Ledger {
             provenance.clone(),
         )?;
         let erittelyt = tase_erittelyt(
-            year,
+            &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
@@ -1192,12 +1257,15 @@ impl Ledger {
         )
     }
 
-    /// Canonical close coverage for a calendar year. An active monthly row selects
-    /// all twelve months; otherwise retained legacy years use four quarters. Reopened
-    /// `Open` remnants do not select a mode, so a year can deliberately switch only
-    /// after all old coverage has been reopened.
+    /// Canonical close coverage for fiscal year `year`. A calendar year keeps its
+    /// existing rule: an active monthly row selects all twelve months; otherwise
+    /// retained legacy years use four quarters. Reopened `Open` remnants do not select
+    /// a mode, so a year can deliberately switch only after all old coverage has been
+    /// reopened. A fiscal year that is not a calendar year is closed by its months
+    /// only; active quarter coverage inside it is refused rather than mapped.
     pub fn year_close_periods(&self, year: i32) -> Result<Vec<PeriodId>, LedgerError> {
         let snapshot = self.fiscal.verification_snapshot()?;
+        let fiscal_year = snapshot.calendar.year(year)?;
         let mut uses_months = false;
         for row in &snapshot.periods {
             let period = PeriodId::parse(&row.period_id).map_err(|error| {
@@ -1206,13 +1274,34 @@ impl Ledger {
                     row.period_id
                 ))
             })?;
-            if period.year() == year
-                && period.is_month()
-                && (row.state != PeriodState::Open || row.vat_filed)
-            {
-                uses_months = true;
-                break;
+            let active = row.state != PeriodState::Open || row.vat_filed;
+            if !active {
+                continue;
             }
+            if fiscal_year.is_calendar_year() {
+                if period.year() == year && period.is_month() {
+                    uses_months = true;
+                    break;
+                }
+            } else if !period.is_month() {
+                let (first, last) = period.month_bounds();
+                let overlaps = [first, last].into_iter().any(|month| {
+                    Date::from_ymd(period.year(), month.into(), 1)
+                        .is_ok_and(|day| fiscal_year.contains(day))
+                });
+                if overlaps {
+                    return Err(LedgerError::PeriodTransitionConflict(format!(
+                        "fiscal year {year} ({}..{}) is closed by month, but quarter {period} \
+                         inside it is {}",
+                        fiscal_year.start(),
+                        fiscal_year.end(),
+                        row.state.as_str()
+                    )));
+                }
+            }
+        }
+        if !fiscal_year.is_calendar_year() {
+            return Ok(fiscal_year.month_periods()?);
         }
         if uses_months {
             (1..=12)
@@ -1268,7 +1357,7 @@ impl Ledger {
                 run_id: run_id.to_string(),
                 actor: actor.to_string(),
             })?;
-        Ok(row_to_year_view(row))
+        Ok(row_to_year_view(row, &self.fiscal_year(year)?))
     }
 
     /// Attribute a sealed voucher to the **statement year** its postings belong to
@@ -1322,7 +1411,7 @@ impl Ledger {
             }
         };
         let body = aggountant_wire::decode_voucher_body(&stored.canonical)?;
-        let posting_year = PeriodId::containing(body.posting_date()).year();
+        let posting_year = self.fiscal_year_of(body.posting_date())?.year();
         if effective_year > posting_year {
             let err = LedgerError::PeriodTransitionConflict(format!(
                 "cannot attribute voucher {voucher_number} (posted in {posting_year}) to a later \
@@ -1879,7 +1968,7 @@ impl Ledger {
 }
 
 /// Produce a projection-only copy of `body` whose **posting** date is moved to
-/// `year-12-31` (issue `closeyear-adjustment-attribution`). Used by `fiscal_year_data` to
+/// the last day of `fiscal_year` (issue `closeyear-adjustment-attribution`). Used by `fiscal_year_data` to
 /// present an attributed adjustment — sealed into a later period — so the Domain's
 /// posting-year filter (`compute_statements` / `tase_erittelyt` key off `posting_date`
 /// only) folds it into its statement year.
@@ -1895,8 +1984,11 @@ impl Ledger {
 /// not a chain-authoritative record. The narrower rewrite depends on the Domain
 /// projection filtering solely by `posting_date`; a future Domain change that inspected
 /// dates otherwise would need the proper projection-wrapper design recorded on the issue.
-fn redate_into_year(body: &VoucherBody, year: i32) -> Result<VoucherBody, LedgerError> {
-    let posting = Date::from_ymd(year, 12, 31)?;
+fn redate_into_year(
+    body: &VoucherBody,
+    fiscal_year: &FiscalYear,
+) -> Result<VoucherBody, LedgerError> {
+    let posting = fiscal_year.end();
     let draft = VoucherDraft::new(
         body.document_date(),
         posting,

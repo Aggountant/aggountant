@@ -77,7 +77,7 @@ fn expected_component_hashes(ledger: &Ledger, year: i32) -> (String, String) {
         kpa_policy_version: kpa_policy_version().to_string(),
     };
     let s = compute_statements(
-        year,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         vouchers,
         &chart,
@@ -86,7 +86,7 @@ fn expected_component_hashes(ledger: &Ledger, year: i32) -> (String, String) {
     )
     .unwrap();
     let te = tase_erittelyt(
-        year,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         vouchers,
         &chart,

@@ -15,6 +15,7 @@
 
 pub mod account;
 pub mod error;
+pub mod fiscal_year;
 pub mod newtype;
 pub mod opening_balance;
 pub mod period;
@@ -24,6 +25,7 @@ pub mod voucher;
 
 pub use account::{Account, AccountKind};
 pub use error::ModelError;
+pub use fiscal_year::{FiscalCalendar, FiscalYear, MAX_FISCAL_YEAR_MONTHS};
 pub use newtype::{AccountId, Currency, Date, FinnishPersonId, Hash, Iban, Money, VatCode};
 pub use opening_balance::{OpeningBalance, OpeningBalanceSource};
 pub use period::PeriodId;
@@ -302,26 +304,5 @@ mod tests {
             serde_json::from_slice::<OpeningBalance>(&bytes).unwrap(),
             opening
         );
-    }
-
-    #[test]
-    fn external_cutover_live_period_must_be_in_the_opening_year() {
-        let err = OpeningBalance::new(
-            2026,
-            vec![
-                posting("1910", "1.00", Side::Debit),
-                posting("2000", "1.00", Side::Credit),
-            ],
-            OpeningBalanceSource::ExternalCutover {
-                prior_year: 2025,
-                source_head_hash: Hash::from_bytes([1; 32]),
-                source_chart_version: "old".into(),
-                target_chart_version: "new".into(),
-                account_mapping_hash: Hash::from_bytes([2; 32]),
-                live_period: PeriodId::new(2025, 4).unwrap(),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(err.error_code(), "INVALID_OPENING_BALANCE");
     }
 }

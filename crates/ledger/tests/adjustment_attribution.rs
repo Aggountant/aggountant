@@ -116,7 +116,7 @@ fn projected_result(ledger: &Ledger, year: i32) -> Decimal {
         kpa_policy_version: aggountant_domain::kpa_policy_version().to_string(),
     };
     let statements = compute_statements(
-        year,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         vouchers,
         &chart,
@@ -260,7 +260,7 @@ fn full_close_sequence_seals_then_refuses_a_late_attribution() {
         kpa_policy_version: aggountant_domain::kpa_policy_version().to_string(),
     };
     let stmts = compute_statements(
-        2025,
+        &data.fiscal_year,
         data.opening_balance.as_ref(),
         vouchers,
         &chart,

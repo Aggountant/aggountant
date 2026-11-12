@@ -184,7 +184,8 @@ enum Command {
         #[command(subcommand)]
         cmd: ReportCmd,
     },
-    /// Fiscal-year state (S6): show a year's authoritative `Open`/`Sealed` state.
+    /// Fiscal years: define a fiscal year that is not the calendar year, list the
+    /// definitions, and show a year's dates and authoritative `Open`/`Sealed` state.
     FiscalYear {
         #[command(subcommand)]
         cmd: FiscalYearCmd,
@@ -370,11 +371,32 @@ enum CloseYearCmd {
 
 #[derive(Subcommand, Debug)]
 enum FiscalYearCmd {
-    /// Show a fiscal year's authoritative state (`Open`/`Sealed`).
+    /// Show a fiscal year's dates and authoritative state (`Open`/`Sealed`). A
+    /// fiscal year is identified by the calendar year it ends in (`--year`), or
+    /// found by a date inside it (`--date YYYY-MM-DD`).
     Show {
+        #[arg(long, required_unless_present = "date", conflicts_with = "date")]
+        year: Option<i32>,
         #[arg(long)]
-        year: i32,
+        date: Option<String>,
     },
+    /// Define one fiscal year: the first year of a company whose fiscal year is not
+    /// the calendar year, or the year in which it changes. It runs from `--start`
+    /// (first day of a month) to `--end` (last day of a month), at most 18 months
+    /// (kirjanpitolaki 1:4); later years continue as 12-month years. Without any
+    /// definition fiscal years are calendar years. Append-only: a definition that
+    /// would move a sealed voucher to another fiscal year is refused
+    /// (`FISCAL_YEAR_CONFLICT`); repeating an identical definition replays.
+    Define {
+        #[arg(long)]
+        start: String,
+        #[arg(long)]
+        end: String,
+        #[arg(long, default_value = "cli")]
+        actor: String,
+    },
+    /// List the fiscal-year definitions (empty: every fiscal year is a calendar year).
+    List,
 }
 
 #[derive(Subcommand, Debug)]
@@ -749,6 +771,10 @@ fn default_actor() -> String {
     "cli".to_string()
 }
 
+fn parse_cli_date(raw: &str) -> Result<Date, CliError> {
+    Date::parse(raw).map_err(|e| CliError::user(e.error_code(), e.to_string()))
+}
+
 /// Structured input for `import camt053 seal` (stdin JSON): the skill's per-entry
 /// account assignments plus the sealing actor.
 #[derive(Debug, Deserialize)]
@@ -840,6 +866,7 @@ fn classify_ledger_error(error: &aggountant_ledger::LedgerError) -> ErrorClass {
         | MasterDataCorrupt(_)
         | ChartVersionChanged(_)
         | EmployeeNotFound(_)
+        | FiscalYearConflict(_)
         | Statements(_)
         | InvalidHash(_)
         | Wire(_)
@@ -1911,9 +1938,41 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         Command::FiscalYear { cmd } => {
             let ledger = Ledger::open(&home_path(cli)?)?;
             match cmd {
-                FiscalYearCmd::Show { year } => {
-                    let view = ledger.fiscal_year_view(*year)?;
+                FiscalYearCmd::Show { year, date } => {
+                    let year = match (year, date) {
+                        (Some(year), _) => *year,
+                        (None, Some(date)) => ledger.fiscal_year_of(parse_cli_date(date)?)?.year(),
+                        (None, None) => unreachable!("clap requires --year or --date"),
+                    };
+                    let view = ledger.fiscal_year_view(year)?;
                     Ok(serde_json::to_value(view).expect("fiscal-year view serializes"))
+                }
+                FiscalYearCmd::Define { start, end, actor } => {
+                    let view = ledger.define_fiscal_year(
+                        parse_cli_date(start)?,
+                        parse_cli_date(end)?,
+                        actor,
+                    )?;
+                    Ok(serde_json::to_value(view).expect("fiscal-year definition serializes"))
+                }
+                FiscalYearCmd::List => {
+                    let calendar = ledger.fiscal_calendar()?;
+                    let definitions: Vec<Value> = calendar
+                        .defined()
+                        .iter()
+                        .map(|year| {
+                            json!({
+                                "year": year.year(),
+                                "start": year.start(),
+                                "end": year.end(),
+                                "months": year.months(),
+                            })
+                        })
+                        .collect();
+                    Ok(json!({
+                        "calendar_years": definitions.is_empty(),
+                        "definitions": definitions,
+                    }))
                 }
             }
         }
@@ -2665,10 +2724,50 @@ fn human_line(command: &Command, value: &Value) -> String {
             value["run_id"], value["status"], value["period"]
         ),
         Command::Report { .. } => reports::human_line(value),
-        Command::FiscalYear { .. } => format!(
-            "fiscal year {} — {} (statements_hash {})",
-            value["year"], value["state"], value["statements_hash"]
-        ),
+        Command::FiscalYear { cmd } => match cmd {
+            FiscalYearCmd::Show { .. } => format!(
+                "fiscal year {} ({}..{}, {} months) — {} (statements_hash {})",
+                value["year"],
+                value["start"].as_str().unwrap_or("?"),
+                value["end"].as_str().unwrap_or("?"),
+                value["months"],
+                value["state"],
+                value["statements_hash"]
+            ),
+            FiscalYearCmd::Define { .. } => format!(
+                "fiscal year {} defined: {}..{} ({} months), next year starts {}{}",
+                value["year"],
+                value["start"].as_str().unwrap_or("?"),
+                value["end"].as_str().unwrap_or("?"),
+                value["months"],
+                value["next_start"].as_str().unwrap_or("?"),
+                if value["replayed"] == true {
+                    " (already defined)"
+                } else {
+                    ""
+                }
+            ),
+            FiscalYearCmd::List => {
+                let definitions = value["definitions"].as_array().cloned().unwrap_or_default();
+                if definitions.is_empty() {
+                    "fiscal years are calendar years (no definitions)".to_string()
+                } else {
+                    definitions
+                        .iter()
+                        .map(|d| {
+                            format!(
+                                "fiscal year {}: {}..{} ({} months)",
+                                d["year"],
+                                d["start"].as_str().unwrap_or("?"),
+                                d["end"].as_str().unwrap_or("?"),
+                                d["months"]
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            }
+        },
         Command::Import { cmd } => match cmd {
             ImportCmd::Camt053 { cmd } => match cmd {
                 Camt053Cmd::Parse { .. } => format!(

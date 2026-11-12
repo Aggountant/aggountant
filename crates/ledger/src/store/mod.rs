@@ -15,7 +15,9 @@ pub(crate) mod migrations;
 pub(crate) mod sqlite_fiscal;
 pub(crate) mod sqlite_pii;
 
-use aggountant_model::{Account, AccountId, Date, Hash, Money, VoucherBody};
+use aggountant_model::{
+    Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Money, VoucherBody,
+};
 
 use crate::employee::EmployeeState;
 use crate::error::LedgerError;
@@ -274,10 +276,24 @@ pub(crate) struct StoredRejection {
     pub hash: Hash,
 }
 
+/// A requested fiscal-year definition (issue `non-calendar-fiscal-year`).
+pub(crate) struct FiscalYearDefinitionRequest {
+    pub year: FiscalYear,
+    pub actor: String,
+}
+
+/// Outcome of a definition: the resulting calendar, and whether it was already there.
+pub(crate) enum DefinitionResult {
+    Recorded(FiscalCalendar),
+    Replayed(FiscalCalendar),
+}
+
 /// A single-transaction snapshot for `verify` (ADR-1: reads must be consistent,
 /// not interleaved with concurrent seals).
 pub(crate) struct FiscalSnapshot {
     pub vouchers: Vec<StoredVoucher>,
+    /// The fiscal calendar, read in the same transaction as the vouchers it places.
+    pub calendar: FiscalCalendar,
     pub head_number: u64,
     pub head_hash: Hash,
     pub rejections: Vec<StoredRejection>,
@@ -375,6 +391,19 @@ pub(crate) trait FiscalStore {
         &self,
         req: &FiscalYearTransitionRequest,
     ) -> Result<FiscalYearRow, LedgerError>;
+
+    /// The fiscal calendar derived from the append-only definitions (calendar years
+    /// when there are none).
+    fn fiscal_calendar(&self) -> Result<FiscalCalendar, LedgerError>;
+
+    /// Append a fiscal-year definition inside the `BEGIN IMMEDIATE` writer lock. An
+    /// identical existing definition replays. Refuses (audited, `FISCAL_YEAR_CONFLICT`)
+    /// a definition that would move a sealed voucher to another fiscal year or change
+    /// the dates of a year with recorded state; an invalid calendar is a model error.
+    fn define_fiscal_year(
+        &self,
+        req: &FiscalYearDefinitionRequest,
+    ) -> Result<DefinitionResult, LedgerError>;
 
     /// Read one sealed voucher by number, or `None` if no such number is sealed.
     /// The attribution write path uses it (outside no extra lock: a sealed

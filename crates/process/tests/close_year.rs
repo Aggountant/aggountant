@@ -535,3 +535,94 @@ fn monthly_close_year_uses_the_target_years_active_quarter() {
     );
     assert!(ledger.verify().unwrap().ok);
 }
+
+/// A July–June company (issue `non-calendar-fiscal-year`): 1.7.2026–30.6.2027 is
+/// fiscal year 2027, closed by its twelve months.
+fn setup_sealed_july_year(home: &std::path::Path) {
+    let ledger = Ledger::open(home).unwrap();
+    ledger
+        .define_fiscal_year(
+            Date::parse("2026-07-01").unwrap(),
+            Date::parse("2027-06-30").unwrap(),
+            "test",
+        )
+        .unwrap();
+    seal_voucher(&ledger, "2026-07-01", "1910", "2000", "5000.00", "cap");
+    seal_voucher(&ledger, "2026-11-30", "1910", "3000", "10000.00", "sale");
+    seal_voucher(&ledger, "2027-06-30", "7690", "1910", "2000.00", "exp");
+    for period in ledger.year_close_periods(2027).unwrap() {
+        let auth = ledger
+            .begin_close(&period, &format!("cp-{period}"), "test")
+            .unwrap();
+        ledger.seal_period(&period, &auth, "test").unwrap();
+    }
+}
+
+#[test]
+fn a_july_to_june_year_closes_into_july() {
+    let home = init_home();
+    setup_sealed_july_year(home.path());
+    let engine = ProcessEngine::open(home.path());
+
+    let started = engine
+        .start_close_year(&base_input(2027), &PolicySet::default())
+        .unwrap();
+    assert_eq!(started.depreciation[0].amount.amount_str(), "2000.00");
+    let run_id = started.run.run_id.clone();
+    approve(&engine, &run_id, "ApproveAdjustments");
+    approve(&engine, &run_id, "ApproveTaseErittelyt");
+    approve(&engine, &run_id, "ApproveLiitetiedot");
+    let done = approve(&engine, &run_id, "ApproveStatements");
+    assert_eq!(done.status, RunStatus::Completed);
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.fiscal_year_view(2027).unwrap().state,
+        FiscalYearState::Sealed
+    );
+    // Adjustments are dated the fiscal year's last day and posted to the first open
+    // month of the next fiscal year.
+    let depreciation = ledger
+        .year_vouchers(2028)
+        .unwrap()
+        .into_iter()
+        .find(|v| v.postings().iter().any(|p| p.account.as_str() == "6000"))
+        .unwrap();
+    assert_eq!(depreciation.document_date().to_string(), "2027-06-30");
+    assert_eq!(depreciation.posting_date().to_string(), "2027-07-01");
+
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2027/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["fiscal_year"], 2027);
+    assert_eq!(archive["statements"]["period"]["start"], "2026-07-01");
+    assert_eq!(archive["statements"]["period"]["end"], "2027-06-30");
+    assert_eq!(archive["statements"]["result"], "8000.00");
+}
+
+#[test]
+fn depreciation_in_a_short_fiscal_year_is_refused() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    ledger
+        .define_fiscal_year(
+            Date::parse("2026-07-01").unwrap(),
+            Date::parse("2026-12-31").unwrap(),
+            "test",
+        )
+        .unwrap();
+    for period in ledger.year_close_periods(2026).unwrap() {
+        let auth = ledger
+            .begin_close(&period, &format!("cp-{period}"), "test")
+            .unwrap();
+        ledger.seal_period(&period, &auth, "test").unwrap();
+    }
+    let engine = ProcessEngine::open(home.path());
+    let err = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
+    assert!(err.to_string().contains("DEPRECIATION"), "{err}");
+    assert!(err.to_string().contains("6 months"), "{err}");
+}

@@ -411,8 +411,11 @@ impl Ledger {
         // Reports are evidence over the sealed ledger, so local row consistency is not
         // enough: refuse output unless the complete fiscal hash chain verifies.
         self.verify()?;
-        let year = period.year();
+        // The year-to-date runs from the start of the fiscal year containing the month,
+        // which for a non-calendar fiscal year is not 1 January.
+        let year = self.fiscal_year_of(end)?.year();
         let FiscalYearData {
+            fiscal_year,
             opening_balance,
             vouchers,
         } = self.fiscal_year_data(year)?;
@@ -436,7 +439,7 @@ impl Ledger {
             .collect();
 
         let month = compute_statements(
-            year,
+            &fiscal_year,
             None,
             &month_vouchers,
             &chart,
@@ -444,7 +447,7 @@ impl Ledger {
             provenance.clone(),
         )?;
         let ytd = compute_statements(
-            year,
+            &fiscal_year,
             opening_balance.as_ref(),
             &ytd_vouchers,
             &chart,
@@ -452,7 +455,7 @@ impl Ledger {
             provenance.clone(),
         )?;
         let balance_specification = tase_erittelyt(
-            year,
+            &fiscal_year,
             opening_balance.as_ref(),
             &ytd_vouchers,
             &chart,
@@ -531,7 +534,7 @@ impl Ledger {
                     result: month.result,
                 },
                 year_to_date_income: IncomeSection {
-                    title: "Tuloslaskelma, vuoden alusta".into(),
+                    title: "Tuloslaskelma, tilikauden alusta".into(),
                     rows: traced_rows(StatementKind::Income, &ytd, None, &ytd_vouchers, &chart, &source_map)?,
                     result: ytd.result.clone(),
                 },
