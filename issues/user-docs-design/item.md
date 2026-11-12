@@ -3,11 +3,13 @@ created: 2026-11-12
 updated: 2026-11-12
 type: task
 reporter: jari
-status: in-progress
+status: done
 priority: normal
 preparation: ready
 lane: docs-design
 lane_seq: 1
+closed: 2026-11-12
+closed_by: spinoff
 ---
 
 # Design the user documentation for new users
