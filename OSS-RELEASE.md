@@ -37,7 +37,7 @@ docs_site: none
 - **dependency_bot: dependabot** — the mvp default; the hosted CI that reviews its pull requests runs only in `aggountant/aggountant`.
 - **health_badges: [ci, license]** — no registry target, so no registry badge.
 - **license: MIT** — `[workspace.package]` declares `license = "MIT"`; copyright holder Jari Mustonen.
-- **docs_site: none** — the user guide is Markdown under `docs/user/`, read on GitHub.
+- **docs_site: none** — the user guide is Markdown under `docs/user/`, built into an Astro Starlight site at https://aggountant.dev by `site/` and `.github/workflows/pages.yml`. Shipshape's `docs_site` enum has no Starlight value, so the contract says `none`.
 
 ## Release notes
 - **Hosted CI and releases run only in `aggountant/aggountant`.** Jobs carry `if: github.repository == 'aggountant/aggountant'`, so a fork or a private mirror spends no Actions minutes; local gates run through `scripts/ci-local.sh`.
