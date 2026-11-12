@@ -38,3 +38,9 @@ or get a docs site is part of the proposal.
 - [ ] `design.md` in this issue with readers, page list, page-type templates, migration map from the current guide and a recommendation on format.
 - [ ] Two or three sample pages in Finnish beside it.
 - [ ] Decisions that need Jari listed as questions with a recommendation each.
+
+## Decisions
+
+### 2026-11-12T07:32:24Z · @conductor
+
+Jari 12.11.2026: first drafts follow the seven recommendations. The decision list stays open; Jari returns to it after reading the drafts.
