@@ -41,6 +41,12 @@ fields:
       - duplicate
       - cannot-reproduce
       - obsolete
+  # Joint approval of the next work described in this issue (Jari and the
+  # agent); not lifecycle status. The DAG gate (preparation_gate) is turned on
+  # after the carried-over issues have been through a preparation pass.
+  preparation:
+    required: false
+    enum: [pending, reviewing, ready]
   priority:
     required: true
     enum: [normal, high]
