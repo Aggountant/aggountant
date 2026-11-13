@@ -934,3 +934,67 @@ fn statements_are_not_bound_while_a_run_voucher_is_unattributed() {
         FiscalYearState::Open
     );
 }
+
+#[test]
+fn a_resumed_run_does_not_seal_statements_another_run_has_made_stale() {
+    // Run A's statements are approved but SealYear fails (a subperiod was reopened).
+    // Meanwhile Run B for the same year seals and attributes a correction, so the
+    // year's figures no longer match A's approved statements. Resuming A must not
+    // seal them.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let mut b_input = base_input(2026);
+    b_input.corrections = vec![CorrectionInput {
+        correction_id: "myohainen".into(),
+        description: "myöhäinen oikaisu".into(),
+        debit_account: acct("7690"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let b = engine
+        .start_close_year(&b_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+    approve(&engine, &a, "ApproveTaseErittelyt");
+    approve(&engine, &a, "ApproveLiitetiedot");
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    let q4 = PeriodId::new(2026, 4).unwrap();
+    let authority = ledger.acquire_authority(&q4, "cp-2026-4").unwrap();
+    ledger
+        .reopen_period(
+            &q4,
+            &authority,
+            aggountant_ledger::PeriodState::Closing,
+            "test",
+        )
+        .unwrap();
+    engine
+        .answer_close_year(&a, "ApproveStatements", "approve")
+        .unwrap_err();
+    ledger.seal_period(&q4, &authority, "test").unwrap();
+
+    engine.seal_close_year_correction(&b, "myohainen").unwrap();
+    let err = engine.resume_close_year(&a).unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT", "{err}");
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
+
+    // Run B, whose statements include the correction, completes the close.
+    assert_eq!(approve_all(&engine, &b).status, RunStatus::Completed);
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["result"], "5600.00");
+}

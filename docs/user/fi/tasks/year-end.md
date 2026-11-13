@@ -64,6 +64,8 @@ aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
 aggountant close-year start < tilinpaatos-2026.json
 aggountant close-year seal-correction --run-id cy-… --correction <id>
 aggountant close-year answer --run-id cy-… --gate ApproveAdjustments --answer approve
+aggountant close-year answer --run-id cy-… --gate ApproveTaseErittelyt --answer approve
+aggountant close-year answer --run-id cy-… --gate ApproveLiitetiedot --answer approve
 aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer approve
 ```
 </details>

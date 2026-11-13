@@ -582,7 +582,7 @@ impl ProcessEngine {
             && fy.state == FiscalYearState::Open
         {
             // Approve-then-crash: the statements were approved but SealYear did not
-            // run. Complete it now (the Preview binding was already checked at answer).
+            // run. Complete it now; `run_seal_year` re-checks the Preview binding.
             self.run_seal_year(&journal, run_id)?;
         }
 
@@ -715,7 +715,11 @@ impl ProcessEngine {
             .as_ref()
             .ok_or_else(|| ProcessError::JournalCorrupt("no statements to seal".into()))?;
         let statements_hash = statements.statements_hash();
-        self.assert_run_vouchers_attributed(&state)?;
+        // Re-check the binding here, not only when the gate is answered: a resume
+        // reaches this after an interrupted or failed seal, and by then another
+        // close-year Run may have attributed a voucher that the approved statements
+        // leave out.
+        self.assert_statements_binding(run_id, &f, GATE_APPROVE_STMT)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_SEAL_YEAR.to_string(),
         })?;
