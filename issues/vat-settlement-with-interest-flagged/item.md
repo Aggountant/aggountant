@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: bug
-status: in-progress
+status: fixed
 priority: high
 provenance: other
 provenance_detail: conductor audit of a real company's filed periods with the new reconciliation
@@ -11,6 +11,8 @@ lane: vat-calculation
 lane_seq: 0
 collision: [crates/domain/src/vat/code.rs, crates/domain/src/vat/guards.rs, crates/domain/src/vat/reconcile.rs]
 preparation: ready
+closed: 2026-11-13
+closed_by: spinoff-vat-settlement
 ---
 
 # A VAT payment that also books interest is taken for untagged output VAT
