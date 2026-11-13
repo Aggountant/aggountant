@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7a1vmb1vv3rhg8nx3dx98sq/review-finding:verifier-unlisted-settlement-gaps
@@ -16,6 +16,10 @@ assessment_outcome: SPIN_OFF
 review_confidence: high
 review_severity: should-fix
 review_target: f7ace2b..HEAD (vat-settlement-with-interest-flagged)
+lane: vat-calculation
+lane_seq: 0
+collision: [crates/domain/src/vat/reconcile.rs]
+preparation: pending
 ---
 
 # VAT settlement detection by voucher shape hides some untagged VAT reductions
