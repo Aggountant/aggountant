@@ -2,7 +2,7 @@
 created: 2026-11-12
 updated: 2026-11-13
 type: bug
-status: in-progress
+status: fixed
 priority: high
 provenance: other
 provenance_detail: observed while implementing non-calendar-fiscal-year
@@ -13,6 +13,8 @@ lane: year-end
 lane_seq: 1
 collision: [crates/ledger]
 preparation: ready
+closed: 2026-11-13
+closed_by: spinoff-opening-boundary
 ---
 
 # Opening voucher dated the old system's last day blocks every report at a year-boundary start
