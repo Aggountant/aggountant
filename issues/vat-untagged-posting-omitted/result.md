@@ -9,9 +9,9 @@
     VAT legs within a cent per coded line (legs it does not explain are `untagged`);
   - `generated`: a hash-bound generated leg of a sealed expansion;
   - `settlement`: untagged, on the side that reduces the VAT balance, in a voucher whose
-    income and expense postings sum to less than its reduction-side VAT and reverse no
-    sale or purchase of that direction (VAT payment, refund, clearing between VAT
-    accounts, also with interest or penalties; refined by
+    income and expense postings sum to less than its reduction-side VAT and are only
+    interest or penalties: expense debits beside output VAT, income credits beside
+    input VAT (VAT payment, refund, clearing between VAT accounts; refined by
     `vat-settlement-with-interest-flagged`);
   - `untagged`: everything else (the return leaves it out).
   The period is `unreconciled` when a direction has untagged postings and its
@@ -54,18 +54,21 @@ and `domain/src/vat/reconcile.rs`.
 1. **Settlements are excluded by side and voucher shape, not by account number.**
    A plain movement comparison would flag every month that contains a VAT payment
    (the default chart has only 2939 and 1763, so payments hit 2939). Reduction-side
-   untagged postings in a voucher whose income and expense postings sum to less than
-   that VAT, with no income debited next to an output-VAT reduction and no expense
-   credited next to an input-VAT reduction, are treated as settlements. A payment
-   that also books interest or a penalty is one; a credit note or credit loss books a
-   net several times its VAT, or reverses a sale or purchase, and is not.
-   Alternatives: an explicit voucher marker (model change), or flag everything
-   and rely on acknowledgements (noise every month). Known gaps: an untagged credit
-   note for a balance-sheet-only sale (asset sale) would count as a settlement, and so
-   would an untagged credit-loss VAT reduction booked in the same voucher as a larger
-   VAT payment; an untagged refund credited to 2939 is flagged (acknowledge it); a
-   payment whose interest and penalties reach the VAT it pays is flagged (acknowledge
-   it).
+   untagged postings are treated as settlements when the voucher's income and expense
+   postings sum to less than that VAT and are only expense debits (beside output VAT)
+   or income credits (beside input VAT), so a payment that also books interest or a
+   penalty is one. Alternatives: an explicit voucher marker (model change), or flag
+   everything and rely on acknowledgements (noise every month). Known gaps, all
+   needing a bank or tax-account role or a settlement marker to close: an untagged
+   reduction in a voucher with no income or expense (asset-sale credit note,
+   advance-payment refund, fixed-asset purchase return, private-use correction
+   through equity) counts as a settlement; so does an untagged output-VAT reduction
+   whose net is an expense debit (credit loss, or a customer refund booked on an
+   expense) or an input-VAT reduction whose net is an income credit (a supplier
+   refund booked on other income), when a larger VAT settlement shares the voucher.
+   Flagged and needing an acknowledgement: an untagged refund credited to 2939, a
+   payment whose interest and penalties reach the VAT it pays, and an input-VAT
+   clearing booked together with interest expense.
 2. **Direction for a role without `generated_role` comes from the account kind**
    (liability → output, asset → input). Older and imported snapshots mark 2939 only
    `tagged-only`. This is not a treatment decision; it only says which side accrues.

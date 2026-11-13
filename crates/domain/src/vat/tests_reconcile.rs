@@ -205,14 +205,11 @@ fn a_vat_payment_that_also_books_interest_is_a_settlement() {
 
 #[test]
 fn a_vat_payment_with_interest_and_a_penalty_is_a_settlement() {
-    // A net payment clearing both VAT accounts, with late-payment interest and a
-    // late-filing penalty.
     let payment = voucher(
         1,
         "fi-general-2026@0",
         vec![
-            line("2939", Side::Debit, "500.00", None),
-            line("1763", Side::Credit, "120.00", None),
+            line("2939", Side::Debit, "380.00", None),
             line("8350", Side::Debit, "1.20", None),
             line("8380", Side::Debit, "50.00", None),
             line("1910", Side::Credit, "431.20", None),
@@ -221,9 +218,62 @@ fn a_vat_payment_with_interest_and_a_penalty_is_a_settlement() {
     let r = reconcile(&[payment]);
     assert_eq!(r.status, VatReconciliationStatus::Reconciled);
     assert!(r.untagged_postings.is_empty());
-    assert_eq!(r.settlement_postings.len(), 2);
+    assert_eq!(r.output.settlements.amount_str(), "-380.00");
+}
+
+#[test]
+fn a_net_payment_clearing_input_vat_with_interest_flags_the_input_leg() {
+    // An expense next to an input-VAT reduction may be a deduction correction, so
+    // the 1763 leg needs an acknowledgement; the 2939 leg stays a settlement.
+    let payment = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("1763", Side::Credit, "120.00", None),
+            line("8350", Side::Debit, "1.20", None),
+            line("1910", Side::Credit, "381.20", None),
+        ],
+    );
+    let r = reconcile(&[payment]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-120.00");
     assert_eq!(r.output.settlements.amount_str(), "-500.00");
-    assert_eq!(r.input.settlements.amount_str(), "-120.00");
+}
+
+#[test]
+fn an_input_vat_deduction_correction_in_a_clearing_voucher_still_blocks() {
+    let memo = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("1763", Side::Credit, "120.00", None),
+            line("2700", Side::Credit, "380.00", None),
+            line("7660", Side::Debit, "10.00", None),
+            line("1763", Side::Credit, "10.00", None),
+        ],
+    );
+    let r = reconcile(&[memo]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-130.00");
+}
+
+#[test]
+fn a_sale_netted_into_the_vat_payment_line_still_blocks() {
+    // 500,00 paid and a 124,00 cash sale (25,20 VAT) written as one 2939 debit.
+    let netted = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "474.80", None),
+            line("3000", Side::Credit, "98.80", None),
+            line("1910", Side::Credit, "376.00", None),
+        ],
+    );
+    let r = reconcile(&[netted]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-474.80");
 }
 
 #[test]
@@ -280,7 +330,8 @@ fn an_untagged_credit_loss_vat_reduction_is_left_out() {
 
 #[test]
 fn an_untagged_sale_booked_with_a_vat_payment_still_blocks() {
-    // The payment's debit is a settlement; the sale's accrual-side leg is not.
+    // Income next to the payment's debit keeps it untagged too; the sale's
+    // accrual-side leg is untagged in any case.
     let mixed = voucher(
         1,
         "fi-general-2026@0",
@@ -294,14 +345,14 @@ fn an_untagged_sale_booked_with_a_vat_payment_still_blocks() {
     );
     let r = reconcile(&[mixed]);
     assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
-    assert_eq!(r.output.untagged.amount_str(), "25.20");
-    assert_eq!(r.output.settlements.amount_str(), "-500.00");
+    assert_eq!(r.output.untagged.amount_str(), "-474.80");
+    assert!(r.settlement_postings.is_empty());
 }
 
 #[test]
 fn an_untagged_supplier_credit_note_booked_with_a_vat_payment_still_blocks() {
-    // The amounts alone would pass (100,00 < 525,50); the expense credit marks the
-    // input-VAT reduction as a purchase return, while the payment stays a settlement.
+    // The amounts alone would pass (100,00 < 525,50); an expense credit is neither
+    // interest nor a penalty, so both VAT reductions stay untagged.
     let mixed = voucher(
         1,
         "fi-general-2026@0",
@@ -316,7 +367,7 @@ fn an_untagged_supplier_credit_note_booked_with_a_vat_payment_still_blocks() {
     let r = reconcile(&[mixed]);
     assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
     assert_eq!(r.input.untagged.amount_str(), "-25.50");
-    assert_eq!(r.output.settlements.amount_str(), "-500.00");
+    assert!(r.settlement_postings.is_empty());
 }
 
 #[test]
