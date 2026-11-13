@@ -542,7 +542,10 @@ fn create_new_file(reference: &Path, path: &str, bytes: &[u8]) -> Result<(), Led
         std::process::id(),
         next_unique()
     ));
-    write_file_synced(&temporary, bytes)?;
+    if let Err(e) = write_file_synced(&temporary, bytes) {
+        let _ = fs::remove_file(&temporary);
+        return Err(e);
+    }
     let linked = fs::hard_link(&temporary, &target);
     let _ = fs::remove_file(&temporary);
     linked.map_err(|e| {
