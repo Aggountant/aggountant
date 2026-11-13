@@ -2,13 +2,16 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: other
 provenance_detail: found while verifying an issue rewrite
 source_ref: taskfleet:01m7a125k88v6kskced061b93a/cross-run-unknown-resend
 originating_run: 01m7a125k88v6kskced061b93a
 originating_run_kind: spinoff
+lane: vat-filing
+lane_seq: 6
+collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
 ---
 
 # A new file-vat Run re-sends a filing whose outcome is still unknown

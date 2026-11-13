@@ -17,8 +17,8 @@ review_confidence: high
 labels:
 - ai-review-model:claude-fable-5-2
 lane: vat-filing
-lane_seq: 6
-collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
+lane_seq: 5
+collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs, crates/process/src/file_vat/status.rs]
 ---
 
 # A FileVATReturn 2xx without a readable receipt is recorded as a rejection
