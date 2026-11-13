@@ -60,7 +60,8 @@ fn seal_year_locks_the_year_when_all_subperiods_are_sealed() {
 fn seal_year_refuses_to_depend_on_an_unsealed_prior_year() {
     let home = init_home();
     let ledger = Ledger::open(home.path()).unwrap();
-    let date = Date::parse("2025-12-31").unwrap();
+    // Mid-year activity: 2025 is a year kept in aggountant, not an opening cut-over.
+    let date = Date::parse("2025-06-30").unwrap();
     let currency = Currency::new("EUR").unwrap();
     let draft = VoucherDraft::new(
         date,

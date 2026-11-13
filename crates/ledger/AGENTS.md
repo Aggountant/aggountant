@@ -88,3 +88,12 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   (`model`); never derive a fiscal year from `PeriodId::year()` or a date's
   calendar year. Monthly and quarterly periods, VAT periods and the payroll tax
   year stay calendar-based by law.
+- **A year opens from an unsealed prior year only at a boundary cut-over.**
+  `fiscal_year_data` requires the prior fiscal year to be Sealed before it
+  carries its closing position forward, because an open year can still change.
+  The one exception is a company that moves to aggountant at the turn of its
+  fiscal year: when every prior voucher posts balance-sheet accounts only on
+  the prior year's last day and no period up to then was closed or filed here,
+  those vouchers become an `ExternalCutover` opening balance. Do not widen the
+  test (to other dates, result accounts or kept years) without a decision;
+  that would let a real year's activity reach the next year unfrozen.

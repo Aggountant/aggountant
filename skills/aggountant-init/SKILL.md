@@ -67,7 +67,20 @@ sen sallii.
 Avaavan tositteen päivämäärä on päättyvän järjestelmän viimeinen päivä, ei uuden
 kirjanpidon ensimmäinen. Jos tilikauden aiemmat tulostilit tuodaan mukaan ja tosite
 päivätään ensimmäiselle uudelle päivälle, koko aiempi tulos näkyy ensimmäisen kuukauden
-kuukausituloksena. Sinetöityä tositetta ei poisteta, joten virhe korjataan
+kuukausituloksena.
+
+- **Kesken tilikauden** tosite osuu samalle tilikaudelle kuin uudet tapahtumat, ja siinä
+  on tasetilien lisäksi tilikauden tulostilit.
+- **Tilikauden vaihteessa** (vanha järjestelmä kattaa tilikauden loppuun asti) tosite
+  päivätään edellisen tilikauden viimeiselle päivälle, ja siinä on vain tasetilejä:
+  edellisen tilikauden tulos kirjataan omaan pääomaan, ei tulostileille. Ohjelma käyttää
+  sitä uuden tilikauden avaavina saldoina (`external_cutover` raportin lähteissä) eikä
+  vaadi vanhaa tilikautta suljetuksi. Ehto on tiukka: jos edellisellä tilikaudella on
+  tulostilejä, aiempia päiviä, vanhempia tilikausia tai aggountantissa suljettu kausi,
+  uuden tilikauden raportit kieltäytyvät koodilla `PERIOD_NOT_SEALED`, eikä sinetöityä
+  tositetta voi poistaa. Tarkista siksi tilit ja päivä ennen sinetöintiä.
+- **Tilikauden alussa, kun se ei ala 1.1. ja on ensimmäinen määritelty**, tosite
+  päivätään tilikauden ensimmäiselle päivälle (yllä). Sinetöityä tositetta ei poisteta, joten virhe korjataan
 vastakirjauksella ja uudella tositteella, ja ketjuun jää kolme tositetta yhden sijaan.
 Aja avauksen jälkeen `report statements` ensimmäiselle uudelle kuukaudelle ja katso, että
 sen kuukausitulos on nolla ennen uusia tapahtumia, tilikauden alusta kertynyt tulos ja tase

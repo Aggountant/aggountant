@@ -41,7 +41,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `OPEN_OBLIGATION` | avoin velvoite estää kauden sulun | hoida asia ja merkitse velvoite ratkaistuksi ([Kaudet](../concepts/periods.md#velvoitteet)) |
 | `OUTPUT_EXISTS` | raporttitiedosto on jo olemassa | anna uusi tiedostonimi |
 | `PERIOD_CLOSING` | kauden sulku on kesken | hyväksy sulku tai kirjaa seuraavalle kaudelle ([Sulje kuukausi](../tasks/close-month.md)) |
-| `PERIOD_NOT_SEALED` | ALV-ilmoitusta yritettiin kaudelle, jota ei ole suljettu | sulje kausi ensin |
+| `PERIOD_NOT_SEALED` | ALV-ilmoitusta yritettiin kaudelle, jota ei ole suljettu, tai raportti tarvitsee edellisen tilikauden loppusaldot, eikä sitä tilikautta ole suljettu | sulje kausi tai edellinen tilikausi ensin; jos edellisellä tilikaudella on vain käyttöönoton avaavat saldot, katso niiden päiväys kohdasta [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md) |
 | `PERIOD_SEALED` | kausi on suljettu | kirjaa seuraavalle avoimelle kaudelle |
 | `PERIOD_TRANSITION_CONFLICT` | kauden tila ei salli pyydettyä muutosta, esimerkiksi kausi on jo ilmoitettu, sulku hylättiin tai samana vuonna yritetään sekoittaa kuukausia ja neljänneksiä tai sulkea neljännestä tilikaudella, joka ei ole kalenterivuosi | lue viesti; ilmoitettua kautta ei ilmoiteta uudelleen ([Kun jokin menee vikaan](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | ajoa ei löydy | tarkista, että komento osui oikeaan kotiin |

@@ -41,7 +41,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `OPEN_OBLIGATION` | an open obligation blocks the period's close | deal with the matter and mark the obligation resolved ([Periods](../concepts/periods.md#obligations)) |
 | `OUTPUT_EXISTS` | the report file already exists | give a new file name |
 | `PERIOD_CLOSING` | the period's close is in progress | approve the close or record it in the next period ([Close the month](../tasks/close-month.md)) |
-| `PERIOD_NOT_SEALED` | a VAT return was attempted for a period that has not been closed | close the period first |
+| `PERIOD_NOT_SEALED` | a VAT return was attempted for a period that has not been closed, or a report needs the previous fiscal year's closing balances and that year has not been closed | close the period or the previous fiscal year first; if the previous fiscal year holds only the opening balances from setup, see how to date them in [Set up your company's books](../start/set-up-company.md) |
 | `PERIOD_SEALED` | the period is closed | record it in the next open period |
 | `PERIOD_TRANSITION_CONFLICT` | the period's state does not allow the requested change, for example the period has already been filed, the close was rejected, or months and quarters are being mixed in the same year, or a quarter is closed in a fiscal year that is not the calendar year | read the message; a filed period is not filed again ([When something goes wrong](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | the run cannot be found | check that the command hit the right home |

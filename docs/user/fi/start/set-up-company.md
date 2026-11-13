@@ -50,6 +50,20 @@ myöhemmin.
      päivätään uuden kirjanpidon ensimmäiselle päivälle, koko aiempi tulos
      näkyy ensimmäisen kuukauden tuloksena.
 
+     Kesken tilikauden siirtyvän yrityksen tosite osuu samalle tilikaudelle
+     kuin uudet tapahtumat. Siinä ovat tasetilien lisäksi tilikauden
+     tulostilit, joten tilikauden alusta kertynyt tulos jatkuu oikein.
+
+     Jos yritys siirtyy aggountantiin tilikauden vaihteessa (esimerkiksi
+     vanha järjestelmä kattaa vuoden 2025 ja aggountant alkaa 1.1.2026),
+     tosite päivätään edellisen tilikauden viimeiselle päivälle, 31.12.2025.
+     Siinä on silloin vain tasetilejä: edellisen tilikauden tulos on
+     siirretty omaan pääomaan. aggountant käyttää tällaista tositetta uuden
+     tilikauden avaavina saldoina eikä vaadi vanhan järjestelmän vuotta
+     suljetuksi. Raportti kieltäytyy (`PERIOD_NOT_SEALED`), jos edellisen
+     tilikauden puolella on muuta: tulostilejä, aiempi päivä tai suljettu
+     kausi.
+
      Jos yritys siirtyy aggountantiin sellaisen tilikauden alussa, joka ei
      ala 1.1., avaavat saldot päivätään tilikauden ensimmäiselle päivälle,
      koska kirjanpidossa ei ole sitä edeltävää tilikautta. Tilikauden alussa

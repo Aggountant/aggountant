@@ -52,6 +52,21 @@ unfinished setup can be continued later.
      first day of the new books, the whole earlier result shows up as the
      first month's result.
 
+     When the company moves in the middle of a fiscal year, the voucher falls
+     in the same fiscal year as the new transactions. It holds the year's
+     income and expense accounts as well as the balance-sheet accounts, so
+     the result for the year so far carries on correctly.
+
+     When the company moves at the turn of a fiscal year (for example, the old
+     system covers 2025 and aggountant starts on 1 January 2026), the voucher
+     is dated the last day of the previous fiscal year, 31 December 2025. It
+     then holds only balance-sheet accounts: the previous year's result has
+     been transferred to equity. aggountant uses such a voucher as the
+     opening balances of the new fiscal year and does not require the old
+     system's year to be closed. Reports refuse (`PERIOD_NOT_SEALED`) if the
+     previous fiscal year holds anything else: income or expense accounts,
+     an earlier date, or a closed period.
+
      If the company moves to aggountant at the start of a fiscal year that
      does not begin on 1 January, the opening balances are dated the first
      day of that fiscal year, because the books have no fiscal year before

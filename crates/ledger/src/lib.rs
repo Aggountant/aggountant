@@ -941,6 +941,7 @@ impl Ledger {
         let mut vouchers = Vec::new();
         let mut prior_signed: BTreeMap<String, Decimal> = BTreeMap::new();
         let mut has_prior = false;
+        let mut prior_vouchers: Vec<PriorVoucher<'_>> = Vec::new();
         for stored in &snapshot.vouchers {
             let body = aggountant_wire::decode_voucher_body(&stored.canonical)?;
             let posting_year = calendar.year_of(body.posting_date())?.year();
@@ -996,6 +997,7 @@ impl Ledger {
                 // account mapping / live-period OpeningBalance bridge; equal-looking
                 // account numbers are never mapped implicitly.
                 let source_kinds = source_kinds.expect("prior voucher resolved above");
+                let mut balance_sheet_only = true;
                 for posting in body.postings() {
                     if posting.amount.currency() != &eur() {
                         return Err(LedgerError::Store(format!(
@@ -1020,6 +1022,7 @@ impl Ledger {
                                 posting.signed_amount();
                         }
                         AccountKind::Income | AccountKind::Expense => {
+                            balance_sheet_only = false;
                             let retained = match &retained_earnings {
                                 Some(account) => account,
                                 None => retained_earnings.insert(retained_earnings_account(
@@ -1033,32 +1036,59 @@ impl Ledger {
                         }
                     }
                 }
+                prior_vouchers.push(PriorVoucher {
+                    stored,
+                    accounts: body
+                        .postings()
+                        .iter()
+                        .map(|posting| posting.account.as_str().to_string())
+                        .collect(),
+                    posting_date: body.posting_date(),
+                    attributed: statement_year != posting_year,
+                    balance_sheet_only,
+                });
             }
         }
 
         // State safety depends on prior authoritative activity, not its net amount:
         // an offsetting/unbalanced-later history must not bypass the Y-1 seal gate.
-        let sealed_prior = if has_prior {
+        let opening_source = if has_prior {
             // Labels can skip a value after an 18-month year: the prior year comes from
             // the calendar, never from `year - 1`.
-            let prior_year = calendar.previous(&fiscal_year)?.year();
+            let prior_fiscal_year = calendar.previous(&fiscal_year)?;
+            let prior_year = prior_fiscal_year.year();
             let prior = snapshot
                 .fiscal_years
                 .iter()
-                .find(|row| row.year == prior_year)
-                .ok_or_else(|| {
-                    LedgerError::PeriodNotSealed(format!(
-                        "fiscal year {prior_year} must be Sealed before its closing balances \
-                         can open {year}"
-                    ))
-                })?;
-            if prior.state != FiscalYearState::Sealed {
-                return Err(LedgerError::PeriodNotSealed(format!(
-                    "fiscal year {prior_year} is {} — SealYear is required before opening {year}",
-                    prior.state.as_str()
-                )));
-            }
-            Some((prior_year, prior))
+                .find(|row| row.year == prior_year);
+            Some(match prior {
+                Some(prior) if prior.state == FiscalYearState::Sealed => {
+                    OpeningBalanceSource::PriorFiscalYear {
+                        prior_year,
+                        source_head_hash: prior.head_hash,
+                        role_policy_hash: statement_account_roles_hash(),
+                    }
+                }
+                _ => match boundary_cutover(
+                    &snapshot.periods,
+                    &prior_fiscal_year,
+                    &fiscal_year,
+                    &prior_vouchers,
+                    &active_chart_version,
+                )? {
+                    Some(source) => source,
+                    None => {
+                        let state = prior.map_or("Open", |row| row.state.as_str());
+                        return Err(LedgerError::PeriodNotSealed(format!(
+                            "fiscal year {prior_year} is {state} — SealYear is required before \
+                             opening {year}; only opening-balance vouchers (balance-sheet \
+                             accounts only, dated {}, in a year never kept in aggountant) \
+                             open {year} without it",
+                            prior_fiscal_year.end()
+                        )));
+                    }
+                },
+            })
         } else {
             None
         };
@@ -1066,7 +1096,6 @@ impl Ledger {
         let opening_balance = if prior_signed.values().all(Decimal::is_zero) {
             None
         } else {
-            let (prior_year, prior) = sealed_prior.expect("nonzero prior fold has prior activity");
             let mut postings = Vec::new();
             for (account, signed) in prior_signed {
                 if signed.is_zero() {
@@ -1084,15 +1113,8 @@ impl Ledger {
                     vat_code: None,
                 });
             }
-            Some(OpeningBalance::new(
-                year,
-                postings,
-                OpeningBalanceSource::PriorFiscalYear {
-                    prior_year,
-                    source_head_hash: prior.head_hash,
-                    role_policy_hash: statement_account_roles_hash(),
-                },
-            )?)
+            let source = opening_source.expect("nonzero prior fold has prior activity");
+            Some(OpeningBalance::new(year, postings, source)?)
         };
 
         Ok(FiscalYearData {
@@ -1970,6 +1992,94 @@ impl Ledger {
             attribution_count,
         })
     }
+}
+
+/// A sealed voucher whose statement year precedes the year `fiscal_year_data` builds.
+struct PriorVoucher<'a> {
+    stored: &'a StoredVoucher,
+    accounts: Vec<String>,
+    posting_date: Date,
+    attributed: bool,
+    balance_sheet_only: bool,
+}
+
+/// The opening source for books that start at a fiscal-year boundary, or `None` when
+/// the unsealed prior year holds anything but opening balances.
+///
+/// A company that moves to aggountant at the turn of its fiscal year records the old
+/// system's closing position as an opening voucher dated that year's last day. That
+/// year was kept elsewhere and can never be closed here, so requiring it to be Sealed
+/// would block every statement of the first aggountant year. The prior year counts as
+/// such a cut-over only when every prior voucher posts balance-sheet accounts only on
+/// the prior year's last day, nothing lies further back, and no period up to that day
+/// was ever closed or had VAT filed in aggountant. Any real activity (a result, an
+/// earlier date, a closed period) keeps the SealYear requirement, because then the
+/// prior year is a year aggountant kept and its closing position must be frozen first.
+///
+/// The source binds the chain hash of the last opening voucher, the opening vouchers'
+/// chart and the identity mapping of the accounts they touch (their kinds were checked
+/// equal under both charts by the caller), and the first month of `year` as the live
+/// period.
+fn boundary_cutover(
+    periods: &[PeriodRow],
+    prior_year: &FiscalYear,
+    year: &FiscalYear,
+    prior_vouchers: &[PriorVoucher<'_>],
+    target_chart_version: &str,
+) -> Result<Option<OpeningBalanceSource>, LedgerError> {
+    let opening_only = prior_vouchers.iter().all(|voucher| {
+        !voucher.attributed
+            && voucher.balance_sheet_only
+            && voucher.posting_date == prior_year.end()
+    });
+    if !opening_only {
+        return Ok(None);
+    }
+    for row in periods {
+        let period = PeriodId::parse(&row.period_id).map_err(|error| {
+            LedgerError::Store(format!(
+                "invalid period_id {:?} in fiscal store: {error}",
+                row.period_id
+            ))
+        })?;
+        let (first_month, _) = period.month_bounds();
+        let period_start = Date::from_ymd(period.year(), first_month.into(), 1)?;
+        let kept_here = row.state != PeriodState::Open || row.vat_filed;
+        if kept_here && period_start <= prior_year.end() {
+            return Ok(None);
+        }
+    }
+    let Some(last) = prior_vouchers
+        .iter()
+        .max_by_key(|voucher| voucher.stored.number)
+    else {
+        return Ok(None);
+    };
+    let source_chart_version = &last.stored.chart_version;
+    if prior_vouchers
+        .iter()
+        .any(|voucher| &voucher.stored.chart_version != source_chart_version)
+    {
+        return Ok(None);
+    }
+    let accounts: std::collections::BTreeSet<&str> = prior_vouchers
+        .iter()
+        .flat_map(|voucher| voucher.accounts.iter().map(String::as_str))
+        .collect();
+    let mapping: Vec<[&str; 2]> = accounts
+        .into_iter()
+        .map(|account| [account, account])
+        .collect();
+    let mapping_json = serde_json::to_vec(&mapping).expect("account mapping serializes");
+    Ok(Some(OpeningBalanceSource::ExternalCutover {
+        prior_year: prior_year.year(),
+        source_head_hash: last.stored.hash,
+        source_chart_version: source_chart_version.clone(),
+        target_chart_version: target_chart_version.to_string(),
+        account_mapping_hash: Hash::parse_hex(&sha256_hex(&mapping_json))
+            .expect("sha256_hex produces a model hash"),
+        live_period: PeriodId::month_containing(year.start()),
+    }))
 }
 
 /// Produce a projection-only copy of `body` whose **posting** date is moved to

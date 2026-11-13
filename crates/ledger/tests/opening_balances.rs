@@ -6,9 +6,10 @@ use aggountant_domain::{
     compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, PolicySet,
     StatementProvenance, StatementSourceRef,
 };
-use aggountant_ledger::{FiscalYearState, Ledger, SealRequest};
+use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
 use aggountant_model::{
-    AccountId, Currency, Date, Money, OpeningBalance, PeriodId, Posting, Side, VoucherDraft,
+    AccountId, Currency, Date, Money, OpeningBalance, OpeningBalanceSource, PeriodId, Posting,
+    Side, VoucherDraft,
 };
 use rust_decimal::Decimal;
 
@@ -326,4 +327,152 @@ fn net_zero_prior_activity_does_not_bypass_the_seal_precondition() {
     let err = ledger.fiscal_year_data(2026).unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
     assert!(err.to_string().contains("2025"));
+}
+
+/// Books that start at the turn of the fiscal year: the old system's closing position
+/// is one opening voucher dated its last day, 31.12.2025.
+fn seal_boundary_opening(ledger: &Ledger) {
+    seal(
+        ledger,
+        "2025-12-31",
+        "1910",
+        "2000",
+        "2500.00",
+        "open-capital",
+    );
+    seal(ledger, "2025-12-31", "1910", "2400", "400.00", "open-loan");
+}
+
+#[test]
+fn a_year_boundary_opening_voucher_opens_the_first_year_without_sealing_the_old_one() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_boundary_opening(&ledger);
+    seal(&ledger, "2026-01-15", "1910", "3000", "100.00", "sale");
+
+    let data = ledger.fiscal_year_data(2026).unwrap();
+    assert_eq!(
+        data.vouchers.len(),
+        1,
+        "the opening vouchers are not 2026 activity"
+    );
+    let opening = data.opening_balance.as_ref().expect("an opening balance");
+    assert_eq!(opening_signed(opening, "1910"), Decimal::from(2900));
+    assert_eq!(opening_signed(opening, "2000"), Decimal::from(-2500));
+    assert_eq!(opening_signed(opening, "2400"), Decimal::from(-400));
+    let OpeningBalanceSource::ExternalCutover {
+        prior_year,
+        source_head_hash,
+        source_chart_version,
+        target_chart_version,
+        live_period,
+        ..
+    } = opening.source()
+    else {
+        panic!("expected an external cut-over, got {:?}", opening.source());
+    };
+    assert_eq!(*prior_year, 2025);
+    assert_eq!(live_period, &PeriodId::parse("2026-01").unwrap());
+    assert_eq!(source_chart_version, &ledger.chart_version().unwrap());
+    assert_eq!(target_chart_version, &ledger.chart_version().unwrap());
+    // Bound to the chain hash of the last opening voucher (number 2).
+    assert_eq!(
+        source_head_hash.to_hex(),
+        ledger.voucher(2).unwrap().voucher_hash
+    );
+
+    // The issue's reproduction: the first month's report now produces statements.
+    let january = PeriodId::parse("2026-01").unwrap();
+    let report = ledger
+        .monthly_statements_report(&january, "Esimerkki Oy", MonthlyReportOptions::default())
+        .unwrap();
+    assert!(report.sections.balance.balanced);
+    assert_eq!(report.sections.balance.assets_total, "3000.00");
+}
+
+#[test]
+fn a_boundary_started_year_closes_and_opens_the_next_from_the_sealed_year() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_boundary_opening(&ledger);
+    seal(&ledger, "2026-01-15", "1910", "3000", "100.00", "sale");
+
+    seal_fiscal_year(&ledger, 2026);
+    let data = ledger.fiscal_year_data(2027).unwrap();
+    let opening = data.opening_balance.as_ref().unwrap();
+    assert!(matches!(
+        opening.source(),
+        OpeningBalanceSource::PriorFiscalYear {
+            prior_year: 2026,
+            ..
+        }
+    ));
+    assert_eq!(opening_signed(opening, "1910"), Decimal::from(3000));
+    assert_eq!(opening_signed(opening, "2250"), Decimal::from(-100));
+}
+
+#[test]
+fn a_mid_year_opening_voucher_stays_in_its_own_year() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal(
+        &ledger,
+        "2026-05-31",
+        "1910",
+        "2000",
+        "2500.00",
+        "open-capital",
+    );
+    seal(&ledger, "2026-06-15", "1910", "3000", "100.00", "sale");
+
+    let data = ledger.fiscal_year_data(2026).unwrap();
+    assert!(data.opening_balance.is_none());
+    assert_eq!(data.vouchers.len(), 2);
+}
+
+#[test]
+fn an_unsealed_prior_year_with_a_result_still_refuses() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_boundary_opening(&ledger);
+    seal(&ledger, "2025-12-31", "1910", "3000", "50.00", "late-sale");
+
+    let err = ledger.fiscal_year_data(2026).unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
+    assert!(err.to_string().contains("2025"), "{err}");
+}
+
+#[test]
+fn an_unsealed_prior_year_with_activity_before_its_last_day_still_refuses() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_boundary_opening(&ledger);
+    seal(&ledger, "2025-12-30", "1910", "2000", "10.00", "early");
+
+    let err = ledger.fiscal_year_data(2026).unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
+}
+
+#[test]
+fn activity_before_the_prior_year_still_refuses() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal(&ledger, "2024-12-31", "1910", "2000", "10.00", "older");
+    seal_boundary_opening(&ledger);
+
+    let err = ledger.fiscal_year_data(2026).unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
+}
+
+#[test]
+fn a_prior_year_with_a_period_closed_in_aggountant_still_refuses() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_boundary_opening(&ledger);
+    let q4 = PeriodId::new(2025, 4).unwrap();
+    let authority = ledger.begin_close(&q4, "close-q4", "test").unwrap();
+    ledger.seal_period(&q4, &authority, "test").unwrap();
+
+    let err = ledger.fiscal_year_data(2026).unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
 }
