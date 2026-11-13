@@ -25,9 +25,9 @@ fn roles() -> VatAccountRoleTable {
 fn kind_of(account: &str) -> Option<AccountKind> {
     Some(match account {
         "1700" | "1763" | "1910" => AccountKind::Asset,
-        "2700" | "2939" => AccountKind::Liability,
-        "3000" => AccountKind::Income,
-        "4000" | "7660" => AccountKind::Expense,
+        "2700" | "2740" | "2939" => AccountKind::Liability,
+        "3000" | "9160" => AccountKind::Income,
+        "4000" | "7660" | "8350" | "8380" | "8450" => AccountKind::Expense,
         _ => return None,
     })
 }
@@ -179,6 +179,123 @@ fn vat_payments_and_clearings_are_settlements_not_return_figures() {
     assert_eq!(r.output.settlements.amount_str(), "-425.50");
     assert_eq!(r.output.difference.amount_str(), "0.00");
     assert_eq!(r.input.settlements.amount_str(), "-25.50");
+}
+
+#[test]
+fn a_vat_payment_that_also_books_interest_is_a_settlement() {
+    // The issue's reproduction: previous period's VAT, accrued interest and
+    // interest expense paid in one transfer.
+    let payment = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("2740", Side::Debit, "2.00", None),
+            line("8350", Side::Debit, "0.50", None),
+            line("1910", Side::Credit, "502.50", None),
+        ],
+    );
+    let r = reconcile(&[payment]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert!(r.untagged_postings.is_empty());
+    assert_eq!(r.output.settlements.amount_str(), "-500.00");
+    assert_eq!(r.output.untagged.amount_str(), "0.00");
+    assert_eq!(r.output.difference.amount_str(), "0.00");
+}
+
+#[test]
+fn a_vat_payment_with_interest_and_a_penalty_is_a_settlement() {
+    // A net payment clearing both VAT accounts, with late-payment interest and a
+    // late-filing penalty.
+    let payment = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("1763", Side::Credit, "120.00", None),
+            line("8350", Side::Debit, "1.20", None),
+            line("8380", Side::Debit, "50.00", None),
+            line("1910", Side::Credit, "431.20", None),
+        ],
+    );
+    let r = reconcile(&[payment]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert!(r.untagged_postings.is_empty());
+    assert_eq!(r.settlement_postings.len(), 2);
+    assert_eq!(r.output.settlements.amount_str(), "-500.00");
+    assert_eq!(r.input.settlements.amount_str(), "-120.00");
+}
+
+#[test]
+fn a_vat_refund_received_with_interest_income_is_a_settlement() {
+    let refund = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1910", Side::Debit, "301.50", None),
+            line("1763", Side::Credit, "300.00", None),
+            line("9160", Side::Credit, "1.50", None),
+        ],
+    );
+    let r = reconcile(&[refund]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert!(r.untagged_postings.is_empty());
+    assert_eq!(r.input.settlements.amount_str(), "-300.00");
+}
+
+#[test]
+fn an_untagged_sales_credit_note_is_left_out() {
+    let credit_note = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("3000", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1700", Side::Credit, "125.50", None),
+        ],
+    );
+    let r = reconcile(&[credit_note]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-25.50");
+    assert!(r.settlement_postings.is_empty());
+}
+
+#[test]
+fn an_untagged_credit_loss_vat_reduction_is_left_out() {
+    // A credit loss books its net on an expense, like interest does; the net is
+    // several times the VAT, so it is not taken for a settlement.
+    let credit_loss = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("8450", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1700", Side::Credit, "125.50", None),
+        ],
+    );
+    let r = reconcile(&[credit_loss]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-25.50");
+}
+
+#[test]
+fn an_untagged_sale_booked_with_a_vat_payment_still_blocks() {
+    // The payment's debit is a settlement; the sale's accrual-side leg is not.
+    let mixed = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("1910", Side::Credit, "500.00", None),
+            line("1700", Side::Debit, "124.00", None),
+            line("3000", Side::Credit, "98.80", None),
+            line("2939", Side::Credit, "25.20", None),
+        ],
+    );
+    let r = reconcile(&[mixed]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "25.20");
+    assert_eq!(r.output.settlements.amount_str(), "-500.00");
 }
 
 #[test]

@@ -15,15 +15,16 @@ pub enum VatAccountPostingClass {
     /// A generated VAT leg of a sealed VAT expansion; the account-sum path owns it.
     Generated,
     /// Untagged and unowned, on the side that reduces the VAT balance (output VAT
-    /// debited, input VAT credited) in a voucher that touches no income or expense
-    /// account: a VAT payment, refund or clearing between VAT accounts. It does not
-    /// belong in a return.
+    /// debited, input VAT credited) in a voucher whose income and expense postings
+    /// together are smaller than the VAT it reduces: a VAT payment, refund or
+    /// clearing between VAT accounts, also when it books interest or penalties. It
+    /// does not belong in a return.
     Settlement,
     /// Untagged and unowned VAT the return leaves out: VAT accrued on a VAT account
     /// (output VAT credited, input VAT debited), a reduction booked together with
-    /// income or expense (an untagged credit note or return), a leg on a coded
-    /// voucher that its codes do not explain, or a posting whose account has no
-    /// known VAT direction.
+    /// income or expense at least as large as the VAT (an untagged credit note,
+    /// return or credit loss), a leg on a coded voucher that its codes do not
+    /// explain, or a posting whose account has no known VAT direction.
     Untagged,
 }
 
@@ -107,8 +108,14 @@ impl VatAccountReconciliation {
 /// as a transient body). Postings on ordinary accounts are skipped. `kind_of` gives
 /// the chart's account kind; it supplies the VAT direction of a role account whose
 /// chart snapshot names no generated role (liability → output, asset → input) and
-/// tells whether the voucher touches income or expense. An unknown account counts as
-/// income or expense, so a gap in the chart never turns a posting into a settlement.
+/// tells which postings are income or expense. An account unknown to the chart
+/// never lets a posting become a settlement.
+///
+/// A reduction-side untagged posting is a settlement when the voucher's income and
+/// expense postings sum to less than its untagged reduction-side VAT postings. A
+/// VAT payment's interest or penalty is small beside the VAT it pays, while the net
+/// of a credit note or credit loss is several times its VAT at any rate (at most
+/// 25,5 %), so the comparison separates the two without reading account numbers.
 ///
 /// A voucher with a `vat_code` owns its VAT legs only as far as its codes explain
 /// them: per direction, legs that differ from the voucher's own `base × rate` by more
@@ -120,13 +127,6 @@ pub fn classify_vat_account_postings(
     roles: &ChartVatRoles,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
 ) -> Result<Vec<(usize, Option<GeneratedVatRole>, VatAccountPostingClass)>, DomainError> {
-    let postings = voucher.postings();
-    let touches_result = postings.iter().any(|p| {
-        !matches!(
-            kind_of(p.account.as_str()),
-            Some(AccountKind::Asset | AccountKind::Liability | AccountKind::Equity)
-        )
-    });
     let generated: Vec<usize> = voucher
         .vat_expansion()
         .map(|e| {
@@ -146,6 +146,18 @@ pub fn classify_vat_account_postings(
             })
     };
     let unexplained = tagged_legs_unexplained(voucher, roles, &direction_of)?;
+    let postings = voucher.postings();
+    let reduces = |index: usize| {
+        let posting = &postings[index];
+        !generated.contains(&index)
+            && roles.role_of(posting.account.as_str()).is_some()
+            && matches!(
+                (direction_of(posting.account.as_str()), posting.side),
+                (Some(GeneratedVatRole::Output), Side::Debit)
+                    | (Some(GeneratedVatRole::Input), Side::Credit)
+            )
+    };
+    let settles = settles_vat(voucher, &reduces, kind_of);
     let mut classified = Vec::new();
     for (index, posting) in postings.iter().enumerate() {
         let account = posting.account.as_str();
@@ -163,21 +175,42 @@ pub fn classify_vat_account_postings(
             }
         } else if generated.contains(&index) {
             VatAccountPostingClass::Generated
+        } else if settles && reduces(index) {
+            VatAccountPostingClass::Settlement
         } else {
-            let reduces = matches!(
-                (direction, posting.side),
-                (Some(GeneratedVatRole::Output), Side::Debit)
-                    | (Some(GeneratedVatRole::Input), Side::Credit)
-            );
-            if reduces && !touches_result {
-                VatAccountPostingClass::Settlement
-            } else {
-                VatAccountPostingClass::Untagged
-            }
+            VatAccountPostingClass::Untagged
         };
         classified.push((index, direction, class));
     }
     Ok(classified)
+}
+
+/// Whether an untagged voucher's reduction-side VAT postings are a settlement: its
+/// income and expense postings, if any, sum to less than those VAT postings, every
+/// account is known to the chart, and every amount is in one currency.
+fn settles_vat(
+    voucher: &VoucherBody,
+    reduces: &dyn Fn(usize) -> bool,
+    kind_of: &dyn Fn(&str) -> Option<AccountKind>,
+) -> bool {
+    let postings = voucher.postings();
+    let Some(currency) = postings.first().map(|p| p.amount.currency()) else {
+        return false;
+    };
+    let mut reduced = Decimal::ZERO;
+    let mut result = Decimal::ZERO;
+    for (index, posting) in postings.iter().enumerate() {
+        if posting.amount.currency() != currency {
+            return false;
+        }
+        match kind_of(posting.account.as_str()) {
+            None => return false,
+            Some(AccountKind::Income | AccountKind::Expense) => result += posting.amount.amount(),
+            Some(_) if reduces(index) => reduced += posting.amount.amount(),
+            Some(_) => {}
+        }
+    }
+    result.is_zero() || result < reduced
 }
 
 /// For a voucher with any `vat_code`: per direction `[output, input]`, whether its

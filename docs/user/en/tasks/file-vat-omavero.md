@@ -34,7 +34,8 @@ yourself.
    the month's movement on the VAT accounts (for example 2939 and 1763) with
    the return's tax on sales and on purchases. VAT payments, refunds and
    transfers between VAT accounts do not belong in a return, so they are left
-   out of the comparison. The result's `vat_reconciliation.status` is
+   out of the comparison, also when the same voucher books interest or a late
+   fee. The result's `vat_reconciliation.status` is
    `reconciled` when the accounts and the return agree. The state
    `unreconciled` means that a VAT account has postings without a VAT code and
    tax is missing from the return. The preview then shows the code

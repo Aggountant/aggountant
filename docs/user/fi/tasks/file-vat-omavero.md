@@ -32,7 +32,8 @@ tai haluat asioida itse.
    Esikatselu myös täsmäyttää ALV-tilit ilmoitukseen. Se vertaa kuukauden
    liikettä ALV-tileillä (esimerkiksi 2939 ja 1763) ilmoituksen myynnin ja
    ostojen veroon. ALV:n maksut, palautukset ja ALV-tilien väliset siirrot
-   eivät kuulu ilmoitukseen, joten niitä ei lasketa mukaan. Tuloksen
+   eivät kuulu ilmoitukseen, joten niitä ei lasketa mukaan, vaikka samalla
+   tositteella olisi myös korkoa tai myöhästymismaksu. Tuloksen
    `vat_reconciliation.status` on `reconciled`, kun tilit ja ilmoitus
    täsmäävät. Tila `unreconciled` tarkoittaa, että ALV-tilillä on vientejä
    ilman ALV-merkintää ja ilmoituksesta puuttuu veroa. Esikatselu kertoo
