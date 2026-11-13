@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-13
 type: bug
 status: open
 priority: high
 lane: close-year
 lane_seq: 1
 collision: [crates/process]
+preparation: ready
 ---
 
 # close-year leaves year-end adjustments out of the closing year's statements
