@@ -35,17 +35,19 @@ period "2026-03" — "sealed" (…, vat_filed false)
 | State | What it means | Can you record in it? |
 |---|---|---|
 | `open` | the period has not been closed | yes |
-| `closing` | the close has started and waits for your approval | no |
+| `closing` | the close has started and waits for you to approve or reject it | no |
 | `sealed` | the period is locked permanently | no |
 
 `vat_filed` tells you whether the period's VAT return has been made. VAT
 return figures are calculated only from a closed period, because only then
 can they no longer change.
 
-A period moves in one direction only. A close cannot be undone, and this
-version has no command to make a period open again. If a close is rejected,
-the period stays permanently in the state `closing`
-([What is ready and what is not](../reference/status.md#rejected-close)).
+A period moves in the order `open` → `closing` → `sealed`. While a close
+waits for your approval you can still reject it: a rejection means the month
+is not ready yet, and it returns the period to `open`. You can then record
+what is missing and start a new close. Entries made during the close are kept;
+nothing is removed. An approved close cannot be undone, and a sealed period is
+not reopened.
 
 ## Why nothing is recorded in a closed period
 
@@ -79,8 +81,8 @@ year-end run; until then the fiscal year is in the state `open`
 
 - Close a month only when it is finished: the bank account matches the
   statement and open items have been dealt with.
-- If you notice a gap after the close has started, approve the close and
-  record the gap in the next month. Do not reject the close.
+- If you notice a gap after the close has started, reject the close, record
+  the gap and start the close again.
 - Keep the same period split for the whole year. Monthly is recommended.
 
 ## See also

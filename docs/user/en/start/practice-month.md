@@ -222,10 +222,9 @@ PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period
 ```
 
 This is what the Finnish Accounting Act (kirjanpitolaki) requires: a closed
-period is not changed, and a correction is recorded in an open period. In
-your real books, do not reject a close you have started. In this version a
-rejected close leaves the month permanently in the state `closing`
-([What is ready and what is not](../reference/status.md#rejected-close)).
+period is not changed, and a correction is recorded in an open period. If
+you notice a gap before you approve a close, reject it: the month returns to
+open ([Periods, closing and the fiscal year](../concepts/periods.md)).
 
 ## 6. Look at the VAT return figures
 

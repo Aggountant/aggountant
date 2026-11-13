@@ -137,6 +137,63 @@ fn close_period_run_end_to_end_via_cli() {
 }
 
 #[test]
+fn rejected_close_reopens_the_period_via_cli() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let start = |home| {
+        let (code, stdout, stderr) = run(
+            home,
+            &["run", "start", "close-period", "--period", "2026-Q1"],
+            "",
+        );
+        assert_eq!(code, 0, "{stderr}");
+        serde_json::from_str::<Value>(&stdout).unwrap()["run_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let answer = |home, run_id: &str, answer: &str| {
+        let (code, stdout, stderr) = run(
+            home,
+            &[
+                "run",
+                "answer",
+                "--run-id",
+                run_id,
+                "--gate",
+                "ApproveClose",
+                "--answer",
+                answer,
+            ],
+            "",
+        );
+        assert_eq!(code, 0, "{stderr}");
+        serde_json::from_str::<Value>(&stdout).unwrap()
+    };
+
+    let first = start(home);
+    let rejected = answer(home, &first, "reject");
+    assert_eq!(rejected["status"], "rejected");
+    let (_, stdout, _) = run(home, &["period", "show", "--period", "2026-Q1"], "");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["state"],
+        "open"
+    );
+
+    // The month takes a voucher again, and a new close seals it.
+    let (code, _, stderr) = run(home, &["voucher", "seal"], SEAL_INPUT);
+    assert_eq!(code, 0, "seal after a rejected close: {stderr}");
+    let second = start(home);
+    assert_eq!(answer(home, &second, "approve")["status"], "completed");
+    let (code, stdout, _) = run(home, &["voucher", "verify"], "");
+    assert_eq!(code, 0);
+    assert!(serde_json::from_str::<Value>(&stdout).unwrap()["ok"]
+        .as_bool()
+        .unwrap());
+}
+
+#[test]
 fn run_migrate_requires_confirm() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();

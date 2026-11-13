@@ -212,9 +212,9 @@ PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period
 ```
 
 Näin kirjanpitolaki edellyttää: suljettua kautta ei muuteta, vaan korjaus
-kirjataan avoimelle kaudelle. Oikeassa kirjanpidossa älä hylkää sulkua, jonka
-olet aloittanut. Tässä versiossa hylätty sulku jättää kuukauden pysyvästi
-tilaan `closing` ([Mitä on valmista ja mitä ei](../reference/status.md#hylätty-sulku)).
+kirjataan avoimelle kaudelle. Jos huomaat puutteen jo ennen kuin hyväksyt
+sulun, hylkää se: kuukausi palaa avoimeksi
+([Kaudet, sulku ja tilikausi](../concepts/periods.md)).
 
 ## 6. Katso ALV-ilmoituksen luvut
 

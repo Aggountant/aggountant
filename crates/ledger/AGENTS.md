@@ -66,6 +66,12 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   the close believes is `Closing`. Each transition appends to a hash-chained
   transition log that `voucher verify` walks. The process-side Run record is
   reconciled to fiscal after a crash, never the other way round.
+- **A rejected close returns the period with `Closing → Open`.** Only the run
+  that owns the Closing period takes it, with its `ClosingAuthority`, fenced in
+  the CAS like the seal. Nothing in the period is discarded: vouchers sealed
+  while Closing stay sealed in the Open period. A binary older than this edge
+  reports a home containing it as `HASH_CHAIN_BROKEN`; binaries only move
+  forward.
 - **Reopen is the one exception and only before the VAT return is filed.** The
   `Sealed → Open/Closing` edge requires `ClosingAuthority`, is a logged CAS
   transition, and is refused once the period's return is filed; from then on

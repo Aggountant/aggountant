@@ -10,6 +10,8 @@
 //! 3. **Reopen exception (ADR-6 §5)** — `Sealed→Open/Closing` serializes on the
 //!    writer lock; reopen after filing or with a foreign token is Refused (with a
 //!    rejection event); the reopen-vs-seal race is tested.
+//! 4. **Rejected close** — only the owning run takes `Closing→Open`, and a chain
+//!    containing it verifies.
 //!
 //! Invariant 4 (resume reads authoritative fiscal PeriodState) lives with the
 //! process engine (`aggountant-process`), which owns the crash seam.
@@ -269,6 +271,77 @@ fn seal_period_with_foreign_token_is_conflict() {
     assert_eq!(
         ledger.period_view(&q1()).unwrap().state,
         PeriodState::Closing
+    );
+}
+
+// --- Rejected close: the owner's Closing→Open edge -------------------------
+
+#[test]
+fn owner_rejects_a_close_back_to_open_and_the_month_closes_again() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let auth = ledger.begin_close(&q1(), "run-1", "closer").unwrap();
+    // A voucher the owner sealed while Closing stays sealed after the rejection.
+    ledger
+        .seal_with_authority(&draft_on("2026-03-01", "7.00"), &req("k:own"), Some(&auth))
+        .unwrap();
+
+    let view = ledger.reject_close(&q1(), &auth, "closer").unwrap();
+    assert_eq!(view.state, PeriodState::Open);
+    assert_eq!(view.owning_run_id.as_deref(), Some("run-1"));
+    assert_eq!(view.head_transition_seq, 2);
+
+    // Open again: an ordinary seal is accepted and a new close runs to Sealed.
+    ledger
+        .seal(&draft_on("2026-03-15", "3.00"), &req("k:after-reject"))
+        .unwrap();
+    assert_eq!(ledger.period_vouchers(&q1()).unwrap().len(), 2);
+    let auth2 = ledger.begin_close(&q1(), "run-2", "closer").unwrap();
+    ledger.seal_period(&q1(), &auth2, "closer").unwrap();
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Sealed
+    );
+    let report = ledger.verify().unwrap();
+    assert!(report.ok, "a chain with Closing→Open verifies: {report:?}");
+}
+
+#[test]
+fn a_stale_or_foreign_token_cannot_reject_a_close() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let auth1 = ledger.begin_close(&q1(), "run-1", "closer").unwrap();
+    ledger.reject_close(&q1(), &auth1, "closer").unwrap();
+    ledger.begin_close(&q1(), "run-2", "closer").unwrap();
+    let auth_q2 = ledger.begin_close(&q2(), "run-3", "closer").unwrap();
+
+    // run-1 no longer owns the Closing period: its token is fenced and logged.
+    let before = ledger.rejection_count().unwrap();
+    let err = ledger.reject_close(&q1(), &auth1, "closer").unwrap_err();
+    assert_eq!(err.error_code(), "VOUCHER_NOT_IN_RUN");
+    assert_eq!(ledger.rejection_count().unwrap(), before + 1);
+    // Another period's token is refused before it touches the row.
+    let err = ledger.reject_close(&q1(), &auth_q2, "closer").unwrap_err();
+    assert_eq!(err.error_code(), "VOUCHER_NOT_IN_RUN");
+    let view = ledger.period_view(&q1()).unwrap();
+    assert_eq!(view.state, PeriodState::Closing);
+    assert_eq!(view.owning_run_id.as_deref(), Some("run-2"));
+}
+
+#[test]
+fn a_sealed_period_cannot_be_rejected_back_to_open() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let auth = ledger.begin_close(&q1(), "run-1", "closer").unwrap();
+    ledger.seal_period(&q1(), &auth, "closer").unwrap();
+
+    // Closing→Open is the rejection edge only; a Sealed period reopens through
+    // `reopen_period` and its own guards.
+    let err = ledger.reject_close(&q1(), &auth, "closer").unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT");
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().state,
+        PeriodState::Sealed
     );
 }
 

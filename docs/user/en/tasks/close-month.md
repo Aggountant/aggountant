@@ -37,10 +37,11 @@ finished.
 
    > I approve the close.
 
-   **Do not reject the close.** If you notice a gap at this point, approve the
-   close anyway and record the missing item in the next month. In this
-   version a rejected close leaves the month permanently in the state
-   `closing`, where nothing can be recorded in it and it cannot be closed.
+   If you notice a gap at this point, reject the close. The month returns to
+   the state `open`, and you can record the missing item and start the close
+   again. Nothing is removed.
+
+   > I reject the close, a receipt is still missing from the month.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -55,7 +56,7 @@ aggountant period show --period 2026-03
 
 An obligation is marked resolved (`obligation resolve`) only when the matter
 has really been dealt with. The close waits at the approval `ApproveClose`.
-Rejecting would be `--answer reject`, which should not be used. For a
+Rejecting is `--answer reject`, and it returns the month to `open`. For a
 quarterly period, the period is given as `2026-Q1`.
 </details>
 
@@ -73,11 +74,11 @@ step is the [VAT return in OmaVero](file-vat-omavero.md) or
 
 ## Limitations
 
-- A closed month, or one being closed, cannot be reopened.
+- A closed month cannot be reopened.
 - You cannot close both months and quarters in the same year. Monthly is the
   recommended and tried option.
 
-More detail: [What is ready and what is not](../reference/status.md#rejected-close).
+More detail: [What is ready and what is not](../reference/status.md#fiscal-year-and-periods).
 
 ## If something goes wrong
 
@@ -88,7 +89,7 @@ More detail: [What is ready and what is not](../reference/status.md#rejected-clo
 - **The computer crashed or the connection dropped during the close.**
   Nothing was lost, and the agent continues the run:
   [When something goes wrong](../troubleshooting.md#a-run-was-interrupted).
-- **The close was rejected.**
+- **The month stayed in the state `closing`.**
   [When something goes wrong](../troubleshooting.md#a-month-is-stuck-in-closing).
 
 ## See also

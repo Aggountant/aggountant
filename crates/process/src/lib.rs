@@ -17,7 +17,8 @@
 //!   (ADR-6 §3). The crash seam is [`Seam::CrashAfterFiscalCommit`].
 //!
 //! The `close-period` workflow (thin S2 slice): `TransitionPeriod(Open→Closing)`
-//! → `ApproveClose` gate → `SealPeriod(Closing→Sealed)`.
+//! → `ApproveClose` gate → `SealPeriod(Closing→Sealed)`, or on a rejected gate
+//! `RejectClose(Closing→Open)`.
 
 #![forbid(unsafe_code)]
 
@@ -115,9 +116,11 @@ const HUNT_RECEIPTS_WORKFLOW: &str = "hunt-receipts/v1: \
      Intake(typed match candidate)] -> gate:ApproveMatches(per-item seal) -> \
      per-match[prepare-voucher -> voucher validate -> voucher seal]";
 
-/// Effect keys for the two `close-period` effects (stable idempotency keys).
+/// Effect keys for the `close-period` effects (stable idempotency keys). The
+/// reject effect is planned only when `ApproveClose` is answered `reject`.
 const EFFECT_TRANSITION: &str = "transition";
 const EFFECT_SEAL: &str = "seal";
+const EFFECT_REJECT: &str = "reject-close";
 /// The single gate id.
 const GATE_APPROVE_CLOSE: &str = "ApproveClose";
 const ACTOR: &str = "process:close-period";
@@ -606,8 +609,8 @@ impl ProcessEngine {
     }
 
     /// Answer the `ApproveClose` gate. `approve` runs `SealPeriod(Closing→Sealed)`;
-    /// `reject` declines the close (the period stays Closing for the driver to
-    /// resolve).
+    /// `reject` declines the close and runs `RejectClose(Closing→Open)`, so the
+    /// period takes vouchers again and a new close can start.
     pub fn answer(
         &self,
         run_id: &str,
@@ -672,6 +675,8 @@ impl ProcessEngine {
 
         if answer == "approve" {
             self.run_seal(&journal, run_id, &period)?;
+        } else {
+            self.run_reject_close(&journal, run_id, &period)?;
         }
 
         let events = journal.read_all()?;
@@ -778,6 +783,17 @@ impl ProcessEngine {
             }
         }
 
+        // Reject-then-crash recovery, and the Runs an older binary rejected
+        // without returning the period: finish `RejectClose` so the month is not
+        // left Closing under a Run that will never seal it.
+        let rejected = f3
+            .gate(GATE_APPROVE_CLOSE)
+            .and_then(|g| g.answered.as_deref())
+            == Some("reject");
+        if rejected && !f3.effect_succeeded(EFFECT_REJECT) {
+            self.run_reject_close(&journal, run_id, &period)?;
+        }
+
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
     }
 
@@ -867,6 +883,59 @@ impl ProcessEngine {
             Err(e) => {
                 journal.append(EventPayload::EffectRejected {
                     effect_key: EFFECT_SEAL.to_string(),
+                    error_code: e.error_code().to_string(),
+                })?;
+                Err(e.into())
+            }
+        }
+    }
+
+    /// `RejectClose(Closing→Open)` after `ApproveClose` was answered `reject`.
+    /// Idempotent, so `answer` and `resume` share it: when fiscal no longer shows
+    /// the period Closing under this run, the edge has already committed (only the
+    /// owner can move a Closing period, and this run's gate can no longer approve
+    /// a seal), so the effect is reconciled to fiscal instead of retried.
+    fn run_reject_close(
+        &self,
+        journal: &journal::Journal,
+        run_id: &str,
+        period: &PeriodId,
+    ) -> Result<(), ProcessError> {
+        let f = fold(run_id, &journal.read_all()?)?;
+        if f.effect(EFFECT_REJECT).is_none() {
+            journal.append(EventPayload::EffectPlanned {
+                effect_key: EFFECT_REJECT.to_string(),
+                effect_type: "RejectClose".to_string(),
+            })?;
+        }
+        let ledger = Ledger::open(&self.home)?;
+        let fiscal = ledger.period_view(period)?;
+        if fiscal.state != PeriodState::Closing || fiscal.owning_run_id.as_deref() != Some(run_id) {
+            journal.append(EventPayload::EffectReconciled {
+                effect_key: EFFECT_REJECT.to_string(),
+                note: format!(
+                    "fiscal shows period {period} {} owned by {:?}, no longer Closing under this run — reconciled (fiscal wins)",
+                    state_name(fiscal.state),
+                    fiscal.owning_run_id
+                ),
+            })?;
+            return Ok(());
+        }
+        let auth = ledger.acquire_authority(period, run_id)?;
+        journal.append(EventPayload::EffectExecuting {
+            effect_key: EFFECT_REJECT.to_string(),
+        })?;
+        match ledger.reject_close(period, &auth, ACTOR) {
+            Ok(_) => {
+                journal.append(EventPayload::EffectSucceeded {
+                    effect_key: EFFECT_REJECT.to_string(),
+                    note: format!("period {period} → Open (close rejected)"),
+                })?;
+                Ok(())
+            }
+            Err(e) => {
+                journal.append(EventPayload::EffectRejected {
+                    effect_key: EFFECT_REJECT.to_string(),
                     error_code: e.error_code().to_string(),
                 })?;
                 Err(e.into())

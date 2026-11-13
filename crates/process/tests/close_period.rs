@@ -4,8 +4,8 @@
 use std::fs;
 
 use aggountant_domain::PolicySet;
-use aggountant_ledger::{Ledger, PeriodState};
-use aggountant_model::PeriodId;
+use aggountant_ledger::{Ledger, PeriodState, SealRequest};
+use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{current_workflow_version, EffectStatus, ProcessEngine, RunStatus, Seam};
 
 fn q1() -> PeriodId {
@@ -21,6 +21,37 @@ fn init_home() -> tempfile::TempDir {
 
 fn effect_status(view: &aggountant_process::RunView, key: &str) -> EffectStatus {
     view.effects.iter().find(|e| e.key == key).unwrap().status
+}
+
+/// Seal one balanced voucher dated `date` through the ordinary (authority-less)
+/// path, as `capture-receipt record` would.
+fn seal_voucher(
+    ledger: &Ledger,
+    date: &str,
+    key: &str,
+) -> Result<(), aggountant_ledger::LedgerError> {
+    let eur = Currency::new("EUR").unwrap();
+    let posting = |acc: &str, side| Posting {
+        account: AccountId::new(acc).unwrap(),
+        amount: Money::parse("12.40", eur.clone()).unwrap(),
+        side,
+        vat_code: None,
+    };
+    let d = Date::parse(date).unwrap();
+    let draft = VoucherDraft::new(
+        d,
+        d,
+        "Esimerkki Oy hosting".into(),
+        vec![posting("7690", Side::Debit), posting("1910", Side::Credit)],
+        None,
+    )
+    .unwrap();
+    let req = SealRequest {
+        natural_key: key.into(),
+        actor: "test".into(),
+        policy_set: PolicySet::default(),
+    };
+    ledger.seal(&draft, &req).map(|_| ())
 }
 
 #[test]
@@ -88,7 +119,7 @@ fn run_status_is_derived_not_stored() {
 }
 
 #[test]
-fn reject_gate_declines_the_close_without_sealing() {
+fn reject_gate_returns_the_period_to_open_without_sealing() {
     let home = init_home();
     let engine = ProcessEngine::open(home.path());
     let started = engine
@@ -100,12 +131,144 @@ fn reject_gate_declines_the_close_without_sealing() {
         .unwrap();
     assert_eq!(after.status, RunStatus::Rejected);
     assert_eq!(effect_status(&after, "seal"), EffectStatus::Planned);
-    // The period was never sealed — it stays Closing for the driver to resolve.
+    assert_eq!(
+        effect_status(&after, "reject-close"),
+        EffectStatus::Succeeded
+    );
+    // The rejection took Closing→Open under this run's authority.
+    let ledger = Ledger::open(home.path()).unwrap();
+    let view = ledger.period_view(&q1()).unwrap();
+    assert_eq!(view.state, PeriodState::Open);
+    assert_eq!(view.owning_run_id.as_deref(), Some(started.run_id.as_str()));
+    // The answered gate cannot be answered again.
+    let err = engine
+        .answer(&started.run_id, "ApproveClose", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "GATE_NOT_OPEN");
+}
+
+#[test]
+fn reject_record_close_seal_then_the_home_verifies() {
+    let month = PeriodId::parse("2026-05").unwrap();
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_voucher(&ledger, "2026-05-04", "k:before").unwrap();
+
+    let first = engine
+        .start_close_period(&month, &PolicySet::default())
+        .unwrap();
+    let err = seal_voucher(&ledger, "2026-05-20", "k:missing").unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_CLOSING");
+    engine
+        .answer(&first.run_id, "ApproveClose", "reject")
+        .unwrap();
+
+    // The month takes the missing voucher, and a new close seals it.
+    seal_voucher(&ledger, "2026-05-20", "k:missing").unwrap();
+    let second = engine
+        .start_close_period(&month, &PolicySet::default())
+        .unwrap();
+    assert_ne!(second.run_id, first.run_id);
+    let done = engine
+        .answer(&second.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    let view = ledger.period_view(&month).unwrap();
+    assert_eq!(view.state, PeriodState::Sealed);
+    assert_eq!(view.owning_run_id.as_deref(), Some(second.run_id.as_str()));
+    assert_eq!(ledger.period_vouchers(&month).unwrap().len(), 2);
+    let report = ledger.verify().unwrap();
+    assert!(report.ok, "{report:?}");
+    // The rejected run stays rejected and does not touch the new close.
+    let resumed = engine.resume(&first.run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::Rejected);
+    assert_eq!(
+        ledger.period_view(&month).unwrap().state,
+        PeriodState::Sealed
+    );
+}
+
+#[test]
+fn resume_returns_the_period_after_a_crash_between_reject_and_reopen() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+
+    // Crash after GateAnswered(reject), before RejectClose ran. The journal now
+    // looks like a Run an older binary rejected and left Closing.
+    let crashed = engine
+        .answer_seam(
+            &run_id,
+            "ApproveClose",
+            "reject",
+            Seam::CrashAfterGateAnswer,
+        )
+        .unwrap();
+    assert_eq!(crashed.status, RunStatus::Rejected);
     let ledger = Ledger::open(home.path()).unwrap();
     assert_eq!(
         ledger.period_view(&q1()).unwrap().state,
         PeriodState::Closing
     );
+
+    let resumed = engine.resume(&run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::Rejected);
+    assert_eq!(
+        effect_status(&resumed, "reject-close"),
+        EffectStatus::Succeeded
+    );
+    assert_eq!(ledger.period_view(&q1()).unwrap().state, PeriodState::Open);
+    // A second resume changes nothing.
+    let events = engine.journal(&run_id).unwrap().len();
+    let seq = ledger.period_view(&q1()).unwrap().head_transition_seq;
+    engine.resume(&run_id).unwrap();
+    assert_eq!(engine.journal(&run_id).unwrap().len(), events);
+    assert_eq!(ledger.period_view(&q1()).unwrap().head_transition_seq, seq);
+    assert!(ledger.verify().unwrap().ok);
+}
+
+#[test]
+fn resume_reconciles_a_reopen_that_committed_before_the_crash() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id;
+    engine
+        .answer_seam(
+            &run_id,
+            "ApproveClose",
+            "reject",
+            Seam::CrashAfterGateAnswer,
+        )
+        .unwrap();
+    // The fiscal Closing→Open COMMIT landed, the journal never recorded it.
+    let ledger = Ledger::open(home.path()).unwrap();
+    let auth = ledger.acquire_authority(&q1(), &run_id).unwrap();
+    ledger.reject_close(&q1(), &auth, "test").unwrap();
+    let seq = ledger.period_view(&q1()).unwrap().head_transition_seq;
+
+    // Resume adopts fiscal instead of taking the edge a second time.
+    let resumed = engine.resume(&run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::Rejected);
+    assert_eq!(
+        effect_status(&resumed, "reject-close"),
+        EffectStatus::Succeeded
+    );
+    assert!(engine
+        .journal(&run_id)
+        .unwrap()
+        .iter()
+        .any(|e| e.event_type == "effect_reconciled"));
+    let view = ledger.period_view(&q1()).unwrap();
+    assert_eq!(view.state, PeriodState::Open);
+    assert_eq!(view.head_transition_seq, seq);
+    assert!(ledger.verify().unwrap().ok);
 }
 
 #[test]

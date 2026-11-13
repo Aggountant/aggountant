@@ -35,25 +35,21 @@ whether the first one got through.
 
 ## A month is stuck in closing
 
-**What probably happened.** The month's close was rejected. A rejected close
-leaves the month permanently in the state `closing`: nothing can be recorded
-in it, and it cannot be closed again (`PERIOD_TRANSITION_CONFLICT`). This is a
-known gap.
+**What probably happened.** The month's close is still waiting for your
+answer, or the close was rejected with an earlier version, or the computer
+crashed during the rejection. An entry is refused with `PERIOD_CLOSING`, and
+a new close with `PERIOD_TRANSITION_CONFLICT`.
 
-**Check.** Ask the agent to show the month's state. If it is `closing` and the
-close run is `rejected`, this is the case.
+**Check.** Ask the agent to show the month's state and the state of the close
+run.
 
-**Do this.** In this version the month cannot be made open again. Record the
-missing and corrected items in the next month, and report the situation in
-the project's [issue tracker](https://github.com/aggountant/aggountant/issues).
-The month's VAT return must still be made in OmaVero. aggountant does not
-calculate its figures or record it as filed, because the month has not been
-closed (`PERIOD_NOT_SEALED`), so ask the agent to calculate the figures from
-the month's vouchers and check them yourself.
+**Do this.** If the close run is `awaiting_gate`, approve or reject the close
+([Close the month](tasks/close-month.md)). If it is `rejected`, ask the agent
+to continue the run (`aggountant run resume --run-id cp-…`): continuing
+finishes the rejection and returns the month to `open`. You can then record
+in the month and start a new close.
 
-**Do not** try to change the state by hand in the files. From now on, start a
-close only when the month is finished, and approve a close you have started
-([Close the month](tasks/close-month.md)).
+**Do not** try to change the state by hand in the files.
 
 ## Vouchers seem to have disappeared
 

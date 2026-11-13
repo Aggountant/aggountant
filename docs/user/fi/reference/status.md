@@ -96,16 +96,6 @@ tiliotteeseen paljastaa kahdenkertaisen kirjauksen ennen sulkua
 
 ## Kaudet
 
-### Hylätty sulku
-
-**Hylätty sulku jättää kauden pysyvästi tilaan `closing`.** Kaudelle ei voi
-silloin kirjata eikä sitä voi sulkea uudelleen, eikä tässä versiossa ole
-komentoa, jolla kauden saisi takaisin avoimeksi. Tee näin: aloita sulku vasta,
-kun kausi on valmis, ja hyväksy aloitettu sulku. Jälkikäteen huomatut asiat
-kirjataan seuraavalle kaudelle. Jos sulku on jo hylätty, katso
-[Kun jokin menee vikaan](../troubleshooting.md#kuukausi-jäi-suljettavaksi)
-(`rejected-close-reopens-period`).
-
 ### Tilikausi ja kaudet
 
 - **Kalenterivuodesta poikkeava tilikausi suljetaan kuukausittain.**

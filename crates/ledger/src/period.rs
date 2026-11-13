@@ -8,10 +8,10 @@
 //! layers see; the storage rows are `pub(crate)` inside `store`.
 //!
 //! [`ClosingAuthority`] is the non-serialisable capability that authorises a
-//! close-run's Closing-period writes and the `Sealed→Open/Closing` reopen (ADR-6
-//! §5). It has **no public constructor** and does not implement `Serialize`/
-//! `Deserialize`: it can only be *minted by the Ledger* (`begin_close`) or
-//! *re-acquired* from the authoritative fiscal state by the run that owns the
+//! close-run's Closing-period writes, its rejection (`Closing→Open`) and the
+//! `Sealed→Open/Closing` reopen (ADR-6 §5). It has **no public constructor** and
+//! does not implement `Serialize`/`Deserialize`: it can only be *minted by the
+//! Ledger* (`begin_close`) or *re-acquired* from the authoritative fiscal state by the run that owns the
 //! period (`acquire_authority`), and it cannot be forged from a bare `--run-id`
 //! string (`candidate.md §4`, `VOUCHER_NOT_IN_RUN`). Fiscal re-checks
 //! `owning_run_id` on every use, so even a real token whose period ownership has

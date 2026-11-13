@@ -35,24 +35,20 @@ kuin tiedetään, menikö ensimmäinen perille.
 
 ## Kuukausi jäi suljettavaksi
 
-**Mitä todennäköisesti tapahtui.** Kuukauden sulku hylättiin. Hylätty sulku
-jättää kuukauden pysyvästi tilaan `closing`: siihen ei voi kirjata, eikä sitä
-voi sulkea uudelleen (`PERIOD_TRANSITION_CONFLICT`). Tämä on tunnettu puute.
+**Mitä todennäköisesti tapahtui.** Kuukauden sulku odottaa yhä vastaustasi,
+tai sulku hylättiin aiemmalla versiolla tai kone kaatui juuri hylkäyksen
+aikana. Kirjaus kieltäytyy koodilla `PERIOD_CLOSING`, ja uusi sulku koodilla
+`PERIOD_TRANSITION_CONFLICT`.
 
-**Tarkista.** Pyydä agenttia näyttämään kuukauden tila. Jos se on `closing` ja
-sulkuajo on `rejected`, kyse on tästä.
+**Tarkista.** Pyydä agenttia näyttämään kuukauden tila ja sulkuajon tila.
 
-**Tee näin.** Tässä versiossa kuukautta ei saa takaisin avoimeksi. Kirjaa
-puuttuvat ja korjattavat asiat seuraavalle kuukaudelle ja kerro tilanteesta
-projektin [issue-seurannassa](https://github.com/aggountant/aggountant/issues).
-Kuukauden ALV-ilmoitus on silti tehtävä OmaVerossa. aggountant ei laske sen
-lukuja eikä kirjaa sitä tehdyksi, koska kuukautta ei ole suljettu
-(`PERIOD_NOT_SEALED`), joten pyydä agenttia laskemaan luvut kuukauden
-tositteista ja tarkista ne itse.
+**Tee näin.** Jos sulkuajo on `awaiting_gate`, hyväksy tai hylkää sulku
+([Sulje kuukausi](tasks/close-month.md)). Jos se on `rejected`, pyydä agenttia
+jatkamaan ajoa (`aggountant run resume --run-id cp-…`): jatkaminen vie
+hylkäyksen loppuun ja palauttaa kuukauden tilaan `open`. Sen jälkeen voit
+kirjata kuukauteen ja aloittaa uuden sulun.
 
-**Älä** yritä muuttaa tilaa käsin tiedostoista. Aloita jatkossa sulku vasta,
-kun kuukausi on valmis, ja hyväksy aloitettu sulku
-([Sulje kuukausi](tasks/close-month.md)).
+**Älä** yritä muuttaa tilaa käsin tiedostoista.
 
 ## Tositteet näyttävät kadonneen
 

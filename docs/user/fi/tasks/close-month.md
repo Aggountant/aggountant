@@ -37,10 +37,11 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
 
    > Hyväksyn sulun.
 
-   **Älä hylkää sulkua.** Jos huomaat puutteen tässä vaiheessa, hyväksy sulku
-   silti ja kirjaa puuttuva asia seuraavalle kuukaudelle. Hylätty sulku jättää
-   tässä versiossa kuukauden pysyvästi tilaan `closing`, jolloin siihen ei voi
-   kirjata eikä sitä voi sulkea.
+   Jos huomaat puutteen tässä vaiheessa, hylkää sulku. Kuukausi palaa tilaan
+   `open`, ja voit kirjata puuttuvan asian ja aloittaa sulun alusta. Mitään ei
+   poisteta.
+
+   > Hylkään sulun, kuukaudesta puuttuu vielä kuitti.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -54,8 +55,8 @@ aggountant period show --period 2026-03
 ```
 
 Velvoite merkitään ratkaistuksi (`obligation resolve`) vasta, kun asia on
-oikeasti hoidettu. Sulku odottaa hyväksyntää `ApproveClose`. Hylkäys olisi `--answer reject`,
-jota ei pidä käyttää. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
+oikeasti hoidettu. Sulku odottaa hyväksyntää `ApproveClose`. Hylkäys on `--answer reject`, ja se
+palauttaa kuukauden tilaan `open`. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
 </details>
 
 ## Valmis, kun
@@ -72,11 +73,11 @@ Seuraava vaihe on [ALV-ilmoitus OmaVerossa](file-vat-omavero.md) tai
 
 ## Rajoitukset
 
-- Suljettua tai suljettavana olevaa kuukautta ei voi avata uudelleen.
+- Suljettua kuukautta ei voi avata uudelleen.
 - Samana vuonna ei voi sulkea sekä kuukausia että neljännesvuosia.
   Kuukausi on suositeltu ja koeteltu vaihtoehto.
 
-Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#hylätty-sulku).
+Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tilikausi-ja-kaudet).
 
 ## Jos jokin menee pieleen
 
@@ -86,7 +87,7 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#hylätty-sulku
   Kuukauden sulku on kesken tai tehty. Kirjaa seuraavalle kuukaudelle.
 - **Kone kaatui tai yhteys katkesi sulun aikana.** Mitään ei menetetty, ja
   agentti jatkaa ajoa: [Kun jokin menee vikaan](../troubleshooting.md#ajo-keskeytyi).
-- **Sulku on hylätty.** [Kun jokin menee vikaan](../troubleshooting.md#kuukausi-jäi-suljettavaksi).
+- **Kuukausi jäi tilaan `closing`.** [Kun jokin menee vikaan](../troubleshooting.md#kuukausi-jäi-suljettavaksi).
 
 ## Katso myös
 

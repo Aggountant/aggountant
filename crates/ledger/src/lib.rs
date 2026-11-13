@@ -1625,6 +1625,39 @@ impl Ledger {
         Ok(row_to_view(row))
     }
 
+    /// `Closing → Open` — the owning close-run's rejection. A rejected close means
+    /// "not ready yet": the period returns to `Open` so it takes vouchers again and
+    /// a new close can start. Only the run that owns the Closing period can take
+    /// this edge; fiscal re-checks `owning_run_id` in the CAS, so a stale or foreign
+    /// token is fenced (`VOUCHER_NOT_IN_RUN`) and the refusal is logged. Vouchers
+    /// sealed into the period while it was Closing stay sealed: they are ordinary
+    /// vouchers of an Open period afterwards.
+    pub fn reject_close(
+        &self,
+        period: &PeriodId,
+        authority: &ClosingAuthority,
+        actor: &str,
+    ) -> Result<PeriodView, LedgerError> {
+        self.check_authority_period(period, authority)?;
+        let row = self.fiscal.transition_period(&TransitionRequest {
+            period_id: period.to_string(),
+            from: PeriodState::Closing,
+            to: PeriodState::Open,
+            run_id: authority.run_id().to_string(),
+            match_owner: true,
+            require_unfiled: true,
+            set_filed: false,
+            sent_hash: None,
+            receipt_unique_identifier: None,
+            receipt_accepted_timestamp: None,
+            manual_channel: None,
+            manual_evidence_ref: None,
+            remote_status_evidence_ref: None,
+            actor: actor.to_string(),
+        })?;
+        Ok(row_to_view(row))
+    }
+
     /// The ADR-6 §5 reopen exception: `Sealed → Open|Closing`, gated by
     /// `ClosingAuthority` and permitted **only before the VAT return is filed**.
     /// Serializes on the same writer lock; a stale token, a foreign run, or a
@@ -2361,13 +2394,16 @@ fn verify_fiscal_years(snapshot: &store::FiscalSnapshot) -> Result<u64, LedgerEr
 }
 
 /// The legal edges of the ADR-6 period state machine: the forward path
-/// `Open→Closing→Sealed`, the reopen return edge `Sealed→Open|Closing`, and the S3
-/// VAT-filing self-edge `Sealed→Sealed` (which flips `vat_filed`, not `state`).
+/// `Open→Closing→Sealed`, the rejected-close return edge `Closing→Open`, the reopen
+/// return edge `Sealed→Open|Closing`, and the S3 VAT-filing self-edge
+/// `Sealed→Sealed` (which flips `vat_filed`, not `state`). A binary older than the
+/// `Closing→Open` edge reports a home that contains it as `HASH_CHAIN_BROKEN`.
 fn is_legal_period_edge(from: &str, to: &str) -> bool {
     matches!(
         (from, to),
         ("Open", "Closing")
             | ("Closing", "Sealed")
+            | ("Closing", "Open")
             | ("Sealed", "Open")
             | ("Sealed", "Closing")
             | ("Sealed", "Sealed")

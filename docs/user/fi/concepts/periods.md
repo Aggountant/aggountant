@@ -35,17 +35,19 @@ period "2026-03" — "sealed" (…, vat_filed false)
 | Tila | Mitä se tarkoittaa | Voiko kirjata |
 |---|---|---|
 | `open` (avoin) | kautta ei ole suljettu | kyllä |
-| `closing` (suljettavana) | sulku on aloitettu ja odottaa hyväksyntääsi | ei |
+| `closing` (suljettavana) | sulku on aloitettu ja odottaa, hyväksytkö vai hylkäätkö sen | ei |
 | `sealed` (suljettu) | kausi on lukittu pysyvästi | ei |
 
 `vat_filed` kertoo, onko kauden ALV-ilmoitus tehty. ALV-ilmoituksen luvut
 lasketaan vain suljetusta kaudesta, koska vasta silloin ne eivät voi enää
 muuttua.
 
-Kausi etenee vain yhteen suuntaan. Sulkua ei voi perua, eikä tässä versiossa
-ole komentoa, jolla kauden saisi takaisin avoimeksi. Jos sulku hylätään, kausi
-jää pysyvästi tilaan `closing`
-([Mitä on valmista ja mitä ei](../reference/status.md#hylätty-sulku)).
+Kausi etenee järjestyksessä `open` → `closing` → `sealed`. Kun sulku odottaa
+hyväksyntääsi, voit vielä hylätä sen: hylkäys tarkoittaa, ettei kuukausi ole
+vielä valmis, ja palauttaa kauden tilaan `open`. Silloin voit kirjata puuttuvat
+asiat ja aloittaa uuden sulun. Sulun aikana tehdyt kirjaukset säilyvät, mitään
+ei poisteta. Hyväksyttyä sulkua ei voi perua, eikä suljettua kautta avata
+uudelleen.
 
 ## Miksi suljettuun kauteen ei kirjata
 
@@ -78,8 +80,8 @@ asti tilikausi on tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.
 
 - Sulje kuukausi vasta, kun se on valmis: pankkitili täsmää tiliotteeseen ja
   avoimet asiat on käsitelty.
-- Jos huomaat puutteen sulun alettua, hyväksy sulku ja kirjaa puute
-  seuraavalle kuukaudelle. Älä hylkää sulkua.
+- Jos huomaat puutteen sulun alettua, hylkää sulku, kirjaa puute ja aloita
+  sulku uudelleen.
 - Pysy samassa kausijaossa koko vuoden. Kuukausi on suositeltu.
 
 ## Katso myös

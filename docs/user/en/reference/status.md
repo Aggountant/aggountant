@@ -98,17 +98,6 @@ booking before the close (`bank-row-for-recorded-receipt`).
 
 ## Periods
 
-### Rejected close
-
-**A rejected close leaves the period permanently in the state `closing`.**
-Nothing can then be recorded in the period and it cannot be closed again,
-and this version has no command to make the period open again. Do this:
-start a close only when the period is finished, and approve a close you have
-started. Things noticed afterwards are recorded in the next period. If a close
-has already been rejected, see
-[When something goes wrong](../troubleshooting.md#a-month-is-stuck-in-closing)
-(`rejected-close-reopens-period`).
-
 ### Fiscal year and periods
 
 - **A fiscal year other than the calendar year is closed monthly.** Quarterly
