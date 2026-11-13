@@ -2,13 +2,16 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: observed while implementing vat-filed-status
 source_ref: taskfleet:01m79z4hcfcrhvd8c8jtkffejr/observation:file-vat-resume-cli
 originating_run: 01m79z4hcfcrhvd8c8jtkffejr
 originating_run_kind: spinoff
+lane: vat-filing
+lane_seq: 8
+collision: [crates/process/src/file_vat.rs]
 ---
 
 # Interrupted file-vat Runs have no CLI resume path

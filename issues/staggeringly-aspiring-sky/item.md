@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m79z4hcfcrhvd8c8jtkffejr/review-finding:receiptless-200-definitive-rejection
@@ -16,6 +16,9 @@ review_severity: must-fix
 review_confidence: high
 labels:
 - ai-review-model:claude-fable-5-2
+lane: vat-filing
+lane_seq: 6
+collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
 ---
 
 # A FileVATReturn 200 without a readable receipt is recorded as a definitive rejection
