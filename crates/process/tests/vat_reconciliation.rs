@@ -383,3 +383,43 @@ fn a_vat_coded_correction_in_the_same_month_lets_the_filing_proceed() {
         .unwrap();
     assert_eq!(start.run.status, RunStatus::AwaitingGate);
 }
+
+#[test]
+fn a_run_started_before_the_check_cannot_dispatch_an_unreconciled_filing() {
+    // A Run persisted by an earlier version carries no acknowledgement; approving
+    // it must refuse before the return is sent.
+    let home = home_with(vec![sale(None)]);
+    let engine = ProcessEngine::open(home.path());
+    let start = engine
+        .start_file_vat(
+            &input(
+                "0.00",
+                Some(json!({"reason": "avaavan tositteen ALV-saldo", "vouchers": [1]})),
+            ),
+            &broker(home.path()),
+            &PolicySet::default(),
+        )
+        .unwrap();
+    let state_path = home
+        .path()
+        .join("process/runs")
+        .join(&start.run.run_id)
+        .join("file_vat_state.json");
+    let mut state: Value = serde_json::from_slice(&std::fs::read(&state_path).unwrap()).unwrap();
+    state
+        .as_object_mut()
+        .unwrap()
+        .remove("vat_reconciliation_acknowledgement")
+        .unwrap();
+    std::fs::write(&state_path, serde_json::to_vec(&state).unwrap()).unwrap();
+
+    let broker = broker(home.path());
+    let err = engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "VAT_ACCOUNTS_UNRECONCILED");
+    assert!(broker
+        .outbox_entry(SVC_VERO_FILE_VAT_RETURN, "submit-filing:2026-03")
+        .unwrap()
+        .is_none());
+}

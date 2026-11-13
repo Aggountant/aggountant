@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use aggountant_model::{
     AccountId, AccountKind, Currency, Date, GeneratedVatRole, Hash, Money, PeriodId, Posting, Side,
-    VatCode, VatExpansion, VatExpansionDeductibility, VatExpansionDeductibilityProvenance,
-    VatExpansionScope, VatExpansionTreatment, VoucherBody, VoucherDraft,
+    VatCode, VatExpansionDeductibility, VatExpansionDeductibilityProvenance, VatExpansionScope,
+    VatExpansionTreatment, VoucherBody, VoucherDraft,
 };
 
 use crate::DomainError;

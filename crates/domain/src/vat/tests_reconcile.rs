@@ -301,3 +301,73 @@ fn rounding_tolerance_does_not_hide_an_untagged_cent_beyond_it() {
     assert_eq!(r.output.difference.amount_str(), "0.02");
     assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
 }
+
+#[test]
+fn a_partly_tagged_invoice_does_not_hide_the_uncoded_lines_vat() {
+    let sale = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1700", Side::Debit, "251.00", None),
+            line(
+                "3000",
+                Side::Credit,
+                "100.00",
+                Some("sales-domestic-standard"),
+            ),
+            line("3000", Side::Credit, "100.00", None),
+            line("2939", Side::Credit, "51.00", None),
+        ],
+    );
+    let r = reconcile(&[sale]);
+    assert_eq!(r.output.derived.amount_str(), "25.50");
+    assert_eq!(r.output.difference.amount_str(), "25.50");
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.untagged_vouchers(), vec![1]);
+}
+
+#[test]
+fn a_code_of_the_other_direction_does_not_shield_an_uncoded_sale() {
+    // A payout netting an uncoded sale against a coded fee.
+    let payout = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1910", Side::Debit, "112.95", None),
+            line(
+                "4000",
+                Side::Debit,
+                "10.00",
+                Some("purchase-domestic-standard"),
+            ),
+            line("1763", Side::Debit, "2.55", None),
+            line("3000", Side::Credit, "100.00", None),
+            line("2939", Side::Credit, "25.50", None),
+        ],
+    );
+    let r = reconcile(&[payout]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.untagged_postings.len(), 1);
+    assert_eq!(r.untagged_postings[0].account, "2939");
+    assert_eq!(r.input.difference.amount_str(), "0.00");
+}
+
+#[test]
+fn coded_lines_without_vat_legs_stay_owned_by_their_codes() {
+    let sale = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1910", Side::Debit, "100.00", None),
+            line(
+                "3000",
+                Side::Credit,
+                "100.00",
+                Some("sales-domestic-standard"),
+            ),
+        ],
+    );
+    let r = reconcile(&[sale]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert!(r.untagged_postings.is_empty());
+}

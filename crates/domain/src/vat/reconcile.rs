@@ -9,7 +9,8 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VatAccountPostingClass {
-    /// The voucher carries a `vat_code`, so the tagged `base × rate` path owns its VAT.
+    /// The voucher carries a `vat_code` whose `base × rate` explains this leg, so the
+    /// tagged path owns its VAT.
     Tagged,
     /// A generated VAT leg of a sealed VAT expansion; the account-sum path owns it.
     Generated,
@@ -20,8 +21,9 @@ pub enum VatAccountPostingClass {
     Settlement,
     /// Untagged and unowned VAT the return leaves out: VAT accrued on a VAT account
     /// (output VAT credited, input VAT debited), a reduction booked together with
-    /// income or expense (an untagged credit note or return), or a posting whose
-    /// account has no known VAT direction.
+    /// income or expense (an untagged credit note or return), a leg on a coded
+    /// voucher that its codes do not explain, or a posting whose account has no
+    /// known VAT direction.
     Untagged,
 }
 
@@ -101,26 +103,32 @@ impl VatAccountReconciliation {
     }
 }
 
-/// Classify every posting on a VAT-role account of one voucher or draft. Postings
-/// on ordinary accounts are skipped. `kind_of` gives the chart's account kind; it
-/// supplies the VAT direction of a role account whose chart snapshot names no
-/// generated role (liability → output, asset → input) and tells whether the voucher
-/// touches income or expense. An unknown account counts as income or expense, so a
-/// gap in the chart never turns a posting into a settlement.
+/// Classify every posting on a VAT-role account of one voucher (a draft is checked
+/// as a transient body). Postings on ordinary accounts are skipped. `kind_of` gives
+/// the chart's account kind; it supplies the VAT direction of a role account whose
+/// chart snapshot names no generated role (liability → output, asset → input) and
+/// tells whether the voucher touches income or expense. An unknown account counts as
+/// income or expense, so a gap in the chart never turns a posting into a settlement.
+///
+/// A voucher with a `vat_code` owns its VAT legs only as far as its codes explain
+/// them: per direction, legs that differ from the voucher's own `base × rate` by more
+/// than a cent per coded line are `Untagged` (a line whose code was forgotten, or a
+/// code of the other direction next to an uncoded leg). Codes with no VAT leg at all
+/// stay `Tagged`; the return then follows the codes.
 pub fn classify_vat_account_postings(
-    postings: &[Posting],
-    vat_expansion: Option<&VatExpansion>,
+    voucher: &VoucherBody,
     roles: &ChartVatRoles,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
-) -> Vec<(usize, Option<GeneratedVatRole>, VatAccountPostingClass)> {
-    let tagged = postings.iter().any(|p| p.vat_code.is_some());
+) -> Result<Vec<(usize, Option<GeneratedVatRole>, VatAccountPostingClass)>, DomainError> {
+    let postings = voucher.postings();
     let touches_result = postings.iter().any(|p| {
         !matches!(
             kind_of(p.account.as_str()),
             Some(AccountKind::Asset | AccountKind::Liability | AccountKind::Equity)
         )
     });
-    let generated: Vec<usize> = vat_expansion
+    let generated: Vec<usize> = voucher
+        .vat_expansion()
         .map(|e| {
             e.generated_vat_legs()
                 .iter()
@@ -128,21 +136,31 @@ pub fn classify_vat_account_postings(
                 .collect()
         })
         .unwrap_or_default();
+    let direction_of = |account: &str| {
+        roles
+            .generated_role_of(account)
+            .or_else(|| match kind_of(account) {
+                Some(AccountKind::Liability) => Some(GeneratedVatRole::Output),
+                Some(AccountKind::Asset) => Some(GeneratedVatRole::Input),
+                _ => None,
+            })
+    };
+    let unexplained = tagged_legs_unexplained(voucher, roles, &direction_of)?;
     let mut classified = Vec::new();
     for (index, posting) in postings.iter().enumerate() {
         let account = posting.account.as_str();
         if roles.role_of(account).is_none() {
             continue;
         }
-        let direction = roles
-            .generated_role_of(account)
-            .or_else(|| match kind_of(account) {
-                Some(AccountKind::Liability) => Some(GeneratedVatRole::Output),
-                Some(AccountKind::Asset) => Some(GeneratedVatRole::Input),
-                _ => None,
-            });
-        let class = if tagged {
-            VatAccountPostingClass::Tagged
+        let direction = direction_of(account);
+        let class = if let Some(unexplained) = unexplained {
+            match direction {
+                Some(GeneratedVatRole::Output) if unexplained[0] => {
+                    VatAccountPostingClass::Untagged
+                }
+                Some(GeneratedVatRole::Input) if unexplained[1] => VatAccountPostingClass::Untagged,
+                _ => VatAccountPostingClass::Tagged,
+            }
         } else if generated.contains(&index) {
             VatAccountPostingClass::Generated
         } else {
@@ -159,7 +177,50 @@ pub fn classify_vat_account_postings(
         };
         classified.push((index, direction, class));
     }
-    classified
+    Ok(classified)
+}
+
+/// For a voucher with any `vat_code`: per direction `[output, input]`, whether its
+/// VAT legs hold VAT its own codes do not explain. `None` for an untagged voucher.
+fn tagged_legs_unexplained(
+    voucher: &VoucherBody,
+    roles: &ChartVatRoles,
+    direction_of: &dyn Fn(&str) -> Option<GeneratedVatRole>,
+) -> Result<Option<[bool; 2]>, DomainError> {
+    let mut lines = [0i64; 2];
+    for code in voucher
+        .postings()
+        .iter()
+        .filter_map(|p| p.vat_code.as_ref())
+    {
+        match parse_vat_code(code.as_str())?.0 {
+            VatDirection::Sales => lines[0] += 1,
+            VatDirection::Purchase => lines[1] += 1,
+        }
+    }
+    if lines == [0, 0] {
+        return Ok(None);
+    }
+    let mut legs = [Decimal::ZERO; 2];
+    for posting in voucher.postings() {
+        let account = posting.account.as_str();
+        if roles.role_of(account).is_none() {
+            continue;
+        }
+        match direction_of(account) {
+            Some(GeneratedVatRole::Output) => legs[0] -= posting.signed_amount(),
+            Some(GeneratedVatRole::Input) => legs[1] += posting.signed_amount(),
+            None => {}
+        }
+    }
+    let own = derive_vat_figures(
+        &PeriodId::containing(voucher.posting_date()),
+        std::slice::from_ref(voucher),
+    )?;
+    let derived = [own.sales_vat.amount(), own.purchase_vat.amount()];
+    Ok(Some(std::array::from_fn(|d| {
+        !legs[d].is_zero() && (legs[d] - derived[d]).abs() > Decimal::new(lines[d], 2)
+    })))
 }
 
 /// Compare a period's VAT-role account movement with its derived VAT figures.
@@ -209,12 +270,7 @@ pub fn reconcile_vat_accounts(
                 VatDirection::Purchase => tagged_postings[1] += 1,
             }
         }
-        for (index, direction, class) in classify_vat_account_postings(
-            voucher.postings(),
-            voucher.vat_expansion(),
-            roles,
-            kind_of,
-        ) {
+        for (index, direction, class) in classify_vat_account_postings(voucher, roles, kind_of)? {
             let posting = &voucher.postings()[index];
             let line = VatAccountPosting {
                 voucher: voucher.number(),

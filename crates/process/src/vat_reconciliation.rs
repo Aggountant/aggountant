@@ -66,12 +66,15 @@ pub(crate) fn attention_items(reconciliation: &VatAccountReconciliation) -> Vec<
             code: "VAT_ACCOUNTS_UNRECONCILED",
             severity: "blocking",
             message: format!(
-                "{} posting(s) on VAT accounts carry no VAT code and are left out of the \
-                 return (output VAT {}, input VAT {}). Record the VAT with a VAT code in a \
-                 correcting voucher, or acknowledge why it stays out.",
+                "{} posting(s) on VAT accounts are not covered by a VAT code, and the VAT \
+                 accounts differ from the return (output VAT {}, input VAT {}). Check them against their source. \
+                 VAT that belongs in this return is filed in OmaVero with corrected \
+                 figures (the closed period cannot be corrected here) and must not be \
+                 recorded again with a VAT code later; acknowledge only postings that do \
+                 not belong in a return.",
                 reconciliation.untagged_postings.len(),
-                reconciliation.output.untagged.amount_str(),
-                reconciliation.input.untagged.amount_str(),
+                reconciliation.output.difference.amount_str(),
+                reconciliation.input.difference.amount_str(),
             ),
             vouchers: untagged,
         });
@@ -119,11 +122,12 @@ pub(crate) fn require_reconciled(
     match acknowledgement {
         None if reconciled => Ok(()),
         None => Err(ProcessError::VatAccountsUnreconciled(format!(
-            "period {}: untagged VAT-account postings on voucher(s) {vouchers:?} are left out \
-             of the return (output VAT {}, input VAT {}); see `file-vat preview`",
+            "period {}: VAT-account postings on voucher(s) {vouchers:?} are not covered by a \
+             VAT code and the VAT accounts differ from the return (output VAT {}, input VAT \
+             {}); see `file-vat preview`",
             reconciliation.period,
-            reconciliation.output.untagged.amount_str(),
-            reconciliation.input.untagged.amount_str(),
+            reconciliation.output.difference.amount_str(),
+            reconciliation.input.difference.amount_str(),
         ))),
         Some(ack) => {
             let mut acknowledged = ack.vouchers.clone();

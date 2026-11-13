@@ -1016,6 +1016,17 @@ impl ProcessEngine {
                  {period} differ from the approved filing proposal; create a new preview"
             )));
         }
+        // A Run started before the reconciliation existed was never checked. Guard a
+        // first dispatch only, so an attempt already made still recovers.
+        let first_dispatch = f
+            .effect(EFFECT_SUBMIT_FILING)
+            .is_none_or(|effect| effect.status == EffectStatus::Planned);
+        if first_dispatch {
+            require_reconciled(
+                &current.reconciliation,
+                state.vat_reconciliation_acknowledgement.as_ref(),
+            )?;
+        }
         Ok(())
     }
 

@@ -621,12 +621,16 @@ impl Ledger {
             .into_iter()
             .map(|account| (account.id.as_str().to_string(), account.kind))
             .collect();
-        let classified = aggountant_domain::classify_vat_account_postings(
-            draft.postings(),
-            draft.vat_expansion(),
-            roles,
-            &|account: &str| kinds.get(account).copied(),
-        );
+        // Checked as the body sealing would produce. A draft whose VAT code cannot be
+        // resolved gets no warning here; deriving the return refuses it loudly.
+        let body = VoucherBody::from_draft(draft, 1, chart_version.to_string())?;
+        let Ok(classified) =
+            aggountant_domain::classify_vat_account_postings(&body, roles, &|account: &str| {
+                kinds.get(account).copied()
+            })
+        else {
+            return Ok(Vec::new());
+        };
         Ok(classified
             .into_iter()
             .filter(|(_, _, class)| *class == aggountant_domain::VatAccountPostingClass::Untagged)
