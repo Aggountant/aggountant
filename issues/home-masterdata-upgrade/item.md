@@ -3,12 +3,14 @@ created: 2026-11-11
 updated: 2026-11-13
 type: feature
 reporter: jari
-status: in-progress
+status: done
 priority: high
 preparation: ready
 lane: home-upgrade
 lane_seq: 1
 collision: [crates/cli/src/main.rs, crates/ledger]
+closed: 2026-11-13
+closed_by: spinoff-home-upgrade
 ---
 
 # Upgrade an existing company home's masterdata for a newer binary
