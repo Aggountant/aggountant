@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-13
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: other
 provenance_detail: conductor audit of a real company's filed periods with the new reconciliation
