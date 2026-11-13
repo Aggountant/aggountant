@@ -40,6 +40,15 @@ pub enum ProcessError {
     /// "not filed": the stored receipt still proves the filing.
     #[error("VAT_STATUS_UNKNOWN: {0}")]
     VatStatusUnknown(String),
+    /// The period's VAT accounts carry untagged postings the return would leave out
+    /// (issue `vat-untagged-posting-omitted`). The filing is refused before anything
+    /// is sent unless the operator acknowledges exactly those vouchers with a reason.
+    #[error("VAT_ACCOUNTS_UNRECONCILED: {0}")]
+    VatAccountsUnreconciled(String),
+    /// A reconciliation acknowledgement that does not name exactly the vouchers with
+    /// untagged VAT-account postings, gives no reason, or has nothing to acknowledge.
+    #[error("VAT_RECONCILIATION_ACK_MISMATCH: {0}")]
+    VatReconciliationAckMismatch(String),
     /// `capture-receipt`'s approved draft would record a deductible input-VAT
     /// amount different from the deterministic eligibility assessment. The payload
     /// is never rewritten after approval; the caller must start a new Run with a
@@ -97,6 +106,8 @@ impl ProcessError {
             ProcessError::JournalCorrupt(_) => "JOURNAL_CORRUPT",
             ProcessError::VatFiguresMismatch(_) => "VAT_FIGURES_MISMATCH",
             ProcessError::VatStatusUnknown(_) => "VAT_STATUS_UNKNOWN",
+            ProcessError::VatAccountsUnreconciled(_) => "VAT_ACCOUNTS_UNRECONCILED",
+            ProcessError::VatReconciliationAckMismatch(_) => "VAT_RECONCILIATION_ACK_MISMATCH",
             ProcessError::CaptureVatMismatch(_) => "CAPTURE_VAT_MISMATCH",
             ProcessError::CaptureFactRequired(_) => "CAPTURE_FACT_REQUIRED",
             ProcessError::CaptureClarificationRequired(_) => "CAPTURE_CLARIFICATION_REQUIRED",

@@ -32,6 +32,7 @@ mod journal;
 mod knowledge;
 mod obligation;
 mod run_payroll;
+mod vat_reconciliation;
 
 pub use capture_receipt::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, PreparedReceipt,
@@ -51,6 +52,7 @@ pub use hunt_receipts::{BankTransaction, HuntReceiptsInput};
 pub use intake::{Intake, MatchCandidate, MatchStatus};
 pub use knowledge::Knowledge;
 pub use obligation::{Obligation, ObligationStatus, Obligations};
+pub use vat_reconciliation::{VatAttentionItem, VatReconciliationAcknowledgement};
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;

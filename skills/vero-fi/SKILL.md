@@ -147,6 +147,21 @@ lomakekentät, `sales_vat`, `purchase_vat`, `net_vat` ja `payment_amount`. Selvi
 avoimet aineistokysymykset tässä vaiheessa; kun kausi on sinetöity ja lähetetty,
 korjaus tarkoittaa korvaavaa ilmoitusta.
 
+Esikatselu täsmäyttää myös ALV-tilit ilmoitukseen (`vat_reconciliation`, `attention`).
+`unreconciled` tarkoittaa, että ALV-tileillä on vientejä ilman `vat_code`-merkintää ja
+ilmoituksen luvuista puuttuu veroa; `untagged_postings` nimeää tositteet ja tilit.
+Kerro tämä käyttäjälle ennen kuin ehdotat lähetystä, ja käy tositteet läpi lähdettä
+vasten. Jos vero kuuluu kauden ilmoitukseen, suljettua kautta ei voi korjata
+aggountantissa: käyttäjä ilmoittaa kauden OmaVerossa korjatuin luvuin, eikä samaa veroa
+kirjata enää merkinnällä myöhemmälle kaudelle, koska se ilmoitettaisiin kahdesti.
+`file-vat start` kieltäytyy tällaisesta kaudesta koodilla `VAT_ACCOUNTS_UNRECONCILED`
+ennen kuin mitään lähtee. Kuittaus `vat_reconciliation_acknowledgement`
+(`{"reason": …, "vouchers": [...]}`, tositteet täsmälleen esikatselun mukaan) on vain
+vienneille, jotka eivät kuulu ilmoitukseen, kuten tilille 2939 kirjattu Verohallinnon
+palautus tai avaavan tositteen ALV-saldo, ja perusteen antaa käyttäjä. Älä käytä sitä
+puuttuvan veron ohittamiseen. Esikatselu toimii myös jo ilmoitetulle kaudelle, joten
+sillä voi tarkistaa aiemmat ilmoitukset muuttamatta mitään.
+
 Ilmoitusajo käynnistyy stdin-JSONista:
 
 ```json

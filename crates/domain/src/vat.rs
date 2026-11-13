@@ -8,9 +8,9 @@ use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
 use aggountant_model::{
-    AccountId, Currency, Date, GeneratedVatRole, Hash, Money, PeriodId, Posting, Side, VatCode,
-    VatExpansionDeductibility, VatExpansionDeductibilityProvenance, VatExpansionScope,
-    VatExpansionTreatment, VoucherBody, VoucherDraft,
+    AccountId, AccountKind, Currency, Date, GeneratedVatRole, Hash, Money, PeriodId, Posting, Side,
+    VatCode, VatExpansion, VatExpansionDeductibility, VatExpansionDeductibilityProvenance,
+    VatExpansionScope, VatExpansionTreatment, VoucherBody, VoucherDraft,
 };
 
 use crate::DomainError;
@@ -20,6 +20,7 @@ mod derive;
 mod expand;
 mod filing;
 mod guards;
+mod reconcile;
 mod roles;
 
 pub use code::*;
@@ -27,6 +28,7 @@ pub use derive::*;
 pub use expand::*;
 pub use filing::*;
 pub use guards::*;
+pub use reconcile::*;
 pub use roles::*;
 
 #[cfg(test)]
@@ -39,6 +41,8 @@ mod tests_filing;
 mod tests_guards;
 #[cfg(test)]
 mod tests_margin;
+#[cfg(test)]
+mod tests_reconcile;
 #[cfg(test)]
 mod tests_roles;
 

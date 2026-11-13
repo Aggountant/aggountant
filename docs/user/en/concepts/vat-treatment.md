@@ -49,6 +49,10 @@ the VAT treatment afterwards from the account number. That is why:
   on a VAT account. This applies especially to manual entries, such as sales
   invoices, where the agent puts the VAT postings together itself
   ([Record a sales invoice, payroll or another manual entry](../tasks/record-other-entries.md)).
+  Even then the program does not infer the treatment from the account, but
+  it notices the disagreement: the VAT return preview compares the VAT
+  accounts' movement with the return's figures, and direct filing refuses if
+  they do not agree.
 - A wrong treatment is corrected with a correcting voucher, and the correction
   affects the return of the period in which it is recorded.
 

@@ -141,6 +141,13 @@ kiertämiseksi tuottaisi kahdennetun tositteen.
   (`ApproveConsultDisclosure`); raakalähde ei mene ulos.
 - Erikoiskirjaukset, joita record-polku ei tue, valmistellaan komennoilla
   `aggountant voucher draft`, `validate` ja `seal`. Sama hyväksyntäperiaate koskee niitä.
+  Kun tällaisessa tositteessa on ALV:tä, ALV-ilmoitus näkee sen vain `vat_code`-
+  merkinnästä: merkitse veron perusteen rivi (myynnissä myyntitili `sales-…`, ostossa
+  kulutili `purchase-…`), jolloin ohjelma laskee veron perusteesta. ALV-tilin rivi itse
+  jää ilman koodia; koodi sillä laskisi veroa verosta. Jos `voucher validate` palauttaa
+  varoituksen `VAT_POSTING_UNTAGGED`, ilmoitus jättäisi rivin veron pois: korjaa
+  luonnos ennen hyväksyntää, ellei vienti ole ALV:n maksu tai muu ilmoitukseen
+  kuulumaton siirto.
 - Pankin tiliotteet (CAMT.053/.052) käsittelee `aggountant import camt053`.
 - Kuukauden kirjattu tilanne: `aggountant report statements`.
 - Kun toimeksianto jatkuu ALV-ilmoitukseen, vaihda `vero-fi`-skilliin. Ilmoitus saa

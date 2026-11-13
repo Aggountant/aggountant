@@ -146,13 +146,12 @@ has already been rejected, see
   with aggountant.** For example, a month whose only sale is a credit note.
   The error misleadingly names the currency (`VAT_CURRENCY`). File the return
   in OmaVero (`vat-negative-period-filing`).
-- **A VAT posting without a VAT code is left out of the return.** The return
-  is calculated from VAT-coded postings. If the VAT posting of a manual entry,
-  such as a sales invoice, has been recorded on a VAT account without a code,
-  the program does not point it out, and the tax reported is too small. Check
-  the VAT postings of manual entries before approving
-  ([How the VAT treatment is decided](../concepts/vat-treatment.md#treatment-is-decided-at-sealing),
-  `vat-untagged-posting-omitted`).
+- **A VAT posting without a VAT code cannot be corrected into the return in
+  aggountant.** The return is calculated from VAT-coded postings. Voucher
+  validation warns about an uncoded VAT posting, and the VAT return preview
+  shows it (`VAT_ACCOUNTS_UNRECONCILED`), but a closed month cannot be
+  reopened for correction. File the return in OmaVero with corrected figures
+  instead ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)).
 - **Quarterly periods have been tried less.** Direct filing has been tried
   with monthly periods.
 - **aggountant does not prepare Ilmoitin.fi files.**

@@ -25,14 +25,22 @@ tositeluonnoksena, jonka sinä hyväksyt ennen sinetöintiä.
 2. **Agentti valmistelee luonnoksen.** Se arkistoi lähdetiedoston, kokoaa
    tositteen viennit ja tarkistaa luonnoksen: debet ja kredit täsmäävät,
    tilit ovat tilikartassa ja liite on tallessa. Tarkistus ei tallenna mitään.
+   Jos ALV-tilin viennillä ei ole ALV-merkintää missään tositteen rivissä,
+   tarkistus varoittaa koodilla `VAT_POSTING_UNTAGGED`, mutta ei estä
+   sinetöintiä.
 
 3. **Tarkista ja hyväksy.** Agentti näyttää päivän, kuvauksen, jokaisen
    viennin tilin ja summan sekä liitteen. Katso, että summat vastaavat lähdettä
    ja että myynnin ALV on omalla tilillään. Kuittireitistä poiketen ohjelma ei
    tässä laske ALV-rivejä itse, joten tarkista ne erityisen huolella. Kysy
-   myös, onko ALV-vienneillä ALV-merkintä: ALV-ilmoitus lasketaan merkityistä
+   myös, onko tositteella ALV-merkintä. Merkintä on veron perusteen rivillä,
+   myynnissä myyntitilin rivillä (esimerkiksi `sales-domestic-standard`), ja
+   ilmoitus laskee veron siitä. ALV-ilmoitus lasketaan merkityistä
    vienneistä, ei tilinumeroista, joten merkitsemätön ALV puuttuisi
    ilmoituksesta ([Miten ALV-käsittely päätetään](../concepts/vat-treatment.md)).
+   Ohjelma huomaa puutteen viimeistään ALV-ilmoituksen esikatselussa, mutta
+   silloin kuukausi on jo suljettu, ja ilmoitus on tehtävä OmaVerossa käsin
+   korjatuin luvuin.
 
 4. **Agentti sinetöi tositteen.**
 

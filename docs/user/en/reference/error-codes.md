@@ -46,8 +46,10 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `PERIOD_SEALED` | the period is closed, or the date falls in a closed fiscal year or one before it | record it in the next open period |
 | `PERIOD_TRANSITION_CONFLICT` | the period's state does not allow the requested change, for example the period has already been filed, the close was rejected, or months and quarters are being mixed in the same year, or a quarter is closed in a fiscal year that is not the calendar year | read the message; a filed period is not filed again ([When something goes wrong](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | the run cannot be found | check that the command hit the right home |
+| `VAT_ACCOUNTS_UNRECONCILED` | a VAT account has postings without a VAT code, and tax would be missing from the return | file in OmaVero with corrected figures, or give the reason if the postings do not belong in the return ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)) |
 | `VAT_CURRENCY` | the VAT return figures cannot be formed; also when the period's VAT is negative because of corrections | [What is ready and what is not](status.md#vat-return) |
 | `VAT_FIGURES_MISMATCH` | the VAT return figures do not match the books | the agent uses the preview's figures |
+| `VAT_RECONCILIATION_ACK_MISMATCH` | the acknowledgement has no reason, its voucher numbers differ from the preview's, or there is nothing to acknowledge | the agent uses the preview's voucher numbers |
 | `VAT_STATUS_UNKNOWN` | the VAT return's status could not be read from the Tax Administration (connection, credentials or readiness) | the return has still been filed, the acknowledgement proves it; query again later, do not send again ([The return does not show in OmaVero](../troubleshooting.md#the-return-does-not-show-in-omavero)) |
 | `VERO_NOT_READY` | direct filing readiness is not in order | [Vero.fi readiness blockers](vero-fi-blockers.md) |
 | `VOUCHER_NOT_FOUND` | there is no voucher with the given number | check the number or the home |

@@ -36,9 +36,13 @@ use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Money,
 use sha2::{Digest, Sha256};
 
 use crate::journal::{EventPayload, Journal};
+use crate::vat_reconciliation::{
+    attention_items, reconcile_period, require_reconciled, VatAttentionItem,
+    VatReconciliationAcknowledgement,
+};
+use crate::{fold, EffectStatus, Fold, GateView, ProcessEngine, ProcessError, RunView, Seam};
 
 mod status;
-use crate::{fold, EffectStatus, Fold, GateView, ProcessEngine, ProcessError, RunView, Seam};
 pub use status::{FileVatFilingStatus, FileVatStatus, FileVatStatusPlan, FiledVatQuery};
 
 /// Effect keys for the `file-vat` Run (stable idempotency keys).
@@ -63,6 +67,9 @@ pub struct FileVatInput {
     pub contact_phone: FilingContactPhone,
     /// The IBAN for the separate payment approval.
     pub payee_iban: String,
+    /// Required only when the period has untagged VAT-account postings.
+    #[serde(default)]
+    pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
 }
 
 /// Run-scoped state persisted at reconcile time so `answer`/`retry`/`resume` can
@@ -83,11 +90,14 @@ struct FileVatState {
     bank_payment_required: String,
     net_vat: String,
     vero_period: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
 }
 
 struct VerifiedFilingSnapshot {
     filing: VatFiling,
     voucher_source_fingerprint: String,
+    reconciliation: aggountant_domain::VatAccountReconciliation,
 }
 
 /// The start of a `file-vat` Run (the `RunView` plus a couple of figures a CLI
@@ -101,6 +111,8 @@ pub struct FileVatStart {
     /// Exact UTF-8 FileVATReturn/v2 bytes bound by the approval gate.
     pub filing_request: String,
     pub vero_period: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
 }
 
 /// Read-only manual filing view. The numbered fields are the same Domain projection
@@ -113,6 +125,8 @@ pub struct OfflineVatPreview {
     pub purchase_vat: String,
     pub net_vat: String,
     pub payment_amount: String,
+    pub vat_reconciliation: aggountant_domain::VatAccountReconciliation,
+    pub attention: Vec<VatAttentionItem>,
     pub filing_instruction: &'static str,
     pub payment_instruction: &'static str,
 }
@@ -198,7 +212,8 @@ impl ProcessEngine {
         policy_set: &PolicySet,
     ) -> Result<OfflineVatPreview, ProcessError> {
         let ledger = Ledger::open(&self.home)?;
-        let filing = derive_sealed_filing(&ledger, period, policy_set)?;
+        let verified = derive_verified_sealed_filing(&ledger, period, policy_set)?;
+        let filing = verified.filing;
         let payment_amount = if filing.net_vat.amount().is_sign_negative() {
             "0.00".to_string()
         } else {
@@ -211,6 +226,8 @@ impl ProcessEngine {
             purchase_vat: filing.purchase_vat.amount_str(),
             net_vat: filing.net_vat.amount_str(),
             payment_amount,
+            attention: attention_items(&verified.reconciliation),
+            vat_reconciliation: verified.reconciliation,
             filing_instruction: "Enter these numbered VAT fields manually in OmaVero, or use an independently prepared Ilmoitin.fi file; aggountant does not create or upload that file.",
             payment_instruction: "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
         })
@@ -378,6 +395,14 @@ impl ProcessEngine {
                 filing.purchase_vat.amount_str(),
             )));
         }
+        let acknowledgement = input.vat_reconciliation_acknowledgement.as_ref();
+        if let Err(error) = require_reconciled(&verified.reconciliation, acknowledgement) {
+            journal.append(EventPayload::EffectRejected {
+                effect_key: EFFECT_RECONCILE.to_string(),
+                error_code: error.error_code().to_string(),
+            })?;
+            return Err(error);
+        }
 
         // ADR-9 preflight: read the authority's exact period before opening approval.
         let periods_request = serde_json::to_string(&json!({
@@ -479,16 +504,26 @@ impl ProcessEngine {
                 bank_payment_required: bank_payment_required.clone(),
                 net_vat: filing.net_vat.amount_str(),
                 vero_period: vero_period.clone(),
+                vat_reconciliation_acknowledgement: acknowledgement.cloned(),
             },
         )?;
 
         journal.append(EventPayload::EffectSucceeded {
             effect_key: EFFECT_RECONCILE.to_string(),
-            note: format!(
-                "net_vat {}, bank_payment_required {}",
-                filing.net_vat.amount_str(),
-                bank_payment_required
-            ),
+            note: match acknowledgement {
+                None => format!(
+                    "net_vat {}, bank_payment_required {}",
+                    filing.net_vat.amount_str(),
+                    bank_payment_required
+                ),
+                Some(ack) => format!(
+                    "net_vat {}, bank_payment_required {}, untagged VAT on vouchers {:?} acknowledged: {}",
+                    filing.net_vat.amount_str(),
+                    bank_payment_required,
+                    ack.vouchers,
+                    ack.reason
+                ),
+            },
         })?;
         // The ApproveFiling Preview gate binds to the filing envelope's sent_hash.
         journal.append(EventPayload::GateOpened {
@@ -506,6 +541,7 @@ impl ProcessEngine {
                 .unwrap_or_default()
                 .to_string(),
             vero_period,
+            vat_reconciliation_acknowledgement: acknowledgement.cloned(),
             run,
         })
     }
@@ -1079,14 +1115,6 @@ impl ProcessEngine {
     }
 }
 
-fn derive_sealed_filing(
-    ledger: &Ledger,
-    period: &PeriodId,
-    policy_set: &PolicySet,
-) -> Result<VatFiling, ProcessError> {
-    Ok(derive_verified_sealed_filing(ledger, period, policy_set)?.filing)
-}
-
 /// Read and fully verify the sealed ledger before deriving a filing, then bind the
 /// proposal to both each period voucher's fiscal hash and its source fingerprint.
 /// The explicit length framing keeps the digest unambiguous even for legacy source
@@ -1133,9 +1161,11 @@ fn derive_verified_sealed_filing(
     }
     let figures = ledger.derive_vat_filing_figures(period, &sealed_vouchers)?;
     let filing = compute_derived_vat_filing(&figures).map_err(map_domain)?;
+    let reconciliation = reconcile_period(ledger, period, &sealed_vouchers, &figures)?;
     Ok(VerifiedFilingSnapshot {
         filing,
         voucher_source_fingerprint: hex::encode(source_hash.finalize()),
+        reconciliation,
     })
 }
 

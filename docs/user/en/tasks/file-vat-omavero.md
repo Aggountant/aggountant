@@ -30,6 +30,24 @@ yourself.
    | 308 Maksettava tai palautukseen oikeuttava vero (tax payable or refundable) | −€25.20 |
    | To pay | €0.00 |
 
+   The preview also reconciles the VAT accounts with the return. It compares
+   the month's movement on the VAT accounts (for example 2939 and 1763) with
+   the return's tax on sales and on purchases. VAT payments, refunds and
+   transfers between VAT accounts do not belong in a return, so they are left
+   out of the comparison. The result's `vat_reconciliation.status` is
+   `reconciled` when the accounts and the return agree. The state
+   `unreconciled` means that a VAT account has postings without a VAT code and
+   tax is missing from the return. The preview then shows the code
+   `VAT_ACCOUNTS_UNRECONCILED`, the voucher numbers and the missing amount.
+   Do not file the figures before this is sorted out
+   ([If something goes wrong](#if-something-goes-wrong)). A difference of a
+   few cents on coded vouchers is normal: the program calculates the tax line
+   by line.
+
+   You can also run the preview for a month that has already been filed. It
+   changes nothing and does not contact the Tax Administration, so you can use
+   it to check earlier returns.
+
 3. **Enter the fields in OmaVero** and send the return. You can also prepare
    an Ilmoitin.fi file yourself (Ilmoitin.fi is the Tax Administration's
    service for uploading return files). aggountant does not make one.
@@ -86,6 +104,24 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
 
 - **`PERIOD_NOT_SEALED`.** The month has not been closed, or the close is in
   progress: [Close the month](close-month.md).
+- **The preview shows `VAT_ACCOUNTS_UNRECONCILED`.** The listed vouchers have
+  VAT on a VAT account without a VAT code, and the preview's figures leave it
+  out. In the books the tax is correctly on the VAT account, but it is missing
+  from the return's figures. Ask the agent to show the vouchers and go
+  through them against the source:
+  - If the tax belongs in this month's return, such as a sales invoice whose
+    code was forgotten, file the month in OmaVero with corrected figures: add
+    the missing tax and its base to the field for the source's VAT rate. A
+    closed month cannot be reopened, and direct filing does not send these
+    figures. Do not record the same tax again with a VAT code in the next
+    month, because it would then be reported twice. If the month has already
+    been filed with figures that are too low, make a replacement return in
+    OmaVero.
+  - If the posting does not belong in a return, for example a refund from the
+    Tax Administration recorded on account 2939 or the VAT balance of an
+    opening voucher, the figures are right and you can file them. In direct
+    filing the reason is recorded in the filing run
+    ([Send the VAT return directly to the Tax Administration](file-vat-direct.md#if-something-goes-wrong)).
 - **The command asks for evidence of the Tax Administration's status.** A
   direct submission with an uncertain outcome was left for the same month.
   Find out first whether it got through, so that the return is not filed

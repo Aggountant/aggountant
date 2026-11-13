@@ -47,6 +47,9 @@ ALV-käsittelyä jälkikäteen tilinumeron perusteella. Siksi:
   ALV-tilillä. Tämä koskee erityisesti erikoiskirjauksia, kuten myyntilaskuja,
   joissa agentti kokoaa ALV-viennit itse
   ([Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](../tasks/record-other-entries.md)).
+  Ohjelma ei silloinkaan päättele käsittelyä tilistä, mutta se huomaa
+  ristiriidan: ALV-ilmoituksen esikatselu vertaa ALV-tilien liikettä
+  ilmoituksen lukuihin, ja suora ilmoitus kieltäytyy, jos ne eivät täsmää.
 - Väärä käsittely korjataan korjaustositteella, ja korjaus vaikuttaa sen kauden
   ilmoitukseen, jolle se kirjataan.
 

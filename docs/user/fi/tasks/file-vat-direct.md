@@ -24,7 +24,8 @@ ei voi perua.
 3. **Agentti valmistelee lähetyksen.** Se antaa ohjelmalle kuukauden, myynnin
    ja ostojen veron sekä Verohallinnon tilinumeron, joka näkyy OmaVerossa.
    Ohjelma laskee luvut vielä kerran kirjanpidosta ja kieltäytyy, jos ne
-   eroavat. Se tarkistaa valmiuden, kysyy kuukauden tilan Verohallinnolta ja
+   eroavat. Se kieltäytyy myös, jos ALV-tilit eivät täsmää ilmoitukseen
+   (`VAT_ACCOUNTS_UNRECONCILED`). Se tarkistaa valmiuden, kysyy kuukauden tilan Verohallinnolta ja
    jää odottamaan hyväksyntääsi. Mitään ei ole vielä lähetetty.
 
 4. **Tarkista ja hyväksy.** Agentti näyttää yrityksen, kuukauden, eräpäivän,
@@ -88,6 +89,17 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
   [Vero.fi-valmiuden esteet](../reference/vero-fi-blockers.md).
 - **`VAT_FIGURES_MISMATCH`.** Annetut luvut eivät vastaa kirjanpitoa. Agentti
   käyttää esikatselun lukuja.
+- **`VAT_ACCOUNTS_UNRECONCILED`.** ALV-tilillä on vientejä ilman ALV-merkintää,
+  ja ilmoituksesta puuttuisi veroa. Mitään ei lähetetty. Jos vero kuuluu
+  ilmoitukseen, tee ilmoitus OmaVerossa korjatuin luvuin
+  ([Tee ALV-ilmoitus OmaVerossa](file-vat-omavero.md#jos-jokin-menee-pieleen)).
+  Jos viennit kuuluvat oikeasti ilmoituksen ulkopuolelle, esimerkiksi
+  Verohallinnon palautus on kirjattu tilille 2939 tai vienti on avaavan
+  tositteen ALV-saldo, kerro syy: agentti lisää
+  ilmoitusajon syötteeseen kentän `vat_reconciliation_acknowledgement`, jossa
+  ovat perustelu (`reason`) ja esikatselun luettelemat tositenumerot
+  (`vouchers`). Perustelu tallentuu ajoon. Jos tositteet eivät ole täsmälleen
+  samat, ohjelma kieltäytyy koodilla `VAT_RECONCILIATION_ACK_MISMATCH`.
 - **`PERIOD_TRANSITION_CONFLICT`.** Kuukausi on jo ilmoitettu. Sitä ei
   ilmoiteta uudelleen.
 - **Yhteys katkesi tai palvelu vastasi virheellä kesken lähetyksen.**

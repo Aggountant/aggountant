@@ -142,13 +142,12 @@ kirjataan seuraavalle kaudelle. Jos sulku on jo hylätty, katso
   aggountantilla.** Esimerkiksi kuukausi, jonka ainoa myynti on hyvityslasku.
   Virhe nimeää harhaanjohtavasti valuutan (`VAT_CURRENCY`). Tee ilmoitus
   OmaVerossa (`vat-negative-period-filing`).
-- **ALV-vienti ilman ALV-merkintää jää pois ilmoituksesta.** Ilmoitus lasketaan
-  ALV-merkityistä vienneistä. Jos erikoiskirjauksen, kuten myyntilaskun,
-  ALV-vienti on kirjattu ALV-tilille ilman merkintää, ohjelma ei huomauta
-  siitä, ja ilmoitettava vero jää liian pieneksi. Tarkista erikoiskirjausten
-  ALV-viennit ennen hyväksyntää
-  ([Miten ALV-käsittely päätetään](../concepts/vat-treatment.md#käsittely-päätetään-sinetöidessä),
-  `vat-untagged-posting-omitted`).
+- **ALV-vientiä ilman ALV-merkintää ei voi korjata ilmoitukseen
+  aggountantissa.** Ilmoitus lasketaan ALV-merkityistä vienneistä. Tositteen
+  tarkistus varoittaa merkitsemättömästä ALV-viennistä, ja ALV-ilmoituksen
+  esikatselu näyttää sen (`VAT_ACCOUNTS_UNRECONCILED`), mutta suljettua
+  kuukautta ei voi avata korjattavaksi. Tee silloin ilmoitus OmaVerossa
+  korjatuin luvuin ([Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen)).
 - **Neljännesvuosikausia on koeteltu vähemmän.** Suoraa ilmoittamista on
   koeteltu kuukausikausilla.
 - **Ilmoitin.fi-tiedostoa aggountant ei laadi.**

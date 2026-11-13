@@ -51,16 +51,19 @@ pub use statements::{
 pub use vat::{
     check_eu_sale_buyer_vat_id, check_no_eu_acquisition_code, check_vat_rate_class_mistag,
     check_vat_rate_class_mistag_with_role_table, check_voucher_vat_structure,
-    compute_derived_vat_filing, compute_margin_vat, compute_vat_filing, derive_filing_figures,
-    derive_filing_figures_with_role_table, derive_vat_figures, draft_deductible_vat,
-    draft_deductible_vat_with_role_table, reconcile_verotili, sum_vat_account_figures,
+    classify_vat_account_postings, compute_derived_vat_filing, compute_margin_vat,
+    compute_vat_filing, derive_filing_figures, derive_filing_figures_with_role_table,
+    derive_vat_figures, draft_deductible_vat, draft_deductible_vat_with_role_table,
+    reconcile_vat_accounts, reconcile_verotili, sum_vat_account_figures,
     sum_vat_account_figures_with_role_table, validate_eu_buyer_vat_id, vat_code_is_tax_bearing,
     vat_expand, vat_expand_with_role_table, verify_vat_expansion, verify_vat_expansion_for_seal,
     verify_vat_expansion_for_seal_with_role_table, verify_vat_expansion_with_role_table,
     ChartVatAccount, ChartVatRoles, DerivedVatFigures, MarginCategory, MarginVat, MistagGuard,
-    Reconciliation, ReverseChargeScope, TaxAccountSnapshot, VatAccountRole, VatAccountRoleTable,
-    VatExpandInput, VatFiling, VatFilingInput, VatRateEdition, VatRateTable, VatRecompute,
-    VatReturnField, VatReturnFields, VatReturnFieldsError, VatRoleTag, VatTreatment,
+    Reconciliation, ReverseChargeScope, TaxAccountSnapshot, VatAccountMovement, VatAccountPosting,
+    VatAccountPostingClass, VatAccountReconciliation, VatAccountRole, VatAccountRoleTable,
+    VatDirectionReconciliation, VatExpandInput, VatFiling, VatFilingInput, VatRateEdition,
+    VatRateTable, VatRecompute, VatReconciliationStatus, VatReturnField, VatReturnFields,
+    VatReturnFieldsError, VatRoleTag, VatTreatment,
 };
 
 #[derive(Debug, Error)]

@@ -68,7 +68,9 @@ tiedostoksi kotiin, jossa jokainen lähdetili esiintyy kerran suuntineen ja summ
 loppusumma täsmää lähderaporttiin: usea lähdetili yhdistyy usein yhdeksi tiliksi, ja
 erittely katoaa muuten. Erityisesti verotilin ja osakasvelkojen yhdistäminen samalle
 tilille tekee myöhemmän täsmäytyksen vaikeaksi, joten pidä ne erillään jos tilikartta
-sen sallii.
+sen sallii. Avaavan tositteen saldo ALV-tileillä on aiempien kausien veroa, joten
+ensimmäisen kauden ALV-ilmoituksen täsmäytys näyttää sen merkitsemättömänä vientinä;
+`vero-fi`-skilli kertoo, miten se kuitataan.
 
 Avaavan tositteen päivämäärä on päättyvän järjestelmän viimeinen päivä, ei uuden
 kirjanpidon ensimmäinen. Jos tilikauden aiemmat tulostilit tuodaan mukaan ja tosite

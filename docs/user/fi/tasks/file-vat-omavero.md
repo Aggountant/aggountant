@@ -29,6 +29,22 @@ tai haluat asioida itse.
    | 308 Maksettava tai palautukseen oikeuttava vero | −25,20 € |
    | Maksettavaa | 0,00 € |
 
+   Esikatselu myös täsmäyttää ALV-tilit ilmoitukseen. Se vertaa kuukauden
+   liikettä ALV-tileillä (esimerkiksi 2939 ja 1763) ilmoituksen myynnin ja
+   ostojen veroon. ALV:n maksut, palautukset ja ALV-tilien väliset siirrot
+   eivät kuulu ilmoitukseen, joten niitä ei lasketa mukaan. Tuloksen
+   `vat_reconciliation.status` on `reconciled`, kun tilit ja ilmoitus
+   täsmäävät. Tila `unreconciled` tarkoittaa, että ALV-tilillä on vientejä
+   ilman ALV-merkintää ja ilmoituksesta puuttuu veroa. Esikatselu kertoo
+   silloin koodin `VAT_ACCOUNTS_UNRECONCILED`, tositteiden numerot ja puuttuvan
+   summan. Älä ilmoita lukuja ennen kuin asia on selvitetty
+   ([Jos jokin menee pieleen](#jos-jokin-menee-pieleen)). Muutaman sentin ero
+   merkityissä tositteissa on normaalia: ohjelma laskee veron rivikohtaisesti.
+
+   Esikatselun voi ajaa myös jo ilmoitetulle kuukaudelle. Se ei muuta mitään
+   eikä ota yhteyttä Verohallintoon, joten sillä voi tarkistaa aiemmat
+   ilmoitukset.
+
 3. **Syötä kentät OmaVeroon** ja lähetä ilmoitus. Voit myös laatia
    Ilmoitin.fi-tiedoston itse. aggountant ei tee sitä.
 
@@ -84,6 +100,22 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
 
 - **`PERIOD_NOT_SEALED`.** Kuukautta ei ole suljettu tai sulku on kesken:
   [Sulje kuukausi](close-month.md).
+- **Esikatselu näyttää `VAT_ACCOUNTS_UNRECONCILED`.** Luetelluissa
+  tositteissa on ALV:tä ALV-tilillä ilman ALV-merkintää, ja esikatselun luvut
+  jättävät sen pois. Kirjanpidossa vero on oikein ALV-tilillä, mutta
+  ilmoituksen luvuista se puuttuu. Pyydä agenttia näyttämään tositteet ja
+  käy ne läpi lähdettä vasten:
+  - Jos vero kuuluu tämän kuukauden ilmoitukseen, kuten unohtuneen
+    merkinnän myyntilaskussa, ilmoita kuukausi OmaVerossa korjatuin luvuin:
+    lisää puuttuva vero ja sen peruste lähteen verokannan mukaiseen kenttään.
+    Suljettua kuukautta ei voi avata, eikä suora ilmoitus lähetä näitä lukuja.
+    Älä kirjaa samaa veroa enää ALV-merkinnällä seuraavalle kuukaudelle, koska
+    se ilmoitettaisiin silloin toiseen kertaan. Jos kuukausi on jo ilmoitettu
+    liian pienillä luvuilla, tee korvaava ilmoitus OmaVerossa.
+  - Jos vienti ei kuulu ilmoitukseen, esimerkiksi Verohallinnon palautus on
+    kirjattu tilille 2939 tai vienti on avaavan tositteen ALV-saldo, luvut
+    ovat oikein, ja voit ilmoittaa ne. Suorassa ilmoituksessa syy kirjataan
+    ilmoitusajoon ([Lähetä ALV-ilmoitus suoraan Verohallinnolle](file-vat-direct.md#jos-jokin-menee-pieleen)).
 - **Komento vaatii näytön Verohallinnon tilasta.** Samalle kuukaudelle on jäänyt
   suora lähetys, jonka lopputulos on epävarma. Selvitä ensin, menikö se perille,
   ettei ilmoitus mene kahdesti:

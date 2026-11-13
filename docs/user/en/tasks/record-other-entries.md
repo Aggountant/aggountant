@@ -26,16 +26,23 @@ sealed.
 2. **The agent prepares the draft.** It archives the source file, puts
    together the voucher's postings and validates the draft: debits and credits
    balance, the accounts are in the chart of accounts and the attachment is
-   stored. Validation stores nothing.
+   stored. Validation stores nothing. If a posting on a VAT account has no VAT
+   code on any line of the voucher, validation warns with
+   `VAT_POSTING_UNTAGGED` but does not stop the sealing.
 
 3. **Check and approve.** The agent shows the date, the description, every
    posting's account and amount, and the attachment. Check that the amounts
    match the source and that the VAT on sales is on its own account. Unlike
    the receipt route, the program does not calculate the VAT lines here, so
-   check them with particular care. Also ask whether the VAT postings carry a
-   VAT code: the VAT return is calculated from coded postings, not from
-   account numbers, so uncoded VAT would be missing from the return
-   ([How the VAT treatment is decided](../concepts/vat-treatment.md)).
+   check them with particular care. Also ask whether the voucher carries a
+   VAT code. The code goes on the line of the tax base, for a sale the sales
+   account line (for example `sales-domestic-standard`), and the return
+   calculates the tax from it. The VAT return is calculated from coded
+   postings, not from account numbers, so uncoded VAT would be missing from
+   the return ([How the VAT treatment is decided](../concepts/vat-treatment.md)).
+   The program notices the gap at the latest in the VAT return preview, but by
+   then the month is closed and the return has to be filed by hand in OmaVero
+   with corrected figures.
 
 4. **The agent seals the voucher.**
 

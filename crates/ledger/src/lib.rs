@@ -276,6 +276,20 @@ pub struct ValidationReport {
     pub posting_count: usize,
     pub currency: String,
     pub attachment_present: bool,
+    /// Postings the VAT return would leave out (see [`UntaggedVatWarning`]). A
+    /// warning, not a refusal: existing books and imports contain such postings.
+    pub warnings: Vec<UntaggedVatWarning>,
+}
+
+/// A posting on a VAT-role account that neither a `vat_code` nor a generated VAT
+/// leg covers and that does not look like a VAT payment or clearing. `file-vat`
+/// refuses a period that still contains one.
+#[derive(Debug, Clone, Serialize)]
+pub struct UntaggedVatWarning {
+    pub code: &'static str,
+    pub posting_index: usize,
+    pub account: String,
+    pub message: String,
 }
 
 /// One contiguous voucher-number span sealed by the same software build.
@@ -581,13 +595,55 @@ impl Ledger {
                 return Err(LedgerError::ArtifactNotFound(attachment.to_hex()));
             }
         }
+        let warnings = self.untagged_vat_warnings(draft, &chart_version)?;
         Ok(ValidationReport {
             ok: true,
             chart_version,
             posting_count: draft.postings().len(),
             currency: draft.currency().as_str().to_string(),
             attachment_present: draft.attachment_ref().is_some(),
+            warnings,
         })
+    }
+
+    fn untagged_vat_warnings(
+        &self,
+        draft: &VoucherDraft,
+        chart_version: &str,
+    ) -> Result<Vec<UntaggedVatWarning>, LedgerError> {
+        // A chart without VAT roles has no VAT accounts to warn about.
+        let Ok(roles) = self.masterdata.vat_roles().resolve(chart_version) else {
+            return Ok(Vec::new());
+        };
+        let kinds: std::collections::HashMap<String, aggountant_model::AccountKind> = self
+            .masterdata
+            .list_accounts()?
+            .into_iter()
+            .map(|account| (account.id.as_str().to_string(), account.kind))
+            .collect();
+        let classified = aggountant_domain::classify_vat_account_postings(
+            draft.postings(),
+            draft.vat_expansion(),
+            roles,
+            &|account: &str| kinds.get(account).copied(),
+        );
+        Ok(classified
+            .into_iter()
+            .filter(|(_, _, class)| *class == aggountant_domain::VatAccountPostingClass::Untagged)
+            .map(|(index, _, _)| {
+                let account = draft.postings()[index].account.as_str().to_string();
+                UntaggedVatWarning {
+                    code: "VAT_POSTING_UNTAGGED",
+                    posting_index: index,
+                    message: format!(
+                        "posting {index} on VAT account {account} has no VAT code on this \
+                         voucher; the VAT return will leave it out. Put the VAT code on the \
+                         line whose amount is the VAT base."
+                    ),
+                    account,
+                }
+            })
+            .collect())
     }
 
     /// The canonical request identity Ledger uses for idempotency comparisons.

@@ -38,7 +38,7 @@ use aggountant_model::{
 use aggountant_process::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, CloseYearInput,
     FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, StructuredReceiptInput,
-    SystemClock,
+    SystemClock, VatReconciliationAcknowledgement,
 };
 
 mod home;
@@ -289,6 +289,8 @@ struct CliFileVatInput {
     #[serde(default)]
     contact_phone: Option<FilingContactPhone>,
     payee_iban: String,
+    #[serde(default)]
+    vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -533,7 +535,8 @@ enum RunPayrollCmd {
 #[derive(Subcommand, Debug)]
 enum FileVatCmd {
     /// Derive numbered filing fields and separate payment instructions from a sealed
-    /// period. Read-only: creates no Run and reads no Vero credentials or network.
+    /// period, and reconcile its VAT accounts with those figures. Read-only: creates
+    /// no Run and reads no Vero credentials or network; works on filed periods too.
     Preview {
         #[arg(long)]
         period: PeriodId,
@@ -552,6 +555,8 @@ enum FileVatCmd {
     },
     /// Start a `file-vat` Run from stdin JSON (period + sales_vat/purchase_vat +
     /// payee_iban); reconciles and parks on the `ApproveFiling` preview gate.
+    /// Untagged VAT-account postings refuse with VAT_ACCOUNTS_UNRECONCILED unless
+    /// `vat_reconciliation_acknowledgement` {reason, vouchers} names exactly them.
     #[command(after_long_help = VERO_TRANSPORT_HELP)]
     Start,
     /// Approve (or reject) the filing preview gate: `--answer approve|reject`.
@@ -928,6 +933,8 @@ impl From<aggountant_process::ProcessError> for CliError {
             | GateNotOpen(_)
             | InvalidAnswer(_)
             | VatFiguresMismatch(_)
+            | VatAccountsUnreconciled(_)
+            | VatReconciliationAckMismatch(_)
             | CaptureVatMismatch(_)
             | CaptureFactRequired(_)
             | CaptureClarificationRequired(_)
@@ -2204,6 +2211,7 @@ fn resolve_file_vat_input(
         contact_name,
         contact_phone,
         payee_iban: input.payee_iban,
+        vat_reconciliation_acknowledgement: input.vat_reconciliation_acknowledgement,
     })
 }
 
@@ -2694,10 +2702,22 @@ fn human_line(command: &Command, value: &Value) -> String {
             ),
         },
         Command::FileVat { cmd } => match cmd {
-            FileVatCmd::Preview { .. } => format!(
-                "VAT preview {} — net {}, pay separately {}",
-                value["period"], value["net_vat"], value["payment_amount"]
-            ),
+            FileVatCmd::Preview { .. } => {
+                let mut line = format!(
+                    "VAT preview {} — net {}, pay separately {}, VAT accounts {}",
+                    value["period"],
+                    value["net_vat"],
+                    value["payment_amount"],
+                    value["vat_reconciliation"]["status"]
+                );
+                for item in value["attention"].as_array().into_iter().flatten() {
+                    line.push_str(&format!(
+                        "\n{} {}: {} vouchers {}",
+                        item["severity"], item["code"], item["message"], item["vouchers"]
+                    ));
+                }
+                line
+            }
             FileVatCmd::CompleteManual { .. } => format!(
                 "VAT filing recorded for {} via {} (evidence {})",
                 value["period"],

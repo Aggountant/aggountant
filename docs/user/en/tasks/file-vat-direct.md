@@ -24,7 +24,9 @@ be withdrawn.
 3. **The agent prepares the submission.** It gives the program the month, the
    tax on sales and on purchases, and the Tax Administration's bank account
    number, which is shown in OmaVero. The program calculates the figures from
-   the books once more and refuses if they differ. It checks readiness, asks
+   the books once more and refuses if they differ. It also refuses if the VAT
+   accounts do not reconcile with the return (`VAT_ACCOUNTS_UNRECONCILED`). It
+   checks readiness, asks
    the Tax Administration for the month's status and waits for your approval.
    Nothing has been sent yet.
 
@@ -92,6 +94,18 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
   [Vero.fi readiness blockers](../reference/vero-fi-blockers.md).
 - **`VAT_FIGURES_MISMATCH`.** The figures given do not match the books. The
   agent uses the preview's figures.
+- **`VAT_ACCOUNTS_UNRECONCILED`.** A VAT account has postings without a VAT
+  code, and tax would be missing from the return. Nothing was sent. If the
+  tax belongs in the return, file the return in OmaVero with corrected
+  figures ([File the VAT return in OmaVero](file-vat-omavero.md#if-something-goes-wrong)).
+  If the postings really belong outside the return, for example a refund from
+  the Tax Administration recorded on account 2939 or the VAT balance of an
+  opening voucher, give the reason: the agent
+  adds the field `vat_reconciliation_acknowledgement` to the filing run's
+  input, with the reason (`reason`) and the voucher numbers the preview lists
+  (`vouchers`). The reason is stored in the run. If the vouchers are not
+  exactly the same, the program refuses with
+  `VAT_RECONCILIATION_ACK_MISMATCH`.
 - **`PERIOD_TRANSITION_CONFLICT`.** The month has already been filed. It is
   not filed again.
 - **The connection dropped or the service returned an error during
