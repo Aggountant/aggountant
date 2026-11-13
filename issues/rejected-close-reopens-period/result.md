@@ -17,6 +17,10 @@
   the effect has not succeeded: if fiscal still shows the period Closing under
   this run it takes the edge, otherwise it reconciles to fiscal (the edge had
   committed before the crash). The Run's status stays `rejected`.
+- **Resume retry.** The retry for a close that crashed before its
+  `Open→Closing` commit no longer requires an Open period without an owner
+  (after a rejection the row names the rejecting run), and it passes the same
+  open-obligation gate as a fresh start.
 - **CLI.** No output shape changes; `run answer`/`run show` list the extra
   effect.
 - **Guide (fi + en).** The "never reject a close" warnings and the "Rejected
@@ -73,6 +77,12 @@ public release, and this fixes a bug that release would otherwise ship.
 - `crates/cli/tests/close_period_cli.rs`: the issue's reproduction through the
   binary (reject → `period show` open → `voucher seal` → new close → approve
   → `voucher verify` ok).
+
+- Review fixes (see `review.md`, `assessment.md`):
+  `a_new_close_after_a_rejection_resumes_a_crash_before_its_fiscal_commit`
+  covers a close started after a rejection that crashes before its
+  `Open→Closing` commit: `resume` retries even though the Open row names the
+  rejecting run, and refuses with `OPEN_OBLIGATION` while an obligation is open.
 
 `scripts/ci-local.sh` and `scripts/check-user-guide.sh` pass.
 

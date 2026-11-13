@@ -395,6 +395,50 @@ fn resume_is_idempotent_after_convergence() {
     assert_eq!(reconciles, 1);
 }
 
+#[test]
+fn a_new_close_after_a_rejection_resumes_a_crash_before_its_fiscal_commit() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let first = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap();
+    engine
+        .answer(&first.run_id, "ApproveClose", "reject")
+        .unwrap();
+
+    // The second close crashes before Open→Closing commits. The Open row still
+    // names the rejecting run, which must not stop the retry.
+    let crashed = engine
+        .start_close_period_seam(&q1(), &PolicySet::default(), Seam::CrashBeforeFiscalCommit)
+        .unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.period_view(&q1()).unwrap().owning_run_id.as_deref(),
+        Some(first.run_id.as_str())
+    );
+
+    // The retry is a start, so an open obligation blocks it like a fresh start.
+    let obligation = engine
+        .obligations()
+        .create(&q1(), "missing", "missing receipt", "2026-04-30", "capture")
+        .unwrap();
+    let err = engine.resume(&crashed.run_id).unwrap_err();
+    assert_eq!(err.error_code(), "OPEN_OBLIGATION");
+    assert_eq!(ledger.period_view(&q1()).unwrap().state, PeriodState::Open);
+    engine.obligations().resolve(&obligation.id).unwrap();
+
+    let resumed = engine.resume(&crashed.run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::AwaitingGate);
+    let view = ledger.period_view(&q1()).unwrap();
+    assert_eq!(view.state, PeriodState::Closing);
+    assert_eq!(view.owning_run_id.as_deref(), Some(crashed.run_id.as_str()));
+    let done = engine
+        .answer(&crashed.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert!(ledger.verify().unwrap().ok);
+}
+
 // --- Workflow versioning ---------------------------------------------------
 
 #[test]

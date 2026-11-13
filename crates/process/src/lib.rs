@@ -134,6 +134,9 @@ static RUN_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Seam {
     None,
+    /// Return after journalling the transition's `EffectExecuting`, before the
+    /// fiscal `begin_close` — the crash window in which the period is still Open.
+    CrashBeforeFiscalCommit,
     /// Return immediately after the fiscal `begin_close` COMMIT, before writing
     /// the transition's `EffectSucceeded` event or opening the gate — the exact
     /// window ADR-6 §3 must survive (fiscal committed, process EffectState not).
@@ -536,19 +539,7 @@ impl ProcessEngine {
         policy_set: &PolicySet,
         seam: Seam,
     ) -> Result<RunView, ProcessError> {
-        // F13 gate (candidate.md §4 `OPEN_OBLIGATION`): a period with an open obligation
-        // (e.g. an RF1-created "ajopäiväkirja puuttuu") cannot be closed until it is
-        // resolved. The obligation lives in process state and survives the Run that
-        // created it, so this bites even though a different Run opened it.
-        let open = self.obligations().open_for_period(period)?;
-        if !open.is_empty() {
-            let ids: Vec<&str> = open.iter().map(|o| o.id.as_str()).collect();
-            return Err(ProcessError::OpenObligation(format!(
-                "period {period} has {} open obligation(s) [{}] — resolve them before closing",
-                open.len(),
-                ids.join(", ")
-            )));
-        }
+        self.refuse_open_obligations(period)?;
         let run_id = new_run_id();
         let run_dir = self.run_dir(&run_id);
         fs::create_dir_all(&run_dir).map_err(|e| ProcessError::Store(e.to_string()))?;
@@ -575,6 +566,9 @@ impl ProcessEngine {
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_TRANSITION.to_string(),
         })?;
+        if seam == Seam::CrashBeforeFiscalCommit {
+            return Ok(fold(&run_id, &journal.read_all()?)?.to_view());
+        }
         let ledger = Ledger::open(&self.home)?;
         let auth = match ledger.begin_close(period, &run_id, ACTOR) {
             Ok(a) => a,
@@ -714,13 +708,15 @@ impl ProcessEngine {
                     state_name(fiscal.state)
                 ),
             })?;
-        } else if !transition_done
-            && fiscal.state == PeriodState::Open
-            && fiscal.owning_run_id.is_none()
-        {
+        } else if !transition_done && fiscal.state == PeriodState::Open {
             // The other crash window: we recorded EffectExecuting but crashed
-            // *before* the fiscal CAS committed — the period is still Open and
-            // unclaimed. Retry the first effect idempotently (Open→Closing).
+            // *before* the fiscal CAS committed — the period is still Open. Retry
+            // the first effect idempotently (Open→Closing). An Open period may
+            // still name an earlier run (one that rejected its close or reopened
+            // a seal); that is history, not a claim, and `begin_close` does not
+            // match the owner. The retry is a start, so it passes the same
+            // obligation gate; a refusal leaves the Run retryable.
+            self.refuse_open_obligations(&period)?;
             match ledger.begin_close(&period, run_id, ACTOR) {
                 Ok(_) => journal.append(EventPayload::EffectSucceeded {
                     effect_key: EFFECT_TRANSITION.to_string(),
@@ -844,6 +840,23 @@ impl ProcessEngine {
     }
 
     // --- internals --------------------------------------------------------
+
+    /// F13 gate (candidate.md §4 `OPEN_OBLIGATION`): a period with an open
+    /// obligation (e.g. an RF1-created "ajopäiväkirja puuttuu") cannot be closed
+    /// until it is resolved. The obligation lives in process state and survives the
+    /// Run that created it, so this bites even though a different Run opened it.
+    fn refuse_open_obligations(&self, period: &PeriodId) -> Result<(), ProcessError> {
+        let open = self.obligations().open_for_period(period)?;
+        if open.is_empty() {
+            return Ok(());
+        }
+        let ids: Vec<&str> = open.iter().map(|o| o.id.as_str()).collect();
+        Err(ProcessError::OpenObligation(format!(
+            "period {period} has {} open obligation(s) [{}] — resolve them before closing",
+            open.len(),
+            ids.join(", ")
+        )))
+    }
 
     fn open_close_gate(
         &self,
