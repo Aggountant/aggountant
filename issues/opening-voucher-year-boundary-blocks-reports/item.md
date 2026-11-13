@@ -1,8 +1,8 @@
 ---
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: other
 provenance_detail: observed while implementing non-calendar-fiscal-year
