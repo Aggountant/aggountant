@@ -19,7 +19,9 @@ use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
 use aggountant_model::PeriodId;
 
-use super::{approved_filing_request, filed_vat_return_envelope, EFFECT_SUBMIT_FILING};
+use super::{
+    approved_filing_request, filed_vat_return_envelope, FileVatState, EFFECT_SUBMIT_FILING,
+};
 use crate::journal::EventPayload;
 use crate::{fold, EffectStatus, ProcessEngine, ProcessError};
 
@@ -123,14 +125,13 @@ impl ProcessEngine {
 
         if view.vat_filed {
             if let Some(receipt) = ledger.vat_filing_receipt(period)? {
-                let run_id = filing_run_with_receipt(&runs).ok_or_else(|| {
+                let (run_id, state) = self.filing_run_with_receipt(&runs)?.ok_or_else(|| {
                     ProcessError::JournalCorrupt(format!(
-                        "period {period} has VAT receipt {} but no file-vat Run holds the \
-                         approved request; {NO_REFILE}",
+                        "period {period} has VAT receipt {} but no single file-vat Run holds \
+                         the approved request; {NO_REFILE}",
                         receipt.unique_identifier
                     ))
                 })?;
-                let state = self.read_file_vat_state(&run_id)?;
                 let expected = approved_filing_request(&state)?;
                 return Ok(FileVatStatusPlan::Query(FiledVatQuery {
                     period: state.period,
@@ -170,10 +171,11 @@ impl ProcessEngine {
             ));
         }
 
-        if let Some(run) = runs
-            .iter()
-            .find(|run| run.rejected_code.as_deref() == Some("OUTCOME_UNKNOWN"))
-        {
+        if let Some(run) = runs.iter().find(|run| {
+            run.rejected_code
+                .as_deref()
+                .is_some_and(outcome_may_be_accepted)
+        }) {
             return Ok(answer(
                 FileVatFilingStatus::OutcomeUnknown,
                 Some(run.run_id.clone()),
@@ -181,7 +183,8 @@ impl ProcessEngine {
                     "aggountant file-vat reconcile --run-id {}",
                     run.run_id
                 )),
-                "A direct filing was sent but its outcome is unknown. It may have been \
+                "A direct filing was sent but its outcome is unknown (no timely answer, or \
+                 an answer that was neither a receipt nor a rejection). It may have been \
                  received. Resolve it with `file-vat reconcile`; do not file again."
                     .into(),
             ));
@@ -272,6 +275,32 @@ impl ProcessEngine {
         })
     }
 
+    /// The Run that holds the approved request of a receipted filing: one whose
+    /// filing effect succeeded (a resume can also adopt a filing another Run made),
+    /// or, after a crash between the fiscal record and the journal, the one still
+    /// executing it. Several candidates are accepted only when they bound identical
+    /// request bytes; otherwise the request is ambiguous and `None` is returned.
+    fn filing_run_with_receipt(
+        &self,
+        runs: &[FilingRun],
+    ) -> Result<Option<(String, FileVatState)>, ProcessError> {
+        for wanted in [EffectStatus::Succeeded, EffectStatus::Executing] {
+            let mut found: Option<(String, FileVatState)> = None;
+            for run in runs.iter().filter(|run| run.status == wanted) {
+                let state = self.read_file_vat_state(&run.run_id)?;
+                match &found {
+                    None => found = Some((run.run_id.clone(), state)),
+                    Some((_, first)) if first.filing_sent_hash == state.filing_sent_hash => {}
+                    Some(_) => return Ok(None),
+                }
+            }
+            if found.is_some() {
+                return Ok(found);
+            }
+        }
+        Ok(None)
+    }
+
     /// The filing effect of every `file-vat` Run for `period`, in run-id order.
     fn file_vat_filing_runs(&self, period: &PeriodId) -> Result<Vec<FilingRun>, ProcessError> {
         let period = period.to_string();
@@ -309,17 +338,12 @@ impl ProcessEngine {
     }
 }
 
-/// The Run that holds the approved request of a receipted filing: the one whose
-/// filing effect succeeded, or, after a crash between the fiscal record and the
-/// journal, the one still executing it. Ambiguity yields `None`.
-fn filing_run_with_receipt(runs: &[FilingRun]) -> Option<String> {
-    for wanted in [EffectStatus::Succeeded, EffectStatus::Executing] {
-        let mut matching = runs.iter().filter(|run| run.status == wanted);
-        if let Some(run) = matching.next() {
-            return matching.next().is_none().then(|| run.run_id.clone());
-        }
-    }
-    None
+/// Whether a journalled filing rejection leaves open that the authority accepted
+/// the return: an unknown outcome, or a success status whose body could not be
+/// read as a receipt (`MALFORMED`, any other 2xx). Only these can be reconciled
+/// into a filing; every other code is a rejection the authority stated.
+fn outcome_may_be_accepted(code: &str) -> bool {
+    code == "OUTCOME_UNKNOWN" || code.starts_with("MALFORMED") || code.starts_with("HTTP_2")
 }
 
 fn classify(

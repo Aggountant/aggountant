@@ -20,8 +20,8 @@ use aggountant_process::{
     ProcessError,
 };
 use aggountant_vero_vat_api_mock::{
-    GetFiledVatReturnFixture, MockVeroVatServer, MtlsTestCredentials, Scenario,
-    FILE_VAT_RETURN_PATH, GET_FILED_VAT_RETURN_PATH,
+    FileVatReturnFixture, GetFiledVatReturnFixture, MockVeroVatServer, MtlsTestCredentials,
+    Scenario, FILE_VAT_RETURN_PATH, GET_FILED_VAT_RETURN_PATH,
 };
 
 fn july() -> PeriodId {
@@ -406,5 +406,25 @@ fn a_rejected_filing_is_not_filed_and_names_the_run() {
         reported.message.contains("rejected"),
         "{}",
         reported.message
+    );
+}
+
+#[test]
+fn a_success_status_without_a_readable_receipt_is_not_reported_as_not_filed() {
+    let home = sealed_july();
+    let server = MockVeroVatServer::start_mtls(Scenario {
+        file_vat_return: FileVatReturnFixture::Receipt {
+            unique_identifier: String::new(),
+            accepted_timestamp: "2026-09-14T10:15:30Z".into(),
+        },
+        ..Scenario::file_receipt("receiptless-200")
+    })
+    .unwrap();
+    let run_id = file_july(home.path(), &server);
+    let reported = status(home.path(), &server).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::OutcomeUnknown);
+    assert_eq!(
+        reported.next_command.as_deref(),
+        Some(format!("aggountant file-vat reconcile --run-id {run_id}").as_str())
     );
 }

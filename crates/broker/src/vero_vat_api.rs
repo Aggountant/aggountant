@@ -320,11 +320,19 @@ impl FiledVatReturn {
             }
         }
         let expected_details = expected.vat_details.as_ref();
-        if expected.no_activity == Some(true) {
-            return expected_details.is_none();
-        }
-        let Some(details) = expected_details.and_then(Value::as_object) else {
+        let no_activity = expected.no_activity == Some(true);
+        if no_activity && expected_details.is_some() {
             return false;
+        }
+        // A no-activity return has no details; its remote amounts are checked below.
+        let empty = Map::new();
+        let details = if no_activity {
+            &empty
+        } else {
+            match expected_details.and_then(Value::as_object) {
+                Some(details) => details,
+                None => return false,
+            }
         };
         let mut expected_semantic = Map::new();
         if let Some(value) = details.get("VATOnDomesticSalesByTaxRate") {
@@ -361,9 +369,26 @@ impl FiledVatReturn {
         }
         let mut expected = Value::Object(expected_semantic);
         let mut actual = Value::Object(actual_semantic);
+        if no_activity {
+            // A no-activity return carries no amounts. A remote return reporting a
+            // non-zero amount is some other return, however the zeros are shown.
+            return !has_nonzero_amount(&actual);
+        }
         normalize_numbers(&mut expected);
         normalize_numbers(&mut actual);
         expected == actual
+    }
+}
+
+fn has_nonzero_amount(value: &Value) -> bool {
+    match value {
+        Value::Number(number) => {
+            Decimal::from_str(&number.to_string()).map_or(true, |amount| !amount.is_zero())
+        }
+        Value::String(text) => Decimal::from_str(text).is_ok_and(|amount| !amount.is_zero()),
+        Value::Array(values) => values.iter().any(has_nonzero_amount),
+        Value::Object(values) => values.values().any(has_nonzero_amount),
+        _ => false,
     }
 }
 
@@ -916,9 +941,38 @@ pub(crate) fn mtls_client(
 mod tests {
     use super::*;
     use aggountant_model::{Currency, Money};
+    use serde_json::json;
 
     fn eur(value: &str) -> Money {
         Money::parse(value, Currency::new("EUR").unwrap()).unwrap()
+    }
+
+    #[test]
+    fn a_no_activity_return_matches_only_a_remote_return_without_amounts() {
+        let expected = project_file_vat_return(
+            &PeriodId::parse("2026-07").unwrap(),
+            &VatReturnFields::new(),
+            &BusinessId::parse("1234567-1").unwrap(),
+            &FilingContactName::parse("Esimerkki Oy").unwrap(),
+            &FilingContactPhone::parse("+358401234567").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(expected.no_activity, Some(true));
+        let filed = |body: Value| -> FiledVatReturn { serde_json::from_value(body).unwrap() };
+        assert!(filed(json!({"Status": "Processed"})).semantically_matches(&expected));
+        assert!(filed(json!({
+            "Status": "Processed",
+            "VATOnDomesticSales": {"HighVATRate": 0.0},
+            "DeductibleTax": {"DeductibleVAT": 0},
+        }))
+        .semantically_matches(&expected));
+        for amount in [json!(255.0), json!("255.00")] {
+            assert!(!filed(json!({
+                "Status": "Processed",
+                "VATOnDomesticSales": {"HighVATRate": amount},
+            }))
+            .semantically_matches(&expected));
+        }
     }
 
     #[test]
