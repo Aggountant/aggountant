@@ -41,12 +41,14 @@ use aggountant_process::{
     SystemClock,
 };
 
+mod home;
 mod knowledge;
 mod reports;
 mod skill;
 mod vero_fi;
 mod wage;
 
+use home::HomeCmd;
 use knowledge::KnowledgeCmd;
 use reports::ReportCmd;
 use vero_fi::resolve_credential_path;
@@ -92,6 +94,11 @@ enum Command {
     /// (chart of accounts + account kinds + content-hashed chart_version) as
     /// diffable plaintext. Safe to re-run — refuses to clobber an existing home.
     Init,
+    /// Maintain an existing company home: `home upgrade` after updating aggountant.
+    Home {
+        #[command(subcommand)]
+        cmd: HomeCmd,
+    },
     /// Chart of accounts (masterdata read).
     Chart {
         #[command(subcommand)]
@@ -1931,6 +1938,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::Knowledge { cmd } => knowledge::run(cmd, &home_path(cli)?),
+        Command::Home { cmd } => home::run(cmd, &home_path(cli)?),
         Command::Intake { cmd } => {
             let home = home_path(cli)?;
             match cmd {
@@ -2755,6 +2763,7 @@ fn human_line(command: &Command, value: &Value) -> String {
             }
         },
         Command::Knowledge { cmd } => knowledge::human_line(cmd, value),
+        Command::Home { cmd } => home::human_line(cmd, value),
         Command::Intake { .. } => format!(
             "intake candidates: {}",
             value["candidates"].as_array().map(|a| a.len()).unwrap_or(0)

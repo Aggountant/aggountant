@@ -9,6 +9,7 @@ the program tells you those itself, with `aggountant --help` and, for example,
 | Command | What it does | Where in the guide |
 |---|---|---|
 | `init` | sets up a company home and the default chart of accounts | [Set up your company's books](../start/set-up-company.md) |
+| `home upgrade` | adds the master data a new version needs to an existing home | [Upgrade aggountant](../tasks/upgrade.md) |
 | `config` | shows which home is in use and where that came from; the configuration file's location | [The company home](../concepts/company-home.md) |
 | `skill` | lists, installs and prints the agent's skills | [Install aggountant and its skills](../start/install.md) |
 | `chart` | lists the accounts in the chart of accounts | [Set up your company's books](../start/set-up-company.md) |

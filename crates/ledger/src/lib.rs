@@ -50,6 +50,7 @@ pub use reports::{
     ReportProvenance, ReportRow, ReportSourceRef, ReportStatus, ReportVoucherSource,
     MONTHLY_REPORT_SCHEMA_VERSION,
 };
+pub use store::git_masterdata::{MasterdataUpgrade, UpgradeItem, UpgradeResource, UpgradeState};
 pub use voucher_read::{
     VoucherListQuery, VoucherListView, VoucherProvenanceView, VoucherSummary, VoucherView,
 };
@@ -427,6 +428,16 @@ impl Ledger {
             masterdata,
             pii,
         })
+    }
+
+    /// Take the masterdata a newer binary needs into an existing home: plan
+    /// (`apply == false`, writes nothing) or add only the missing bundled chart
+    /// snapshots and VAT role metadata. Never rewrites an existing file and never
+    /// changes the active chart, so vouchers sealed under older masterdata verify
+    /// as before. Touches only `masterdata/reference/`, and works on a home that
+    /// [`Ledger::open`] refuses for lack of that masterdata.
+    pub fn upgrade_masterdata(home: &Path, apply: bool) -> Result<MasterdataUpgrade, LedgerError> {
+        GitMasterDataRefStore::upgrade(&home.join("masterdata"), apply)
     }
 
     /// Open an already-initialized company home for reading + sealing. The

@@ -27,7 +27,21 @@ kesken.
 
 4. **Käynnistä agentti uudelleen**, jotta se lukee uudet skillit.
 
-5. **Jos jokin ajo oli kuitenkin kesken** ja sen jatkaminen antaa koodin
+5. **Agentti päivittää kodin perustiedot.** Uusi versio voi tarvita
+   perustietoja, joita vanha versio ei kotia perustaessaan kirjoittanut:
+   tilikartan kiinteitä kopioita ja tilien ALV-rooleja. Agentti ajaa ensin
+   kuivaharjoituksen, joka vain luettelee puuttuvat tiedostot, ja sen jälkeen
+   varsinaisen päivityksen. Päivitys lisää vain puuttuvia tiedostoja
+   hakemistoon `masterdata/reference/`: se ei vaihda käytössä olevaa
+   tilikarttaa eikä muuta olemassa olevaa tiedostoa, joten aiemmin
+   sinetöidyt tositteet tarkistuvat kuten ennenkin. Jos jokin tiedosto on
+   kodissa eri sisältöisenä kuin ohjelman mukana tuleva, päivitys jättää sen
+   ennalleen ja kertoo siitä (`skipped`). Toinen ajo ei tee mitään.
+
+   Lisätyt tiedostot näkyvät `git status` -tulosteessa. Vie ne
+   versionhallintaan; se on kirjanpito siitä, mitä päivitys lisäsi.
+
+6. **Jos jokin ajo oli kuitenkin kesken** ja sen jatkaminen antaa koodin
    `WORKFLOW_VERSION_MISMATCH`, ajon määritys on muuttunut versioiden välillä.
    Agentti voi siirtää ajon uuteen versioon. Siirto muuttaa ajon versiota
    pysyvästi, joten agentti pyytää siihen luvan.
@@ -40,6 +54,8 @@ aggountant run list
 cargo install --git https://github.com/aggountant/aggountant aggountant --locked
 aggountant --version
 aggountant skill install
+aggountant home upgrade --dry-run
+aggountant home upgrade --apply
 aggountant run migrate --run-id cp-… --confirm
 ```
 </details>
@@ -47,13 +63,17 @@ aggountant run migrate --run-id cp-… --confirm
 ## Valmis, kun
 
 - `aggountant --version` näyttää uuden version.
+- `aggountant home upgrade --dry-run` ei enää lisäisi mitään, ja
+  `masterdata_opens` on `true`.
 - `aggountant voucher verify` vastaa `chain ok`.
 
 ## Rajoitukset
 
-- Jos uusi versio odottaa kodista tietoa, jota vanha koti ei sisällä,
-  erillistä päivityskomentoa ei vielä ole. Älä kopioi tiedostoja käsin, vaan
-  pyydä apua projektin [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
+- Päivitys ei korjaa eikä korvaa tiedostoa, joka on kodissa eri sisältöisenä
+  kuin ohjelman mukana tuleva. Jos yrityksellä on oma tilikartta, jolle
+  ohjelman mukana ei tule ALV-rooleja, päivitys ei voi lisätä niitä
+  (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
+  [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
 
 ## Katso myös
 

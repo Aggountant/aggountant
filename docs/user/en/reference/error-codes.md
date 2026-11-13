@@ -36,6 +36,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `GATE_NOT_OPEN` | the approval has already been answered or is not open | ask the agent to show the run's state |
 | `INVALID_FISCAL_YEAR` | the fiscal year is longer than 18 months, does not start on the first or end on the last day of a month, or does not follow the earlier fiscal years | correct the dates (Accounting Act 1:4) |
 | `INVALID_INPUT` | the input has the wrong shape or an unknown field | the agent fixes the input |
+| `MASTERDATA_CORRUPT` | the home's chart of accounts, its version or the VAT roles are missing or disagree with each other | after an upgrade: `home upgrade --dry-run` and `--apply` ([Upgrade aggountant](../tasks/upgrade.md)); otherwise a file was edited by hand, restore it from version control |
 | `MASTERDATA_NOT_INITIALIZED` | the home has no chart of accounts | wrong home, or the home has not been set up ([When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared)) |
 | `MISSING_ASSIGNMENT` | a transaction on the bank statement has no entry, so the whole statement was rejected | the agent completes the entries ([Import the bank statement](../tasks/import-bank-statement.md)) |
 | `OPEN_OBLIGATION` | an open obligation blocks the period's close | deal with the matter and mark the obligation resolved ([Periods](../concepts/periods.md#obligations)) |

@@ -217,9 +217,6 @@ kirjauksia ei voi vielä kirjata suljetulle vuodelle. Tee näin:
   hakemiston kopio:
   [Varmuuskopioi ja palauta kirjanpito](../tasks/back-up-and-restore.md)
   (`home-backup-coverage`).
-- **Kodin päivityskomentoa ei ole.** Jos uusi versio odottaa kodista tietoa,
-  jota vanha koti ei sisällä, älä kopioi tiedostoja käsin, vaan pyydä apua
-  projektin issue-seurannasta (`home-masterdata-upgrade`).
 - **Monivuotisen historian tuonti ei ole valmis.** Käyttöönotto alkaa
   avaavista saldoista (`historical-import`).
 - **Testiympäristön muuttuja voi merkitä ilmoituksen tehdyksi.**

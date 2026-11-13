@@ -35,6 +35,12 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
 - **Chart role metadata is frozen once a voucher is sealed against its
   `chart_version`.** A role change is a new chart edition; never reinterpret old
   sealed vouchers under the same version.
+- **Existing homes take in new masterdata only by addition.** `home upgrade`
+  creates missing bundled snapshot and role files and never rewrites a file or
+  the active chart, because a home's masterdata may be company-approved and is
+  what its sealed vouchers resolve against. A binary that needs something an
+  older home cannot get by addition needs a decision, not a rewrite in the
+  upgrade.
 
 ## Refusals
 

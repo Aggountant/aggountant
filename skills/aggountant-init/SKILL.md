@@ -28,9 +28,15 @@ versionhallinnasta. Se ei kysy eikä tallenna yrityksen nimeä, Y-tunnusta, tili
 katkaisupäivää tai aiemman järjestelmän tietoja, eikä se alusta git-repositoriota.
 Kodin sijainnin ja sen versionhallinnan sovit käyttäjän kanssa; kodin etsintäjärjestys
 on `aggountant --help`-ohjeessa. Komento kieltäytyy ajamasta olemassa olevaan kotiin,
-joten se ei ole tapa korjata tai päivittää vanhaa kotia. Jos uudempi binääri odottaa
-masterdataa, jota vanha koti ei sisällä, erillistä päivityskomentoa ei toistaiseksi ole;
-kerro tilanne käyttäjälle sen sijaan että kopioisit tiedostoja käsin.
+joten se ei ole tapa korjata tai päivittää vanhaa kotia.
+
+Kun aggountant on päivitetty, tai olemassa oleva koti antaa `MASTERDATA_CORRUPT`, aja
+`aggountant --json home upgrade --dry-run` ja kerro käyttäjälle, mitä se lisäisi; sitten
+`home upgrade --apply`. Se lisää vain puuttuvat ohjelman mukana tulevat tilikarttakopiot
+ja ALV-roolit eikä koske olemassa oleviin tiedostoihin tai käytössä olevaan
+tilikarttaan. `skipped`-rivi (`differs` tai `unavailable`) ja `masterdata_opens: false`
+kerrotaan käyttäjälle sellaisenaan: älä korjaa niitä kopioimalla tai muokkaamalla
+tiedostoja käsin. Lisätyt tiedostot vietään kodin versionhallintaan.
 
 Kaikki muu käyttöönoton tieto kerätään lähdeaineistosta ja käyttäjältä.
 

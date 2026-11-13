@@ -224,9 +224,6 @@ entries cannot yet be recorded in a closed year. Do this:
   the directory:
   [Back up and restore your books](../tasks/back-up-and-restore.md)
   (`home-backup-coverage`).
-- **There is no home upgrade command.** If a new version expects information
-  in the home that an old home does not have, do not copy files by hand; ask
-  for help in the project's issue tracker (`home-masterdata-upgrade`).
 - **Importing several years of history is not ready.** The setup starts from
   opening balances (`historical-import`).
 - **A test-environment variable can mark a return as filed.**

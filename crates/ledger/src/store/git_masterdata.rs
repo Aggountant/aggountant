@@ -64,6 +64,59 @@ use crate::store::MasterDataRefStore;
 /// maintainable source — edit the data file, not scattered code).
 const DEFAULT_CHART_JSON: &str = include_str!("../../data/fi-general-2026.json");
 
+/// Every chart edition this binary bundles. `init` adopts the default; `home
+/// upgrade` adds an immutable snapshot of each to an existing home. A new edition
+/// is appended here, never replaces an entry, so older homes can still take it in.
+const BUNDLED_CHARTS: &[&str] = &[DEFAULT_CHART_JSON];
+
+const VAT_ROLES_FILE: &str = "vat-account-roles.json";
+
+/// What the masterdata upgrade does with one file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpgradeState {
+    /// Missing; a dry-run would create it.
+    Create,
+    /// Missing before this run; the apply created it.
+    Created,
+    /// Already present with exactly the bundled bytes.
+    Present,
+    /// Present with other bytes; left untouched.
+    Differs,
+    /// Missing, but the bundled content cannot serve this home; not created.
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpgradeResource {
+    ChartSnapshot,
+    VatAccountRoles,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpgradeItem {
+    pub resource: UpgradeResource,
+    /// Relative to `<home>/masterdata/reference/`.
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chart_version: Option<String>,
+    pub state: UpgradeState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// The outcome of [`GitMasterDataRefStore::upgrade`].
+#[derive(Debug)]
+pub struct MasterdataUpgrade {
+    pub applied: bool,
+    pub active_chart_version: String,
+    pub items: Vec<UpgradeItem>,
+    /// Why the home's masterdata would not open after the upgrade (dry-run: after
+    /// the planned additions; apply: the real reopen), or `None` when it opens.
+    pub masterdata_check: Option<LedgerError>,
+}
+
 /// The on-disk / hashed chart document. `deny_unknown_fields` so a hand-edited
 /// file that adds an unclassified field fails the read path loudly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,23 +205,11 @@ impl GitMasterDataRefStore {
                 &staging.join("chart_version"),
                 format!("{chart_version}\n").as_bytes(),
             )?;
-            let mut role_bytes = serde_json::to_string_pretty(VatAccountRoleTable::bundled())
-                .map_err(|e| LedgerError::Store(format!("VAT role render: {e}")))?;
-            role_bytes.push('\n');
-            write_file_synced(
-                &staging.join("vat-account-roles.json"),
-                role_bytes.as_bytes(),
-            )?;
+            write_file_synced(&staging.join(VAT_ROLES_FILE), &bundled_vat_roles_bytes()?)?;
             let snapshots = staging.join("chart-snapshots");
             fs::create_dir_all(&snapshots).map_err(|e| LedgerError::Store(e.to_string()))?;
-            let digest = chart_version
-                .rsplit_once('@')
-                .map(|(_, digest)| digest)
-                .ok_or_else(|| {
-                    LedgerError::MasterDataCorrupt("chart_version lacks @digest".into())
-                })?;
             write_file_synced(
-                &snapshots.join(format!("{digest}.json")),
+                &staging.join(snapshot_path(&chart_version)?),
                 chart_bytes.as_bytes(),
             )?;
             fsync_dir(&snapshots);
@@ -210,83 +251,124 @@ impl GitMasterDataRefStore {
     /// without updating the version (or vice versa) is caught, not trusted.
     pub(crate) fn open(dir: &Path) -> Result<Self, LedgerError> {
         let reference = dir.join("reference");
-        let chart_path = reference.join("chart-of-accounts.json");
-        if !chart_path.exists() {
-            return Err(LedgerError::MasterDataNotInitialized(format!(
-                "no reference masterdata at {} — run `aggountant init` first",
-                chart_path.display()
-            )));
-        }
+        let (chart, chart_version) = read_active_chart(&reference)?;
 
-        let raw = fs::read_to_string(&chart_path).map_err(|e| LedgerError::Store(e.to_string()))?;
-        let chart = parse_chart(&raw)?;
-        let recomputed = compute_chart_version(&chart.chart, &chart.chart_date, &chart.accounts)?;
-
-        // A present chart with a missing/unreadable version file is corrupt
-        // masterdata (a user deletion or a foreign partial write), not a generic
-        // backend I/O failure — surface it with the specific code.
-        let version_path = reference.join("chart_version");
-        let stored = fs::read_to_string(&version_path)
-            .map_err(|e| {
-                LedgerError::MasterDataCorrupt(format!(
-                    "chart present but {} is missing or unreadable: {e}",
-                    version_path.display()
-                ))
-            })?
-            .trim()
-            .to_string();
-        if stored != recomputed {
-            return Err(LedgerError::MasterDataCorrupt(format!(
-                "chart_version file {stored:?} disagrees with the chart content \
-                 (recomputed {recomputed:?}) — the chart was edited without \
-                 re-deriving its content hash"
-            )));
-        }
-
-        let role_path = reference.join("vat-account-roles.json");
+        let role_path = reference.join(VAT_ROLES_FILE);
         let role_raw = fs::read_to_string(&role_path).map_err(|e| {
             LedgerError::MasterDataCorrupt(format!(
                 "active chart has no readable VAT role metadata at {}: {e}",
                 role_path.display()
             ))
         })?;
-        let vat_roles = VatAccountRoleTable::from_json(&role_raw).map_err(|e| {
-            LedgerError::MasterDataCorrupt(format!("invalid company-chart VAT roles: {e}"))
-        })?;
+        let vat_roles = parse_vat_roles(&role_raw)?;
 
-        let mut store = Self::from_chart(chart, recomputed, vat_roles);
-        let snapshots_dir = reference.join("chart-snapshots");
-        if snapshots_dir.exists() {
-            for entry in
-                fs::read_dir(&snapshots_dir).map_err(|e| LedgerError::Store(e.to_string()))?
-            {
-                let path = entry.map_err(|e| LedgerError::Store(e.to_string()))?.path();
-                if path.extension().and_then(|s| s.to_str()) != Some("json") {
-                    continue;
-                }
-                let raw =
-                    fs::read_to_string(&path).map_err(|e| LedgerError::Store(e.to_string()))?;
-                let snapshot = parse_chart(&raw)?;
-                let version = compute_chart_version(
-                    &snapshot.chart,
-                    &snapshot.chart_date,
-                    &snapshot.accounts,
-                )?;
-                let expected = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default();
-                if version.rsplit_once('@').map(|(_, d)| d) != Some(expected) {
-                    return Err(LedgerError::MasterDataCorrupt(format!(
-                        "chart snapshot {} does not match its content version {version}",
-                        path.display()
-                    )));
-                }
-                store.snapshots.insert(version, snapshot.accounts);
-            }
-        }
+        let mut store = Self::from_chart(chart, chart_version, vat_roles);
+        store.snapshots.extend(read_snapshots(&reference)?);
         validate_chart_vat_roles(&store.chart_version, &store.snapshots, &store.vat_roles)?;
         Ok(store)
+    }
+
+    /// Plan, and with `apply` perform, the masterdata upgrade of an existing home:
+    /// add the bundled chart snapshots and the VAT role metadata a newer binary
+    /// needs and an older `init` never wrote. It only ever creates files that do
+    /// not exist. The active chart, `chart_version` and every existing file are
+    /// left byte-identical; an existing file whose bytes differ from the bundled
+    /// ones is reported and left alone, because it may be company-approved
+    /// masterdata. Role metadata is added only when the bundled table activates
+    /// the home's own active chart, so the active chart choice never changes.
+    ///
+    /// Works on a home that `open` refuses (that is the case it exists for), but
+    /// refuses to plan at all when the active chart itself or an existing
+    /// snapshot is unreadable or inconsistent: nothing is written then.
+    pub(crate) fn upgrade(dir: &Path, apply: bool) -> Result<MasterdataUpgrade, LedgerError> {
+        let reference = dir.join("reference");
+        let (active, active_version) = read_active_chart(&reference)?;
+        let mut snapshots = read_snapshots(&reference)?;
+        snapshots.insert(active_version.clone(), active.accounts);
+
+        let mut items = Vec::new();
+        let mut creates: Vec<(String, Vec<u8>)> = Vec::new();
+        for json in BUNDLED_CHARTS {
+            let chart = parse_chart(json)?;
+            let version = compute_chart_version(&chart.chart, &chart.chart_date, &chart.accounts)?;
+            let path = snapshot_path(&version)?;
+            let bytes = render_chart_file(&chart.chart, &chart.chart_date, &chart.accounts);
+            let state = plan_file(&reference, &path, bytes.as_bytes())?;
+            if state == UpgradeState::Create {
+                creates.push((path.clone(), bytes.into_bytes()));
+            }
+            snapshots.entry(version.clone()).or_insert(chart.accounts);
+            items.push(UpgradeItem {
+                resource: UpgradeResource::ChartSnapshot,
+                path,
+                chart_version: Some(version),
+                state,
+                detail: None,
+            });
+        }
+
+        let role_bytes = bundled_vat_roles_bytes()?;
+        let mut role_item = UpgradeItem {
+            resource: UpgradeResource::VatAccountRoles,
+            path: VAT_ROLES_FILE.to_string(),
+            chart_version: None,
+            state: plan_file(&reference, VAT_ROLES_FILE, &role_bytes)?,
+            detail: None,
+        };
+        let roles = match role_item.state {
+            UpgradeState::Create => {
+                let bundled = VatAccountRoleTable::bundled();
+                match validate_chart_vat_roles(&active_version, &snapshots, bundled) {
+                    Ok(()) => {
+                        creates.push((VAT_ROLES_FILE.to_string(), role_bytes));
+                        Ok(bundled.clone())
+                    }
+                    Err(e) => {
+                        role_item.state = UpgradeState::Unavailable;
+                        role_item.detail = Some(format!(
+                            "the bundled VAT roles do not activate the active chart \
+                             {active_version}; role metadata for this chart must come \
+                             from the company's own chart import: {e}"
+                        ));
+                        Err(e)
+                    }
+                }
+            }
+            _ => {
+                let raw = fs::read_to_string(reference.join(VAT_ROLES_FILE))
+                    .map_err(|e| LedgerError::Store(e.to_string()))?;
+                let roles = parse_vat_roles(&raw);
+                if role_item.state == UpgradeState::Differs {
+                    role_item.detail = Some(match &roles {
+                        Ok(existing) => differing_roles_detail(existing),
+                        Err(e) => format!("existing file is not valid role metadata: {e}"),
+                    });
+                }
+                roles
+            }
+        };
+        items.push(role_item);
+
+        let mut check =
+            roles.and_then(|roles| validate_chart_vat_roles(&active_version, &snapshots, &roles));
+        if apply {
+            // Snapshots first: the role metadata refers to them.
+            for (path, bytes) in &creates {
+                create_new_file(&reference, path, bytes)?;
+            }
+            for item in &mut items {
+                if item.state == UpgradeState::Create {
+                    item.state = UpgradeState::Created;
+                }
+            }
+            check = Self::open(dir).map(|_| ());
+        }
+        Ok(MasterdataUpgrade {
+            applied: apply,
+            active_chart_version: active_version,
+            items,
+            masterdata_check: check.err(),
+        })
     }
 
     fn from_chart(
@@ -311,6 +393,169 @@ impl GitMasterDataRefStore {
     pub(crate) fn vat_roles(&self) -> &VatAccountRoleTable {
         &self.vat_roles
     }
+}
+
+/// Read the active chart and cross-check it against the stored `chart_version`, so a
+/// hand-edit that changes chart content without updating the version (or vice
+/// versa) is caught, not trusted.
+fn read_active_chart(reference: &Path) -> Result<(ChartFile, String), LedgerError> {
+    let chart_path = reference.join("chart-of-accounts.json");
+    if !chart_path.exists() {
+        return Err(LedgerError::MasterDataNotInitialized(format!(
+            "no reference masterdata at {} — run `aggountant init` first",
+            chart_path.display()
+        )));
+    }
+
+    let raw = fs::read_to_string(&chart_path).map_err(|e| LedgerError::Store(e.to_string()))?;
+    let chart = parse_chart(&raw)?;
+    let recomputed = compute_chart_version(&chart.chart, &chart.chart_date, &chart.accounts)?;
+
+    // A present chart with a missing/unreadable version file is corrupt
+    // masterdata (a user deletion or a foreign partial write), not a generic
+    // backend I/O failure — surface it with the specific code.
+    let version_path = reference.join("chart_version");
+    let stored = fs::read_to_string(&version_path)
+        .map_err(|e| {
+            LedgerError::MasterDataCorrupt(format!(
+                "chart present but {} is missing or unreadable: {e}",
+                version_path.display()
+            ))
+        })?
+        .trim()
+        .to_string();
+    if stored != recomputed {
+        return Err(LedgerError::MasterDataCorrupt(format!(
+            "chart_version file {stored:?} disagrees with the chart content \
+             (recomputed {recomputed:?}) — the chart was edited without \
+             re-deriving its content hash"
+        )));
+    }
+    Ok((chart, recomputed))
+}
+
+fn parse_vat_roles(raw: &str) -> Result<VatAccountRoleTable, LedgerError> {
+    VatAccountRoleTable::from_json(raw).map_err(|e| {
+        LedgerError::MasterDataCorrupt(format!("invalid company-chart VAT roles: {e}"))
+    })
+}
+
+/// Load every `chart-snapshots/<sha256>.json`, refusing a file whose content does
+/// not hash to its name. A missing directory is an empty set (older homes).
+fn read_snapshots(reference: &Path) -> Result<BTreeMap<String, Vec<Account>>, LedgerError> {
+    let mut snapshots = BTreeMap::new();
+    let snapshots_dir = reference.join("chart-snapshots");
+    if !snapshots_dir.exists() {
+        return Ok(snapshots);
+    }
+    for entry in fs::read_dir(&snapshots_dir).map_err(|e| LedgerError::Store(e.to_string()))? {
+        let path = entry.map_err(|e| LedgerError::Store(e.to_string()))?.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let raw = fs::read_to_string(&path).map_err(|e| LedgerError::Store(e.to_string()))?;
+        let snapshot = parse_chart(&raw)?;
+        let version =
+            compute_chart_version(&snapshot.chart, &snapshot.chart_date, &snapshot.accounts)?;
+        let expected = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        if version.rsplit_once('@').map(|(_, d)| d) != Some(expected) {
+            return Err(LedgerError::MasterDataCorrupt(format!(
+                "chart snapshot {} does not match its content version {version}",
+                path.display()
+            )));
+        }
+        snapshots.insert(version, snapshot.accounts);
+    }
+    Ok(snapshots)
+}
+
+/// The VAT role file exactly as `init` writes it from the bundled table.
+fn bundled_vat_roles_bytes() -> Result<Vec<u8>, LedgerError> {
+    let mut bytes = serde_json::to_string_pretty(VatAccountRoleTable::bundled())
+        .map_err(|e| LedgerError::Store(format!("VAT role render: {e}")))?;
+    bytes.push('\n');
+    Ok(bytes.into_bytes())
+}
+
+/// `chart-snapshots/<digest>.json`, relative to `reference/`.
+fn snapshot_path(chart_version: &str) -> Result<String, LedgerError> {
+    let digest = chart_version
+        .rsplit_once('@')
+        .map(|(_, digest)| digest)
+        .ok_or_else(|| LedgerError::MasterDataCorrupt("chart_version lacks @digest".into()))?;
+    Ok(format!("chart-snapshots/{digest}.json"))
+}
+
+/// Whether the upgrade would create `path` (relative to `reference/`), finds it
+/// identical, or finds different bytes it must leave alone.
+fn plan_file(reference: &Path, path: &str, bundled: &[u8]) -> Result<UpgradeState, LedgerError> {
+    match fs::read(reference.join(path)) {
+        Ok(existing) if existing == bundled => Ok(UpgradeState::Present),
+        Ok(_) => Ok(UpgradeState::Differs),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(UpgradeState::Create),
+        Err(e) => Err(LedgerError::Store(format!(
+            "cannot read {}: {e}",
+            reference.join(path).display()
+        ))),
+    }
+}
+
+/// Name the bundled role snapshots an existing, differing role file lacks, so the
+/// user can see what the company chart import would have to supply.
+fn differing_roles_detail(existing: &VatAccountRoleTable) -> String {
+    let missing: Vec<&str> = VatAccountRoleTable::bundled()
+        .snapshots()
+        .iter()
+        .map(|s| s.chart_version())
+        .filter(|version| existing.resolve(version).is_err())
+        .collect();
+    if missing.is_empty() {
+        "existing role metadata differs from the bundled file; left untouched".to_string()
+    } else {
+        format!(
+            "existing role metadata differs from the bundled file and has no active roles \
+             for bundled chart(s) {}; left untouched",
+            missing.join(", ")
+        )
+    }
+}
+
+/// Create one new file without ever replacing an existing one: the bytes are
+/// written and fsynced under a private temporary name, then hard-linked into
+/// place, which fails if the target exists. A crash leaves at most a temporary
+/// file, never a half-written masterdata file.
+fn create_new_file(reference: &Path, path: &str, bytes: &[u8]) -> Result<(), LedgerError> {
+    let target = reference.join(path);
+    let parent = target
+        .parent()
+        .ok_or_else(|| LedgerError::Store(format!("{} has no parent", target.display())))?;
+    fs::create_dir_all(parent).map_err(|e| LedgerError::Store(e.to_string()))?;
+    let name = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let temporary = parent.join(format!(
+        ".{name}.upgrade.{}.{}",
+        std::process::id(),
+        next_unique()
+    ));
+    write_file_synced(&temporary, bytes)?;
+    let linked = fs::hard_link(&temporary, &target);
+    let _ = fs::remove_file(&temporary);
+    linked.map_err(|e| {
+        LedgerError::Store(format!(
+            "could not add {} (nothing existing was changed; re-running the upgrade is safe): {e}",
+            target.display()
+        ))
+    })?;
+    fsync_dir(parent);
+    if parent != reference {
+        fsync_dir(reference);
+    }
+    Ok(())
 }
 
 /// Activation gate joining the imported role document to the actual immutable chart

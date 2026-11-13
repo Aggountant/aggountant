@@ -9,6 +9,7 @@ ole: ne kertoo ohjelma itse, `aggountant --help` ja esimerkiksi
 | Komento | Mitä se tekee | Missä oppaassa |
 |---|---|---|
 | `init` | perustaa yrityskodin ja oletustilikartan | [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md) |
+| `home upgrade` | lisää olemassa olevaan kotiin perustiedot, joita uusi versio tarvitsee | [Päivitä aggountant](../tasks/upgrade.md) |
 | `config` | näyttää, mikä koti on käytössä ja mistä tieto tuli; asetustiedoston paikka | [Yrityskoti](../concepts/company-home.md) |
 | `skill` | listaa, asentaa ja näyttää agentin skillit | [Asenna aggountant ja skillit](../start/install.md) |
 | `chart` | listaa tilikartan tilit | [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md) |
