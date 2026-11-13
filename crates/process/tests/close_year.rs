@@ -5,8 +5,8 @@
 
 use std::fs;
 
-use aggountant_domain::{AccrualInput, AssetInput, PolicySet};
-use aggountant_ledger::{FiscalYearState, Ledger, SealRequest};
+use aggountant_domain::{depreciation_voucher, AccrualInput, AssetInput, PolicySet};
+use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{
     CloseYearInput, CorrectionInput, EffectStatus, ProcessEngine, RunStatus, RunView,
@@ -176,14 +176,39 @@ fn happy_path_seals_the_year_and_verifies() {
         .statements_hash
         .is_some());
     assert!(ledger.verify().unwrap().ok);
-    // The depreciation voucher was sealed into the next open period (2027-Q1).
-    let next = ledger.year_vouchers(2027).unwrap();
-    assert!(next.iter().any(|v| v
-        .postings()
+    // The depreciation and accrual vouchers were sealed into the next open period
+    // (2027-Q1) and attributed to 2026, the year whose statements they belong to.
+    let q1 = ledger
+        .period_vouchers(&PeriodId::new(2027, 1).unwrap())
+        .unwrap();
+    let depreciation = q1
         .iter()
-        .any(|p| p.account.as_str() == "6000" && p.amount.amount_str() == "2000.00")));
-    // The fiscal-archive stub was written (Fork C option b).
-    assert!(home.path().join("archive/2026/tilinpaatos.json").exists());
+        .find(|v| {
+            v.postings()
+                .iter()
+                .any(|p| p.account.as_str() == "6000" && p.amount.amount_str() == "2000.00")
+        })
+        .unwrap();
+    assert_eq!(depreciation.posting_date().to_string(), "2027-01-01");
+    assert_eq!(q1.len(), 2);
+    for voucher in &q1 {
+        assert_eq!(
+            ledger
+                .adjustment_attribution(voucher.number())
+                .unwrap()
+                .unwrap()
+                .effective_year,
+            2026
+        );
+    }
+    assert!(ledger.year_vouchers(2027).unwrap().is_empty());
+    // The sealed result includes them: 10 000 sales - 2 000 expense - 2 000
+    // depreciation - 300 accrual.
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["result"], "5700.00");
 }
 
 #[test]
@@ -229,7 +254,7 @@ fn must_seal_blocks_on_an_open_obligation() {
 }
 
 #[test]
-fn a_d7_correction_must_be_sealed_before_approve_statements() {
+fn a_d7_correction_must_be_sealed_before_approve_adjustments() {
     let home = init_home();
     setup_sealed_year(home.path(), 2026);
     let engine = ProcessEngine::open(home.path());
@@ -237,7 +262,7 @@ fn a_d7_correction_must_be_sealed_before_approve_statements() {
     input.corrections = vec![CorrectionInput {
         correction_id: "reclass-1".into(),
         description: "uudelleenluokittelu".into(),
-        debit_account: acct("7780"),
+        debit_account: acct("6000"),
         credit_account: acct("7690"),
         amount: money("150.00"),
     }];
@@ -246,11 +271,10 @@ fn a_d7_correction_must_be_sealed_before_approve_statements() {
         .unwrap();
     let run_id = started.run.run_id.clone();
 
-    approve(&engine, &run_id, "ApproveAdjustments");
-    approve(&engine, &run_id, "ApproveTaseErittelyt");
-    // ApproveLiitetiedot approve is blocked while the D7 correction is unsealed.
+    // The statements are computed when ApproveAdjustments is approved, so the
+    // approval is blocked while the D7 correction is unsealed.
     let err = engine
-        .answer_close_year(&run_id, "ApproveLiitetiedot", "approve")
+        .answer_close_year(&run_id, "ApproveAdjustments", "approve")
         .unwrap_err();
     assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
     assert!(err.to_string().contains("correction:reclass-1"));
@@ -260,10 +284,44 @@ fn a_d7_correction_must_be_sealed_before_approve_statements() {
         .seal_close_year_correction(&run_id, "reclass-1")
         .unwrap();
     assert_eq!(eff(&v, "correction:reclass-1"), EffectStatus::Succeeded);
+    approve(&engine, &run_id, "ApproveAdjustments");
+    approve(&engine, &run_id, "ApproveTaseErittelyt");
     let v2 = approve(&engine, &run_id, "ApproveLiitetiedot");
     assert_eq!(v2.gates.iter().last().unwrap().gate_id, "ApproveStatements");
     let done = approve(&engine, &run_id, "ApproveStatements");
     assert_eq!(done.status, RunStatus::Completed);
+
+    // The correction is attributed to 2026 like the adjustments, and the sealed
+    // statements carry it: 150.00 moved from other expenses (7690) to depreciation.
+    let ledger = Ledger::open(home.path()).unwrap();
+    let correction = ledger
+        .year_vouchers(2026)
+        .unwrap()
+        .into_iter()
+        .find(|v| v.description().starts_with("Oikaisu (D7)"))
+        .unwrap();
+    assert_eq!(correction.posting_date().to_string(), "2027-01-01");
+    assert_eq!(
+        ledger.adjustment_attributions_for_year(2026).unwrap().len(),
+        3
+    );
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    let statements = &archive["statements"];
+    assert_eq!(statements["result"], "5700.00");
+    let row = |id: &str| {
+        statements["income"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["row_id"] == id)
+            .unwrap()["amount"]
+            .clone()
+    };
+    assert_eq!(row("IS-POISTOT"), "2150.00");
+    assert_eq!(row("IS-MUUT-KULUT"), "2150.00");
 }
 
 #[test]
@@ -310,7 +368,7 @@ fn approve_statements_refuses_tampered_statement_bytes() {
         .join(&run_id)
         .join("close_year_state.json");
     let raw = fs::read_to_string(&state_path).unwrap();
-    let tampered = raw.replace("\"result\": \"8000.00\"", "\"result\": \"9999.00\"");
+    let tampered = raw.replace("\"result\": \"5700.00\"", "\"result\": \"9999.00\"");
     assert_ne!(raw, tampered, "the tamper must actually change the bytes");
     fs::write(&state_path, tampered).unwrap();
 
@@ -389,10 +447,11 @@ fn restart_from_fiscal_reconstructs_from_sealed_facts() {
     let done = approve(&engine, &run_id, "ApproveStatements");
     assert_eq!(done.status, RunStatus::Completed);
 
-    // The depreciation voucher was booked exactly once despite two Runs sealing it.
+    // The depreciation voucher was booked exactly once despite two Runs sealing it,
+    // and both Runs' attributions agree on it.
     let ledger = Ledger::open(home.path()).unwrap();
     let dep_count = ledger
-        .year_vouchers(2027)
+        .year_vouchers(2026)
         .unwrap()
         .iter()
         .filter(|v| v.postings().iter().any(|p| p.account.as_str() == "6000"))
@@ -475,7 +534,7 @@ fn monthly_year_uses_twelve_months_and_next_month_for_adjustments() {
             .unwrap_err()
             .error_code(),
         "INVALID_ANSWER",
-        "a current v2 close-year run must not migrate to close-period's version"
+        "a current close-year run must not migrate to close-period's version"
     );
 
     let run_id = started.run.run_id;
@@ -583,7 +642,7 @@ fn a_july_to_june_year_closes_into_july() {
     // Adjustments are dated the fiscal year's last day and posted to the first open
     // month of the next fiscal year.
     let depreciation = ledger
-        .year_vouchers(2028)
+        .period_vouchers(&PeriodId::new_month(2027, 7).unwrap())
         .unwrap()
         .into_iter()
         .find(|v| v.postings().iter().any(|p| p.account.as_str() == "6000"))
@@ -598,7 +657,15 @@ fn a_july_to_june_year_closes_into_july() {
     assert_eq!(archive["statements"]["fiscal_year"], 2027);
     assert_eq!(archive["statements"]["period"]["start"], "2026-07-01");
     assert_eq!(archive["statements"]["period"]["end"], "2027-06-30");
-    assert_eq!(archive["statements"]["result"], "8000.00");
+    assert_eq!(archive["statements"]["result"], "5700.00");
+    assert_eq!(
+        ledger
+            .adjustment_attribution(depreciation.number())
+            .unwrap()
+            .unwrap()
+            .effective_year,
+        2027
+    );
 }
 
 #[test]
@@ -625,4 +692,245 @@ fn depreciation_in_a_short_fiscal_year_is_refused() {
     assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
     assert!(err.to_string().contains("DEPRECIATION"), "{err}");
     assert!(err.to_string().contains("6 months"), "{err}");
+
+    // The way out the refusal names: the year's depreciation, calculated by hand,
+    // given as a correction. It is attributed to the short year like any adjustment.
+    let input = CloseYearInput {
+        year: 2026,
+        assets: vec![],
+        accruals: vec![],
+        corrections: vec![CorrectionInput {
+            correction_id: "poisto-kone-1".into(),
+            description: "lyhyen tilikauden poisto".into(),
+            debit_account: acct("6000"),
+            credit_account: acct("1160"),
+            amount: money("1000.00"),
+        }],
+    };
+    let started = engine
+        .start_close_year(&input, &PolicySet::default())
+        .unwrap();
+    let run_id = started.run.run_id;
+    engine
+        .seal_close_year_correction(&run_id, "poisto-kone-1")
+        .unwrap();
+    assert_eq!(approve_all(&engine, &run_id).status, RunStatus::Completed);
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["result"], "-1000.00");
+}
+
+/// Seal all twelve months of `year`.
+fn seal_months(ledger: &Ledger, year: i32) {
+    for month in 1..=12 {
+        let period = PeriodId::new_month(year, month).unwrap();
+        let authority = ledger
+            .begin_close(&period, &format!("month-{year}-{month:02}"), "test")
+            .unwrap();
+        ledger.seal_period(&period, &authority, "test").unwrap();
+    }
+}
+
+fn approve_all(engine: &ProcessEngine, run_id: &str) -> RunView {
+    approve(engine, run_id, "ApproveAdjustments");
+    approve(engine, run_id, "ApproveTaseErittelyt");
+    approve(engine, run_id, "ApproveLiitetiedot");
+    approve(engine, run_id, "ApproveStatements")
+}
+
+#[test]
+fn the_sealed_result_includes_depreciation_and_the_next_year_does_not_count_it_again() {
+    // One purchase (98.80 expense, 25.20 input VAT), twelve sealed months, one
+    // machine of 2 000.00: the 500.00 depreciation sealed on 2027-01-01 belongs to
+    // the result of 2026.
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let d = Date::parse("2026-03-10").unwrap();
+    let purchase = VoucherDraft::new(
+        d,
+        d,
+        "purchase".into(),
+        vec![
+            posting("7690", "98.80", Side::Debit),
+            posting("1763", "25.20", Side::Debit),
+            posting("1910", "124.00", Side::Credit),
+        ],
+        None,
+    )
+    .unwrap();
+    ledger
+        .seal(
+            &purchase,
+            &SealRequest {
+                natural_key: "purchase".into(),
+                actor: "test".into(),
+                policy_set: PolicySet::default(),
+            },
+        )
+        .unwrap();
+    seal_months(&ledger, 2026);
+
+    let engine = ProcessEngine::open(home.path());
+    let input = CloseYearInput {
+        year: 2026,
+        assets: vec![AssetInput {
+            acquisition_cost: money("2000.00"),
+            book_value_start: money("2000.00"),
+            ..asset()
+        }],
+        accruals: vec![],
+        corrections: vec![],
+    };
+    let started = engine
+        .start_close_year(&input, &PolicySet::default())
+        .unwrap();
+    assert_eq!(started.depreciation[0].amount.amount_str(), "500.00");
+    let done = approve_all(&engine, &started.run.run_id);
+    assert_eq!(done.status, RunStatus::Completed);
+
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["result"], "-598.80");
+    assert_eq!(archive["statements"]["balanced"], true);
+
+    // The next year opens from the closing year including the depreciation: the
+    // accumulated depreciation is in the opening balance, and no 2027 voucher counts
+    // it in 2027's result.
+    let next = ledger.fiscal_year_data(2027).unwrap();
+    assert!(next.vouchers.is_empty());
+    let opening = next.opening_balance.unwrap();
+    let accumulated = opening
+        .postings()
+        .iter()
+        .find(|p| p.account.as_str() == "1160")
+        .unwrap();
+    assert_eq!(accumulated.side, Side::Credit);
+    assert_eq!(accumulated.amount.amount_str(), "500.00");
+
+    let report = ledger
+        .monthly_statements_report(
+            &PeriodId::new_month(2027, 1).unwrap(),
+            "Esimerkki Oy",
+            MonthlyReportOptions::default(),
+        )
+        .unwrap();
+    assert_eq!(report.sections.month_income.result, "0.00");
+    assert_eq!(report.sections.year_to_date_income.result, "0.00");
+    assert!(report.sources.is_empty());
+    assert!(report.sections.balance.balanced);
+    // 25.20 VAT receivable - 124.00 cash - 500.00 accumulated depreciation.
+    assert_eq!(report.sections.balance.assets_total, "-598.80");
+    // The voucher itself stays in the period it was sealed into, which is what the
+    // period close and the VAT return read.
+    assert_eq!(
+        ledger
+            .period_vouchers(&PeriodId::new_month(2027, 1).unwrap())
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn an_adjustment_sealed_but_not_attributed_is_attributed_when_the_run_continues() {
+    // An interruption between sealing an adjustment and attributing it leaves the
+    // voucher in the books without an attribution. Continuing the Run replays the
+    // seal and records the attribution before the statements are computed.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let draft = depreciation_voucher(
+        &started.depreciation[0],
+        Date::parse("2026-12-31").unwrap(),
+        Date::parse("2027-01-01").unwrap(),
+    )
+    .unwrap();
+    let sealed = ledger
+        .seal(
+            &draft,
+            &SealRequest {
+                natural_key: "closeyear:2026:dep:kone-1".into(),
+                actor: "process:close-year".into(),
+                policy_set: PolicySet::default(),
+            },
+        )
+        .unwrap();
+    assert!(ledger
+        .adjustment_attribution(sealed.number)
+        .unwrap()
+        .is_none());
+
+    let done = approve_all(&engine, &started.run.run_id);
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        ledger
+            .adjustment_attribution(sealed.number)
+            .unwrap()
+            .unwrap()
+            .effective_year,
+        2026
+    );
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Sealed
+    );
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["statements"]["result"], "5700.00");
+}
+
+#[test]
+fn statements_are_not_bound_while_a_run_voucher_is_unattributed() {
+    // A Run whose plan names a voucher that is not attributed to the closing year
+    // (here: an accrual added to the persisted plan after the statements were
+    // computed) must not bind or seal those statements.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let started = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap();
+    let run_id = started.run.run_id.clone();
+    approve(&engine, &run_id, "ApproveAdjustments");
+    approve(&engine, &run_id, "ApproveTaseErittelyt");
+    approve(&engine, &run_id, "ApproveLiitetiedot");
+
+    let state_path = home
+        .path()
+        .join("process/runs")
+        .join(&run_id)
+        .join("close_year_state.json");
+    let mut state: serde_json::Value =
+        serde_json::from_slice(&fs::read(&state_path).unwrap()).unwrap();
+    let mut late = state["input"]["accruals"][0].clone();
+    late["accrual_id"] = "myohainen".into();
+    state["input"]["accruals"]
+        .as_array_mut()
+        .unwrap()
+        .push(late);
+    fs::write(&state_path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+
+    let err = engine
+        .answer_close_year(&run_id, "ApproveStatements", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
+    assert!(
+        err.to_string().contains("closeyear:2026:acc:myohainen"),
+        "{err}"
+    );
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
 }

@@ -8,17 +8,19 @@
 //!
 //! Shape (the `CLOSE_YEAR_WORKFLOW` definition):
 //! `Precheck(subperiods Sealed + must-seal + D7 keys)` → `Compute(poistot/jaksotukset)`
-//! → **`ApproveAdjustments`** (Approval) → `Seal(adjustment vouchers)` →
-//! `Compute(statements)` → **`ApproveTaseErittelyt`** (Approval) →
-//! **`ApproveLiitetiedot`** (Approval) → **`ApproveStatements`** (Preview, binds the
-//! exact statement bytes) → `SealYear`.
+//! → (D7 corrections sealed) → **`ApproveAdjustments`** (Approval) →
+//! `Seal(adjustment vouchers)` → `Compute(statements)` → **`ApproveTaseErittelyt`**
+//! (Approval) → **`ApproveLiitetiedot`** (Approval) → **`ApproveStatements`** (Preview,
+//! binds the exact statement bytes) → `SealYear`.
 //!
-//! **Model decision (documented as the headline M6 scope gap in `spike-notes.md`):**
-//! the year's selected twelve months (or four retained legacy quarters) are `Sealed`
-//! before close-year starts, so year-end adjustments + D7 corrections are booked
-//! with the A10/O-21 rule —
-//! **sealed-period corrections post to the next open period** — via the ordinary seal
-//! path. The statements are the deterministic projection over the sealed year-N chain.
+//! The year's selected twelve months (or four retained legacy quarters) are `Sealed`
+//! before close-year starts, so year-end adjustments and D7 corrections are sealed
+//! into the next open period through the ordinary seal path and then attributed to
+//! the closing year (`Ledger::attribute_adjustment`). The statements are the
+//! projection of the closing year's chain plus those attributed vouchers. Every Run
+//! voucher is sealed and attributed before the statements are computed, and a Run
+//! refuses to compute or bind statements while one of its vouchers is unattributed:
+//! sealing the year with them missing would leave a sealed year with a wrong result.
 
 use std::fs;
 use std::io::Write;
@@ -51,6 +53,19 @@ const ACTOR: &str = "process:close-year";
 /// The effect key for one D7 correction (`correction:<id>`).
 fn correction_effect_key(id: &str) -> String {
     format!("correction:{id}")
+}
+
+/// The ledger natural keys of the vouchers a close of `year` seals. They make a
+/// repeated seal replay, also across Runs, and identify the vouchers that must be
+/// attributed to `year`.
+fn depreciation_natural_key(year: i32, asset_id: &str) -> String {
+    format!("closeyear:{year}:dep:{asset_id}")
+}
+fn accrual_natural_key(year: i32, accrual_id: &str) -> String {
+    format!("closeyear:{year}:acc:{accrual_id}")
+}
+fn correction_natural_key(year: i32, correction_id: &str) -> String {
+    format!("closeyear:{year}:corr:{correction_id}")
 }
 
 /// A D7 pre-close reclassification (`voucher correct`): a balanced adjustment sealed
@@ -370,8 +385,10 @@ impl ProcessEngine {
     }
 
     /// Seal one D7 correction on its own approval (the thin commit boundary). The
-    /// correction voucher seals into the next open period; the effect flips to
-    /// `Succeeded`. Idempotent — a repeat is a no-op (the ledger natural_key replays).
+    /// correction voucher seals into the next open period and is attributed to the
+    /// closing year; the effect flips to `Succeeded`. Every correction is sealed
+    /// before `ApproveAdjustments` is approved. Idempotent — a repeat is a no-op (the
+    /// seal and the attribution replay).
     pub fn seal_close_year_correction(
         &self,
         run_id: &str,
@@ -408,23 +425,14 @@ impl ProcessEngine {
             effect_key: key.clone(),
         })?;
         let ledger = Ledger::open(&self.home)?;
-        let natural_key = format!("closeyear:{}:corr:{}", state.year, correction_id);
-        match ledger.seal(
-            &draft,
-            &aggountant_ledger::SealRequest {
-                natural_key,
-                actor: ACTOR.to_string(),
-                policy_set: PolicySet {
-                    id: state.policy_set.clone(),
-                },
-            },
-        ) {
-            Ok(_) => {
+        let natural_key = correction_natural_key(state.year, correction_id);
+        match seal_attributed(&ledger, &draft, natural_key, &state, run_id) {
+            Ok(()) => {
                 journal.append(EventPayload::EffectSucceeded {
                     effect_key: key,
                     note: format!(
-                        "D7 correction {correction_id} sealed to {}",
-                        state.next_open_period
+                        "D7 correction {correction_id} sealed to {} and attributed to {}",
+                        state.next_open_period, state.year
                     ),
                 })?;
             }
@@ -433,7 +441,7 @@ impl ProcessEngine {
                     effect_key: key,
                     error_code: e.error_code().to_string(),
                 })?;
-                return Err(e.into());
+                return Err(e);
             }
         }
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
@@ -471,7 +479,9 @@ impl ProcessEngine {
         // leaves the gate open for the operator to resolve, never a wedged Run).
         if answer == "approve" {
             match gate_id {
-                GATE_APPROVE_LT => self.assert_corrections_sealed(&f)?,
+                // The statements are computed right after this approval, so every
+                // correction must already be in the books and attributed.
+                GATE_APPROVE_ADJ => self.assert_corrections_sealed(&f)?,
                 GATE_APPROVE_STMT => self.assert_statements_binding(run_id, &f, gate_id)?,
                 _ => {}
             }
@@ -539,7 +549,6 @@ impl ProcessEngine {
             }
             let f2 = fold(run_id, &journal.read_all()?)?;
             if f2.gate_approved(GATE_APPROVE_LT) && f2.gate(GATE_APPROVE_STMT).is_none() {
-                self.assert_corrections_sealed(&f2)?;
                 self.open_gate(&journal, run_id, GATE_APPROVE_STMT, "Preview")?;
             }
         }
@@ -635,42 +644,23 @@ impl ProcessEngine {
             depreciation_rate_table(),
         )
         .map_err(map_domain)?;
-        let seal =
-            |draft: &aggountant_model::VoucherDraft, nk: String| -> Result<(), ProcessError> {
-                ledger
-                    .seal(
-                        draft,
-                        &aggountant_ledger::SealRequest {
-                            natural_key: nk,
-                            actor: ACTOR.to_string(),
-                            policy_set: PolicySet {
-                                id: state.policy_set.clone(),
-                            },
-                        },
-                    )
-                    .map(|_| ())
-                    .map_err(ProcessError::from)
-            };
         for line in &depreciation {
             let draft = depreciation_voucher(line, doc_date, posting_date).map_err(map_domain)?;
-            seal(
-                &draft,
-                format!("closeyear:{}:dep:{}", state.year, line.asset_id),
-            )?;
+            let natural_key = depreciation_natural_key(state.year, &line.asset_id);
+            seal_attributed(&ledger, &draft, natural_key, &state, run_id)?;
         }
         for a in &state.input.accruals {
             let draft = accrual_voucher(a, doc_date, posting_date).map_err(map_domain)?;
-            seal(
-                &draft,
-                format!("closeyear:{}:acc:{}", state.year, a.accrual_id),
-            )?;
+            let natural_key = accrual_natural_key(state.year, &a.accrual_id);
+            seal_attributed(&ledger, &draft, natural_key, &state, run_id)?;
         }
         journal.append(EventPayload::EffectSucceeded {
             effect_key: EFFECT_SEAL_ADJ.to_string(),
             note: format!(
-                "{} adjustment voucher(s) sealed to {}",
+                "{} adjustment voucher(s) sealed to {} and attributed to {}",
                 depreciation.len() + state.input.accruals.len(),
-                state.next_open_period
+                state.next_open_period,
+                state.year
             ),
         })?;
         Ok(())
@@ -682,6 +672,7 @@ impl ProcessEngine {
             return Ok(());
         }
         let mut state = self.read_close_year_state(run_id)?;
+        self.assert_run_vouchers_attributed(&state)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_COMPUTE_STMT.to_string(),
         })?;
@@ -724,6 +715,7 @@ impl ProcessEngine {
             .as_ref()
             .ok_or_else(|| ProcessError::JournalCorrupt("no statements to seal".into()))?;
         let statements_hash = statements.statements_hash();
+        self.assert_run_vouchers_attributed(&state)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_SEAL_YEAR.to_string(),
         })?;
@@ -747,8 +739,9 @@ impl ProcessEngine {
         }
     }
 
-    /// All D7 corrections must be sealed before `ApproveStatements` can be reached
-    /// (must-seal, ADR-5). Blocks with stable ids while any is unsealed.
+    /// All D7 corrections must be sealed before `ApproveAdjustments` is approved,
+    /// because the statements are computed right after it. Blocks with stable ids
+    /// while any is unsealed.
     fn assert_corrections_sealed(&self, f: &Fold) -> Result<(), ProcessError> {
         let unsealed: Vec<String> = f
             .effects
@@ -781,6 +774,7 @@ impl ProcessEngine {
             .gate(gate_id)
             .ok_or_else(|| ProcessError::GateNotOpen(format!("gate {gate_id} not open")))?;
         let state = self.read_close_year_state(run_id)?;
+        self.assert_run_vouchers_attributed(&state)?;
         let persisted = state
             .statements
             .as_ref()
@@ -794,6 +788,60 @@ impl ProcessEngine {
                  (bound {}, persisted {persisted_hash}, recomputed {fresh_hash}) — \
                  refusing to seal unapproved figures",
                 gate.snapshot_hash
+            )));
+        }
+        Ok(())
+    }
+
+    /// Refuse while a voucher this Run seals is not in the books attributed to the
+    /// closing year. Statements computed then would leave it out, and `SealYear` would
+    /// freeze that wrong result. Attribution happens right after each seal, so this
+    /// only fires for a Run interrupted between the two (a resume or a repeated
+    /// `seal-correction` completes it) or one started before attribution existed and
+    /// carried over by `run migrate` (a new Run replays the seals and attributes them).
+    fn assert_run_vouchers_attributed(&self, state: &CloseYearState) -> Result<(), ProcessError> {
+        let ledger = Ledger::open(&self.home)?;
+        let year = state.year;
+        let depreciation = compute_depreciation(
+            &ledger.fiscal_year(year)?,
+            &state.input.assets,
+            depreciation_rate_table(),
+        )
+        .map_err(map_domain)?;
+        let expected = depreciation
+            .iter()
+            .map(|line| depreciation_natural_key(year, &line.asset_id))
+            .chain(
+                state
+                    .input
+                    .accruals
+                    .iter()
+                    .map(|a| accrual_natural_key(year, &a.accrual_id)),
+            )
+            .chain(
+                state
+                    .input
+                    .corrections
+                    .iter()
+                    .map(|c| correction_natural_key(year, &c.correction_id)),
+            );
+        let mut attributed = std::collections::BTreeSet::new();
+        for attribution in ledger.adjustment_attributions_for_year(year)? {
+            attributed.insert(
+                ledger
+                    .voucher(attribution.voucher_number)?
+                    .provenance
+                    .natural_key,
+            );
+        }
+        let missing: Vec<String> = expected.filter(|k| !attributed.contains(k)).collect();
+        if !missing.is_empty() {
+            return Err(ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: {} voucher(s) of this run are not attributed \
+                 to {year}, so its statements would leave them out: [{}] — resume the run, \
+                 seal the listed correction(s), or start a new close-year run",
+                missing.len(),
+                missing.join(", ")
             )));
         }
         Ok(())
@@ -930,6 +978,30 @@ impl ProcessEngine {
         fs::rename(&tmp, &path).map_err(|e| ProcessError::Store(e.to_string()))?;
         Ok(())
     }
+}
+
+/// Seal one Run voucher into the next open period and attribute it to the closing
+/// year. Both steps replay on a repeat (the seal by natural key, the attribution
+/// by voucher and year), so a Run interrupted between them completes on retry.
+fn seal_attributed(
+    ledger: &Ledger,
+    draft: &aggountant_model::VoucherDraft,
+    natural_key: String,
+    state: &CloseYearState,
+    run_id: &str,
+) -> Result<(), ProcessError> {
+    let sealed = ledger.seal(
+        draft,
+        &aggountant_ledger::SealRequest {
+            natural_key,
+            actor: ACTOR.to_string(),
+            policy_set: PolicySet {
+                id: state.policy_set.clone(),
+            },
+        },
+    )?;
+    ledger.attribute_adjustment(sealed.number, state.year, run_id, ACTOR)?;
+    Ok(())
 }
 
 /// Build a balanced D7 correction voucher (`voucher correct`): debit/credit the

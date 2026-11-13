@@ -101,9 +101,10 @@ const CAPTURE_RECEIPT_WORKFLOW: &str = "capture-receipt/v1: BuildDisclosure(proj
 /// The `close-year` workflow definition source (S6/RF6). Its hash is the version the
 /// resume/answer check pins for a `close-year` Run (version-pin: a started Run
 /// finishes on its start version — `workflow-migration-options.md §4` M1).
-const CLOSE_YEAR_WORKFLOW: &str = "close-year/v2: \
+const CLOSE_YEAR_WORKFLOW: &str = "close-year/v3: \
      Precheck(subperiods-sealed + must-seal + D7-keys) -> Compute(poistot/jaksotukset) -> \
-     gate:ApproveAdjustments -> Seal(adjustments to next-open) -> Compute(statements) -> \
+     D7-corrections(seal to next-open + attribute to year) -> gate:ApproveAdjustments -> \
+     Seal(adjustments to next-open + attribute to year) -> Compute(statements) -> \
      gate:ApproveTaseErittelyt -> gate:ApproveLiitetiedot -> \
      gate:ApproveStatements(bind statements_hash) -> SealYear(bind statements_hash)";
 

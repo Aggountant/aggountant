@@ -72,8 +72,7 @@ obligation list is therefore empty.
 A fiscal year's state is `open` or `sealed`. `aggountant fiscal-year show`
 also shows the year's first and last day and its length in months. A sealed fiscal year also has a
 checksum of its financial statements. The fiscal year is sealed by the
-year-end run, which cannot yet be used for real financial statements, so
-normally the fiscal year is in the state `open`
+year-end run; until then the fiscal year is in the state `open`
 ([Prepare the financial statements](../tasks/year-end.md)).
 
 ## What this means for you

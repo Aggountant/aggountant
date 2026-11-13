@@ -59,10 +59,11 @@ Ask the owner or the agent to gather the material:
 
 ## Limits
 
-- **The financial statements are not yet prepared with aggountant.** The
-  program has a year-end run, but it cannot be used for real financial
-  statements. Depreciation, accruals, the statements and the notes are done
-  elsewhere.
+- **The official financial statements are drawn up elsewhere.** The
+  year-end run records depreciation, accruals and corrections in the year
+  that has ended, calculates the income statement and balance sheet, and
+  seals the fiscal year. The financial statements document and the written
+  part of the notes are done elsewhere.
 - **Payroll** is calculated, paid and reported elsewhere. A payroll voucher is
   recorded in aggountant. To Tulorekisteri, aggountant reports only tax-free
   travel allowances.

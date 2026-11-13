@@ -22,11 +22,12 @@ formats may still change between versions.
 - closing a month
 - monthly reports
 - the VAT return, directly to the Tax Administration or by hand in OmaVero
-- reporting tax-free travel allowances to Tulorekisteri.
+- reporting tax-free travel allowances to Tulorekisteri
+- the year-end entries and sealing the fiscal year with the year-end run.
 
 **In the program, but not yet usable for real bookkeeping:** the payroll run,
-aggountant's own automatic receipt search, consultation for unusual receipts
-and the year-end run. They are described below.
+aggountant's own automatic receipt search and consultation for unusual
+receipts. They are described below.
 
 ## Installation
 
@@ -115,8 +116,9 @@ has already been rejected, see
 - **Two fiscal years cannot end in the same calendar year.** A change of
   fiscal year is made with one transition year of at most 18 months.
 - **Depreciation is not calculated for a fiscal year that is not 12 months
-  long.** The year-end run refuses it; record that year's depreciation as an
-  ordinary voucher.
+  long.** The year-end run refuses to calculate it; calculate that year's
+  depreciation yourself and give it to the run as a correction, so it is
+  attributed to the right year.
 - **A fiscal-year definition cannot be changed.** It can only be followed by a
   new one, and not in a way that would move recorded vouchers to another
   fiscal year.
@@ -191,24 +193,30 @@ record the payroll voucher in aggountant:
 
 ## Year-end financial statements
 
-**Do not prepare your real financial statements with the year-end run
-(`close-year`).** Once all the year's months are closed, the run calculates
-depreciation and accruals, produces the income statement and balance sheet,
-goes through four approvals (adjusting entries, balance sheet breakdowns,
-notes and statements) and seals the fiscal year. It has two gaps that make
-the result wrong or the approval blind:
+Once all the year's months are closed, the year-end run (`close-year`)
+calculates depreciation and accruals. The run records them, and the
+corrections you give it, in the first open period of the next fiscal year,
+because the year's months are already closed, and attributes them to the
+closing fiscal year. So they show in the closing year's income statement and
+balance sheet, not in the next year's result, and the next year starts from
+balances that include them. The run then goes through four approvals
+(adjusting entries, balance sheet breakdowns, notes and statements) and seals
+the fiscal year.
 
-- **The year-end depreciation and accruals are missing from the closing
-  year's statements.** The run records them in the first open period of the
-  next year, because the year's months are already closed, and does not
-  attribute them back to the closing year's financial statements
-  (`close-year-adjustment-attribution`).
 - **The approval steps do not show the statements.** The command's output
-  tells you only the state of the steps, so you would approve the income
-  statement and balance sheet without seeing them.
+  tells you only the state of the steps. Once the adjusting entries are
+  approved, the monthly report for the fiscal year's last month shows the
+  income statement and balance sheet with the adjustments. Look at it before
+  you approve the statements (`close-year-gates-show-content`).
+- **Corrections are given when the run starts.** The run records them before
+  the adjusting entries are approved, and only the run's own entries are
+  attributed to the closing year. A voucher you record yourself in a period
+  of the next year shows in the next year's result.
+- **The official financial statements document** with the written part of the
+  notes, the signatures, the filing with the trade register and the tax return
+  are done outside aggountant.
 
-Sealing the fiscal year cannot be undone. For the same reason, year-end
-entries cannot yet be recorded in a closed year. Do this:
+Sealing the fiscal year cannot be undone. Do this:
 [Prepare the financial statements](../tasks/year-end.md).
 
 ## Company home and setup

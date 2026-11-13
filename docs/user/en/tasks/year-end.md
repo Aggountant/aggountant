@@ -3,8 +3,8 @@
 For now the financial statements (tilinpäätös) are prepared outside
 aggountant, with an accounting firm or a bookkeeper, or by yourself.
 aggountant gives you the material for them: the monthly reports and the
-sealed vouchers with their attachments. On this page you gather the material
-and hand it over.
+sealed vouchers with their attachments. On this page you gather the material,
+hand it over and record the year-end entries.
 
 ## Before you start
 
@@ -34,12 +34,24 @@ and hand it over.
    about the opening balances and anything else they need to know, for
    example purchases that will be depreciated.
 
-4. **Whoever prepares the financial statements** draws up the depreciation,
-   accruals, the statements and the notes. These entries belong to the year
-   that has ended, whose months are already closed, and aggountant does not
-   yet have a way to record them there. If they were recorded in the first
-   month of the next year, they would show in the wrong year's result. Agree
-   with them on how these entries are taken into account.
+4. **Record the year-end entries with the year-end run.** Depreciation,
+   accruals and corrections belong to the year that has ended, whose months
+   are already closed. The year-end run (`close-year`) records them in the
+   first open period of the next year and attributes them to the year that
+   has ended, so they show in the right year's result. Recorded as ordinary
+   vouchers in a period of the next year, they would show in the next year's
+   result. Agree with whoever prepares the financial statements whether they
+   give you the assets to depreciate, the accruals and the corrections for
+   the run.
+
+   > Run the year-end close for 2026: one machine of 2,000.00 euros in
+   > machinery and equipment, no accruals and no corrections.
+
+   The agent shows the calculated depreciation. Once you approve the
+   adjusting entries, ask for the December monthly report again: its income
+   statement and balance sheet include the adjustments. Approve the
+   statements only after you have looked at it. The last approval seals the
+   fiscal year, and it cannot be undone.
 
 Drawing up and signing the official financial statements, filing them with
 the trade register and the company's tax return are also done outside
@@ -55,6 +67,10 @@ aggountant voucher verify
 aggountant voucher list --posting-from 2026-01-01 --posting-to 2026-12-31
 aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-12.html
+aggountant close-year start < close-year-2026.json
+aggountant close-year seal-correction --run-id cy-… --correction <id>
+aggountant close-year answer --run-id cy-… --gate ApproveAdjustments --answer approve
+aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer approve
 ```
 </details>
 
@@ -62,15 +78,16 @@ aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
 
 - Whoever prepares the financial statements has the year's reports, vouchers
   and attachments.
-- You have agreed with them how the year-end entries are taken into account.
+- The year's depreciation, accruals and corrections are recorded with the
+  year-end run and the fiscal year is `sealed`, or you have agreed otherwise
+  with whoever prepares the financial statements.
 
 ## Limitations
 
-The program has a year-end run (`close-year`), but **do not use it for your
-real financial statements**. In it, the year-end depreciation and accruals
-are missing from the closing year's statements, and the approval steps do not
-show the statements you are approving. Sealing the fiscal year cannot be
-undone.
+The year-end run's approval steps do not show the statements you approve, so
+look at the report for the fiscal year's last month before you approve the
+statements. The run attributes only its own entries to the year that has
+ended. Sealing the fiscal year cannot be undone.
 More detail: [What is ready and what is not](../reference/status.md#year-end-financial-statements).
 
 ## See also

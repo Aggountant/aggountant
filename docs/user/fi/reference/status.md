@@ -23,11 +23,12 @@ versioiden välillä.
 - kuukauden sulku
 - kuukausiraportit
 - ALV-ilmoitus suoraan Verohallinnolle tai käsin OmaVerossa
-- verovapaiden matkakorvausten ilmoitus Tulorekisteriin.
+- verovapaiden matkakorvausten ilmoitus Tulorekisteriin
+- tilinpäätöksen kirjaukset ja tilikauden sinetöinti tilinpäätösajolla.
 
 **Ohjelmassa, mutta ei vielä käytettävissä oikeaan kirjanpitoon:**
-palkka-ajo, aggountantin oma automaattinen kuittihaku, poikkeuksellisten
-kuittien konsultointi ja tilinpäätösajo. Niistä kerrotaan alla.
+palkka-ajo, aggountantin oma automaattinen kuittihaku ja poikkeuksellisten
+kuittien konsultointi. Niistä kerrotaan alla.
 
 ## Asennus
 
@@ -112,8 +113,8 @@ kirjataan seuraavalle kaudelle. Jos sulku on jo hylätty, katso
 - **Kaksi tilikautta ei voi päättyä samana kalenterivuonna.** Tilikauden
   muutos tehdään yhdellä enintään 18 kuukauden siirtymätilikaudella.
 - **Poistoja ei lasketa tilikaudelle, joka ei ole 12 kuukautta.**
-  Tilinpäätösajo kieltäytyy niistä; kirjaa sen tilikauden poistot tavallisena
-  tositteena.
+  Tilinpäätösajo kieltäytyy laskemasta niitä; laske sen tilikauden poistot
+  itse ja anna ne ajolle oikaisuna, jolloin ne kohdistuvat oikealle vuodelle.
 - **Tilikauden määrittelyä ei voi muuttaa.** Sen perään voi määritellä uuden,
   mutta ei niin, että jo kirjattuja tositteita siirtyisi toiselle
   tilikaudelle.
@@ -186,22 +187,28 @@ palkkatosite aggountantiin:
 
 ## Tilinpäätös
 
-**Älä tee oikeaa tilinpäätöstä tilinpäätösajolla (`close-year`).** Kun vuoden
-kaikki kuukaudet on suljettu, ajo laskee poistot ja jaksotukset, muodostaa
-tuloslaskelman ja taseen, käy läpi neljä hyväksyntää (oikaisukirjaukset,
-tase-erittelyt, liitetiedot ja laskelmat) ja sinetöi tilikauden. Siinä on
-kaksi puutetta, jotka tekevät tuloksesta väärän tai hyväksynnästä sokean:
+Kun vuoden kaikki kuukaudet on suljettu, tilinpäätösajo (`close-year`)
+laskee poistot ja jaksotukset. Ajo kirjaa ne ja sille annetut oikaisut
+seuraavan tilikauden ensimmäiselle avoimelle kaudelle, koska vuoden kuukaudet
+on jo suljettu, ja kohdistaa ne suljettavalle tilikaudelle. Siksi ne näkyvät
+suljettavan vuoden tuloslaskelmassa ja taseessa, eivät seuraavan vuoden
+tuloksessa, ja seuraava vuosi alkaa saldoista, joissa ne ovat mukana. Sen
+jälkeen ajo käy läpi neljä hyväksyntää (oikaisukirjaukset, tase-erittelyt,
+liitetiedot ja laskelmat) ja sinetöi tilikauden.
 
-- **Vuoden lopun poistot ja jaksotukset puuttuvat suljettavan vuoden
-  laskelmista.** Ajo kirjaa ne seuraavan vuoden ensimmäiselle avoimelle
-  kaudelle, koska vuoden kuukaudet on jo suljettu, eikä kohdista niitä
-  takaisin suljettavan vuoden tilinpäätökseen
-  (`close-year-adjustment-attribution`).
 - **Hyväksyntävaiheet eivät näytä laskelmia.** Komennon tuloste kertoo vain
-  vaiheiden tilan, joten hyväksyisit tuloslaskelman ja taseen näkemättä niitä.
+  vaiheiden tilan. Kun oikaisukirjaukset on hyväksytty, tilikauden viimeisen
+  kuukauden kuukausiraportti näyttää tuloslaskelman ja taseen oikaisuineen.
+  Katso se ennen kuin hyväksyt laskelmat (`close-year-gates-show-content`).
+- **Oikaisut annetaan ajon alussa.** Ajo kirjaa ne ennen kuin oikaisukirjaukset
+  hyväksytään, ja vain ajon omat kirjaukset kohdistetaan suljettavalle
+  vuodelle. Tosite, jonka kirjaat itse seuraavan vuoden kaudelle, näkyy
+  seuraavan vuoden tuloksessa.
+- **Virallinen tilinpäätösasiakirja** liitetietojen sanallisine osineen,
+  allekirjoitukset, ilmoitus kaupparekisteriin ja veroilmoitus tehdään
+  aggountantin ulkopuolella.
 
-Tilikauden sinetöinti on peruuttamaton. Samasta syystä tilinpäätöksen
-kirjauksia ei voi vielä kirjata suljetulle vuodelle. Tee näin:
+Tilikauden sinetöinti on peruuttamaton. Tee näin:
 [Valmistele tilinpäätös](../tasks/year-end.md).
 
 ## Yrityskoti ja käyttöönotto

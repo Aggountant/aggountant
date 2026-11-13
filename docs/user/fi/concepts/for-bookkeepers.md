@@ -56,9 +56,10 @@ Pyydä omistajaa tai agenttia kokoamaan aineisto:
 
 ## Rajat
 
-- **Tilinpäätöstä ei vielä tehdä aggountantilla.** Ohjelmassa on
-  tilinpäätösajo, mutta sitä ei voi käyttää oikeaan tilinpäätökseen.
-  Poistot, jaksotukset, laskelmat ja liitetiedot tehdään muualla.
+- **Virallinen tilinpäätös laaditaan muualla.** Tilinpäätösajo kirjaa
+  poistot, jaksotukset ja oikaisut päättyneelle vuodelle, laskee
+  tuloslaskelman ja taseen ja sinetöi tilikauden. Tilinpäätösasiakirja ja
+  liitetietojen sanallinen osa tehdään muualla.
 - **Palkat** lasketaan, maksetaan ja ilmoitetaan muualla. aggountantiin
   kirjataan palkkatosite. Tulorekisteriin aggountant ilmoittaa vain
   verovapaat matkakorvaukset.

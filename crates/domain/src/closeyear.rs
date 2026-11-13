@@ -234,8 +234,8 @@ pub fn compute_depreciation(
     if !assets.is_empty() && fiscal_year.months() != 12 {
         return Err(DomainError::Depreciation(format!(
             "fiscal year {} ({}..{}) is {} months; depreciation rates are annual and are not \
-             prorated for a shorter or longer fiscal year. Book this year's depreciation as \
-             an ordinary voucher and leave assets out of the close-year input",
+             prorated for a shorter or longer fiscal year. Give this year's depreciation \
+             to close-year as a correction and leave assets out of the close-year input",
             fiscal_year.year(),
             fiscal_year.start(),
             fiscal_year.end(),

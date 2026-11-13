@@ -71,9 +71,8 @@ käytössä velvoitelista on siksi tyhjä.
 Tilikauden tila on `open` tai `sealed`. `aggountant fiscal-year show`
 näyttää myös tilikauden ensimmäisen ja viimeisen päivän ja pituuden
 kuukausina. Sinetöidyllä tilikaudella on myös
-tilinpäätöslaskelmien tarkiste. Tilikauden sinetöi tilinpäätösajo, jota ei
-vielä voi käyttää oikeaan tilinpäätökseen, joten tavallisesti tilikausi on
-tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.md)).
+tilinpäätöslaskelmien tarkiste. Tilikauden sinetöi tilinpäätösajo; siihen
+asti tilikausi on tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.md)).
 
 ## Mitä tämä tarkoittaa sinulle
 
