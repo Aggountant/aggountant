@@ -16,14 +16,14 @@ pub enum VatAccountPostingClass {
     Generated,
     /// Untagged and unowned, on the side that reduces the VAT balance (output VAT
     /// debited, input VAT credited) in a voucher whose income and expense postings
-    /// together are smaller than the VAT it reduces: a VAT payment, refund or
-    /// clearing between VAT accounts, also when it books interest or penalties. It
-    /// does not belong in a return.
+    /// together are smaller than the VAT it reduces and reverse no sale or purchase
+    /// of that direction: a VAT payment, refund or clearing between VAT accounts,
+    /// also when it books interest or penalties. It does not belong in a return.
     Settlement,
     /// Untagged and unowned VAT the return leaves out: VAT accrued on a VAT account
     /// (output VAT credited, input VAT debited), a reduction booked together with
-    /// income or expense at least as large as the VAT (an untagged credit note,
-    /// return or credit loss), a leg on a coded voucher that its codes do not
+    /// income or expense at least as large as the VAT or reversing a sale or
+    /// purchase (an untagged credit note, return or credit loss), a leg on a coded voucher that its codes do not
     /// explain, or a posting whose account has no known VAT direction.
     Untagged,
 }
@@ -112,10 +112,13 @@ impl VatAccountReconciliation {
 /// never lets a posting become a settlement.
 ///
 /// A reduction-side untagged posting is a settlement when the voucher's income and
-/// expense postings sum to less than its untagged reduction-side VAT postings. A
-/// VAT payment's interest or penalty is small beside the VAT it pays, while the net
-/// of a credit note or credit loss is several times its VAT at any rate (at most
-/// 25,5 %), so the comparison separates the two without reading account numbers.
+/// expense postings sum to less than its untagged reduction-side VAT postings and
+/// none of them reverses a sale or purchase of the posting's direction (an income
+/// debit next to an output-VAT reduction, an expense credit next to an input-VAT
+/// reduction). A VAT payment's interest or penalty is a small expense debit and a
+/// refund's interest a small income credit, while a credit note or credit loss books
+/// a net several times its VAT at any rate (at most 25,5 %). Neither test reads an
+/// account number.
 ///
 /// A voucher with a `vat_code` owns its VAT legs only as far as its codes explain
 /// them: per direction, legs that differ from the voucher's own `base × rate` by more
@@ -175,7 +178,13 @@ pub fn classify_vat_account_postings(
             }
         } else if generated.contains(&index) {
             VatAccountPostingClass::Generated
-        } else if settles && reduces(index) {
+        } else if reduces(index)
+            && match direction {
+                Some(GeneratedVatRole::Output) => settles[0],
+                Some(GeneratedVatRole::Input) => settles[1],
+                None => false,
+            }
+        {
             VatAccountPostingClass::Settlement
         } else {
             VatAccountPostingClass::Untagged
@@ -185,32 +194,43 @@ pub fn classify_vat_account_postings(
     Ok(classified)
 }
 
-/// Whether an untagged voucher's reduction-side VAT postings are a settlement: its
-/// income and expense postings, if any, sum to less than those VAT postings, every
-/// account is known to the chart, and every amount is in one currency.
+/// Per direction `[output, input]`, whether an untagged voucher's reduction-side VAT
+/// postings of that direction are a settlement: every account is known to the
+/// chart, every amount is in one currency, the income and expense postings sum to
+/// less than the reduction-side VAT postings, and no income is debited (output) or
+/// expense credited (input).
 fn settles_vat(
     voucher: &VoucherBody,
     reduces: &dyn Fn(usize) -> bool,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
-) -> bool {
+) -> [bool; 2] {
     let postings = voucher.postings();
     let Some(currency) = postings.first().map(|p| p.amount.currency()) else {
-        return false;
+        return [false; 2];
     };
     let mut reduced = Decimal::ZERO;
     let mut result = Decimal::ZERO;
+    let mut reverses = [false; 2];
     for (index, posting) in postings.iter().enumerate() {
         if posting.amount.currency() != currency {
-            return false;
+            return [false; 2];
         }
-        match kind_of(posting.account.as_str()) {
-            None => return false,
-            Some(AccountKind::Income | AccountKind::Expense) => result += posting.amount.amount(),
-            Some(_) if reduces(index) => reduced += posting.amount.amount(),
-            Some(_) => {}
+        match (kind_of(posting.account.as_str()), posting.side) {
+            (None, _) => return [false; 2],
+            (Some(AccountKind::Income), side) => {
+                result += posting.amount.amount();
+                reverses[0] |= side == Side::Debit;
+            }
+            (Some(AccountKind::Expense), side) => {
+                result += posting.amount.amount();
+                reverses[1] |= side == Side::Credit;
+            }
+            (Some(_), _) if reduces(index) => reduced += posting.amount.amount(),
+            (Some(_), _) => {}
         }
     }
-    result.is_zero() || result < reduced
+    let small = result.is_zero() || result < reduced;
+    reverses.map(|reverses| small && !reverses)
 }
 
 /// For a voucher with any `vat_code`: per direction `[output, input]`, whether its

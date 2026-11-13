@@ -299,6 +299,44 @@ fn an_untagged_sale_booked_with_a_vat_payment_still_blocks() {
 }
 
 #[test]
+fn an_untagged_supplier_credit_note_booked_with_a_vat_payment_still_blocks() {
+    // The amounts alone would pass (100,00 < 525,50); the expense credit marks the
+    // input-VAT reduction as a purchase return, while the payment stays a settlement.
+    let mixed = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("1910", Side::Credit, "500.00", None),
+            line("2700", Side::Debit, "125.50", None),
+            line("4000", Side::Credit, "100.00", None),
+            line("1763", Side::Credit, "25.50", None),
+        ],
+    );
+    let r = reconcile(&[mixed]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-25.50");
+    assert_eq!(r.output.settlements.amount_str(), "-500.00");
+}
+
+#[test]
+fn an_untagged_customer_refund_booked_with_a_vat_payment_still_blocks() {
+    let mixed = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("3000", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1910", Side::Credit, "625.50", None),
+        ],
+    );
+    let r = reconcile(&[mixed]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-525.50");
+}
+
+#[test]
 fn an_untagged_purchase_return_reducing_input_vat_is_left_out() {
     // A reduction booked together with an expense is a credit note, not a
     // settlement: the return would otherwise keep the full deduction.
