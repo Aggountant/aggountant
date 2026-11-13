@@ -1399,8 +1399,9 @@ impl Ledger {
     /// - `effective_year` must not be *after* the voucher's posting year
     ///   (`PERIOD_TRANSITION_CONFLICT`) — an adjustment attributes an earlier or the
     ///   same statement year, never pulls a voucher into a future year's result;
-    /// - the target year must be `Open`, not `Sealed` (`PERIOD_TRANSITION_CONFLICT`) —
-    ///   a sealed year's `statements_hash` is bound and must not gain a late voucher;
+    /// - neither the target year nor any later year may be `Sealed`
+    ///   (`PERIOD_TRANSITION_CONFLICT`) — a sealed year's `statements_hash` is bound
+    ///   and must not gain a late voucher or a changed opening;
     /// - attribution is immutable: re-attributing a voucher to a *different* year is
     ///   `IDEMPOTENCY_KEY_REUSE`, while a repeat to the *same* year replays.
     ///
@@ -1450,7 +1451,6 @@ impl Ledger {
         let result = self.fiscal.attribute_adjustment(&AttributionRequest {
             voucher_number,
             effective_year,
-            posting_year,
             run_id: run_id.to_string(),
             actor: actor.to_string(),
             request_hash,
@@ -2012,7 +2012,7 @@ struct PriorVoucher<'a> {
 /// would block every statement of the first aggountant year. The prior year counts as
 /// such a cut-over only when every prior voucher posts balance-sheet accounts only on
 /// the prior year's last day, nothing lies further back, and no period up to that day
-/// was ever closed or had VAT filed in aggountant. Any real activity (a result, an
+/// was ever closed (even if reopened since) or had VAT filed in aggountant. Any real activity (a result, an
 /// earlier date, a closed period) keeps the SealYear requirement, because then the
 /// prior year is a year aggountant kept and its closing position must be frozen first.
 ///
@@ -2044,7 +2044,9 @@ fn boundary_cutover(
         })?;
         let (first_month, _) = period.month_bounds();
         let period_start = Date::from_ymd(period.year(), first_month.into(), 1)?;
-        let kept_here = row.state != PeriodState::Open || row.vat_filed;
+        // Any recorded transition, including a close later reopened, means the period
+        // was operated here.
+        let kept_here = row.head_seq > 0 || row.state != PeriodState::Open || row.vat_filed;
         if kept_here && period_start <= prior_year.end() {
             return Ok(None);
         }

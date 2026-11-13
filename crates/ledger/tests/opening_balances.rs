@@ -6,7 +6,7 @@ use aggountant_domain::{
     compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, PolicySet,
     StatementProvenance, StatementSourceRef,
 };
-use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
+use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, PeriodState, SealRequest};
 use aggountant_model::{
     AccountId, Currency, Date, Money, OpeningBalance, OpeningBalanceSource, PeriodId, Posting,
     Side, VoucherDraft,
@@ -409,6 +409,65 @@ fn a_boundary_started_year_closes_and_opens_the_next_from_the_sealed_year() {
     ));
     assert_eq!(opening_signed(opening, "1910"), Decimal::from(3000));
     assert_eq!(opening_signed(opening, "2250"), Decimal::from(-100));
+
+    // A forgotten opening balance found after 2026 is sealed cannot be backdated
+    // into 2025: it would change the position 2026 already carried forward.
+    let before = ledger.rejection_count().unwrap();
+    let date = Date::parse("2025-12-31").unwrap();
+    let draft = VoucherDraft::new(
+        date,
+        date,
+        "late opening".into(),
+        vec![
+            Posting {
+                account: AccountId::new("1910").unwrap(),
+                amount: Money::parse("50.00", eur()).unwrap(),
+                side: Side::Debit,
+                vat_code: None,
+            },
+            Posting {
+                account: AccountId::new("2400").unwrap(),
+                amount: Money::parse("50.00", eur()).unwrap(),
+                side: Side::Credit,
+                vat_code: None,
+            },
+        ],
+        None,
+    )
+    .unwrap();
+    let err = ledger
+        .seal(
+            &draft,
+            &SealRequest {
+                natural_key: "late-opening".into(),
+                actor: "test".into(),
+                policy_set: PolicySet::default(),
+            },
+        )
+        .unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_SEALED", "{err}");
+    assert_eq!(ledger.rejection_count().unwrap(), before + 1);
+    let again = ledger.fiscal_year_data(2027).unwrap();
+    assert_eq!(
+        again.opening_balance.unwrap().postings(),
+        opening.postings()
+    );
+
+    // Nor can 2025 become a kept year afterwards (closing one of its periods, or
+    // attributing an opening voucher elsewhere): the sealed 2026 statements must stay
+    // reproducible from the same cut-over.
+    let q4 = PeriodId::new(2025, 4).unwrap();
+    let err = ledger.begin_close(&q4, "late-close", "test").unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT", "{err}");
+    let err = ledger
+        .attribute_adjustment(1, 2024, "late-attribution", "test")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT", "{err}");
+    let first_year = ledger.fiscal_year_data(2026).unwrap();
+    assert!(matches!(
+        first_year.opening_balance.unwrap().source(),
+        OpeningBalanceSource::ExternalCutover { .. }
+    ));
 }
 
 #[test]
@@ -473,6 +532,13 @@ fn a_prior_year_with_a_period_closed_in_aggountant_still_refuses() {
     let authority = ledger.begin_close(&q4, "close-q4", "test").unwrap();
     ledger.seal_period(&q4, &authority, "test").unwrap();
 
+    let err = ledger.fiscal_year_data(2026).unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
+
+    // Reopening the closed quarter does not make 2025 an outside year again.
+    ledger
+        .reopen_period(&q4, &authority, PeriodState::Open, "test")
+        .unwrap();
     let err = ledger.fiscal_year_data(2026).unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
 }

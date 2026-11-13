@@ -379,8 +379,26 @@ impl FiscalStore for SqliteFiscalStore {
         // the date, so use indexed lookups rather than scanning period history.
         // Every voucher must belong to a fiscal year, or no statement projection could
         // place it. Read in the writer lock, so a concurrent definition cannot slip in.
-        if let Err(error) = load_calendar(&tx)?.year_of(gate.posting_date) {
-            let refusal = LedgerError::Model(error);
+        // A Sealed fiscal year has carried its closing position forward, and the next
+        // year's opening folds every earlier voucher. A voucher dated in or before a
+        // Sealed year would change that position after the fact, so it is refused even
+        // when the earlier year's own periods were never closed here (a year kept in the
+        // old system, whose opening voucher is dated its last day).
+        let refusal = match load_calendar(&tx)?.year_of(gate.posting_date) {
+            Err(error) => Some(LedgerError::Model(error)),
+            Ok(posting_year) => {
+                first_sealed_year_in(&tx, posting_year.year(), i32::MAX)?.map(|sealed| {
+                    LedgerError::PeriodSealed(format!(
+                        "fiscal year {sealed} is Sealed and carried forward the closing \
+                         position of every earlier year; a voucher dated {} (fiscal year {}) \
+                         would change it, so corrections go to the next open period",
+                        gate.posting_date,
+                        posting_year.year()
+                    ))
+                })
+            }
+        };
+        if let Some(refusal) = refusal {
             insert_rejection(
                 &tx,
                 &RejectionRecord {
@@ -555,18 +573,19 @@ impl FiscalStore for SqliteFiscalStore {
         // serialize here (ADR-6 §2).
         let tx = guard.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
-        // S6: once the containing fiscal year is Sealed, no subperiod may transition
-        // (the reopen edge would otherwise let a sealed year diverge from its bound
-        // `statements_hash`). Checked inside the same writer lock as the year seal, so
+        // S6: once the containing fiscal year or a later one is Sealed, no subperiod
+        // may transition (the reopen edge would otherwise let a sealed year diverge
+        // from its bound `statements_hash`, and closing a period of an earlier year
+        // kept in the old system would turn its boundary opening voucher into a kept
+        // year's activity). Checked inside the same writer lock as the year seal, so
         // there is no window. The VAT-filing self-edge (`Sealed→Sealed`) is exempt —
         // filing does not change the ledger figures the year seal bound.
         if !(req.from == PeriodState::Sealed && req.to == PeriodState::Sealed) {
             let calendar = load_calendar(&tx)?;
             for year in fiscal_years_of_period(&calendar, &req.period_id)? {
-                let fy = read_fiscal_year_row(&tx, year)?;
-                if fy.state == FiscalYearState::Sealed {
+                if let Some(sealed) = first_sealed_year_in(&tx, year, i32::MAX)? {
                     let err = LedgerError::PeriodTransitionConflict(format!(
-                        "period {} cannot transition {}→{}: fiscal year {year} is Sealed",
+                        "period {} cannot transition {}→{}: fiscal year {sealed} is Sealed",
                         req.period_id,
                         req.from.as_str(),
                         req.to.as_str()
@@ -1270,20 +1289,20 @@ impl FiscalStore for SqliteFiscalStore {
             return Err(refuse_attribution(tx, err, req)?);
         }
 
-        // No fiscal year in the affected interval [effective_year, posting_year] may be
-        // Sealed. Attributing a voucher across that span changes: the effective year's
+        // No fiscal year from effective_year onwards may be Sealed. Attributing a
+        // voucher across [effective_year, posting_year] changes: the effective year's
         // current activity, every intervening year's opening balances, and the posting
         // year's current activity — so a Sealed year anywhere in it would have its bound
-        // statements_hash silently diverge. Checked in-lock, so a concurrent SealYear on
-        // any of those years either committed first (we see Sealed and refuse) or blocks
-        // behind us. (A year *after* posting_year folds this voucher into its opening
-        // identically whether it is classed to E or P, so it is unaffected and excluded.)
-        if let Some(sealed_year) = first_sealed_year_in(&tx, req.effective_year, req.posting_year)?
-        {
+        // statements_hash silently diverge. A year after posting_year folds the voucher
+        // into its opening with the same amounts, but an attributed voucher no longer
+        // counts as a boundary opening voucher, which changes that year's opening source.
+        // Checked in-lock, so a concurrent SealYear on any of those years either
+        // committed first (we see Sealed and refuse) or blocks behind us.
+        if let Some(sealed_year) = first_sealed_year_in(&tx, req.effective_year, i32::MAX)? {
             let err = LedgerError::PeriodTransitionConflict(format!(
-                "cannot attribute voucher {} to statement year {}: fiscal year {sealed_year} in the \
-                 affected interval [{}, {}] is Sealed (its statements are bound)",
-                req.voucher_number, req.effective_year, req.effective_year, req.posting_year
+                "cannot attribute voucher {} to statement year {}: fiscal year {sealed_year} \
+                 (at or after {}) is Sealed (its statements are bound)",
+                req.voucher_number, req.effective_year, req.effective_year
             ));
             return Err(refuse_attribution(tx, err, req)?);
         }
@@ -1839,9 +1858,9 @@ fn read_attribution(
 }
 
 /// The first `Sealed` fiscal year in the inclusive interval `[lo, hi]`, or `None`
-/// (issue `closeyear-adjustment-attribution`). Drives the cascade seal-guard: an
-/// attribution across `[effective_year, posting_year]` may not straddle any sealed
-/// year. Assumes `lo <= hi` (the Ledger enforces `effective_year <= posting_year`).
+/// (issue `closeyear-adjustment-attribution`). Drives the seal-guards that keep a
+/// voucher, a period transition or an attribution out of a year at or before a
+/// sealed one (`hi = i32::MAX`).
 fn first_sealed_year_in(conn: &Connection, lo: i32, hi: i32) -> Result<Option<i32>, LedgerError> {
     let y: Option<i64> = conn
         .query_row(

@@ -233,19 +233,15 @@ pub(crate) struct StoredAttribution {
 /// A requested effective-year attribution (issue `closeyear-adjustment-attribution`).
 /// The store binds `voucher_number → effective_year` as one immutable, hash-chained
 /// event inside the writer lock, refusing (each with an audited rejection): any
-/// fiscal year in the affected interval `[effective_year, posting_year]` that is
-/// already `Sealed` (attributing across it would silently change a sealed year's
-/// current activity or opening balances, diverging its bound `statements_hash`), and
-/// a re-attribution to a *different* year (attribution is immutable; a repeat to the
-/// *same* year is an idempotent replay). The Ledger validates voucher existence and
-/// derives `posting_year` before calling (a sealed voucher is immutable, so that read
-/// cannot race); the interval seal-guard must run in-lock, hence `posting_year` here.
+/// fiscal year from `effective_year` onwards that is already `Sealed` (attributing
+/// would silently change a sealed year's current activity, opening balances or
+/// opening source, diverging its bound `statements_hash`), and a re-attribution to a
+/// *different* year (attribution is immutable; a repeat to the *same* year is an
+/// idempotent replay). The Ledger validates voucher existence and that the effective
+/// year is not after the posting year before calling; the seal-guard runs in-lock.
 pub(crate) struct AttributionRequest {
     pub voucher_number: u64,
     pub effective_year: i32,
-    /// The calendar year the voucher's `posting_date` falls in — the far end of the
-    /// affected interval the in-lock seal-guard scans.
-    pub posting_year: i32,
     pub run_id: String,
     pub actor: String,
     /// Deterministic audit key (`sha256(attribution\0number\0year\0run_id)`), bound
@@ -415,7 +411,7 @@ pub(crate) trait FiscalStore {
     /// as one immutable, hash-chained event, inside the `BEGIN IMMEDIATE` writer
     /// lock so the "no affected year Sealed" guard and the append are atomic against a
     /// concurrent `SealYear`. Refuses (with an audited rejection bound to
-    /// `req.request_hash`): any `Sealed` fiscal year in `[effective_year, posting_year]`
+    /// `req.request_hash`): any `Sealed` fiscal year from `effective_year` onwards
     /// (`PERIOD_TRANSITION_CONFLICT`), or a re-attribution to a *different* year
     /// (`IDEMPOTENCY_KEY_REUSE`). A repeat to the same year replays. Voucher existence
     /// is the Ledger's precondition (audited there); the FK on `voucher_number` is the

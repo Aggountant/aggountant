@@ -97,3 +97,10 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   those vouchers become an `ExternalCutover` opening balance. Do not widen the
   test (to other dates, result accounts or kept years) without a decision;
   that would let a real year's activity reach the next year unfrozen.
+- **Nothing enters a year at or before a Sealed fiscal year.** A sealed year
+  has carried forward the closing position of every earlier year, including a
+  year kept in the old system that was never sealed here. So the seal refuses
+  a voucher dated in or before a Sealed year, period transitions refuse
+  periods of such years, and attribution refuses a target year at or before
+  one. Without this a backdated voucher would change the next year's opening
+  silently, or turn a sealed year's cut-over into a refusal.
