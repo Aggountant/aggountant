@@ -1,9 +1,9 @@
 ---
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-13
 type: feature
 reporter: jari
-status: open
+status: in-progress
 priority: high
 preparation: ready
 lane: vat-filing
