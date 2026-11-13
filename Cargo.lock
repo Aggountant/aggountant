@@ -115,6 +115,7 @@ dependencies = [
  "aggountant-domain",
  "aggountant-ledger",
  "aggountant-model",
+ "aggountant-vero-vat-api-mock",
  "chrono",
  "hex",
  "rust_decimal",

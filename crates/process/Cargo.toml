@@ -29,3 +29,4 @@ rust_decimal.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
+aggountant-vero-vat-api-mock = { path = "../vero-vat-api-mock" }

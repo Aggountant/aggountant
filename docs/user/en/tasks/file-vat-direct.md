@@ -55,6 +55,7 @@ aggountant file-vat start < return.json
 aggountant file-vat approve-filing --run-id fv-… --answer approve
 aggountant run show --run-id fv-…
 aggountant period show --period 2026-03
+aggountant file-vat status --period 2026-03
 ```
 
 In the filing run's input, the Tax Administration's bank account number is
@@ -69,8 +70,9 @@ and for a return with tax to pay finally at `ApprovePayment`. Rejecting is
   Administration's acknowledgement.
 - The month's state shows `vat_filed true`.
 
-A return usually shows in OmaVero only about half a day later. **Do not send
-it again because it does not show yet:**
+A return usually shows in OmaVero only about half a day later. The agent can
+ask the Tax Administration for its status without sending anything. **Do not
+send it again because it does not show yet:**
 [When something goes wrong](../troubleshooting.md#the-return-does-not-show-in-omavero).
 
 ## Limitations

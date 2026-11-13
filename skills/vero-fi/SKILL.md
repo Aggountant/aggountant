@@ -210,9 +210,14 @@ havainto, ei luvattu palvelutaso.
 Näkymätön ilmoitus ei siis ole epäonnistunut, eikä se koskaan oikeuta uuteen
 lähetykseen: uusi ajo pysähtyisi joka tapauksessa `PERIOD_TRANSITION_CONFLICT`-esteeseen,
 ja Veron puolelle päätynyt kahdennus olisi korvaava ilmoitus, jota kukaan ei tarkoittanut.
-Valmistuneelle ajolle aggountantissa ei ole erillistä jälkilukukomentoa
-(`reconcile` on rajattu epävarmaan lopputulokseen), joten tila tarkistetaan OmaVerosta.
-Kerro käyttäjälle sopiva odotusaika huomioiden viikonloput, ja jos ilmoitus ei näy
+Tilan voi kysyä lähettämättä mitään: `aggountant file-vat status --period 2026-03
+--json` lukee kuitatun ilmoituksen `GetFiledVATReturn/v2`-tilan ja kertoo `received`
+(kuitattu, ei vielä näkyvissä), `pending_authority_processing`, `processed` tai
+`processed_values_differ` (käsitelty kuittauksen jälkeen eri luvuin: pyydä käyttäjää
+vertaamaan OmaVerossa). Ilman kuittausta se vastaa paikallisista tiedoista
+(`not_filed`, `filed_without_receipt`, `outcome_unknown` ja `next_command`
+reconcileen, `filing_interrupted`). `VAT_STATUS_UNKNOWN` tarkoittaa vain, ettei tilaa
+saatu luettua; kuittaus todistaa ilmoituksen silti. Kerro käyttäjälle sopiva odotusaika huomioiden viikonloput, ja jos ilmoitus ei näy
 vuorokauden jälkeen tai eräpäivä painaa, kokoa hänelle Verohallinnon ALV-palvelulle
 soittoa varten kauden tiedot, `UniqueIdentifier`, `AcceptedTimestamp`, Y-tunnus ja
 lähetetyt kentät. Uusi lähetys vain Veron nimenomaisella ohjeella.

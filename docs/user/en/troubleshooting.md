@@ -101,9 +101,27 @@ but has not processed it yet. A return sent through the API has usually shown
 in OmaVero only about half a day later
 ([Filings](concepts/filings.md#received-is-not-processed)).
 
-**Check.** Ask the agent to show the run's state and the Tax Administration's
-acknowledgement. If there is an acknowledgement, the return has been
-received.
+**Check.** Ask the agent to query the return's status
+(`aggountant file-vat status --period 2026-03`). The command only reads: it
+sends nothing and changes neither the books nor the run. When the period has
+an acknowledgement, the command asks the Tax Administration how the return
+shows there and reports one status:
+
+- `received`: there is an acknowledgement, but the Tax Administration does
+  not show the return yet.
+- `pending_authority_processing`: the Tax Administration is processing the
+  return or still shows an earlier one.
+- `processed`: the Tax Administration has processed the return with the
+  approved figures.
+- `processed_values_differ`: the Tax Administration has processed a return
+  after the acknowledgement whose figures differ from the approved ones.
+  Compare it in OmaVero.
+
+The acknowledgement proves the filing, not whether the return shows in
+OmaVero. If the status query fails (`VAT_STATUS_UNKNOWN`), the status is only
+unknown: the return has still been filed. If the outcome of the submission is
+uncertain, the command points to `file-vat reconcile`
+([below](#the-outcome-of-a-filing-is-uncertain)).
 
 **Do this.** Wait until the next working day. If the return still does not
 show, or the due date is close, call the Tax Administration's VAT service.

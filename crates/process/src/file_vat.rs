@@ -36,7 +36,10 @@ use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Money,
 use sha2::{Digest, Sha256};
 
 use crate::journal::{EventPayload, Journal};
+
+mod status;
 use crate::{fold, EffectStatus, Fold, GateView, ProcessEngine, ProcessError, RunView, Seam};
+pub use status::{FileVatFilingStatus, FileVatStatus, FileVatStatusPlan, FiledVatQuery};
 
 /// Effect keys for the `file-vat` Run (stable idempotency keys).
 const EFFECT_RECONCILE: &str = "reconcile";
@@ -641,23 +644,8 @@ impl ProcessEngine {
             &state.vero_period,
             &state.filing_sent_hash,
         )?;
-        let expected: FileVatReturn = serde_json::from_str(
-            state.filing_body["request_bytes"]
-                .as_str()
-                .unwrap_or_default(),
-        )
-        .map_err(|e| ProcessError::JournalCorrupt(format!("bad FileVATReturn state: {e}")))?;
-        let request = serde_json::to_string(&json!({
-            "BusinessId": expected.business_id,
-            "FilingPeriod": expected.filing_period,
-        }))
-        .map_err(|e| ProcessError::Store(e.to_string()))?;
-        let envelope = Envelope::new(
-            SVC_VERO_FILED_VAT_RETURN,
-            "GetFiledVATReturn/v2",
-            format!("reconcile:{}", state.period),
-            json!({ "request_bytes": request }),
-        );
+        let expected = approved_filing_request(&state)?;
+        let envelope = filed_vat_return_envelope(&expected, format!("reconcile:{}", state.period))?;
         let body = broker.fetch(&envelope).map_err(map_broker)?;
         let filed: FiledVatReturn = serde_json::from_value(body)
             .map_err(|e| ProcessError::Store(format!("GetFiledVATReturn malformed: {e}")))?;
@@ -1254,6 +1242,36 @@ fn assert_gate_approved_and_bound(
         )));
     }
     Ok(())
+}
+
+/// The approved FileVATReturn/v2 request, parsed back from the bytes the
+/// approval gate bound.
+fn approved_filing_request(state: &FileVatState) -> Result<FileVatReturn, ProcessError> {
+    serde_json::from_str(
+        state.filing_body["request_bytes"]
+            .as_str()
+            .unwrap_or_default(),
+    )
+    .map_err(|e| ProcessError::JournalCorrupt(format!("bad FileVATReturn state: {e}")))
+}
+
+/// The GetFiledVATReturn/v2 read for the period and organisation of an approved
+/// request. A read only: it is fetched, never submitted through the outbox.
+fn filed_vat_return_envelope(
+    expected: &FileVatReturn,
+    natural_key: String,
+) -> Result<Envelope, ProcessError> {
+    let request = serde_json::to_string(&json!({
+        "BusinessId": expected.business_id,
+        "FilingPeriod": expected.filing_period,
+    }))
+    .map_err(|e| ProcessError::Store(e.to_string()))?;
+    Ok(Envelope::new(
+        SVC_VERO_FILED_VAT_RETURN,
+        "GetFiledVATReturn/v2",
+        natural_key,
+        json!({ "request_bytes": request }),
+    ))
 }
 
 fn rebuild_filing_env(period: &PeriodId, body: &serde_json::Value) -> Envelope {

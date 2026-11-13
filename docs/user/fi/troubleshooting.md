@@ -100,8 +100,24 @@ ilmoituksen, mutta ei ole vielä käsitellyt sitä. Rajapinnan kautta tullut
 ilmoitus on näkynyt OmaVerossa tavallisesti vasta noin puolen vuorokauden
 kuluttua ([Viranomaisilmoitukset](concepts/filings.md#kuittaus-ei-ole-käsittely)).
 
-**Tarkista.** Pyydä agenttia näyttämään ajon tila ja Verohallinnon kuittaus.
-Jos kuittaus on, ilmoitus on vastaanotettu.
+**Tarkista.** Pyydä agenttia kysymään ilmoituksen tila
+(`aggountant file-vat status --period 2026-03`). Komento vain lukee: se ei
+lähetä mitään eikä muuta kirjanpitoa tai ajoa. Kun kaudella on kuittaus,
+komento kysyy Verohallinnolta, miten ilmoitus näkyy siellä, ja kertoo yhden
+tilan:
+
+- `received`: kuittaus on, mutta Verohallinto ei vielä näytä ilmoitusta.
+- `pending_authority_processing`: Verohallinto käsittelee ilmoitusta tai
+  näyttää vielä aiemman ilmoituksen.
+- `processed`: Verohallinto on käsitellyt ilmoituksen hyväksytyin luvuin.
+- `processed_values_differ`: Verohallinnossa on kuittauksen jälkeen käsitelty
+  ilmoitus, jonka luvut poikkeavat hyväksytyistä. Vertaa sitä OmaVerossa.
+
+Ilmoituksen todistaa kuittaus, ei se, näkyykö ilmoitus OmaVerossa. Jos tilan
+kysely epäonnistuu (`VAT_STATUS_UNKNOWN`), tila on vain tuntematon:
+ilmoitus on silti tehty. Jos lähetyksen lopputulos on epävarma, komento ohjaa
+`file-vat reconcile`-komentoon
+([alla](#ilmoituksen-lopputulos-on-epävarma)).
 
 **Tee näin.** Odota seuraavaan arkipäivään. Jos ilmoitus ei sittenkään näy tai
 eräpäivä on lähellä, soita Verohallinnon ALV-palveluun. Agentti kokoaa sinulle

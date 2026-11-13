@@ -35,6 +35,11 @@ pub enum ProcessError {
     /// bind to figures the ledger itself can reproduce, not unverified input.
     #[error("VAT_FIGURES_MISMATCH: {0}")]
     VatFiguresMismatch(String),
+    /// `file-vat status` could not read the authority's view of a filed return
+    /// (network, credential, readiness or response failure). This never means
+    /// "not filed": the stored receipt still proves the filing.
+    #[error("VAT_STATUS_UNKNOWN: {0}")]
+    VatStatusUnknown(String),
     /// `capture-receipt`'s approved draft would record a deductible input-VAT
     /// amount different from the deterministic eligibility assessment. The payload
     /// is never rewritten after approval; the caller must start a new Run with a
@@ -91,6 +96,7 @@ impl ProcessError {
             ProcessError::InvalidAnswer(_) => "INVALID_ANSWER",
             ProcessError::JournalCorrupt(_) => "JOURNAL_CORRUPT",
             ProcessError::VatFiguresMismatch(_) => "VAT_FIGURES_MISMATCH",
+            ProcessError::VatStatusUnknown(_) => "VAT_STATUS_UNKNOWN",
             ProcessError::CaptureVatMismatch(_) => "CAPTURE_VAT_MISMATCH",
             ProcessError::CaptureFactRequired(_) => "CAPTURE_FACT_REQUIRED",
             ProcessError::CaptureClarificationRequired(_) => "CAPTURE_CLARIFICATION_REQUIRED",
@@ -111,6 +117,7 @@ impl ProcessError {
     pub fn kind(&self) -> &'static str {
         match self {
             ProcessError::Store(_)
+            | ProcessError::VatStatusUnknown(_)
             | ProcessError::KnowledgeHistoryCorrupt(_)
             | ProcessError::Ledger(LedgerError::AuditUnavailable(_) | LedgerError::Store(_)) => {
                 "system"

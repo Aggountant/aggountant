@@ -37,7 +37,8 @@ use aggountant_model::{
 };
 use aggountant_process::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, CloseYearInput,
-    FileVatInput, HuntReceiptsInput, ProcessEngine, StructuredReceiptInput, SystemClock,
+    FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, StructuredReceiptInput,
+    SystemClock,
 };
 
 mod knowledge;
@@ -567,6 +568,15 @@ enum FileVatCmd {
         #[arg(long)]
         run_id: String,
     },
+    /// Read-only: what happened to the period's VAT return. A receipted direct
+    /// filing is compared with GetFiledVATReturn/v2 (received, pending authority
+    /// processing, processed); other cases are answered from local records. Never
+    /// submits or writes; a failed read is VAT_STATUS_UNKNOWN, never "not filed".
+    #[command(after_long_help = VERO_TRANSPORT_HELP)]
+    Status {
+        #[arg(long)]
+        period: PeriodId,
+    },
     /// Deliberately retry only the separate payment effect. A Vero filing is never
     /// blindly re-submitted.
     Retry {
@@ -901,7 +911,9 @@ impl From<aggountant_process::ProcessError> for CliError {
         use aggountant_process::ProcessError::*;
 
         let class = match &e {
-            JournalCorrupt(_) | KnowledgeHistoryCorrupt(_) | Store(_) => ErrorClass::System,
+            JournalCorrupt(_) | KnowledgeHistoryCorrupt(_) | Store(_) | VatStatusUnknown(_) => {
+                ErrorClass::System
+            }
             Ledger(error) => classify_ledger_error(error),
             RunNotFound(_)
             | WorkflowVersionMismatch(_)
@@ -1732,6 +1744,28 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
                     let view = engine.reconcile_file_vat(run_id, &operation.broker)?;
                     Ok(serde_json::to_value(view).expect("run view serializes"))
+                }
+                FileVatCmd::Status { period } => {
+                    let status = match engine.file_vat_status_plan(period)? {
+                        FileVatStatusPlan::Answered(status) => status,
+                        FileVatStatusPlan::Query(query) => {
+                            // Only a receipted filing needs credentials. A broker that
+                            // cannot be built leaves the status unknown, not "not filed".
+                            let operation = build_file_vat_broker(&home, broker_script.as_deref())
+                                .map_err(|e| CliError {
+                                    code: "VAT_STATUS_UNKNOWN".into(),
+                                    class: e.class,
+                                    message: format!(
+                                        "cannot read the Tax Administration's view of {period} \
+                                         ({}: {}); the stored receipt still proves the filing, \
+                                         do not file again",
+                                        e.code, e.message
+                                    ),
+                                })?;
+                            engine.query_file_vat_status(&query, &operation.broker)?
+                        }
+                    };
+                    Ok(serde_json::to_value(status).expect("file-vat status serializes"))
                 }
                 FileVatCmd::Retry { run_id, effect } => {
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
@@ -2661,6 +2695,12 @@ fn human_line(command: &Command, value: &Value) -> String {
                 value["period"],
                 value["manual_filing"]["channel"],
                 value["manual_filing"]["evidence_ref"]
+            ),
+            FileVatCmd::Status { .. } => format!(
+                "VAT {} — {}: {}",
+                value["period"],
+                value["status"],
+                value["message"].as_str().unwrap_or_default()
             ),
             _ => format!(
                 "file-vat run {} — {} (net_vat {}, bank_payment_required {})",

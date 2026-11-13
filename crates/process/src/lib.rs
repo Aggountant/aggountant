@@ -43,7 +43,10 @@ pub use company_knowledge::{
     AddCompanyKnowledge, CompanyKnowledgeDocument, CompanyKnowledgeItem, CompanyKnowledgeRevision,
     CompanyKnowledgeSource, CompanyKnowledgeStatus, RetireCompanyKnowledge, UpdateCompanyKnowledge,
 };
-pub use file_vat::{FileVatInput, FileVatStart};
+pub use file_vat::{
+    FileVatFilingStatus, FileVatInput, FileVatStart, FileVatStatus, FileVatStatusPlan,
+    FiledVatQuery,
+};
 pub use hunt_receipts::{BankTransaction, HuntReceiptsInput};
 pub use intake::{Intake, MatchCandidate, MatchStatus};
 pub use knowledge::Knowledge;

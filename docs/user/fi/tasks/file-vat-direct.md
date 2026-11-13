@@ -53,6 +53,7 @@ aggountant file-vat start < ilmoitus.json
 aggountant file-vat approve-filing --run-id fv-… --answer approve
 aggountant run show --run-id fv-…
 aggountant period show --period 2026-03
+aggountant file-vat status --period 2026-03
 ```
 
 Ilmoitusajon syötteessä Verohallinnon tilinumero on kentässä `payee_iban`.
@@ -66,7 +67,8 @@ lopuksi `ApprovePayment`. Hylkäys on `--answer reject`.
 - Kuukauden tila näyttää `vat_filed true`.
 
 Ilmoitus näkyy OmaVerossa tavallisesti vasta noin puolen vuorokauden
-kuluttua. **Älä lähetä sitä uudelleen sen takia, että se ei vielä näy:**
+kuluttua. Agentti voi kysyä sen tilan Verohallinnolta lähettämättä mitään.
+**Älä lähetä sitä uudelleen sen takia, että se ei vielä näy:**
 [Kun jokin menee vikaan](../troubleshooting.md#ilmoitus-ei-näy-omaverossa).
 
 ## Rajoitukset
