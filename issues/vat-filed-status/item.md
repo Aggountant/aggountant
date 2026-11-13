@@ -3,12 +3,14 @@ created: 2026-11-11
 updated: 2026-11-13
 type: feature
 reporter: jari
-status: in-progress
+status: done
 priority: high
 preparation: ready
 lane: vat-filing
 lane_seq: 6
 collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
+closed: 2026-11-13
+closed_by: spinoff-vat-status
 ---
 
 # Read the status of an accepted VAT return
