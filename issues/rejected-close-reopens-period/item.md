@@ -2,12 +2,14 @@
 created: 2026-11-10
 updated: 2026-11-13
 type: bug
-status: in-progress
+status: fixed
 priority: high
 lane: period-close
 lane_seq: 1
 collision: [crates/process, crates/ledger]
 preparation: ready
+closed: 2026-11-13
+closed_by: spinoff-rejected-close
 ---
 
 # Rejecting a period close strands the period in Closing
@@ -50,9 +52,9 @@ if close-period writes vouchers or other state into a Closing period, either
 it stays valid in an Open period or the rejection is refused with a clear
 error; nothing is silently discarded.
 
-## Acceptance criteria
+## Acceptance Criteria
 
-- [ ] After a rejected close the period is `Open`, accepts vouchers again and a new close can start.
-- [ ] A test covers reject → record → close → seal, and verification of the home passes afterwards.
-- [ ] Only the owning Run can take `Closing→Open`; other transitions stay refused.
-- [ ] The user guide's "never reject a close" warning is removed in the same commit (fi and en).
+- [x] After a rejected close the period is `Open`, accepts vouchers again and a new close can start.
+- [x] A test covers reject → record → close → seal, and verification of the home passes afterwards.
+- [x] Only the owning Run can take `Closing→Open`; other transitions stay refused.
+- [x] The user guide's "never reject a close" warning is removed in the same commit (fi and en).
