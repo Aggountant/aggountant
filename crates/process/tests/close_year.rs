@@ -277,7 +277,19 @@ fn a_d7_correction_must_be_sealed_before_approve_adjustments() {
         .answer_close_year(&run_id, "ApproveAdjustments", "approve")
         .unwrap_err();
     assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
-    assert!(err.to_string().contains("correction:reclass-1"));
+    let msg = err.to_string();
+    assert!(msg.contains("correction:reclass-1"));
+    assert!(
+        msg.contains("ApproveAdjustments is blocked"),
+        "names the blocked gate: {msg}"
+    );
+    assert!(!msg.contains("ApproveStatements"), "{msg}");
+    assert!(
+        msg.contains(&format!(
+            "close-year seal-correction --run-id {run_id} --correction <id>"
+        )),
+        "tells how to seal: {msg}"
+    );
 
     // Seal the correction on its own approval, then the gate is reachable.
     let v = engine

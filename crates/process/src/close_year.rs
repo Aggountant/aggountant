@@ -755,9 +755,12 @@ impl ProcessEngine {
             .collect();
         if !unsealed.is_empty() {
             return Err(ProcessError::CloseYearBlocked(format!(
-                "ApproveStatements is blocked by {} unsealed D7 correction(s): [{}]",
+                "{GATE_APPROVE_ADJ} is blocked by {} unsealed D7 correction(s): [{}]; seal \
+                 each first with `aggountant close-year seal-correction --run-id {} \
+                 --correction <id>`, where <id> follows `correction:`",
                 unsealed.len(),
-                unsealed.join(", ")
+                unsealed.join(", "),
+                f.run_id
             )));
         }
         Ok(())
