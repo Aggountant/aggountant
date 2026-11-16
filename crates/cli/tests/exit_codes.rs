@@ -89,6 +89,7 @@ const COMMAND_PATHS: &[&[&str]] = &[
     &["close-year", "answer"],
     &["close-year", "seal-correction"],
     &["close-year", "resume"],
+    &["close-year", "show"],
     &["fiscal-year"],
     &["fiscal-year", "show"],
     &["import"],

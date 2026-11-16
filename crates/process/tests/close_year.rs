@@ -9,7 +9,8 @@ use aggountant_domain::{depreciation_voucher, AccrualInput, AssetInput, PolicySe
 use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{
-    CloseYearInput, CorrectionInput, EffectStatus, ProcessEngine, RunStatus, RunView,
+    CloseYearInput, CloseYearShow, CorrectionInput, EffectStatus, GateContent, ProcessEngine,
+    RunStatus, RunView,
 };
 
 fn eur() -> Currency {
@@ -1009,4 +1010,226 @@ fn a_resumed_run_does_not_seal_statements_another_run_has_made_stale() {
     )
     .unwrap();
     assert_eq!(archive["statements"]["result"], "5600.00");
+}
+
+/// The gate's snapshot hash recomputed here, independently of the engine, from the
+/// shown content: sha256 over the depreciation JSON then the accrual JSON for the
+/// adjustments, and the type's `statements_hash()` for the rest.
+fn independent_hash(content: &GateContent) -> String {
+    use sha2::{Digest, Sha256};
+    match content {
+        GateContent::Adjustments(a) => {
+            let mut h = Sha256::new();
+            h.update(serde_json::to_vec(&a.depreciation).unwrap());
+            h.update(serde_json::to_vec(&a.accruals).unwrap());
+            hex::encode(h.finalize())
+        }
+        GateContent::TaseErittelyt(te) => te.statements_hash(),
+        GateContent::Liitetiedot(lt) => lt.statements_hash(),
+        GateContent::Statements(st) => st.statements_hash(),
+    }
+}
+
+/// The open gate's id, after checking that the shown content hashes to the gate's
+/// `snapshot_hash` as recorded in the Run.
+fn assert_shown_content_is_bound(shown: &CloseYearShow) -> String {
+    let gate = shown.open_gate.as_ref().expect("a gate is open");
+    let recorded = shown
+        .run
+        .gates
+        .iter()
+        .find(|g| g.answered.is_none())
+        .unwrap();
+    assert_eq!(gate.gate_id, recorded.gate_id);
+    assert_eq!(gate.snapshot_hash, recorded.snapshot_hash);
+    assert_eq!(independent_hash(&gate.content), recorded.snapshot_hash);
+    assert_eq!(gate.content.snapshot_hash(), recorded.snapshot_hash);
+    gate.gate_id.clone()
+}
+
+fn state_path(home: &std::path::Path, run_id: &str) -> std::path::PathBuf {
+    home.join("process/runs")
+        .join(run_id)
+        .join("close_year_state.json")
+}
+
+#[test]
+fn every_gate_shows_the_content_its_hash_binds_also_after_a_restart() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let mut input = base_input(2026);
+    input.corrections = vec![CorrectionInput {
+        correction_id: "reclass-1".into(),
+        description: "uudelleenluokittelu".into(),
+        debit_account: acct("6000"),
+        credit_account: acct("7690"),
+        amount: money("150.00"),
+    }];
+    let run_id = {
+        let engine = ProcessEngine::open(home.path());
+        engine
+            .start_close_year(&input, &PolicySet::default())
+            .unwrap()
+            .run
+            .run_id
+    };
+
+    // Each gate is read by a fresh engine after the previous process has gone, and
+    // after a resume, as a user returning in a later session would.
+    let gates = [
+        "ApproveAdjustments",
+        "ApproveTaseErittelyt",
+        "ApproveLiitetiedot",
+        "ApproveStatements",
+    ];
+    for expected in gates {
+        let engine = ProcessEngine::open(home.path());
+        engine.resume_close_year(&run_id).unwrap();
+        let shown = engine.show_close_year(&run_id).unwrap();
+        assert_eq!(assert_shown_content_is_bound(&shown), expected);
+        let gate = shown.open_gate.as_ref().unwrap();
+        match (&gate.content, expected) {
+            (GateContent::Adjustments(a), "ApproveAdjustments") => {
+                assert_eq!(a.depreciation[0].amount.amount_str(), "2000.00");
+                assert_eq!(a.accruals[0].accrual_id, "sahko");
+                // The correction is listed, outside the hash, with its seal state.
+                assert_eq!(gate.corrections.len(), 1);
+                assert!(!gate.corrections[0].sealed);
+                engine
+                    .seal_close_year_correction(&run_id, "reclass-1")
+                    .unwrap();
+                let again = engine.show_close_year(&run_id).unwrap();
+                assert_shown_content_is_bound(&again);
+                assert!(again.open_gate.unwrap().corrections[0].sealed);
+            }
+            (GateContent::TaseErittelyt(te), "ApproveTaseErittelyt") => {
+                assert_eq!(te.fiscal_year, 2026);
+                assert!(!te.lines.is_empty());
+                assert!(gate.corrections.is_empty());
+            }
+            (GateContent::Liitetiedot(lt), "ApproveLiitetiedot") => {
+                assert_eq!(lt.depreciation_notes[0].asset_class, "koneet-ja-kalusto");
+            }
+            (GateContent::Statements(st), "ApproveStatements") => {
+                assert_eq!(st.result, "5700.00");
+            }
+            (content, gate) => panic!("{gate} showed {content:?}"),
+        }
+        approve(&engine, &run_id, expected);
+    }
+
+    let engine = ProcessEngine::open(home.path());
+    let done = engine.show_close_year(&run_id).unwrap();
+    assert_eq!(done.run.status, RunStatus::Completed);
+    assert!(done.open_gate.is_none());
+
+    // The archive keeps what was approved: the persisted tase-erittelyt and
+    // liitetiedot, byte for byte.
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(state_path(home.path(), &run_id)).unwrap()).unwrap();
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(archive["tase_erittelyt"], state["tase_erittelyt"]);
+    assert_eq!(archive["liitetiedot"], state["liitetiedot"]);
+}
+
+#[test]
+fn shown_content_has_a_stable_json_shape() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let value = serde_json::to_value(engine.show_close_year(&run_id).unwrap()).unwrap();
+    assert_eq!(value["run_id"], run_id.as_str());
+    let gate = &value["open_gate"];
+    assert_eq!(gate["gate_id"], "ApproveAdjustments");
+    assert_eq!(gate["kind"], "adjustments");
+    assert_eq!(
+        gate["content"]["depreciation"][0]["amount"]["amount"],
+        "2000.00"
+    );
+    assert_eq!(gate["content"]["accruals"][0]["accrual_id"], "sahko");
+    assert!(gate.get("corrections").is_none());
+
+    approve(&engine, &run_id, "ApproveAdjustments");
+    let value = serde_json::to_value(engine.show_close_year(&run_id).unwrap()).unwrap();
+    assert_eq!(value["open_gate"]["kind"], "tase_erittelyt");
+    assert_eq!(value["open_gate"]["content"]["fiscal_year"], 2026);
+}
+
+#[test]
+fn changed_gate_content_is_neither_shown_nor_approved() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &run_id, "ApproveAdjustments");
+
+    // Change the persisted tase-erittelyt behind the open gate.
+    let path = state_path(home.path(), &run_id);
+    let mut state: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    state["tase_erittelyt"]["fiscal_year"] = serde_json::json!(2025);
+    fs::write(&path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+
+    let err = engine.show_close_year(&run_id).unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT");
+    let err = engine
+        .answer_close_year(&run_id, "ApproveTaseErittelyt", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT");
+    // The gate stays open and can still be rejected.
+    let v = engine
+        .answer_close_year(&run_id, "ApproveTaseErittelyt", "reject")
+        .unwrap();
+    assert_eq!(v.status, RunStatus::Rejected);
+}
+
+#[test]
+fn a_run_started_before_content_was_persisted_shows_a_checked_rebuild() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &run_id, "ApproveAdjustments");
+
+    // A state file written by an earlier version has none of the persisted content.
+    let path = state_path(home.path(), &run_id);
+    let strip = |path: &std::path::Path| {
+        let mut state: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        let map = state.as_object_mut().unwrap();
+        map.remove("depreciation");
+        map.remove("tase_erittelyt");
+        map.remove("liitetiedot");
+        fs::write(path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+    };
+    strip(&path);
+    let shown = engine.show_close_year(&run_id).unwrap();
+    assert_eq!(
+        assert_shown_content_is_bound(&shown),
+        "ApproveTaseErittelyt"
+    );
+
+    // A rebuild that no longer matches the bound hash is refused. (Here the run's
+    // policy set changes, which the rebuilt provenance carries; in use it would be
+    // the books changing after the gate opened.)
+    let mut state: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    state["policy_set"] = serde_json::json!("other-policy");
+    fs::write(&path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+    let err = engine.show_close_year(&run_id).unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
 }

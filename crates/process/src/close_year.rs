@@ -32,7 +32,7 @@ use aggountant_domain::{
     accrual_voucher, compute_depreciation, compute_statements, depreciation_policy_version,
     depreciation_rate_table, depreciation_voucher, kpa_policy, kpa_policy_version, tase_erittelyt,
     AccrualInput, AssetInput, DepreciationLine, Liitetiedot, PolicySet, StatementProvenance,
-    Statements,
+    Statements, TaseErittelyt,
 };
 use aggountant_ledger::{FiscalYearState, Ledger, PeriodState};
 use aggountant_model::{AccountId, Date, Money, PeriodId};
@@ -109,8 +109,20 @@ struct CloseYearState {
     /// `YYYY-MM-DD` posting date for the adjustments (next open period).
     posting_date: String,
     input: CloseYearInput,
+    /// The depreciation lines computed at start, which the `ApproveAdjustments` gate
+    /// binds and `seal-adjustments` seals. Absent in a Run started before they were
+    /// persisted; such a Run recomputes them from `input.assets`.
+    #[serde(default)]
+    depreciation: Option<Vec<DepreciationLine>>,
     /// The computed statements, once `compute-statements` has run.
     statements: Option<Statements>,
+    /// The tase-erittelyt built when `ApproveTaseErittelyt` opened: the gate's hash
+    /// covers exactly these, `close-year show` shows them and the archive keeps them.
+    #[serde(default)]
+    tase_erittelyt: Option<TaseErittelyt>,
+    /// The liitetiedot built when `ApproveLiitetiedot` opened (as above).
+    #[serde(default)]
+    liitetiedot: Option<Liitetiedot>,
 }
 
 /// The start of a `close-year` Run (the `RunView` plus the computed adjustment
@@ -120,6 +132,76 @@ pub struct CloseYearStart {
     #[serde(flatten)]
     pub run: RunView,
     pub depreciation: Vec<DepreciationLine>,
+}
+
+/// `close-year show`: the Run plus the content of its open gate, so an approval is
+/// given on the exact content whose hash the gate recorded.
+#[derive(Debug, Clone, Serialize)]
+pub struct CloseYearShow {
+    #[serde(flatten)]
+    pub run: RunView,
+    /// `None` when no gate is open (the Run is running, completed or rejected).
+    pub open_gate: Option<CloseYearGateView>,
+}
+
+/// The open gate and what it binds. `content` hashed the way the gate hashes it
+/// ([`GateContent::snapshot_hash`]) equals `snapshot_hash`; the view is refused
+/// otherwise.
+#[derive(Debug, Clone, Serialize)]
+pub struct CloseYearGateView {
+    pub gate_id: String,
+    pub gate_kind: String,
+    pub snapshot_hash: String,
+    #[serde(flatten)]
+    pub content: GateContent,
+    /// For `ApproveAdjustments`: the Run's D7 corrections. They are outside the
+    /// gate's hash (each is sealed on its own `seal-correction` call, all before the
+    /// gate can be approved), but they are part of the year-end entries the user
+    /// approves.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub corrections: Vec<CorrectionStatus>,
+}
+
+/// One D7 correction and whether it is already sealed.
+#[derive(Debug, Clone, Serialize)]
+pub struct CorrectionStatus {
+    #[serde(flatten)]
+    pub correction: CorrectionInput,
+    pub sealed: bool,
+}
+
+/// What a close-year gate binds, one variant per gate.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", content = "content", rename_all = "snake_case")]
+pub enum GateContent {
+    /// `ApproveAdjustments`: the computed depreciation and the accruals.
+    Adjustments(AdjustmentsContent),
+    /// `ApproveTaseErittelyt`.
+    TaseErittelyt(TaseErittelyt),
+    /// `ApproveLiitetiedot`.
+    Liitetiedot(Liitetiedot),
+    /// `ApproveStatements` (Preview): the exact statement bytes `SealYear` seals.
+    Statements(Box<Statements>),
+}
+
+/// The `ApproveAdjustments` content.
+#[derive(Debug, Clone, Serialize)]
+pub struct AdjustmentsContent {
+    pub depreciation: Vec<DepreciationLine>,
+    pub accruals: Vec<AccrualInput>,
+}
+
+impl GateContent {
+    /// The gate's snapshot hash of this content: the one place each gate's hash is
+    /// defined, used both when the gate opens and when its content is shown.
+    pub fn snapshot_hash(&self) -> String {
+        match self {
+            Self::Adjustments(a) => adjustments_hash(&a.depreciation, &a.accruals),
+            Self::TaseErittelyt(te) => te.statements_hash(),
+            Self::Liitetiedot(lt) => lt.statements_hash(),
+            Self::Statements(s) => s.statements_hash(),
+        }
+    }
 }
 
 impl ProcessEngine {
@@ -329,7 +411,10 @@ impl ProcessEngine {
                 doc_date: doc_date.to_string(),
                 posting_date: posting_date.to_string(),
                 input: input.clone(),
+                depreciation: Some(depreciation.clone()),
                 statements: None,
+                tase_erittelyt: None,
+                liitetiedot: None,
             },
         )?;
 
@@ -377,7 +462,11 @@ impl ProcessEngine {
         journal.append(EventPayload::GateOpened {
             gate_id: GATE_APPROVE_ADJ.to_string(),
             gate_kind: "Approval".to_string(),
-            snapshot_hash: adjustments_hash(&depreciation, &input.accruals),
+            snapshot_hash: GateContent::Adjustments(AdjustmentsContent {
+                depreciation: depreciation.clone(),
+                accruals: input.accruals.clone(),
+            })
+            .snapshot_hash(),
         })?;
 
         let run = fold(&run_id, &journal.read_all()?)?.to_view();
@@ -481,7 +570,15 @@ impl ProcessEngine {
             match gate_id {
                 // The statements are computed right after this approval, so every
                 // correction must already be in the books and attributed.
-                GATE_APPROVE_ADJ => self.assert_corrections_sealed(&f)?,
+                GATE_APPROVE_ADJ => {
+                    self.assert_corrections_sealed(&f)?;
+                    self.gate_view(run_id, &f, gate_id)?;
+                }
+                // The approval is given on the shown content, so it is refused when
+                // that content no longer hashes to what the gate recorded.
+                GATE_APPROVE_TE | GATE_APPROVE_LT => {
+                    self.gate_view(run_id, &f, gate_id)?;
+                }
                 GATE_APPROVE_STMT => self.assert_statements_binding(run_id, &f, gate_id)?,
                 _ => {}
             }
@@ -513,6 +610,23 @@ impl ProcessEngine {
         }
 
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
+    }
+
+    /// `close-year show`: the Run and the content of its open gate (a pure read, no
+    /// lease). The content is the value persisted when the gate opened (for a Run
+    /// started before that, a fresh build); either way it is shown only when it hashes
+    /// to the gate's recorded `snapshot_hash`.
+    pub fn show_close_year(&self, run_id: &str) -> Result<CloseYearShow, ProcessError> {
+        let journal = self.open_journal(run_id)?;
+        let f = fold(run_id, &journal.read_all()?)?;
+        let open_gate = match f.gates.iter().find(|g| g.answered.is_none()) {
+            Some(gate) => Some(self.gate_view(run_id, &f, &gate.gate_id)?),
+            None => None,
+        };
+        Ok(CloseYearShow {
+            run: f.to_view(),
+            open_gate,
+        })
     }
 
     /// Resume an interrupted `close-year` Run: forward-drive any trailing automation
@@ -603,19 +717,33 @@ impl ProcessEngine {
         if f.gate(gate_id).is_some() {
             return Ok(());
         }
-        let state = self.read_close_year_state(run_id)?;
+        let mut state = self.read_close_year_state(run_id)?;
+        // Build the content once, persist it, and hash the persisted value: what the
+        // user is later shown is what the gate bound. The state is written before the
+        // gate opens, so a crash in between rebuilds it on resume.
         let snapshot_hash = match gate_id {
-            GATE_APPROVE_TE => self.tase_erittelyt_hash(&state)?,
-            GATE_APPROVE_LT => self.liitetiedot_hash(&state)?,
-            GATE_APPROVE_STMT => state
-                .statements
-                .as_ref()
-                .map(|s| s.statements_hash())
-                .ok_or_else(|| {
+            GATE_APPROVE_TE => {
+                let te = self.build_tase_erittelyt(&state)?;
+                let hash = GateContent::TaseErittelyt(te.clone()).snapshot_hash();
+                state.tase_erittelyt = Some(te);
+                self.write_close_year_state(run_id, &state)?;
+                hash
+            }
+            GATE_APPROVE_LT => {
+                let lt = self.build_liitetiedot(&state)?;
+                let hash = GateContent::Liitetiedot(lt.clone()).snapshot_hash();
+                state.liitetiedot = Some(lt);
+                self.write_close_year_state(run_id, &state)?;
+                hash
+            }
+            GATE_APPROVE_STMT => {
+                GateContent::Statements(Box::new(state.statements.clone().ok_or_else(|| {
                     ProcessError::JournalCorrupt(
                         "statements not computed before ApproveStatements".into(),
                     )
-                })?,
+                })?))
+                .snapshot_hash()
+            }
             _ => String::new(),
         };
         journal.append(EventPayload::GateOpened {
@@ -638,12 +766,7 @@ impl ProcessEngine {
             effect_key: EFFECT_SEAL_ADJ.to_string(),
         })?;
         let ledger = Ledger::open(&self.home)?;
-        let depreciation = compute_depreciation(
-            &ledger.fiscal_year(state.year)?,
-            &state.input.assets,
-            depreciation_rate_table(),
-        )
-        .map_err(map_domain)?;
+        let depreciation = self.depreciation_lines(&state)?;
         for line in &depreciation {
             let draft = depreciation_voucher(line, doc_date, posting_date).map_err(map_domain)?;
             let natural_key = depreciation_natural_key(state.year, &line.asset_id);
@@ -809,12 +932,7 @@ impl ProcessEngine {
     fn assert_run_vouchers_attributed(&self, state: &CloseYearState) -> Result<(), ProcessError> {
         let ledger = Ledger::open(&self.home)?;
         let year = state.year;
-        let depreciation = compute_depreciation(
-            &ledger.fiscal_year(year)?,
-            &state.input.assets,
-            depreciation_rate_table(),
-        )
-        .map_err(map_domain)?;
+        let depreciation = self.depreciation_lines(state)?;
         let expected = depreciation
             .iter()
             .map(|line| depreciation_natural_key(year, &line.asset_id))
@@ -860,44 +978,133 @@ impl ProcessEngine {
         let ledger = Ledger::open(&self.home)?;
         let data = ledger.fiscal_year_data(state.year)?;
         let chart = ledger.chart_list(None)?;
-        let provenance = StatementProvenance {
-            chart_version: ledger.chart_version()?,
-            policy_set: state.policy_set.clone(),
-            kpa_policy_version: kpa_policy_version().to_string(),
-        };
         compute_statements(
             &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
             kpa_policy(),
-            provenance,
+            statement_provenance(&ledger, state)?,
         )
         .map_err(map_domain)
     }
 
-    fn tase_erittelyt_hash(&self, state: &CloseYearState) -> Result<String, ProcessError> {
+    /// Build the year's tase-erittelyt from the sealed chain (the one construction;
+    /// `open_gate` persists the result and the archive writes the persisted value).
+    fn build_tase_erittelyt(&self, state: &CloseYearState) -> Result<TaseErittelyt, ProcessError> {
         let ledger = Ledger::open(&self.home)?;
         let data = ledger.fiscal_year_data(state.year)?;
         let chart = ledger.chart_list(None)?;
-        let provenance = StatementProvenance {
-            chart_version: ledger.chart_version()?,
-            policy_set: state.policy_set.clone(),
-            kpa_policy_version: kpa_policy_version().to_string(),
-        };
-        let te = tase_erittelyt(
+        tase_erittelyt(
             &data.fiscal_year,
             data.opening_balance.as_ref(),
             &data.vouchers,
             &chart,
-            provenance,
+            statement_provenance(&ledger, state)?,
         )
-        .map_err(map_domain)?;
-        Ok(te.statements_hash())
+        .map_err(map_domain)
     }
 
-    fn liitetiedot_hash(&self, state: &CloseYearState) -> Result<String, ProcessError> {
-        Ok(self.build_liitetiedot(state)?.statements_hash())
+    /// The Run's depreciation lines: the ones computed at start and bound by
+    /// `ApproveAdjustments`, or, for a Run started before they were persisted, a
+    /// recomputation from the same inputs.
+    fn depreciation_lines(
+        &self,
+        state: &CloseYearState,
+    ) -> Result<Vec<DepreciationLine>, ProcessError> {
+        if let Some(lines) = &state.depreciation {
+            return Ok(lines.clone());
+        }
+        let ledger = Ledger::open(&self.home)?;
+        compute_depreciation(
+            &ledger.fiscal_year(state.year)?,
+            &state.input.assets,
+            depreciation_rate_table(),
+        )
+        .map_err(map_domain)
+    }
+
+    /// The content gate `gate_id` binds, checked against the hash the gate recorded.
+    /// A persisted value that no longer matches is corrupt; a fresh build (a Run
+    /// started before content was persisted) that no longer matches means the books
+    /// changed after the gate opened, and the gate cannot be approved on it.
+    fn gate_view(
+        &self,
+        run_id: &str,
+        f: &Fold,
+        gate_id: &str,
+    ) -> Result<CloseYearGateView, ProcessError> {
+        let gate = f
+            .gate(gate_id)
+            .ok_or_else(|| ProcessError::GateNotOpen(format!("gate {gate_id} not open")))?;
+        let state = self.read_close_year_state(run_id)?;
+        let mut corrections = Vec::new();
+        let (content, persisted) = match gate_id {
+            GATE_APPROVE_ADJ => {
+                corrections = state
+                    .input
+                    .corrections
+                    .iter()
+                    .map(|c| CorrectionStatus {
+                        correction: c.clone(),
+                        sealed: f.effect_succeeded(&correction_effect_key(&c.correction_id)),
+                    })
+                    .collect();
+                (
+                    GateContent::Adjustments(AdjustmentsContent {
+                        depreciation: self.depreciation_lines(&state)?,
+                        accruals: state.input.accruals.clone(),
+                    }),
+                    state.depreciation.is_some(),
+                )
+            }
+            GATE_APPROVE_TE => match &state.tase_erittelyt {
+                Some(te) => (GateContent::TaseErittelyt(te.clone()), true),
+                None => (
+                    GateContent::TaseErittelyt(self.build_tase_erittelyt(&state)?),
+                    false,
+                ),
+            },
+            GATE_APPROVE_LT => match &state.liitetiedot {
+                Some(lt) => (GateContent::Liitetiedot(lt.clone()), true),
+                None => (
+                    GateContent::Liitetiedot(self.build_liitetiedot(&state)?),
+                    false,
+                ),
+            },
+            GATE_APPROVE_STMT => (
+                GateContent::Statements(Box::new(state.statements.clone().ok_or_else(|| {
+                    ProcessError::JournalCorrupt("no persisted statements".into())
+                })?)),
+                true,
+            ),
+            other => return Err(ProcessError::GateNotOpen(format!("unknown gate {other}"))),
+        };
+        let hash = content.snapshot_hash();
+        if hash != gate.snapshot_hash {
+            let message = format!(
+                "{gate_id}: the content no longer matches the hash the gate bound (bound {}, \
+                 now {hash})",
+                gate.snapshot_hash
+            );
+            return Err(if persisted {
+                ProcessError::JournalCorrupt(format!(
+                    "{message} — the run state was changed; refusing to show or approve it"
+                ))
+            } else {
+                ProcessError::CloseYearBlocked(format!(
+                    "{message} — the books changed after the gate opened; reject the gate \
+                     and start a new close-year run"
+                ))
+            });
+        }
+        Ok(CloseYearGateView {
+            gate_id: gate.gate_id.clone(),
+            gate_kind: gate.gate_kind.clone(),
+            snapshot_hash: gate.snapshot_hash.clone(),
+            content,
+            corrections,
+        })
     }
 
     /// The determined parts of `liitetiedot`: one depreciation note per asset class
@@ -905,12 +1112,7 @@ impl ProcessEngine {
     fn build_liitetiedot(&self, state: &CloseYearState) -> Result<Liitetiedot, ProcessError> {
         use std::collections::BTreeMap;
         let ledger = Ledger::open(&self.home)?;
-        let depreciation = compute_depreciation(
-            &ledger.fiscal_year(state.year)?,
-            &state.input.assets,
-            depreciation_rate_table(),
-        )
-        .map_err(map_domain)?;
+        let depreciation = self.depreciation_lines(state)?;
         let mut notes: BTreeMap<String, aggountant_domain::statements::DepreciationNote> =
             BTreeMap::new();
         for line in &depreciation {
@@ -930,17 +1132,14 @@ impl ProcessEngine {
             depreciation_notes: notes.into_values().collect(),
             depreciation_policy_version: depreciation_policy_version().to_string(),
             narrative_pending: true,
-            provenance: StatementProvenance {
-                chart_version: ledger.chart_version()?,
-                policy_set: state.policy_set.clone(),
-                kpa_policy_version: kpa_policy_version().to_string(),
-            },
+            provenance: statement_provenance(&ledger, state)?,
         })
     }
 
-    /// Write the sealed statements + tase-erittelyt + liitetiedot to the minimal
-    /// **fiscal archive stub** (`<home>/archive/<year>/`, Fork C option b) on
-    /// `SealYear`. The full portable `fiscal archive` command (F18/F19) is deferred;
+    /// Write the sealed statements + the approved tase-erittelyt + liitetiedot to the
+    /// minimal **fiscal archive stub** (`<home>/archive/<year>/`, Fork C option b) on
+    /// `SealYear`. A Run started before the gate content was persisted builds them
+    /// afresh. The full portable `fiscal archive` command (F18/F19) is deferred;
     /// the rendition's hash is already covered by the `SealYear` transition.
     fn write_archive_stub(&self, run_id: &str, state: &CloseYearState) -> Result<(), ProcessError> {
         let statements = match &state.statements {
@@ -949,20 +1148,14 @@ impl ProcessEngine {
         };
         let dir = self.home.join("archive").join(state.year.to_string());
         fs::create_dir_all(&dir).map_err(|e| ProcessError::Store(e.to_string()))?;
-        let te = {
-            let ledger = Ledger::open(&self.home)?;
-            let data = ledger.fiscal_year_data(state.year)?;
-            let chart = ledger.chart_list(None)?;
-            tase_erittelyt(
-                &data.fiscal_year,
-                data.opening_balance.as_ref(),
-                &data.vouchers,
-                &chart,
-                statements.provenance.clone(),
-            )
-            .map_err(map_domain)?
+        let te = match &state.tase_erittelyt {
+            Some(te) => te.clone(),
+            None => self.build_tase_erittelyt(state)?,
         };
-        let lt = self.build_liitetiedot(state)?;
+        let lt = match &state.liitetiedot {
+            Some(lt) => lt.clone(),
+            None => self.build_liitetiedot(state)?,
+        };
         let bundle = serde_json::json!({
             "sealed_by_run": run_id,
             "statements": statements,
@@ -985,6 +1178,18 @@ impl ProcessEngine {
         fs::rename(&tmp, &path).map_err(|e| ProcessError::Store(e.to_string()))?;
         Ok(())
     }
+}
+
+/// The provenance every close-year projection carries.
+fn statement_provenance(
+    ledger: &Ledger,
+    state: &CloseYearState,
+) -> Result<StatementProvenance, ProcessError> {
+    Ok(StatementProvenance {
+        chart_version: ledger.chart_version()?,
+        policy_set: state.policy_set.clone(),
+        kpa_policy_version: kpa_policy_version().to_string(),
+    })
 }
 
 /// Seal one Run voucher into the next open period and attribute it to the closing

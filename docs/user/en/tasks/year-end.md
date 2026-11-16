@@ -47,11 +47,20 @@ hand it over and record the year-end entries.
    > Run the year-end close for 2026: one machine of 2,000.00 euros in
    > machinery and equipment, no accruals and no corrections.
 
-   The agent shows the calculated depreciation. Once you approve the
-   adjusting entries, ask for the December monthly report again: its income
-   statement and balance sheet include the adjustments. Approve the
-   statements only after you have looked at it. The last approval seals the
-   fiscal year, and it cannot be undone.
+   The run then asks for four approvals in turn, and before each one the
+   agent shows you what you are approving:
+
+   1. the adjusting entries: the calculated depreciation, the accruals and
+      the corrections
+   2. the balance sheet breakdowns (tase-erittelyt)
+   3. the notes (liitetiedot): the depreciation methods and rates
+   4. the financial statements: the income statement and the balance sheet
+
+   What you are shown is exactly what the approval binds. If the run is
+   interrupted, the agent can show the open step again later. If the
+   content has changed since the step opened, the agent cannot show it and
+   you cannot approve it; reject the step and start the run again. The last
+   approval seals the fiscal year, and it cannot be undone.
 
 Drawing up and signing the official financial statements, filing them with
 the trade register and the company's tax return are also done outside
@@ -69,9 +78,13 @@ aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-12.html
 aggountant close-year start < close-year-2026.json
 aggountant close-year seal-correction --run-id cy-… --correction <id>
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveAdjustments --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveTaseErittelyt --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveLiitetiedot --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer approve
 ```
 </details>
@@ -86,10 +99,7 @@ aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer a
 
 ## Limitations
 
-The year-end run's approval steps do not show the statements you approve, so
-look at the report for the fiscal year's last month before you approve the
-statements. The run attributes only its own entries to the year that has
-ended. Sealing the fiscal year cannot be undone.
+The run attributes only its own entries to the year that has ended. Sealing the fiscal year cannot be undone.
 More detail: [What is ready and what is not](../reference/status.md#year-end-financial-statements).
 
 ## See also

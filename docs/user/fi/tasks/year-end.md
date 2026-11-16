@@ -43,10 +43,19 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
    > Tee vuoden 2026 tilinpäätösajo: kone 2 000,00 euroa koneisiin ja
    > kalustoon, ei jaksotuksia eikä oikaisuja.
 
-   Agentti näyttää lasketut poistot. Kun hyväksyt oikaisukirjaukset, pyydä
-   joulukuun kuukausiraportti uudelleen: siinä tuloslaskelma ja tase ovat
-   oikaisuineen. Hyväksy laskelmat vasta, kun olet katsonut sen. Viimeinen
-   hyväksyntä sinetöi tilikauden, eikä sitä voi perua.
+   Sen jälkeen ajo pyytää vuorollaan neljä hyväksyntää, ja ennen jokaista
+   agentti näyttää, mitä olet hyväksymässä:
+
+   1. oikaisukirjaukset: lasketut poistot, jaksotukset ja oikaisut
+   2. tase-erittelyt
+   3. liitetiedot: poistomenetelmät ja -prosentit
+   4. tilinpäätöslaskelmat: tuloslaskelma ja tase
+
+   Näytetty sisältö on juuri se, jonka hyväksyntä sitoo. Jos ajo keskeytyy,
+   agentti voi näyttää avoimen vaiheen myöhemmin uudelleen. Jos sisältö on
+   muuttunut vaiheen avautumisen jälkeen, agentti ei voi näyttää sitä etkä
+   voi hyväksyä sitä; hylkää vaihe ja aloita ajo alusta. Viimeinen hyväksyntä
+   sinetöi tilikauden, eikä sitä voi perua.
 
 Myös virallisen tilinpäätösasiakirjan laatiminen ja allekirjoitus, ilmoitus
 kaupparekisteriin ja yhtiön veroilmoitus tehdään aggountantin ulkopuolella.
@@ -63,9 +72,13 @@ aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-12.html
 aggountant close-year start < tilinpaatos-2026.json
 aggountant close-year seal-correction --run-id cy-… --correction <id>
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveAdjustments --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveTaseErittelyt --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveLiitetiedot --answer approve
+aggountant close-year show --run-id cy-…
 aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer approve
 ```
 </details>
@@ -78,8 +91,6 @@ aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer a
 
 ## Rajoitukset
 
-Tilinpäätösajon hyväksyntävaiheet eivät näytä laskelmia, joita hyväksyt, joten
-katso tilikauden viimeisen kuukauden raportti ennen laskelmien hyväksyntää.
 Ajo kohdistaa päättyneelle vuodelle vain omat kirjauksensa. Tilikauden
 sinetöinti on peruuttamaton.
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tilinpäätös).

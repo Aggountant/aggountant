@@ -190,13 +190,8 @@ closing fiscal year. So they show in the closing year's income statement and
 balance sheet, not in the next year's result, and the next year starts from
 balances that include them. The run then goes through four approvals
 (adjusting entries, balance sheet breakdowns, notes and statements) and seals
-the fiscal year.
+the fiscal year. Each approval step shows exactly what you approve.
 
-- **The approval steps do not show the statements.** The command's output
-  tells you only the state of the steps. Once the adjusting entries are
-  approved, the monthly report for the fiscal year's last month shows the
-  income statement and balance sheet with the adjustments. Look at it before
-  you approve the statements (`close-year-gates-show-content`).
 - **Corrections are given when the run starts.** The run records them before
   the adjusting entries are approved, and only the run's own entries are
   attributed to the closing year. A voucher you record yourself in a period

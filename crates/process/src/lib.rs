@@ -40,7 +40,10 @@ pub use capture_receipt::{
     ReceiptSourceFacts, ReceiptTreatmentProposal, ReceiptVatProposal, StructuredReceiptInput,
     ToolResult,
 };
-pub use close_year::{CloseYearInput, CloseYearStart, CorrectionInput};
+pub use close_year::{
+    AdjustmentsContent, CloseYearGateView, CloseYearInput, CloseYearShow, CloseYearStart,
+    CorrectionInput, CorrectionStatus, GateContent,
+};
 pub use company_knowledge::{
     AddCompanyKnowledge, CompanyKnowledgeDocument, CompanyKnowledgeItem, CompanyKnowledgeRevision,
     CompanyKnowledgeSource, CompanyKnowledgeStatus, RetireCompanyKnowledge, UpdateCompanyKnowledge,

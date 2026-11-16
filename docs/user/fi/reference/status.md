@@ -184,12 +184,9 @@ on jo suljettu, ja kohdistaa ne suljettavalle tilikaudelle. Siksi ne näkyvät
 suljettavan vuoden tuloslaskelmassa ja taseessa, eivät seuraavan vuoden
 tuloksessa, ja seuraava vuosi alkaa saldoista, joissa ne ovat mukana. Sen
 jälkeen ajo käy läpi neljä hyväksyntää (oikaisukirjaukset, tase-erittelyt,
-liitetiedot ja laskelmat) ja sinetöi tilikauden.
+liitetiedot ja laskelmat) ja sinetöi tilikauden. Jokainen hyväksyntävaihe
+näyttää juuri sen, mitä hyväksyt.
 
-- **Hyväksyntävaiheet eivät näytä laskelmia.** Komennon tuloste kertoo vain
-  vaiheiden tilan. Kun oikaisukirjaukset on hyväksytty, tilikauden viimeisen
-  kuukauden kuukausiraportti näyttää tuloslaskelman ja taseen oikaisuineen.
-  Katso se ennen kuin hyväksyt laskelmat (`close-year-gates-show-content`).
 - **Oikaisut annetaan ajon alussa.** Ajo kirjaa ne ennen kuin oikaisukirjaukset
   hyväksytään, ja vain ajon omat kirjaukset kohdistetaan suljettavalle
   vuodelle. Tosite, jonka kirjaat itse seuraavan vuoden kaudelle, näkyy

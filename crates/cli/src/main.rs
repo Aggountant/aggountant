@@ -377,6 +377,13 @@ enum CloseYearCmd {
         #[arg(long)]
         run_id: String,
     },
+    /// Show the run and the content of its open gate (a read; drives nothing):
+    /// depreciation and accruals, tase-erittelyt, liitetiedot or the statements,
+    /// exactly as the gate's `snapshot_hash` binds them.
+    Show {
+        #[arg(long)]
+        run_id: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1981,6 +1988,10 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     Ok(serde_json::to_value(engine.resume_close_year(run_id)?)
                         .expect("run view serializes"))
                 }
+                CloseYearCmd::Show { run_id } => {
+                    Ok(serde_json::to_value(engine.show_close_year(run_id)?)
+                        .expect("close-year show serializes"))
+                }
             }
         }
         Command::Report { cmd } => reports::run(cmd, &home_path(cli)?),
@@ -2787,6 +2798,15 @@ fn human_line(command: &Command, value: &Value) -> String {
         Command::Intake { .. } => format!(
             "intake candidates: {}",
             value["candidates"].as_array().map(|a| a.len()).unwrap_or(0)
+        ),
+        Command::CloseYear {
+            cmd: CloseYearCmd::Show { .. },
+        } => format!(
+            "close-year run {} — {} [{}]; open gate: {}",
+            value["run_id"],
+            value["status"],
+            value["period"],
+            value["open_gate"]["gate_id"].as_str().unwrap_or("none")
         ),
         Command::CloseYear { .. } => format!(
             "close-year run {} — {} [{}]",
