@@ -288,6 +288,7 @@ fn receiptless_success_answers() -> Vec<(u16, serde_json::Value)> {
             json!({"UniqueIdentifier": "esimerkki-vat-0001", "AcceptedTimestamp": "  "}),
         ),
         (200, json!("accepted")),
+        (200, json!(["esimerkki-vat-0001", "2026-09-14T10:15:30Z"])),
         (200, json!(null)),
         (202, receipt_with_extra_field()),
         (204, json!(null)),

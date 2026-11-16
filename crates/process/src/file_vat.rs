@@ -1193,8 +1193,12 @@ fn hash_framed(hash: &mut Sha256, bytes: &[u8]) {
 /// the return. `OUTCOME_UNKNOWN` is the code a Run journals today for a timeout,
 /// a 5xx or a 2xx without a readable receipt. Runs journalled before a 2xx was
 /// classified as unknown carry `MALFORMED: …` or `HTTP_2xx: …` for that answer,
-/// so those count too. Every other code is a rejection the authority stated. Both
-/// `file-vat status` and the `complete-manual` guard read a filing through this.
+/// so those count too. `MALFORMED` is still journalled today for a 400 whose body
+/// is not a structured error and for a request that could not be built; the
+/// prefix cannot tell those from an older receiptless 200, so they are treated as
+/// possibly accepted as well, which only asks for remote-status evidence. Every
+/// other code is a rejection the authority stated. Both `file-vat status` and the
+/// `complete-manual` guard read a filing through this.
 fn filing_outcome_may_be_accepted(code: &str) -> bool {
     code == "OUTCOME_UNKNOWN" || code.starts_with("MALFORMED") || code.starts_with("HTTP_2")
 }

@@ -279,10 +279,15 @@ impl FileVatReceipt {
 /// other 2xx (a missing or empty field, an unreadable body, a status other than
 /// 200) may still mean the return was accepted, so its outcome is unknown and is
 /// resolved by asking the Tax Administration, never by sending again.
+/// `body` is `None` when the answer was not JSON. Only a JSON object can be a
+/// receipt; serde would otherwise read a two-element array positionally.
 fn file_vat_return_success(
     status: u16,
-    receipt: Option<FileVatReceipt>,
+    body: Option<Value>,
 ) -> Result<AdapterResponse, AdapterError> {
+    let receipt = body
+        .filter(Value::is_object)
+        .and_then(|body| serde_json::from_value::<FileVatReceipt>(body).ok());
     match receipt {
         Some(receipt) if status == 200 && receipt.is_complete() => Ok(AdapterResponse::Accepted {
             receipt: receipt.encode()?,
@@ -828,9 +833,7 @@ impl RequestResponse for ScriptedVeroFileVatReturnAdapter {
     ) -> Result<AdapterResponse, AdapterError> {
         let response = scripted_round_trip(self.transport.as_ref(), envelope)?;
         match response.status {
-            status @ 200..=299 => {
-                file_vat_return_success(status, serde_json::from_value(response.body).ok())
-            }
+            status @ 200..=299 => file_vat_return_success(status, Some(response.body)),
             400 => {
                 let error: VeroApiError = serde_json::from_value(response.body).map_err(|_| {
                     AdapterError::Malformed("Vero 400 response is not structured".into())
