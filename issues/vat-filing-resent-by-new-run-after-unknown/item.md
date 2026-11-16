@@ -1,6 +1,6 @@
 ---
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-16
 type: bug
 status: open
 priority: high
@@ -12,6 +12,7 @@ originating_run_kind: spinoff
 lane: vat-filing
 lane_seq: 6
 collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
+preparation: ready
 ---
 
 # A new file-vat Run re-sends a filing whose outcome is still unknown
@@ -54,3 +55,37 @@ that can dispatch the filing").
 
 Related: `staggeringly-aspiring-sky` makes a receiptless 2xx an
 `OUTCOME_UNKNOWN`, so after it lands this gap covers that case too.
+
+## Decision (product owner, 2026-11-16)
+
+A new filing for a period whose earlier filing is unresolved is refused until
+the Tax Administration has been asked and has answered "not found" twice, the
+second answer at least one **bank day** after the first. Bank days, not
+calendar days: Monday to Friday excluding Finnish bank holidays (New Year's
+Day, Epiphany, Good Friday, Easter Monday, 1 May, Ascension Day, Midsummer
+Eve, Independence Day, Christmas Eve, Christmas Day, St Stephen's Day). The
+codebase has no bank-day calendar yet; add one in the domain with tests for
+the moving holidays.
+
+- Both checks are read-only `GetFiledVATReturn` reads and are recorded as
+  evidence on the unresolved Run (timestamp, answer).
+- "Found and matching" adopts the filing (as `file-vat reconcile` does);
+  nothing is sent.
+- A failed or ambiguous read records nothing that counts toward the two
+  answers.
+- After the second qualifying "not found", the unresolved Run is closed as not
+  filed and a new `file-vat` Run may file the period from the beginning.
+- The guard sits on the single dispatch path (`run_submit_filing`), so no
+  route around it exists.
+
+This also covers an interrupted Run (`perfectly-uppity-knife`): the same check
+decides between adopting and starting over.
+
+## Acceptance criteria
+
+- [ ] Run 1 ends `OUTCOME_UNKNOWN`; Run 2 for the same period is refused before any FileVATReturn request.
+- [ ] One "not found" is not enough; a second on the same bank day (or over a weekend/holiday with no bank day between) is not enough.
+- [ ] Two "not found" answers one bank day apart close Run 1 and Run 2 files once.
+- [ ] "Found" adopts the receipt and sends nothing.
+- [ ] Bank-day calendar tests include Easter-dependent holidays and Midsummer Eve.
+- [ ] The user guide (fi, en) explains the wait in the VAT filing section.
