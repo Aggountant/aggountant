@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-16
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m79z4hcfcrhvd8c8jtkffejr/review-finding:receiptless-200-definitive-rejection
