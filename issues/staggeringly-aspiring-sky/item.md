@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-16
 type: bug
-status: in-progress
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m79z4hcfcrhvd8c8jtkffejr/review-finding:receiptless-200-definitive-rejection
@@ -20,6 +20,8 @@ lane: vat-filing
 lane_seq: 5
 collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs, crates/process/src/file_vat/status.rs]
 preparation: ready
+closed: 2026-11-16
+closed_by: spinoff-receiptless-2xx
 ---
 
 # A FileVATReturn 2xx without a readable receipt is recorded as a rejection
