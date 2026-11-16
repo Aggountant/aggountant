@@ -2,13 +2,17 @@
 created: 2026-11-13
 updated: 2026-11-16
 type: improvement
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: other
 provenance_detail: found during spinoff run
 source_ref: taskfleet:01m7a1259e86vgr944j9z8tfnh/close-year-blind-approval
 originating_run: 01m7a1259e86vgr944j9z8tfnh
 originating_run_kind: spinoff
+lane: close-year
+lane_seq: 3
+collision: [crates/process/src/close_year.rs, crates/cli/src/main.rs]
+preparation: ready
 ---
 
 # close-year approval steps do not show what the user approves

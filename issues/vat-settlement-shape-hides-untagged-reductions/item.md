@@ -18,8 +18,8 @@ review_severity: should-fix
 review_target: f7ace2b..HEAD (vat-settlement-with-interest-flagged)
 lane: vat-calculation
 lane_seq: 0
-collision: [crates/domain/src/vat/reconcile.rs]
-preparation: pending
+collision: [crates/domain/src/vat/reconcile.rs, crates/ledger, crates/process/src/vat_reconciliation.rs]
+preparation: ready
 ---
 
 # Untagged VAT reductions pass as VAT payments and drop out of the return
