@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-16
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: other
 provenance_detail: found while verifying an issue rewrite
