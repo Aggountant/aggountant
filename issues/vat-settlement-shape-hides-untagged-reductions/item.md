@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-16
 type: bug
-status: open
+status: in-progress
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7a1vmb1vv3rhg8nx3dx98sq/review-finding:verifier-unlisted-settlement-gaps
