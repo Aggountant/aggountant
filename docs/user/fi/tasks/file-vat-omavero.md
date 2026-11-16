@@ -33,7 +33,13 @@ tai haluat asioida itse.
    liikettä ALV-tileillä (esimerkiksi 2939 ja 1763) ilmoituksen myynnin ja
    ostojen veroon. ALV:n maksut, palautukset ja ALV-tilien väliset siirrot
    eivät kuulu ilmoitukseen, joten niitä ei lasketa mukaan, vaikka samalla
-   tositteella olisi myös korkoa tai myöhästymismaksu. Tuloksen
+   tositteella olisi myös korkoa tai myöhästymismaksu. Maksun tai palautuksen
+   ohjelma tunnistaa siitä, että sen rahapuoli kulkee pankkitilin tai
+   verotilin kautta: tilikartassa nämä tilit on merkitty maksutileiksi
+   (vakiotilikartassa 1910 ja 1920, ei käteistiliä 1900). Jos samalla
+   tositteella on jokin muu tase-erä, kuten saatu ennakko, käyttöomaisuus,
+   ostovelka tai oma pääoma, vienti ei ole maksu, vaan se tarkistetaan.
+   Tuloksen
    `vat_reconciliation.status` on `reconciled`, kun tilit ja ilmoitus
    täsmäävät. Tila `unreconciled` tarkoittaa, että ALV-tilillä on vientejä
    ilman ALV-merkintää ja ilmoituksesta puuttuu veroa. Esikatselu kertoo
@@ -92,6 +98,12 @@ period "2026-03" — "sealed" (…, vat_filed true)
 
 - Esikatselun ohjeteksti kehottaa aina syöttämään luvut käsin, myös silloin
   kun suora ilmoittaminen on käytössä. Teksti on vanhentunut.
+- ALV:n maksun kanssa samalle tositteelle ilman ALV-merkintää kirjattu
+  hyvitys menee maksun osana läpi, jos se on pienempi kuin maksettu vero ja
+  kirjattu kulutilille (myyntihyvitys) tai tulotilille (ostohyvitys), tai jos
+  sen vastapuoli on velkatili maksun puolella, kuten saatu ennakko. Ohjelma ei
+  erota sitä viivästyskorosta. Kirjaa hyvitykset omille tositteilleen ja
+  ALV-merkinnällä.
 - Korjattua tai korvaavaa ilmoitusta aggountant ei tee. Jos ilmoitettuihin
   lukuihin tulee korjaus, tee korvaava ilmoitus OmaVerossa.
 
@@ -105,7 +117,9 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
   tositteissa on ALV:tä ALV-tilillä ilman ALV-merkintää, ja esikatselun luvut
   jättävät sen pois. Kirjanpidossa vero on oikein ALV-tilillä, mutta
   ilmoituksen luvuista se puuttuu. Pyydä agenttia näyttämään tositteet ja
-  käy ne läpi lähdettä vasten:
+  käy ne läpi lähdettä vasten. Ilman ALV-merkintää kirjattu ennakon
+  palautus, käyttöomaisuushankinnan palautus tai yksityiskäytön
+  ALV-oikaisu on korjaus, joka kuuluu ilmoitukseen:
   - Jos vero kuuluu tämän kuukauden ilmoitukseen, kuten unohtuneen
     merkinnän myyntilaskussa, ilmoita kuukausi OmaVerossa korjatuin luvuin:
     lisää puuttuva vero ja sen peruste lähteen verokannan mukaiseen kenttään.
@@ -117,6 +131,15 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
     kirjattu tilille 2939 tai vienti on avaavan tositteen ALV-saldo, luvut
     ovat oikein, ja voit ilmoittaa ne. Suorassa ilmoituksessa syy kirjataan
     ilmoitusajoon ([Lähetä ALV-ilmoitus suoraan Verohallinnolle](file-vat-direct.md#jos-jokin-menee-pieleen)).
+- **Esikatselu näyttää myös `VAT_SETTLEMENT_ROLES_MISSING`.** Luetellut
+  tositteet on kirjattu tilikartalla, jonka maksutilejä ei ole merkitty, joten
+  ohjelma ei erota ALV:n maksua tai palautusta korjauksesta. Kirjanpito voi
+  silti olla kunnossa. Jos käytössä on aggountantin vakiotilikartta, pyydä
+  agenttia päivittämään kodin perustiedot ([Päivitä aggountant](upgrade.md)),
+  ja aja esikatselu uudelleen. Yrityksen omalla tilikartalla maksutilit
+  merkitään tiedostoon `masterdata/reference/settlement-account-roles.json`.
+  Jos tositteet ovat ALV:n maksuja tai palautuksia, ne voi myös kuitata
+  ilmoitusajossa kuten muutkin ilmoitukseen kuulumattomat viennit.
 - **Komento vaatii näytön Verohallinnon tilasta.** Samalle kuukaudelle on jäänyt
   suora lähetys, jonka lopputulos on epävarma. Selvitä ensin, menikö se perille,
   ettei ilmoitus mene kahdesti:

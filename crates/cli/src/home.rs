@@ -8,7 +8,8 @@ use aggountant_ledger::{Ledger, UpgradeState};
 use crate::CliError;
 
 const HOME_UPGRADE_HELP: &str = r#"Run after updating aggountant. A newer binary can need masterdata an older
-`init` never wrote: bundled chart snapshots and VAT account role metadata.
+`init` never wrote: bundled chart snapshots, VAT account role metadata and
+settlement account roles (the bank and tax accounts VAT is paid through).
 
   aggountant --home ./accounting --json home upgrade --dry-run
   aggountant --home ./accounting --json home upgrade --apply
@@ -17,7 +18,7 @@ The upgrade only creates missing files under masterdata/reference/. It never
 changes the active chart or chart_version and never rewrites an existing file:
 a file whose bytes differ from the bundled one (for example a company's own
 role metadata) is listed under `skipped` with reason `differs` and left alone.
-Role metadata is added only when the bundled roles activate the home's own
+Role metadata is added only when the bundled roles cover the home's own
 active chart; otherwise it is skipped as `unavailable`. A second run is a no-op.
 
 `masterdata_opens` tells whether the home's masterdata opens afterwards (for
@@ -28,7 +29,8 @@ what the upgrade added."#;
 #[derive(Subcommand, Debug)]
 pub(crate) enum HomeCmd {
     /// Take in the masterdata a newer aggountant needs: add only missing bundled
-    /// chart snapshots and VAT role metadata. `--dry-run` writes nothing.
+    /// chart snapshots, VAT role metadata and settlement roles. `--dry-run`
+    /// writes nothing.
     #[command(
         after_help = HOME_UPGRADE_HELP,
         group(ArgGroup::new("mode").required(true).args(["dry_run", "apply"]))

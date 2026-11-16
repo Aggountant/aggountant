@@ -35,7 +35,12 @@ yourself.
    the return's tax on sales and on purchases. VAT payments, refunds and
    transfers between VAT accounts do not belong in a return, so they are left
    out of the comparison, also when the same voucher books interest or a late
-   fee. The result's `vat_reconciliation.status` is
+   fee. A payment or refund is recognised by its money side going through a
+   bank account or the tax account: the chart of accounts marks these accounts
+   as settlement accounts (1910 and 1920 in the standard chart, not the cash
+   account 1900). If the same voucher has any other balance-sheet item, such
+   as an advance received, a fixed asset, a payable or equity, the posting is
+   not a payment and is checked. The result's `vat_reconciliation.status` is
    `reconciled` when the accounts and the return agree. The state
    `unreconciled` means that a VAT account has postings without a VAT code and
    tax is missing from the return. The preview then shows the code
@@ -96,6 +101,13 @@ period "2026-03" — "sealed" (…, vat_filed true)
 
 - The preview's guidance text always tells you to enter the figures by hand,
   even when direct filing is set up. The text is out of date.
+- A credit booked without a VAT code in the same voucher as a VAT payment
+  passes as part of the payment when it is smaller than the VAT paid and is
+  booked on an expense account (a sales credit) or an income account (a
+  purchase credit), or when its counter-entry is a liability debited beside
+  the payment, such as an advance received. aggountant cannot tell it from
+  late-payment interest. Record credits in their own vouchers and with a VAT
+  code.
 - aggountant does not make corrected or replacement returns. If the filed
   figures need correcting, make a replacement return in OmaVero.
 
@@ -109,7 +121,9 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
   VAT on a VAT account without a VAT code, and the preview's figures leave it
   out. In the books the tax is correctly on the VAT account, but it is missing
   from the return's figures. Ask the agent to show the vouchers and go
-  through them against the source:
+  through them against the source. A refunded advance, a returned fixed-asset
+  purchase or a private-use correction of input VAT booked without a VAT code
+  is a correction that belongs in the return:
   - If the tax belongs in this month's return, such as a sales invoice whose
     code was forgotten, file the month in OmaVero with corrected figures: add
     the missing tax and its base to the field for the source's VAT rate. A
@@ -123,6 +137,16 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
     opening voucher, the figures are right and you can file them. In direct
     filing the reason is recorded in the filing run
     ([Send the VAT return directly to the Tax Administration](file-vat-direct.md#if-something-goes-wrong)).
+- **The preview also shows `VAT_SETTLEMENT_ROLES_MISSING`.** The listed
+  vouchers were recorded under a chart of accounts whose settlement accounts
+  are not marked, so aggountant cannot tell a VAT payment or refund from a
+  correction. The books may well be in order. If you use aggountant's standard
+  chart, ask the agent to upgrade the home's master data
+  ([Upgrade aggountant](upgrade.md)) and run the preview again. With the
+  company's own chart, the settlement accounts are marked in
+  `masterdata/reference/settlement-account-roles.json`. If the vouchers are
+  VAT payments or refunds, they can also be acknowledged in the filing run like
+  other postings that do not belong in a return.
 - **The command asks for evidence of the Tax Administration's status.** A
   direct submission with an uncertain outcome was left for the same month.
   Find out first whether it got through, so that the return is not filed

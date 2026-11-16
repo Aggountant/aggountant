@@ -252,6 +252,59 @@ fn chart_activation_refuses_missing_incomplete_or_foreign_roles() {
 }
 
 #[test]
+fn settlement_roles_refuse_vat_result_equity_and_missing_accounts_by_name() {
+    // 1763 is a VAT-role account, 3000 income, 7690 expense, 2000 equity, 9998 absent.
+    for (account, needle) in [
+        ("1763", "is a VAT-role account"),
+        ("3000", "must be an asset or liability account"),
+        ("7690", "must be an asset or liability account"),
+        ("2000", "must be an asset or liability account"),
+        ("9998", "is absent from the full chart snapshot"),
+    ] {
+        let home = tempfile::tempdir().unwrap();
+        Ledger::init(home.path()).unwrap();
+        let path = reference_dir(home.path()).join("settlement-account-roles.json");
+        let mut roles: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        roles["charts"][0]["accounts"] = serde_json::json!(["1910", account]);
+        fs::write(&path, serde_json::to_vec_pretty(&roles).unwrap()).unwrap();
+        let err = Ledger::open(home.path()).map(|_| ()).unwrap_err();
+        assert_eq!(err.error_code(), "MASTERDATA_CORRUPT", "account {account}");
+        let message = err.to_string();
+        assert!(
+            message.contains(&format!("account {account}")) && message.contains(needle),
+            "account {account}: {message}"
+        );
+    }
+}
+
+#[test]
+fn settlement_roles_accept_a_liability_account() {
+    // A company that books its tax account as a liability may give it the role.
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    let path = reference_dir(home.path()).join("settlement-account-roles.json");
+    let mut roles: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    roles["charts"][0]["accounts"] = serde_json::json!(["1910", "2740"]);
+    fs::write(&path, serde_json::to_vec_pretty(&roles).unwrap()).unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let version = ledger.chart_version().unwrap();
+    let chart = ledger.settlement_role_table().resolve(&version).unwrap();
+    assert!(chart.contains("2740"));
+}
+
+#[test]
+fn a_home_without_settlement_roles_still_opens() {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    fs::remove_file(reference_dir(home.path()).join("settlement-account-roles.json")).unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let version = ledger.chart_version().unwrap();
+    assert!(ledger.settlement_role_table().resolve(&version).is_none());
+}
+
+#[test]
 fn git_native_round_trips_through_open() {
     let home = tempfile::tempdir().unwrap();
     let written = Ledger::init(home.path()).unwrap();

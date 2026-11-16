@@ -32,8 +32,8 @@ joten se ei ole tapa korjata tai päivittää vanhaa kotia.
 
 Kun aggountant on päivitetty, tai olemassa oleva koti antaa `MASTERDATA_CORRUPT`, aja
 `aggountant --json home upgrade --dry-run` ja kerro käyttäjälle, mitä se lisäisi; sitten
-`home upgrade --apply`. Se lisää vain puuttuvat ohjelman mukana tulevat tilikarttakopiot
-ja ALV-roolit eikä koske olemassa oleviin tiedostoihin tai käytössä olevaan
+`home upgrade --apply`. Se lisää vain puuttuvat ohjelman mukana tulevat tilikarttakopiot,
+ALV-roolit ja maksutilien roolit (`settlement-account-roles.json`) eikä koske olemassa oleviin tiedostoihin tai käytössä olevaan
 tilikarttaan. `skipped`-rivi (`differs` tai `unavailable`) ja `masterdata_opens: false`
 kerrotaan käyttäjälle sellaisenaan: älä korjaa niitä kopioimalla tai muokkaamalla
 tiedostoja käsin. Lisätyt tiedostot vietään kodin versionhallintaan.

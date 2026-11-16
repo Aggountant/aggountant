@@ -28,8 +28,11 @@ versions, so upgrade when no run is in progress.
 
 5. **The agent upgrades the home's master data.** A new version can need
    master data that the old version did not write when it set up the home:
-   fixed copies of the chart of accounts and the accounts' VAT roles. The
-   agent first runs a dry run, which only lists the missing files, and then
+   fixed copies of the chart of accounts, the accounts' VAT roles and the
+   settlement account roles (`settlement-account-roles.json`: the bank and tax
+   accounts VAT is paid and refunded through). Without the settlement roles
+   the home opens, but the VAT return preview asks for every VAT payment to be
+   checked. The agent first runs a dry run, which only lists the missing files, and then
    the actual upgrade. The upgrade only adds missing files to
    `masterdata/reference/`: it does not switch the chart of accounts in use
    and does not change any existing file, so vouchers sealed earlier verify
@@ -70,8 +73,8 @@ aggountant run migrate --run-id cp-… --confirm
 
 - The upgrade does not fix or replace a file that differs in the home from
   the one that comes with aggountant. If the company has its own chart of
-  accounts for which aggountant brings no VAT roles, the upgrade cannot add
-  them (`unavailable`). Do not copy files by hand; ask for help in the
+  accounts for which aggountant brings no VAT roles or settlement roles, the
+  upgrade cannot add them (`unavailable`). Do not copy files by hand; ask for help in the
   project's [issue tracker](https://github.com/aggountant/aggountant/issues).
 
 ## See also

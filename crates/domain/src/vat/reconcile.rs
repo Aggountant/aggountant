@@ -15,18 +15,19 @@ pub enum VatAccountPostingClass {
     /// A generated VAT leg of a sealed VAT expansion; the account-sum path owns it.
     Generated,
     /// Untagged and unowned, on the side that reduces the VAT balance (output VAT
-    /// debited, input VAT credited) in a voucher whose income and expense postings
-    /// together are smaller than the VAT it reduces and are only interest or
-    /// penalties (expense debits beside output VAT, income credits beside input
-    /// VAT): a VAT payment, refund or clearing between VAT accounts. It does not
-    /// belong in a return.
+    /// debited, input VAT credited) in a voucher whose other postings are only VAT
+    /// accounts, settlement-role accounts (bank and tax accounts) of the voucher's
+    /// chart, and interest or penalties smaller than the VAT it reduces: a VAT
+    /// payment, refund or clearing between VAT accounts. It does not belong in a
+    /// return.
     Settlement,
     /// Untagged and unowned VAT the return leaves out: VAT accrued on a VAT account
     /// (output VAT credited, input VAT debited), a reduction booked together with
-    /// income or expense at least as large as the VAT or of another kind than
-    /// interest and penalties (an untagged credit note, return, credit loss or
-    /// deduction correction), a leg on a coded voucher that its codes do not
-    /// explain, or a posting whose account has no known VAT direction.
+    /// any other balance-sheet account or with income or expense that is not
+    /// interest or penalties (an untagged credit note, return, refund of an advance,
+    /// credit loss or deduction correction), a payment whose money account has no
+    /// settlement role, a leg on a coded voucher that its codes do not explain, or a
+    /// posting whose account has no known VAT direction.
     Untagged,
 }
 
@@ -94,6 +95,18 @@ pub struct VatAccountReconciliation {
     pub untagged_postings: Vec<VatAccountPosting>,
     /// VAT payments, refunds and clearings: shown for audit, never filed.
     pub settlement_postings: Vec<VatAccountPosting>,
+    /// Vouchers with an untagged reduction of a VAT account whose chart snapshot has
+    /// no settlement roles, so a VAT payment or refund among them cannot be told
+    /// apart from a correction and is counted as untagged.
+    pub settlement_roles_missing: Vec<SettlementRolesMissing>,
+}
+
+/// A voucher whose untagged VAT reduction could not be checked for a settlement
+/// because its chart snapshot has no settlement-role accounts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SettlementRolesMissing {
+    pub voucher: u64,
+    pub chart_version: String,
 }
 
 impl VatAccountReconciliation {
@@ -110,17 +123,23 @@ impl VatAccountReconciliation {
 /// as a transient body). Postings on ordinary accounts are skipped. `kind_of` gives
 /// the chart's account kind; it supplies the VAT direction of a role account whose
 /// chart snapshot names no generated role (liability → output, asset → input) and
-/// tells which postings are income or expense. An account unknown to the chart
-/// never lets a posting become a settlement.
+/// tells which postings are income, expense or balance-sheet. An account unknown to
+/// the chart never lets a posting become a settlement.
 ///
-/// A reduction-side untagged posting is a settlement when the voucher's income and
-/// expense postings sum to less than its untagged reduction-side VAT postings and
-/// are all of the one kind a settlement of that direction books: expense debits
-/// (interest, penalties) next to an output-VAT reduction, income credits (refund
-/// interest) next to an input-VAT reduction. A credit note or credit loss books a
-/// net several times its VAT at any rate (at most 25,5 %); a sale or purchase netted
-/// into the settlement line, or a deduction correction, books the other kind or
-/// side. Neither test reads an account number.
+/// A reduction-side untagged posting is a settlement when every other posting in
+/// the voucher is on a VAT-role account, on a settlement-role account of the
+/// voucher's own chart (`settlement`: the bank and tax accounts VAT is paid and
+/// refunded through), or an interest or penalty line: beside an output-VAT
+/// reduction an expense or liability debit (interest or a penalty, expensed or
+/// accrued earlier), beside an input-VAT reduction an income credit or asset credit
+/// (refund interest). The interest and penalty lines together must be smaller than
+/// the voucher's untagged reduction-side VAT. Any other balance-sheet leg (advances
+/// received, fixed assets, payables, receivables, equity) makes the reduction
+/// untagged, and so does a money leg whose account has no settlement role: without
+/// roles (`settlement` is `None`) no payment or refund is a settlement. A credit
+/// note or credit loss books a net several times its VAT at any rate (at most
+/// 25,5 %). The settlement role is detection evidence only; it never decides a
+/// treatment or a filing figure.
 ///
 /// A voucher with a `vat_code` owns its VAT legs only as far as its codes explain
 /// them: per direction, legs that differ from the voucher's own `base × rate` by more
@@ -130,6 +149,7 @@ impl VatAccountReconciliation {
 pub fn classify_vat_account_postings(
     voucher: &VoucherBody,
     roles: &ChartVatRoles,
+    settlement: Option<&ChartSettlementAccounts>,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
 ) -> Result<Vec<(usize, Option<GeneratedVatRole>, VatAccountPostingClass)>, DomainError> {
     let generated: Vec<usize> = voucher
@@ -156,13 +176,9 @@ pub fn classify_vat_account_postings(
         let posting = &postings[index];
         !generated.contains(&index)
             && roles.role_of(posting.account.as_str()).is_some()
-            && matches!(
-                (direction_of(posting.account.as_str()), posting.side),
-                (Some(GeneratedVatRole::Output), Side::Debit)
-                    | (Some(GeneratedVatRole::Input), Side::Credit)
-            )
+            && reduces_vat(direction_of(posting.account.as_str()), posting.side)
     };
-    let settles = settles_vat(voucher, &reduces, kind_of);
+    let settles = settles_vat(voucher, roles, settlement, &reduces, kind_of);
     let mut classified = Vec::new();
     for (index, posting) in postings.iter().enumerate() {
         let account = posting.account.as_str();
@@ -198,11 +214,14 @@ pub fn classify_vat_account_postings(
 
 /// Per direction `[output, input]`, whether an untagged voucher's reduction-side VAT
 /// postings of that direction are a settlement: every account is known to the
-/// chart, every amount is in one currency, the income and expense postings sum to
-/// less than the reduction-side VAT postings, and they are only expense debits
-/// (output) or only income credits (input).
+/// chart, every amount is in one currency, every posting off the VAT-role and
+/// settlement-role accounts is an interest or penalty line of that direction
+/// (expense or liability debits for output, income or asset credits for input), and
+/// those lines sum to less than the reduction-side VAT postings.
 fn settles_vat(
     voucher: &VoucherBody,
+    roles: &ChartVatRoles,
+    settlement: Option<&ChartSettlementAccounts>,
     reduces: &dyn Fn(usize) -> bool,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
 ) -> [bool; 2] {
@@ -211,29 +230,33 @@ fn settles_vat(
         return [false; 2];
     };
     let mut reduced = Decimal::ZERO;
-    let mut result = Decimal::ZERO;
+    let mut interest = Decimal::ZERO;
     let mut foreign = [false; 2];
     for (index, posting) in postings.iter().enumerate() {
         if posting.amount.currency() != currency {
             return [false; 2];
         }
-        match (kind_of(posting.account.as_str()), posting.side) {
-            (None, _) => return [false; 2],
-            (Some(AccountKind::Income), side) => {
-                result += posting.amount.amount();
-                foreign[0] = true;
-                foreign[1] |= side == Side::Debit;
+        let account = posting.account.as_str();
+        let Some(kind) = kind_of(account) else {
+            return [false; 2];
+        };
+        if roles.role_of(account).is_some() {
+            if reduces(index) {
+                reduced += posting.amount.amount();
             }
-            (Some(AccountKind::Expense), side) => {
-                result += posting.amount.amount();
-                foreign[0] |= side == Side::Credit;
-                foreign[1] = true;
-            }
-            (Some(_), _) if reduces(index) => reduced += posting.amount.amount(),
-            (Some(_), _) => {}
+            continue;
+        }
+        if settlement.is_some_and(|s| s.contains(account)) {
+            continue;
+        }
+        interest += posting.amount.amount();
+        match (kind, posting.side) {
+            (AccountKind::Expense | AccountKind::Liability, Side::Debit) => foreign[1] = true,
+            (AccountKind::Income | AccountKind::Asset, Side::Credit) => foreign[0] = true,
+            _ => foreign = [true; 2],
         }
     }
-    let small = result.is_zero() || result < reduced;
+    let small = interest.is_zero() || interest < reduced;
     foreign.map(|foreign| small && !foreign)
 }
 
@@ -284,12 +307,14 @@ fn tagged_legs_unexplained(
 ///
 /// Read-only and total over sealed vouchers: it never refuses a voucher shape, it
 /// only reports postings the return would leave out. Each voucher resolves its own
-/// exact chart snapshot, as the filing projection does.
+/// exact chart snapshot, VAT roles and settlement roles, as the filing projection
+/// does; a snapshot without settlement roles makes its payments untagged.
 pub fn reconcile_vat_accounts(
     period: &PeriodId,
     vouchers: &[VoucherBody],
     derived: &DerivedVatFigures,
     role_table: &VatAccountRoleTable,
+    settlement_table: &SettlementAccountRoleTable,
     kind_of: &dyn Fn(&str) -> Option<AccountKind>,
 ) -> Result<VatAccountReconciliation, DomainError> {
     use std::collections::BTreeMap;
@@ -307,6 +332,7 @@ pub fn reconcile_vat_accounts(
     let mut uncomparable = false;
     let mut untagged_postings = Vec::new();
     let mut settlement_postings = Vec::new();
+    let mut settlement_roles_missing = Vec::new();
 
     for voucher in vouchers {
         if !period.contains(voucher.posting_date()) {
@@ -327,7 +353,20 @@ pub fn reconcile_vat_accounts(
                 VatDirection::Purchase => tagged_postings[1] += 1,
             }
         }
-        for (index, direction, class) in classify_vat_account_postings(voucher, roles, kind_of)? {
+        let settlement = settlement_table.resolve(voucher.chart_version());
+        let classified = classify_vat_account_postings(voucher, roles, settlement, kind_of)?;
+        if settlement.is_none()
+            && classified.iter().any(|(index, direction, class)| {
+                *class == VatAccountPostingClass::Untagged
+                    && reduces_vat(*direction, voucher.postings()[*index].side)
+            })
+        {
+            settlement_roles_missing.push(SettlementRolesMissing {
+                voucher: voucher.number(),
+                chart_version: voucher.chart_version().to_string(),
+            });
+        }
+        for (index, direction, class) in classified {
             let posting = &voucher.postings()[index];
             let line = VatAccountPosting {
                 voucher: voucher.number(),
@@ -430,5 +469,139 @@ pub fn reconcile_vat_accounts(
             .collect(),
         untagged_postings,
         settlement_postings,
+        settlement_roles_missing,
     })
+}
+
+/// Whether a posting of this VAT direction and side reduces the VAT balance (output
+/// VAT debited, input VAT credited).
+pub fn reduces_vat(direction: Option<GeneratedVatRole>, side: Side) -> bool {
+    matches!(
+        (direction, side),
+        (Some(GeneratedVatRole::Output), Side::Debit)
+            | (Some(GeneratedVatRole::Input), Side::Credit)
+    )
+}
+
+const SETTLEMENT_ACCOUNT_ROLES_JSON: &str =
+    include_str!("../../data/settlement-account-roles.json");
+
+/// The settlement-role accounts of one exact chart snapshot: the bank and tax
+/// accounts VAT is paid to and refunded from. Detection evidence for the VAT
+/// reconciliation only; it never enters a filing figure or a VAT treatment.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChartSettlementAccounts {
+    chart_version: String,
+    accounts: Vec<String>,
+}
+
+impl ChartSettlementAccounts {
+    pub fn chart_version(&self) -> &str {
+        &self.chart_version
+    }
+
+    pub fn accounts(&self) -> &[String] {
+        &self.accounts
+    }
+
+    pub fn contains(&self, account: &str) -> bool {
+        self.accounts.iter().any(|a| a == account)
+    }
+}
+
+/// Settlement-account roles keyed by exact `chart_version`, kept in their own
+/// masterdata file so that `home upgrade` can add them to an existing home.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettlementAccountRoleTable {
+    table: String,
+    charts: Vec<ChartSettlementAccounts>,
+}
+
+impl SettlementAccountRoleTable {
+    /// The table bundled for the standard chart.
+    pub fn bundled() -> &'static Self {
+        static TABLE: OnceLock<SettlementAccountRoleTable> = OnceLock::new();
+        TABLE.get_or_init(|| {
+            Self::from_json(SETTLEMENT_ACCOUNT_ROLES_JSON)
+                .expect("bundled settlement-account-roles.json is a valid role table")
+        })
+    }
+
+    /// A home without the role file: no chart has settlement roles.
+    pub fn empty() -> Self {
+        Self {
+            table: String::new(),
+            charts: Vec::new(),
+        }
+    }
+
+    /// Parse and validate the role file's own shape. Whether each account exists in
+    /// its chart snapshot with a balance-sheet kind and carries no VAT role is
+    /// checked by the masterdata, which holds the snapshots.
+    pub fn from_json(json: &str) -> Result<Self, DomainError> {
+        let table: Self = serde_json::from_str(json).map_err(|error| {
+            DomainError::VatStructure(format!("invalid settlement-account roles: {error}"))
+        })?;
+        let mut versions = std::collections::BTreeSet::new();
+        for chart in &table.charts {
+            let canonical = chart
+                .chart_version
+                .split_once('@')
+                .is_some_and(|(name, rev)| {
+                    !name.is_empty()
+                        && !rev.is_empty()
+                        && !rev.contains('@')
+                        && name.trim() == name
+                        && rev.trim() == rev
+                });
+            if !canonical {
+                return Err(DomainError::VatStructure(format!(
+                    "settlement-account roles: {:?} is not a canonical name@revision chart_version",
+                    chart.chart_version
+                )));
+            }
+            if !versions.insert(chart.chart_version.as_str()) {
+                return Err(DomainError::VatStructure(format!(
+                    "settlement-account roles: chart_version {:?} is listed twice",
+                    chart.chart_version
+                )));
+            }
+            if chart.accounts.is_empty() {
+                return Err(DomainError::VatStructure(format!(
+                    "settlement-account roles: chart_version {:?} lists no accounts",
+                    chart.chart_version
+                )));
+            }
+            let mut accounts = std::collections::BTreeSet::new();
+            for account in &chart.accounts {
+                AccountId::new(account.as_str()).map_err(|error| {
+                    DomainError::VatStructure(format!(
+                        "settlement-account roles: chart {:?} account {account:?}: {error}",
+                        chart.chart_version
+                    ))
+                })?;
+                if !accounts.insert(account.as_str()) {
+                    return Err(DomainError::VatStructure(format!(
+                        "settlement-account roles: chart {:?} lists account {account} twice",
+                        chart.chart_version
+                    )));
+                }
+            }
+        }
+        Ok(table)
+    }
+
+    pub fn snapshots(&self) -> &[ChartSettlementAccounts] {
+        &self.charts
+    }
+
+    /// The settlement roles of exactly this chart version, or `None`. There is no
+    /// fallback to another edition: account numbers mean nothing outside their chart.
+    pub fn resolve(&self, chart_version: &str) -> Option<&ChartSettlementAccounts> {
+        self.charts
+            .iter()
+            .find(|c| c.chart_version == chart_version)
+    }
 }

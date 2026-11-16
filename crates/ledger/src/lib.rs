@@ -446,7 +446,7 @@ impl Ledger {
 
     /// Take the masterdata a newer binary needs into an existing home: plan
     /// (`apply == false`, writes nothing) or add only the missing bundled chart
-    /// snapshots and VAT role metadata. Never rewrites an existing file and never
+    /// snapshots, VAT role metadata and settlement roles. Never rewrites an existing file and never
     /// changes the active chart, so vouchers sealed under older masterdata verify
     /// as before. Touches only `masterdata/reference/`, and works on a home that
     /// [`Ledger::open`] refuses for lack of that masterdata.
@@ -537,6 +537,12 @@ impl Ledger {
         self.masterdata.vat_roles()
     }
 
+    /// The bank and tax accounts VAT is paid and refunded through, by exact chart
+    /// version; empty in a home whose masterdata has no settlement role file.
+    pub fn settlement_role_table(&self) -> &aggountant_domain::SettlementAccountRoleTable {
+        self.masterdata.settlement_roles()
+    }
+
     /// Derive period VAT figures under the exact company-chart role snapshots loaded
     /// from git-native masterdata. Unknown, inactive, or incomplete roles fail closed.
     pub fn derive_vat_filing_figures(
@@ -624,25 +630,42 @@ impl Ledger {
         // Checked as the body sealing would produce. A draft whose VAT code cannot be
         // resolved gets no warning here; deriving the return refuses it loudly.
         let body = VoucherBody::from_draft(draft, 1, chart_version.to_string())?;
-        let Ok(classified) =
-            aggountant_domain::classify_vat_account_postings(&body, roles, &|account: &str| {
-                kinds.get(account).copied()
-            })
-        else {
+        let settlement = self.masterdata.settlement_roles().resolve(chart_version);
+        let Ok(classified) = aggountant_domain::classify_vat_account_postings(
+            &body,
+            roles,
+            settlement,
+            &|account: &str| kinds.get(account).copied(),
+        ) else {
             return Ok(Vec::new());
         };
         Ok(classified
             .into_iter()
             .filter(|(_, _, class)| *class == aggountant_domain::VatAccountPostingClass::Untagged)
-            .map(|(index, _, _)| {
-                let account = draft.postings()[index].account.as_str().to_string();
+            .map(|(index, direction, _)| {
+                let posting = &draft.postings()[index];
+                let account = posting.account.as_str().to_string();
+                // Without settlement roles a VAT payment or refund is flagged too, and
+                // a VAT code on its base line would be wrong advice for it.
+                let advice = if settlement.is_none()
+                    && aggountant_domain::reduces_vat(direction, posting.side)
+                {
+                    format!(
+                        "Chart {chart_version} has no settlement-account roles, so a VAT \
+                         payment or refund cannot be told apart from a correction: run \
+                         `aggountant home upgrade` (bundled chart) or give the bank and tax \
+                         accounts the role in the company's own settlement-account-roles.json. \
+                         A VAT payment or refund is then acknowledged at filing."
+                    )
+                } else {
+                    "Put the VAT code on the line whose amount is the VAT base.".to_string()
+                };
                 UntaggedVatWarning {
                     code: "VAT_POSTING_UNTAGGED",
                     posting_index: index,
                     message: format!(
                         "posting {index} on VAT account {account} has no VAT code on this \
-                         voucher; the VAT return will leave it out. Put the VAT code on the \
-                         line whose amount is the VAT base."
+                         voucher; the VAT return will leave it out. {advice}"
                     ),
                     account,
                 }

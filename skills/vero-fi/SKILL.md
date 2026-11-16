@@ -159,7 +159,11 @@ ennen kuin mitään lähtee. Kuittaus `vat_reconciliation_acknowledgement`
 (`{"reason": …, "vouchers": [...]}`, tositteet täsmälleen esikatselun mukaan) on vain
 vienneille, jotka eivät kuulu ilmoitukseen, kuten tilille 2939 kirjattu Verohallinnon
 palautus tai avaavan tositteen ALV-saldo, ja perusteen antaa käyttäjä. Älä käytä sitä
-puuttuvan veron ohittamiseen. Esikatselu toimii myös jo ilmoitetulle kaudelle, joten
+puuttuvan veron ohittamiseen. ALV:n maksu tai palautus jää vertailun ulkopuolelle vain,
+kun sen muut viennit ovat ALV-tilejä, tilikartan maksutilejä (pankki- ja verotilit) tai
+pieniä korko- ja viivästysmaksueriä. `VAT_SETTLEMENT_ROLES_MISSING` tarkoittaa, ettei
+tositteiden tilikartalla ole maksutilien rooleja: ehdota ensin `home upgrade`
+-ajoa (vakiotilikartta) ja uutta esikatselua; vasta sitten maksujen kuittausta. Esikatselu toimii myös jo ilmoitetulle kaudelle, joten
 sillä voi tarkistaa aiemmat ilmoitukset muuttamatta mitään.
 
 Ilmoitusajo käynnistyy stdin-JSONista:

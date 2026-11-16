@@ -50,6 +50,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `VAT_CURRENCY` | the VAT return figures cannot be formed; also when the period's VAT is negative because of corrections | [What is ready and what is not](status.md#vat-return) |
 | `VAT_FIGURES_MISMATCH` | the VAT return figures do not match the books | the agent uses the preview's figures |
 | `VAT_RECONCILIATION_ACK_MISMATCH` | the acknowledgement has no reason, its voucher numbers differ from the preview's, or there is nothing to acknowledge | the agent uses the preview's voucher numbers |
+| `VAT_SETTLEMENT_ROLES_MISSING` | shown in the VAT return preview beside `VAT_ACCOUNTS_UNRECONCILED`: the vouchers' chart of accounts has no settlement accounts marked, so VAT payments and refunds cannot be recognised | upgrade the home's master data and preview again, or acknowledge the payments ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)) |
 | `VAT_STATUS_UNKNOWN` | the VAT return's status could not be read from the Tax Administration (connection, credentials or readiness) | the return has still been filed, the acknowledgement proves it; query again later, do not send again ([The return does not show in OmaVero](../troubleshooting.md#the-return-does-not-show-in-omavero)) |
 | `VERO_NOT_READY` | direct filing readiness is not in order | [Vero.fi readiness blockers](vero-fi-blockers.md) |
 | `VOUCHER_NOT_FOUND` | there is no voucher with the given number | check the number or the home |

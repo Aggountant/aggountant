@@ -51,10 +51,15 @@ known-gaps list in `issues/vat-untagged-posting-omitted/result.md` is updated.
    the review (`review.md`). Alternatives: a bank role in the chart (masterdata
    change in every snapshot), or a voucher-kind marker (model change); filed as
    `vat-settlement-shape-hides-untagged-reductions`.
-   Known gaps, when a larger VAT settlement shares the voucher: an untagged
-   output-VAT reduction whose net is an expense debit (credit loss, customer refund
-   booked on an expense) or an input-VAT reduction whose net is an income credit
-   (supplier refund booked on other income) counts as a settlement. Flagged and
+   The bank role was added later by
+   `vat-settlement-shape-hides-untagged-reductions`: every other balance-sheet leg
+   must now be a settlement-role account, or an interest line (liability debit
+   beside output VAT, asset credit beside input VAT) that counts toward the amount
+   test. Known gaps, when a larger VAT settlement shares the voucher: an untagged
+   output-VAT reduction whose net is an expense or liability debit (credit loss,
+   customer refund booked on an expense, advance refund) or an input-VAT reduction
+   whose net is an income or asset credit (supplier refund booked on other income)
+   counts as a settlement. Flagged and
    acknowledged instead: a payment whose interest and penalties reach the VAT it
    pays, and a net payment clearing 1763 together with interest expense.
 2. **Only untagged, non-generated reduction legs count toward the VAT side** of the

@@ -34,13 +34,25 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   content-addressed files, not git and not SQLite blobs.
 - **Chart role metadata is frozen once a voucher is sealed against its
   `chart_version`.** A role change is a new chart edition; never reinterpret old
-  sealed vouchers under the same version.
+  sealed vouchers under the same version. The rule protects filed figures and
+  VAT treatment, so it governs the roles those come from
+  (`vat-account-roles.json`). The settlement roles in
+  `settlement-account-roles.json` (bank and tax accounts) are detection
+  evidence for the VAT reconciliation only: they enter no figure and no
+  treatment, and were added to the already used `fi-general-2026` edition on
+  purpose. Adding them makes the reconciliation of earlier periods stricter,
+  so `file-vat preview` of a filed period can now show an untagged correction
+  it used to take for a payment; that is the intended discovery. A home without
+  the file opens, and the reconciliation then fails closed: no payment is a
+  settlement. Never fall back to recognising payments by voucher shape alone.
 - **Existing homes take in new masterdata only by addition.** `home upgrade`
   creates missing bundled snapshot and role files and never rewrites a file or
   the active chart, because a home's masterdata may be company-approved and is
   what its sealed vouchers resolve against. A binary that needs something an
   older home cannot get by addition needs a decision, not a rewrite in the
-  upgrade.
+  upgrade. So new kinds of masterdata go into a new file (as the settlement
+  roles did), never as a new field of a file every home already has: changed
+  bundled bytes would leave every existing home reporting it `differs`.
 
 ## Refusals
 

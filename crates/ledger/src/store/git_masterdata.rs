@@ -17,6 +17,7 @@
 //!     chart-of-accounts.json   <- one account per line, diffable
 //!     chart_version            <- the active content-hashed version string
 //!     vat-account-roles.json   <- exact-version VAT roles; activation gate
+//!     settlement-account-roles.json <- exact-version bank / tax accounts (optional)
 //!     chart-snapshots/         <- immutable documents addressed by full hash
 //!       <sha256>.json
 //!     README.md                <- "derived reference masterdata; PII lives elsewhere"
@@ -54,7 +55,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use aggountant_domain::{VatAccountRoleTable, VatRoleTag};
+use aggountant_domain::{SettlementAccountRoleTable, VatAccountRoleTable, VatRoleTag};
 use aggountant_model::{Account, AccountId, AccountKind};
 
 use crate::error::LedgerError;
@@ -70,6 +71,10 @@ const DEFAULT_CHART_JSON: &str = include_str!("../../data/fi-general-2026.json")
 const BUNDLED_CHARTS: &[&str] = &[DEFAULT_CHART_JSON];
 
 const VAT_ROLES_FILE: &str = "vat-account-roles.json";
+
+/// Optional: a home without it opens, and the VAT reconciliation then treats every
+/// VAT payment and refund as untagged (fails closed) until `home upgrade` adds it.
+const SETTLEMENT_ROLES_FILE: &str = "settlement-account-roles.json";
 
 /// What the masterdata upgrade does with one file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -92,6 +97,7 @@ pub enum UpgradeState {
 pub enum UpgradeResource {
     ChartSnapshot,
     VatAccountRoles,
+    SettlementAccountRoles,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -149,6 +155,9 @@ pub(crate) struct GitMasterDataRefStore {
     snapshots: BTreeMap<String, Vec<Account>>,
     /// Imported VAT roles travel with the company chart and resolve by its full version.
     vat_roles: VatAccountRoleTable,
+    /// Bank and tax accounts VAT is paid and refunded through, by full chart version;
+    /// empty when the home has no settlement role file.
+    settlement_roles: SettlementAccountRoleTable,
 }
 
 impl GitMasterDataRefStore {
@@ -206,6 +215,10 @@ impl GitMasterDataRefStore {
                 format!("{chart_version}\n").as_bytes(),
             )?;
             write_file_synced(&staging.join(VAT_ROLES_FILE), &bundled_vat_roles_bytes()?)?;
+            write_file_synced(
+                &staging.join(SETTLEMENT_ROLES_FILE),
+                &bundled_settlement_roles_bytes()?,
+            )?;
             let snapshots = staging.join("chart-snapshots");
             fs::create_dir_all(&snapshots).map_err(|e| LedgerError::Store(e.to_string()))?;
             write_file_synced(
@@ -236,12 +249,16 @@ impl GitMasterDataRefStore {
         fsync_dir(dir);
 
         let vat_roles = VatAccountRoleTable::bundled().clone();
-        validate_chart_vat_roles(
-            &chart_version,
-            &BTreeMap::from([(chart_version.clone(), chart.accounts.clone())]),
-            &vat_roles,
-        )?;
-        Ok(Self::from_chart(chart, chart_version, vat_roles))
+        let settlement_roles = SettlementAccountRoleTable::bundled().clone();
+        let snapshots = BTreeMap::from([(chart_version.clone(), chart.accounts.clone())]);
+        validate_chart_vat_roles(&chart_version, &snapshots, &vat_roles)?;
+        validate_chart_settlement_roles(&snapshots, Some(&vat_roles), &settlement_roles)?;
+        Ok(Self::from_chart(
+            chart,
+            chart_version,
+            vat_roles,
+            settlement_roles,
+        ))
     }
 
     /// Load the git-native reference masterdata for reading. Errors clearly if
@@ -261,16 +278,23 @@ impl GitMasterDataRefStore {
             ))
         })?;
         let vat_roles = parse_vat_roles(&role_raw)?;
+        let settlement_roles =
+            read_settlement_roles(&reference)?.unwrap_or_else(SettlementAccountRoleTable::empty);
 
-        let mut store = Self::from_chart(chart, chart_version, vat_roles);
+        let mut store = Self::from_chart(chart, chart_version, vat_roles, settlement_roles);
         store.snapshots.extend(read_snapshots(&reference)?);
         validate_chart_vat_roles(&store.chart_version, &store.snapshots, &store.vat_roles)?;
+        validate_chart_settlement_roles(
+            &store.snapshots,
+            Some(&store.vat_roles),
+            &store.settlement_roles,
+        )?;
         Ok(store)
     }
 
     /// Plan, and with `apply` perform, the masterdata upgrade of an existing home:
-    /// add the bundled chart snapshots and the VAT role metadata a newer binary
-    /// needs and an older `init` never wrote. It only ever creates files that do
+    /// add the bundled chart snapshots, the VAT role metadata and the settlement
+    /// roles a newer binary needs and an older `init` never wrote. It only ever creates files that do
     /// not exist. The active chart, `chart_version` and every existing file are
     /// left byte-identical; an existing file whose bytes differ from the bundled
     /// ones is reported and left alone, because it may be company-approved
@@ -349,8 +373,68 @@ impl GitMasterDataRefStore {
         };
         items.push(role_item);
 
-        let mut check =
-            roles.and_then(|roles| validate_chart_vat_roles(&active_version, &snapshots, &roles));
+        let settlement_bytes = bundled_settlement_roles_bytes()?;
+        let mut settlement_item = UpgradeItem {
+            resource: UpgradeResource::SettlementAccountRoles,
+            path: SETTLEMENT_ROLES_FILE.to_string(),
+            chart_version: None,
+            state: plan_file(&reference, SETTLEMENT_ROLES_FILE, &settlement_bytes)?,
+            detail: None,
+        };
+        // The roles the home will have afterwards; `None` when it has none.
+        let settlement: Result<Option<SettlementAccountRoleTable>, LedgerError> =
+            match settlement_item.state {
+                UpgradeState::Create => {
+                    let bundled = SettlementAccountRoleTable::bundled();
+                    let fits = match bundled.resolve(&active_version) {
+                        None => Err(format!(
+                            "the bundled settlement roles have no entry for the active chart \
+                             {active_version}; give the company chart's bank and tax accounts \
+                             the role in its own {SETTLEMENT_ROLES_FILE}"
+                        )),
+                        Some(_) => validate_chart_settlement_roles(
+                            &snapshots,
+                            roles.as_ref().ok(),
+                            bundled,
+                        )
+                        .map_err(|e| e.to_string()),
+                    };
+                    match fits {
+                        Ok(()) => {
+                            creates.push((SETTLEMENT_ROLES_FILE.to_string(), settlement_bytes));
+                            Ok(Some(bundled.clone()))
+                        }
+                        Err(detail) => {
+                            settlement_item.state = UpgradeState::Unavailable;
+                            settlement_item.detail = Some(detail);
+                            Ok(None)
+                        }
+                    }
+                }
+                state => {
+                    let existing = read_settlement_roles(&reference);
+                    if state == UpgradeState::Differs {
+                        settlement_item.detail = Some(match &existing {
+                            Ok(_) => "existing settlement roles differ from the bundled file; \
+                                      left untouched"
+                                .to_string(),
+                            Err(e) => format!("existing file is not valid settlement roles: {e}"),
+                        });
+                    }
+                    existing
+                }
+            };
+        items.push(settlement_item);
+
+        let mut check = roles.and_then(|roles| {
+            validate_chart_vat_roles(&active_version, &snapshots, &roles)?;
+            match settlement? {
+                Some(settlement) => {
+                    validate_chart_settlement_roles(&snapshots, Some(&roles), &settlement)
+                }
+                None => Ok(()),
+            }
+        });
         if apply {
             // Snapshots first: the role metadata refers to them.
             for (path, bytes) in &creates {
@@ -375,6 +459,7 @@ impl GitMasterDataRefStore {
         mut chart: ChartFile,
         chart_version: String,
         vat_roles: VatAccountRoleTable,
+        settlement_roles: SettlementAccountRoleTable,
     ) -> Self {
         // Canonical read order: by account id.
         chart.accounts.sort_by(|a, b| a.id.cmp(&b.id));
@@ -387,11 +472,16 @@ impl GitMasterDataRefStore {
             chart_version,
             snapshots,
             vat_roles,
+            settlement_roles,
         }
     }
 
     pub(crate) fn vat_roles(&self) -> &VatAccountRoleTable {
         &self.vat_roles
+    }
+
+    pub(crate) fn settlement_roles(&self) -> &SettlementAccountRoleTable {
+        &self.settlement_roles
     }
 }
 
@@ -478,6 +568,35 @@ fn bundled_vat_roles_bytes() -> Result<Vec<u8>, LedgerError> {
         .map_err(|e| LedgerError::Store(format!("VAT role render: {e}")))?;
     bytes.push('\n');
     Ok(bytes.into_bytes())
+}
+
+/// The settlement role file exactly as `init` writes it from the bundled table.
+fn bundled_settlement_roles_bytes() -> Result<Vec<u8>, LedgerError> {
+    let mut bytes = serde_json::to_string_pretty(SettlementAccountRoleTable::bundled())
+        .map_err(|e| LedgerError::Store(format!("settlement role render: {e}")))?;
+    bytes.push('\n');
+    Ok(bytes.into_bytes())
+}
+
+/// The home's settlement roles, or `None` when the file does not exist (a home
+/// from before the file, or one whose own chart has no bundled roles).
+fn read_settlement_roles(
+    reference: &Path,
+) -> Result<Option<SettlementAccountRoleTable>, LedgerError> {
+    let path = reference.join(SETTLEMENT_ROLES_FILE);
+    let raw = match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            return Err(LedgerError::MasterDataCorrupt(format!(
+                "settlement roles at {} are unreadable: {e}",
+                path.display()
+            )))
+        }
+    };
+    SettlementAccountRoleTable::from_json(&raw)
+        .map(Some)
+        .map_err(|e| LedgerError::MasterDataCorrupt(format!("{}: {e}", path.display())))
 }
 
 /// `chart-snapshots/<digest>.json`, relative to `reference/`.
@@ -637,6 +756,55 @@ fn validate_chart_vat_roles(
         return Err(LedgerError::MasterDataCorrupt(format!(
             "active chart {active_chart_version:?} VAT roles are incomplete: input-vat and sales/output-vat coverage are both required"
         )));
+    }
+    Ok(())
+}
+
+/// Join the settlement roles to the immutable chart snapshots: every role account
+/// exists in its chart with an asset or liability kind and carries no VAT role in
+/// that chart. A VAT-role account would let a VAT reduction settle against VAT, and
+/// an income, expense or equity account is never where VAT is paid or refunded.
+fn validate_chart_settlement_roles(
+    snapshots: &BTreeMap<String, Vec<Account>>,
+    vat_roles: Option<&VatAccountRoleTable>,
+    settlement: &SettlementAccountRoleTable,
+) -> Result<(), LedgerError> {
+    for role_snapshot in settlement.snapshots() {
+        let version = role_snapshot.chart_version();
+        let chart = snapshots.get(version).ok_or_else(|| {
+            LedgerError::MasterDataCorrupt(format!(
+                "settlement role snapshot {version:?} has no matching immutable chart snapshot"
+            ))
+        })?;
+        let vat = vat_roles.and_then(|table| {
+            table
+                .snapshots()
+                .iter()
+                .find(|roles| roles.chart_version() == version)
+        });
+        for id in role_snapshot.accounts() {
+            let account = chart
+                .iter()
+                .find(|account| account.id.as_str() == id)
+                .ok_or_else(|| {
+                    LedgerError::MasterDataCorrupt(format!(
+                        "chart {version:?} settlement role account {id} is absent from the full \
+                         chart snapshot"
+                    ))
+                })?;
+            if !matches!(account.kind, AccountKind::Asset | AccountKind::Liability) {
+                return Err(LedgerError::MasterDataCorrupt(format!(
+                    "chart {version:?} settlement role account {id} must be an asset or \
+                     liability account, got {:?}",
+                    account.kind
+                )));
+            }
+            if vat.is_some_and(|vat| vat.role_of(id).is_some()) {
+                return Err(LedgerError::MasterDataCorrupt(format!(
+                    "chart {version:?} settlement role account {id} is a VAT-role account"
+                )));
+            }
+        }
     }
     Ok(())
 }
@@ -875,6 +1043,10 @@ PR-review changes to the chart of accounts.
   exact `chart_version` it was recorded against. It is derived from chart content.
 - `vat-account-roles.json` — reviewed VAT account roles keyed by the exact chart version.
   Adoption fails closed unless the active chart has complete, chart-valid role metadata.
+- `settlement-account-roles.json` — the bank and tax accounts VAT is paid and refunded
+  through, keyed by the exact chart version. The VAT reconciliation recognises a VAT
+  payment or refund only by these accounts; without them it asks for each one to be
+  checked.
 - `chart-snapshots/<sha256>.json` — immutable copies used to resolve each voucher under
   the account kinds it actually sealed. Never overwrite a snapshot; chart evolution
   creates another content-addressed file.

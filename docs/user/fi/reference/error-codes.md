@@ -50,6 +50,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `VAT_CURRENCY` | ALV-ilmoituksen lukuja ei voi muodostaa; myös silloin, kun kauden ALV on korjausten vuoksi negatiivinen | [Mitä on valmista ja mitä ei](status.md#alv-ilmoitus) |
 | `VAT_FIGURES_MISMATCH` | ALV-ilmoituksen luvut eivät vastaa kirjanpitoa | agentti käyttää esikatselun lukuja |
 | `VAT_RECONCILIATION_ACK_MISMATCH` | kuittauksesta puuttuu perustelu, sen tositenumerot eivät ole samat kuin esikatselussa tai kuitattavaa ei ole | agentti käyttää esikatselun tositenumeroita |
+| `VAT_SETTLEMENT_ROLES_MISSING` | näkyy ALV-ilmoituksen esikatselussa koodin `VAT_ACCOUNTS_UNRECONCILED` rinnalla: tositteiden tilikartassa ei ole merkitty maksutilejä, joten ALV:n maksuja ja palautuksia ei tunnisteta | kodin perustietojen päivitys ja uusi esikatselu, tai maksujen kuittaus ([Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen)) |
 | `VAT_STATUS_UNKNOWN` | ALV-ilmoituksen tilaa ei saatu kysyttyä Verohallinnolta (yhteys, tunnukset tai valmius) | ilmoitus on silti tehty, kuittaus todistaa sen; kysy myöhemmin uudelleen, älä lähetä uudelleen ([Ilmoitus ei näy OmaVerossa](../troubleshooting.md#ilmoitus-ei-näy-omaverossa)) |
 | `VERO_NOT_READY` | suoran ilmoittamisen valmius ei ole kunnossa | [Vero.fi-valmiuden esteet](vero-fi-blockers.md) |
 | `VOUCHER_NOT_FOUND` | tositetta ei ole annetulla numerolla | tarkista numero tai koti |

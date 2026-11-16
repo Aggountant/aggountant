@@ -147,7 +147,10 @@ kiertämiseksi tuottaisi kahdennetun tositteen.
   jää ilman koodia; koodi sillä laskisi veroa verosta. Jos `voucher validate` palauttaa
   varoituksen `VAT_POSTING_UNTAGGED`, ilmoitus jättäisi rivin veron pois: korjaa
   luonnos ennen hyväksyntää, ellei vienti ole ALV:n maksu tai muu ilmoitukseen
-  kuulumaton siirto.
+  kuulumaton siirto. ALV:n maksu tai palautus tunnistetaan pankki- tai verotilin
+  vienneistä: kirjaa se omalle tositteelleen ilman muita tase-eriä. Jos varoitus
+  kertoo, ettei tilikartalla ole maksutilien rooleja, ehdota `home upgrade` -ajoa
+  äläkä lisää koodia.
 - Pankin tiliotteet (CAMT.053/.052) käsittelee `aggountant import camt053`.
 - Kuukauden kirjattu tilanne: `aggountant report statements`.
 - Kun toimeksianto jatkuu ALV-ilmoitukseen, vaihda `vero-fi`-skilliin. Ilmoitus saa

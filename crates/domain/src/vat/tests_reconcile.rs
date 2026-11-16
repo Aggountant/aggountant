@@ -21,13 +21,27 @@ fn roles() -> VatAccountRoleTable {
     VatAccountRoleTable::from_json(RECONCILE_ROLES_JSON).unwrap()
 }
 
+/// Both test charts pay and receive VAT through the bank accounts 1910 and 1920.
+const SETTLEMENT_ROLES_JSON: &str = r#"{
+  "table":"test-settlement-roles",
+  "charts":[
+    {"chart_version":"fi-general-2026@0","accounts":["1910","1920"]},
+    {"chart_version":"legacy-company@roles-v1","accounts":["1910"]}
+  ]
+}"#;
+
+fn settlement_roles() -> SettlementAccountRoleTable {
+    SettlementAccountRoleTable::from_json(SETTLEMENT_ROLES_JSON).unwrap()
+}
+
 /// The chart kinds the tests need; any other account is unknown to the chart.
 fn kind_of(account: &str) -> Option<AccountKind> {
     Some(match account {
-        "1700" | "1763" | "1910" => AccountKind::Asset,
-        "2700" | "2740" | "2939" => AccountKind::Liability,
+        "1150" | "1700" | "1763" | "1900" | "1910" | "1920" => AccountKind::Asset,
+        "2620" | "2700" | "2740" | "2939" => AccountKind::Liability,
+        "2000" => AccountKind::Equity,
         "3000" | "9160" => AccountKind::Income,
-        "4000" | "7660" | "8350" | "8380" | "8450" => AccountKind::Expense,
+        "4000" | "7660" | "7780" | "8350" | "8380" | "8450" => AccountKind::Expense,
         _ => return None,
     })
 }
@@ -58,9 +72,16 @@ fn march() -> PeriodId {
 }
 
 fn reconcile(vouchers: &[VoucherBody]) -> VatAccountReconciliation {
+    reconcile_with(vouchers, &settlement_roles())
+}
+
+fn reconcile_with(
+    vouchers: &[VoucherBody],
+    settlement: &SettlementAccountRoleTable,
+) -> VatAccountReconciliation {
     let table = roles();
     let derived = derive_filing_figures_with_role_table(&march(), vouchers, &table).unwrap();
-    reconcile_vat_accounts(&march(), vouchers, &derived, &table, &kind_of).unwrap()
+    reconcile_vat_accounts(&march(), vouchers, &derived, &table, settlement, &kind_of).unwrap()
 }
 
 /// The sale from the issue: 2 480,00 gross, 503,90 VAT on 2939, no tag anywhere.
@@ -576,4 +597,259 @@ fn coded_lines_without_vat_legs_stay_owned_by_their_codes() {
     let r = reconcile(&[sale]);
     assert_eq!(r.status, VatReconciliationStatus::Reconciled);
     assert!(r.untagged_postings.is_empty());
+}
+
+#[test]
+fn an_untagged_advance_payment_refund_is_left_out_although_it_goes_through_the_bank() {
+    // The bank leg is a settlement account; the advance received (2620) is not.
+    let refund = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2620", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1910", Side::Credit, "125.50", None),
+        ],
+    );
+    let r = reconcile(&[refund]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-25.50");
+    assert!(r.settlement_postings.is_empty());
+    assert!(r.settlement_roles_missing.is_empty());
+}
+
+#[test]
+fn an_untagged_fixed_asset_purchase_return_is_left_out() {
+    let credit_note = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2700", Side::Debit, "1255.00", None),
+            line("1150", Side::Credit, "1000.00", None),
+            line("1763", Side::Credit, "255.00", None),
+        ],
+    );
+    let r = reconcile(&[credit_note]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-255.00");
+    assert!(r.settlement_postings.is_empty());
+}
+
+#[test]
+fn an_untagged_fixed_asset_return_refunded_to_the_bank_is_left_out() {
+    // The bank receives the refund, but the asset credit is larger than the VAT.
+    let refund = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1910", Side::Debit, "1255.00", None),
+            line("1150", Side::Credit, "1000.00", None),
+            line("1763", Side::Credit, "255.00", None),
+        ],
+    );
+    let r = reconcile(&[refund]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-255.00");
+}
+
+#[test]
+fn an_untagged_private_use_input_vat_correction_is_left_out() {
+    let correction = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2000", Side::Debit, "25.50", None),
+            line("1763", Side::Credit, "25.50", None),
+        ],
+    );
+    let r = reconcile(&[correction]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-25.50");
+}
+
+#[test]
+fn an_untagged_asset_sale_credit_note_against_a_receivable_is_left_out() {
+    let credit_note = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1150", Side::Debit, "1000.00", None),
+            line("2939", Side::Debit, "255.00", None),
+            line("1700", Side::Credit, "1255.00", None),
+        ],
+    );
+    let r = reconcile(&[credit_note]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-255.00");
+}
+
+#[test]
+fn an_untagged_cash_refund_is_not_a_settlement() {
+    // 1900 Käteisvarat has no settlement role: cash refunds pass through it.
+    let refund = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "25.50", None),
+            line("1900", Side::Credit, "25.50", None),
+        ],
+    );
+    let r = reconcile(&[refund]);
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+}
+
+#[test]
+fn a_vat_payment_from_the_second_bank_account_is_a_settlement() {
+    let payment = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "400.00", None),
+            line("1920", Side::Credit, "400.00", None),
+        ],
+    );
+    let r = reconcile(&[payment]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert_eq!(r.output.settlements.amount_str(), "-400.00");
+}
+
+#[test]
+fn a_vat_payment_in_a_chart_without_settlement_roles_is_untagged_and_named() {
+    let payment = voucher(
+        7,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "400.00", None),
+            line("1910", Side::Credit, "400.00", None),
+        ],
+    );
+    let r = reconcile_with(&[payment], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.output.untagged.amount_str(), "-400.00");
+    assert!(r.settlement_postings.is_empty());
+    assert_eq!(
+        r.settlement_roles_missing,
+        vec![SettlementRolesMissing {
+            voucher: 7,
+            chart_version: "fi-general-2026@0".into()
+        }]
+    );
+}
+
+#[test]
+fn a_vat_refund_in_a_chart_without_settlement_roles_is_untagged() {
+    let refund = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1910", Side::Debit, "300.00", None),
+            line("1763", Side::Credit, "300.00", None),
+        ],
+    );
+    let r = reconcile_with(&[refund], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.input.untagged.amount_str(), "-300.00");
+}
+
+#[test]
+fn a_clearing_between_vat_accounts_needs_no_settlement_role() {
+    let clearing = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "25.50", None),
+            line("1763", Side::Credit, "25.50", None),
+        ],
+    );
+    let r = reconcile_with(&[clearing], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert!(r.settlement_roles_missing.is_empty());
+}
+
+#[test]
+fn an_untagged_sale_in_a_chart_without_settlement_roles_is_not_blamed_on_the_roles() {
+    let r = reconcile_with(&[untagged_sale(1)], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert!(r.settlement_roles_missing.is_empty());
+}
+
+#[test]
+fn known_gap_an_expense_booked_customer_refund_beside_a_larger_payment_passes() {
+    // Pinned on purpose (issue vat-settlement-shape-hides-untagged-reductions): the
+    // 7780 line has the shape of late-payment interest, and the payment goes
+    // through the bank, so a bank role cannot tell the two apart. Closing this
+    // needs a role for interest and penalty accounts or a voucher marker.
+    let mixed = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("7780", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1910", Side::Credit, "625.50", None),
+        ],
+    );
+    let r = reconcile(&[mixed]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
+    assert_eq!(r.output.settlements.amount_str(), "-525.50");
+}
+
+#[test]
+fn settlement_role_tables_refuse_malformed_shapes() {
+    for (json, needle) in [
+        (
+            r#"{"table":"t","charts":[{"chart_version":"fi-general-2026","accounts":["1910"]}]}"#,
+            "name@revision",
+        ),
+        (
+            r#"{"table":"t","charts":[{"chart_version":"c@1","accounts":[]}]}"#,
+            "no accounts",
+        ),
+        (
+            r#"{"table":"t","charts":[{"chart_version":"c@1","accounts":["1910","1910"]}]}"#,
+            "twice",
+        ),
+        (
+            r#"{"table":"t","charts":[{"chart_version":"c@1","accounts":["1910"]},{"chart_version":"c@1","accounts":["1920"]}]}"#,
+            "listed twice",
+        ),
+        (
+            r#"{"table":"t","charts":[{"chart_version":"c@1","accounts":["1910"],"role":"bank"}]}"#,
+            "unknown field",
+        ),
+    ] {
+        let err = SettlementAccountRoleTable::from_json(json)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains(needle), "{json}: {err}");
+    }
+}
+
+#[test]
+fn bundled_settlement_roles_name_the_two_bank_accounts_of_the_standard_chart() {
+    let table = SettlementAccountRoleTable::bundled();
+    let standard = VatAccountRoleTable::bundled().snapshots()[0].chart_version();
+    let chart = table.resolve(standard).unwrap();
+    assert_eq!(chart.accounts(), ["1910", "1920"]);
+    assert!(!chart.contains("1900"), "cash refunds pass through 1900");
+}
+
+#[test]
+fn known_gap_an_advance_refund_beside_a_larger_payment_passes_as_accrued_interest() {
+    // Pinned on purpose: a liability debit beside an output-VAT payment is how
+    // interest accrued earlier is paid (2740 in the interest test above), so a
+    // smaller untagged advance refund sharing the payment's voucher has the same
+    // shape. On its own (see the advance refund test) it is flagged.
+    let mixed = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "500.00", None),
+            line("2620", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1910", Side::Credit, "625.50", None),
+        ],
+    );
+    let r = reconcile(&[mixed]);
+    assert_eq!(r.status, VatReconciliationStatus::Reconciled);
 }

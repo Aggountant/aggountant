@@ -29,7 +29,11 @@ kesken.
 
 5. **Agentti päivittää kodin perustiedot.** Uusi versio voi tarvita
    perustietoja, joita vanha versio ei kotia perustaessaan kirjoittanut:
-   tilikartan kiinteitä kopioita ja tilien ALV-rooleja. Agentti ajaa ensin
+   tilikartan kiinteitä kopioita, tilien ALV-rooleja ja maksutilien roolit
+   (`settlement-account-roles.json`: pankki- ja verotilit, joiden kautta ALV
+   maksetaan ja palautetaan). Ilman maksutilien rooleja koti aukeaa, mutta
+   ALV-ilmoituksen esikatselu pyytää tarkistamaan jokaisen ALV:n maksun.
+   Agentti ajaa ensin
    kuivaharjoituksen, joka vain luettelee puuttuvat tiedostot, ja sen jälkeen
    varsinaisen päivityksen. Päivitys lisää vain puuttuvia tiedostoja
    hakemistoon `masterdata/reference/`: se ei vaihda käytössä olevaa
@@ -71,8 +75,8 @@ aggountant run migrate --run-id cp-… --confirm
 
 - Päivitys ei korjaa eikä korvaa tiedostoa, joka on kodissa eri sisältöisenä
   kuin ohjelman mukana tuleva. Jos yrityksellä on oma tilikartta, jolle
-  ohjelman mukana ei tule ALV-rooleja, päivitys ei voi lisätä niitä
-  (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
+  ohjelman mukana ei tule ALV-rooleja tai maksutilien rooleja, päivitys ei
+  voi lisätä niitä (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
   [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
 
 ## Katso myös

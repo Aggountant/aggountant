@@ -1,7 +1,8 @@
 //! `home upgrade`: an existing home takes in the masterdata a newer binary needs.
 //!
 //! The fixture is a home in the layout an older `init` wrote (chart, version and
-//! README, but no `chart-snapshots/` and no `vat-account-roles.json`) holding
+//! README, but no `chart-snapshots/`, `vat-account-roles.json` or
+//! `settlement-account-roles.json`) holding
 //! vouchers it sealed. The upgrade must add exactly the missing files, keep the
 //! active chart and every existing file byte-identical, and leave the sealed
 //! chain verifying.
@@ -79,6 +80,7 @@ fn older_binary_home() -> tempfile::TempDir {
     }
     let reference = reference_dir(home.path());
     fs::remove_file(reference.join("vat-account-roles.json")).unwrap();
+    fs::remove_file(reference.join("settlement-account-roles.json")).unwrap();
     fs::remove_dir_all(reference.join("chart-snapshots")).unwrap();
     home
 }
@@ -112,6 +114,10 @@ fn older_home_is_upgraded_and_its_sealed_vouchers_still_verify() {
         vec![
             (UpgradeResource::ChartSnapshot, UpgradeState::Create),
             (UpgradeResource::VatAccountRoles, UpgradeState::Create),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Create
+            ),
         ]
     );
     assert!(
@@ -127,6 +133,10 @@ fn older_home_is_upgraded_and_its_sealed_vouchers_still_verify() {
         vec![
             (UpgradeResource::ChartSnapshot, UpgradeState::Created),
             (UpgradeResource::VatAccountRoles, UpgradeState::Created),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Created
+            ),
         ]
     );
     let planned: Vec<_> = plan.items.iter().map(|i| &i.path).collect();
@@ -195,6 +205,10 @@ fn a_differing_existing_file_is_reported_and_left_untouched() {
         vec![
             (UpgradeResource::ChartSnapshot, UpgradeState::Created),
             (UpgradeResource::VatAccountRoles, UpgradeState::Differs),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Created
+            ),
         ]
     );
     assert!(applied.items[1].detail.is_some());
@@ -221,6 +235,7 @@ fn roles_are_not_added_for_a_company_chart_the_bundle_does_not_know() {
     fs::write(&chart_path, serde_json::to_vec_pretty(&chart).unwrap()).unwrap();
     fs::write(reference.join("chart_version"), format!("{version}\n")).unwrap();
     fs::remove_file(reference.join("vat-account-roles.json")).unwrap();
+    fs::remove_file(reference.join("settlement-account-roles.json")).unwrap();
     let before = tree(&reference);
 
     let applied = Ledger::upgrade_masterdata(home.path(), true).unwrap();
@@ -230,13 +245,101 @@ fn roles_are_not_added_for_a_company_chart_the_bundle_does_not_know() {
         vec![
             (UpgradeResource::ChartSnapshot, UpgradeState::Present),
             (UpgradeResource::VatAccountRoles, UpgradeState::Unavailable),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Unavailable
+            ),
         ]
     );
+    assert!(applied.items[2]
+        .detail
+        .as_deref()
+        .unwrap()
+        .contains("no entry for the active chart"));
     assert_eq!(
         applied.masterdata_check.as_ref().unwrap().error_code(),
         "MASTERDATA_CORRUPT"
     );
     assert_eq!(tree(&reference), before, "nothing written");
+}
+
+/// A home made by the `init` just before settlement roles existed: everything
+/// else is in place and the home opens, but payments are not yet recognised.
+#[test]
+fn settlement_roles_are_added_to_a_home_that_has_everything_else() {
+    let home = tempfile::tempdir().unwrap();
+    {
+        let ledger = Ledger::init(home.path()).unwrap();
+        seal_purchase(&ledger, "esimerkki:receipt-1", "100.00");
+    }
+    let reference = reference_dir(home.path());
+    fs::remove_file(reference.join("settlement-account-roles.json")).unwrap();
+    let before_home = tree(home.path());
+    Ledger::open(home.path()).expect("the home opens without the role file");
+
+    let plan = Ledger::upgrade_masterdata(home.path(), false).unwrap();
+    assert_eq!(
+        states(&plan),
+        vec![
+            (UpgradeResource::ChartSnapshot, UpgradeState::Present),
+            (UpgradeResource::VatAccountRoles, UpgradeState::Present),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Create
+            ),
+        ]
+    );
+    assert_eq!(plan.items[2].path, "settlement-account-roles.json");
+    assert!(plan.masterdata_check.is_none());
+    assert_eq!(tree(home.path()), before_home, "dry-run writes nothing");
+
+    let applied = Ledger::upgrade_masterdata(home.path(), true).unwrap();
+    assert_eq!(
+        applied.items[2].state,
+        UpgradeState::Created,
+        "{:?}",
+        applied.items
+    );
+    assert!(applied.masterdata_check.is_none());
+    let after_home = tree(home.path());
+    for (path, bytes) in &before_home {
+        assert_eq!(&after_home[path], bytes, "{} unchanged", path.display());
+    }
+    assert_eq!(after_home.len(), before_home.len() + 1);
+    let fresh = tempfile::tempdir().unwrap();
+    Ledger::init(fresh.path()).unwrap();
+    let file = Path::new("settlement-account-roles.json");
+    assert_eq!(
+        tree(&reference)[file],
+        tree(&reference_dir(fresh.path()))[file],
+        "matches init"
+    );
+
+    let again = Ledger::upgrade_masterdata(home.path(), true).unwrap();
+    assert!(again.items.iter().all(|i| i.state == UpgradeState::Present));
+    assert_eq!(tree(home.path()), after_home);
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    let version = ledger.chart_version().unwrap();
+    assert!(ledger.settlement_role_table().resolve(&version).is_some());
+    assert!(ledger.verify().unwrap().ok);
+}
+
+#[test]
+fn a_differing_settlement_role_file_is_reported_and_left_untouched() {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    let path = reference_dir(home.path()).join("settlement-account-roles.json");
+    let mut roles: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    roles["charts"][0]["accounts"] = serde_json::json!(["1910"]);
+    let company = serde_json::to_vec(&roles).unwrap();
+    fs::write(&path, &company).unwrap();
+
+    let applied = Ledger::upgrade_masterdata(home.path(), true).unwrap();
+    assert_eq!(applied.items[2].state, UpgradeState::Differs);
+    assert!(applied.items[2].detail.is_some());
+    assert!(applied.masterdata_check.is_none());
+    assert_eq!(fs::read(&path).unwrap(), company);
 }
 
 #[test]

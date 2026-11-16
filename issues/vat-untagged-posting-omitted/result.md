@@ -58,14 +58,20 @@ and `domain/src/vat/reconcile.rs`.
    postings sum to less than that VAT and are only expense debits (beside output VAT)
    or income credits (beside input VAT), so a payment that also books interest or a
    penalty is one. Alternatives: an explicit voucher marker (model change), or flag
-   everything and rely on acknowledgements (noise every month). Known gaps, all
-   needing a bank or tax-account role or a settlement marker to close: an untagged
-   reduction in a voucher with no income or expense (asset-sale credit note,
-   advance-payment refund, fixed-asset purchase return, private-use correction
-   through equity) counts as a settlement; so does an untagged output-VAT reduction
-   whose net is an expense debit (credit loss, or a customer refund booked on an
-   expense) or an input-VAT reduction whose net is an income credit (a supplier
-   refund booked on other income), when a larger VAT settlement shares the voucher.
+   everything and rely on acknowledgements (noise every month). Since
+   `vat-settlement-shape-hides-untagged-reductions` a settlement also needs every
+   other balance-sheet leg to be a settlement-role (bank or tax) account of the
+   voucher's chart, so an untagged reduction in a voucher with no income or expense
+   (asset-sale credit note, advance-payment refund, fixed-asset purchase return,
+   private-use correction through equity) is flagged; without settlement roles
+   every payment is flagged. Known gaps, needing a role for interest and penalty
+   accounts or a settlement marker to close, when a larger VAT settlement shares
+   the voucher: an untagged output-VAT reduction whose net is an expense debit
+   (credit loss, or a customer refund booked on an expense) or an input-VAT
+   reduction whose net is an income credit (a supplier refund booked on other
+   income), and an output-VAT reduction whose net is a liability debit (an advance
+   refund) or an input-VAT reduction whose net is an asset credit, because those
+   are also how accrued interest is paid or received.
    Flagged and needing an acknowledgement: an untagged refund credited to 2939, a
    payment whose interest and penalties reach the VAT it pays, and an input-VAT
    clearing booked together with interest expense.

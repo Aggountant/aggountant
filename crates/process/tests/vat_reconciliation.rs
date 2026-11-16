@@ -423,3 +423,124 @@ fn a_run_started_before_the_check_cannot_dispatch_an_unreconciled_filing() {
         .unwrap()
         .is_none());
 }
+
+/// A VAT payment of the previous month's VAT from the bank account.
+fn vat_payment() -> Vec<Posting> {
+    vec![
+        line("2939", Side::Debit, "400.00", None),
+        line("1910", Side::Credit, "400.00", None),
+    ]
+}
+
+#[test]
+fn untagged_corrections_through_other_balance_sheet_accounts_block_the_filing() {
+    // Issue vat-settlement-shape-hides-untagged-reductions: the payment stays a
+    // settlement, the advance refund, fixed-asset return and private-use correction
+    // do not, although none of them has an income or expense line.
+    let home = home_with(vec![
+        vat_payment(),
+        vec![
+            line("2620", Side::Debit, "100.00", None),
+            line("2939", Side::Debit, "25.50", None),
+            line("1910", Side::Credit, "125.50", None),
+        ],
+        vec![
+            line("2700", Side::Debit, "1255.00", None),
+            line("1150", Side::Credit, "1000.00", None),
+            line("1763", Side::Credit, "255.00", None),
+        ],
+        vec![
+            line("2000", Side::Debit, "25.50", None),
+            line("1763", Side::Credit, "25.50", None),
+        ],
+    ]);
+    let preview = ProcessEngine::open(home.path())
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+    let r = &preview.vat_reconciliation;
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.untagged_vouchers(), vec![2, 3, 4]);
+    assert_eq!(r.output.settlements.amount_str(), "-400.00");
+    assert!(r.settlement_roles_missing.is_empty());
+    assert_eq!(preview.attention.len(), 1);
+    assert_eq!(preview.attention[0].code, "VAT_ACCOUNTS_UNRECONCILED");
+}
+
+#[test]
+fn a_vat_payment_reconciles_in_a_home_with_settlement_roles() {
+    let home = home_with(vec![vat_payment()]);
+    let preview = ProcessEngine::open(home.path())
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+    assert_eq!(
+        preview.vat_reconciliation.status,
+        VatReconciliationStatus::Reconciled
+    );
+    assert!(preview.attention.is_empty());
+}
+
+#[test]
+fn without_settlement_roles_a_vat_payment_blocks_and_the_preview_says_why() {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    // A home from before the role file.
+    std::fs::remove_file(
+        home.path()
+            .join("masterdata/reference/settlement-account-roles.json"),
+    )
+    .unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal(&ledger, "payment", vat_payment());
+    close(&ledger);
+    let engine = ProcessEngine::open(home.path());
+
+    let preview = engine
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+    assert_eq!(
+        preview.vat_reconciliation.status,
+        VatReconciliationStatus::Unreconciled
+    );
+    let codes: Vec<_> = preview.attention.iter().map(|i| i.code).collect();
+    assert_eq!(
+        codes,
+        vec!["VAT_ACCOUNTS_UNRECONCILED", "VAT_SETTLEMENT_ROLES_MISSING"]
+    );
+    let item = &preview.attention[1];
+    assert_eq!(
+        (item.severity, item.vouchers.as_slice()),
+        ("blocking", &[1][..])
+    );
+    assert!(
+        item.message.contains("aggountant home upgrade"),
+        "{}",
+        item.message
+    );
+    assert!(
+        item.message.contains("fi-general-2026@"),
+        "{}",
+        item.message
+    );
+
+    let err = engine
+        .start_file_vat(
+            &input("0.00", None),
+            &broker(home.path()),
+            &PolicySet::default(),
+        )
+        .unwrap_err();
+    assert_eq!(err.error_code(), "VAT_ACCOUNTS_UNRECONCILED");
+    assert!(err.to_string().contains("home upgrade"), "{err}");
+
+    let start = engine
+        .start_file_vat(
+            &input(
+                "0.00",
+                Some(json!({"reason": "Helmikuun ALV:n maksu", "vouchers": [1]})),
+            ),
+            &broker(home.path()),
+            &PolicySet::default(),
+        )
+        .unwrap();
+    assert_eq!(start.run.status, RunStatus::AwaitingGate);
+}

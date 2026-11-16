@@ -53,6 +53,7 @@ pub(crate) fn reconcile_period(
         vouchers,
         figures,
         ledger.vat_role_table(),
+        ledger.settlement_role_table(),
         &|account: &str| kinds.get(account).copied(),
     )
     .map_err(|e| ProcessError::Store(format!("{}: {e}", e.error_code())))
@@ -78,6 +79,9 @@ pub(crate) fn attention_items(reconciliation: &VatAccountReconciliation) -> Vec<
             ),
             vouchers: untagged,
         });
+        if let Some(item) = settlement_roles_missing(reconciliation) {
+            items.push(item);
+        }
     } else if !untagged.is_empty() {
         items.push(VatAttentionItem {
             code: "VAT_UNTAGGED_POSTINGS_COVERED",
@@ -111,6 +115,33 @@ pub(crate) fn attention_items(reconciliation: &VatAccountReconciliation) -> Vec<
     items
 }
 
+/// Explain an unreconciled period whose VAT payments or refunds may be counted as
+/// untagged only because their chart has no settlement roles, so that it does not
+/// read as wrong books.
+fn settlement_roles_missing(reconciliation: &VatAccountReconciliation) -> Option<VatAttentionItem> {
+    let missing = &reconciliation.settlement_roles_missing;
+    if missing.is_empty() {
+        return None;
+    }
+    let mut charts: Vec<&str> = missing.iter().map(|m| m.chart_version.as_str()).collect();
+    charts.sort_unstable();
+    charts.dedup();
+    Some(VatAttentionItem {
+        code: "VAT_SETTLEMENT_ROLES_MISSING",
+        severity: "blocking",
+        message: format!(
+            "The chart of these vouchers ({}) has no settlement-account roles, so a VAT \
+             payment or refund among them cannot be told apart from a correction and is \
+             counted as untagged. Run `aggountant home upgrade --apply` to add the roles for \
+             the bundled chart, or give the company's own bank and tax accounts the role in \
+             masterdata/reference/settlement-account-roles.json; or, if these vouchers are \
+             VAT payments or refunds, acknowledge them.",
+            charts.join(", ")
+        ),
+        vouchers: missing.iter().map(|m| m.voucher).collect(),
+    })
+}
+
 /// Refuse a filing whose period leaves untagged VAT out of the return, unless the
 /// acknowledgement names exactly the vouchers involved and gives a reason.
 pub(crate) fn require_reconciled(
@@ -124,10 +155,16 @@ pub(crate) fn require_reconciled(
         None => Err(ProcessError::VatAccountsUnreconciled(format!(
             "period {}: VAT-account postings on voucher(s) {vouchers:?} are not covered by a \
              VAT code and the VAT accounts differ from the return (output VAT {}, input VAT \
-             {}); see `file-vat preview`",
+             {}); see `file-vat preview`{}",
             reconciliation.period,
             reconciliation.output.difference.amount_str(),
             reconciliation.input.difference.amount_str(),
+            if reconciliation.settlement_roles_missing.is_empty() {
+                ""
+            } else {
+                " (their chart has no settlement-account roles: `aggountant home upgrade` \
+                 adds them for the bundled chart)"
+            },
         ))),
         Some(ack) => {
             let mut acknowledged = ack.vouchers.clone();
