@@ -2,7 +2,7 @@
 created: 2026-11-16
 updated: 2026-11-16
 type: bug
-status: in-progress
+status: fixed
 priority: normal
 provenance: other
 provenance_detail: found while rewriting close-year-gates-show-content
@@ -13,6 +13,8 @@ lane: close-year
 lane_seq: 2
 collision: [crates/process]
 preparation: ready
+closed: 2026-11-16
+closed_by: spinoff-close-year-msg
 ---
 
 # close-year names the wrong gate when unsealed corrections block ApproveAdjustments
