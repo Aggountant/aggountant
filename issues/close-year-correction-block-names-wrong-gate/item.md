@@ -2,13 +2,17 @@
 created: 2026-11-16
 updated: 2026-11-16
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: found while rewriting close-year-gates-show-content
 source_ref: taskfleet:01m7j4n4exnmqcdn8mzhy5safr/close-year-correction-gate-message
 originating_run: 01m7j4n4exnmqcdn8mzhy5safr
 originating_run_kind: spinoff
+lane: close-year
+lane_seq: 2
+collision: [crates/process]
+preparation: ready
 ---
 
 # close-year names the wrong gate when unsealed corrections block ApproveAdjustments
