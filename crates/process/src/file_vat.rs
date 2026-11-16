@@ -43,6 +43,8 @@ use crate::vat_reconciliation::{
 use crate::{fold, EffectStatus, Fold, GateView, ProcessEngine, ProcessError, RunView, Seam};
 
 mod status;
+#[cfg(test)]
+mod tests;
 pub use status::{FileVatFilingStatus, FileVatStatus, FileVatStatusPlan, FiledVatQuery};
 
 /// Effect keys for the `file-vat` Run (stable idempotency keys).
@@ -302,7 +304,9 @@ impl ProcessEngine {
                 EventPayload::EffectRejected {
                     effect_key,
                     error_code,
-                } if effect_key == EFFECT_SUBMIT_FILING => Some(error_code == "OUTCOME_UNKNOWN"),
+                } if effect_key == EFFECT_SUBMIT_FILING => {
+                    Some(filing_outcome_may_be_accepted(error_code))
+                }
                 _ => None,
             });
             if unresolved_unknown == Some(true) {
@@ -1183,6 +1187,16 @@ fn derive_verified_sealed_filing(
 fn hash_framed(hash: &mut Sha256, bytes: &[u8]) {
     hash.update((bytes.len() as u64).to_be_bytes());
     hash.update(bytes);
+}
+
+/// Whether a journalled filing rejection leaves open that the authority accepted
+/// the return. `OUTCOME_UNKNOWN` is the code a Run journals today for a timeout,
+/// a 5xx or a 2xx without a readable receipt. Runs journalled before a 2xx was
+/// classified as unknown carry `MALFORMED: …` or `HTTP_2xx: …` for that answer,
+/// so those count too. Every other code is a rejection the authority stated. Both
+/// `file-vat status` and the `complete-manual` guard read a filing through this.
+fn filing_outcome_may_be_accepted(code: &str) -> bool {
+    code == "OUTCOME_UNKNOWN" || code.starts_with("MALFORMED") || code.starts_with("HTTP_2")
 }
 
 fn validate_evidence_ref(reference: &str) -> Result<(), ProcessError> {

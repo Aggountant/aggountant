@@ -243,8 +243,11 @@ pub struct VatPeriod {
     pub due_date: String,
 }
 
+/// The FileVATReturn receipt. Unknown fields are accepted: a field the Tax
+/// Administration adds to its answer must not turn a delivered filing into an
+/// unreadable one. `encode()` stores only the two fields that prove receipt.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "PascalCase", deny_unknown_fields)]
+#[serde(rename_all = "PascalCase")]
 pub struct FileVatReceipt {
     pub unique_identifier: String,
     pub accepted_timestamp: String,
@@ -258,14 +261,40 @@ impl FileVatReceipt {
     pub fn decode(value: &str) -> Result<Self, AdapterError> {
         let receipt: Self = serde_json::from_str(value)
             .map_err(|_| AdapterError::Malformed("incomplete FileVATReturn receipt".into()))?;
-        if receipt.unique_identifier.trim().is_empty()
-            || receipt.accepted_timestamp.trim().is_empty()
-        {
+        if !receipt.is_complete() {
             return Err(AdapterError::Malformed(
                 "HTTP 200 omitted a FileVATReturn receipt field".into(),
             ));
         }
         Ok(receipt)
+    }
+
+    fn is_complete(&self) -> bool {
+        !self.unique_identifier.trim().is_empty() && !self.accepted_timestamp.trim().is_empty()
+    }
+}
+
+/// Classify a FileVATReturn answer in the 2xx range. A success status is never a
+/// rejection: only a 200 carrying both receipt fields proves delivery, and any
+/// other 2xx (a missing or empty field, an unreadable body, a status other than
+/// 200) may still mean the return was accepted, so its outcome is unknown and is
+/// resolved by asking the Tax Administration, never by sending again.
+fn file_vat_return_success(
+    status: u16,
+    receipt: Option<FileVatReceipt>,
+) -> Result<AdapterResponse, AdapterError> {
+    match receipt {
+        Some(receipt) if status == 200 && receipt.is_complete() => Ok(AdapterResponse::Accepted {
+            receipt: receipt.encode()?,
+            body: serde_json::to_value(&receipt)
+                .map_err(|_| AdapterError::Malformed("receipt serialization failed".into()))?,
+        }),
+        _ => Err(AdapterError::AmbiguousDelivery {
+            code: format!("HTTP_{status}_WITHOUT_RECEIPT"),
+            detail: "Vero answered with a success status but no readable receipt; the filing \
+                     may have been accepted"
+                .into(),
+        }),
     }
 }
 
@@ -640,16 +669,6 @@ fn request_bytes(envelope: &Envelope) -> Result<Vec<u8>, AdapterError> {
         .ok_or_else(|| AdapterError::Malformed("Vero envelope lacks bound request_bytes".into()))
 }
 
-fn accepted_body<T: for<'de> Deserialize<'de> + Serialize>(
-    bytes: &[u8],
-) -> Result<Value, AdapterError> {
-    let typed: T = serde_json::from_slice(bytes).map_err(|_| {
-        AdapterError::Malformed("Vero response does not match the operation schema".into())
-    })?;
-    serde_json::to_value(typed)
-        .map_err(|_| AdapterError::Malformed("Vero response serialization failed".into()))
-}
-
 fn read_call(
     http: &HttpConfig,
     path: &str,
@@ -809,22 +828,8 @@ impl RequestResponse for ScriptedVeroFileVatReturnAdapter {
     ) -> Result<AdapterResponse, AdapterError> {
         let response = scripted_round_trip(self.transport.as_ref(), envelope)?;
         match response.status {
-            200 => {
-                let receipt: FileVatReceipt = serde_json::from_value(response.body.clone())
-                    .map_err(|_| {
-                        AdapterError::Malformed(
-                            "HTTP 200 omitted a complete FileVATReturn receipt".into(),
-                        )
-                    })?;
-                if receipt.unique_identifier.is_empty() || receipt.accepted_timestamp.is_empty() {
-                    return Err(AdapterError::Malformed(
-                        "HTTP 200 omitted a complete FileVATReturn receipt".into(),
-                    ));
-                }
-                Ok(AdapterResponse::Accepted {
-                    receipt: receipt.encode()?,
-                    body: response.body,
-                })
+            status @ 200..=299 => {
+                file_vat_return_success(status, serde_json::from_value(response.body).ok())
             }
             400 => {
                 let error: VeroApiError = serde_json::from_value(response.body).map_err(|_| {
@@ -871,23 +876,8 @@ impl RequestResponse for VeroFileVatReturnAdapter {
         let body = request_bytes(envelope)?;
         let (status, response) = self.http.post(self.path, &body, cred)?;
         match status.as_u16() {
-            200 => {
-                let receipt: FileVatReceipt = serde_json::from_slice(&response).map_err(|_| {
-                    AdapterError::Malformed(
-                        "HTTP 200 omitted a complete FileVATReturn receipt".into(),
-                    )
-                })?;
-                if receipt.unique_identifier.trim().is_empty()
-                    || receipt.accepted_timestamp.trim().is_empty()
-                {
-                    return Err(AdapterError::Malformed(
-                        "HTTP 200 omitted a complete FileVATReturn receipt".into(),
-                    ));
-                }
-                Ok(AdapterResponse::Accepted {
-                    receipt: receipt.encode()?,
-                    body: accepted_body::<FileVatReceipt>(&response)?,
-                })
+            status @ 200..=299 => {
+                file_vat_return_success(status, serde_json::from_slice(&response).ok())
             }
             400 => {
                 let error: VeroApiError = serde_json::from_slice(&response).map_err(|_| {

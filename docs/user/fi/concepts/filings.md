@@ -31,8 +31,10 @@ luvattu palveluaika.
 ## Epävarma lopputulos
 
 Joskus ohjelma ei tiedä, menikö ilmoitus perille: yhteys katkesi kesken
-lähetyksen, palvelu vastasi virheellä tai vastaus oli ristiriitainen. Ilmoitus
-on voinut mennä perille, vaikka vastausta ei tullut.
+lähetyksen, palvelu vastasi virheellä, palvelu ilmoitti onnistumisesta mutta ei
+lähettänyt luettavaa kuittia, tai vastaus oli ristiriitainen. Ilmoitus on voinut
+mennä perille, vaikka selvää vastausta ei tullut. Onnistumisvastausta ilman
+kuittia ei koskaan tulkita hylkäykseksi.
 
 Silloin ohjelma ei lähetä uudelleen. Jos se lähettäisi, ja ensimmäinen
 lähetys olikin mennyt perille, viranomaisella olisi kaksi ilmoitusta.

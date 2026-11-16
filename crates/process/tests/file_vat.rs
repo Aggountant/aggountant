@@ -464,6 +464,95 @@ fn outcome_unknown_blocks_manual_completion_until_resolution_evidence() {
     );
 }
 
+/// The journalled error code of the filing effect's last rejection.
+fn filing_rejection_code(engine: &ProcessEngine, run_id: &str) -> Option<String> {
+    engine
+        .journal(run_id)
+        .unwrap()
+        .into_iter()
+        .rev()
+        .find_map(|event| match event.payload {
+            aggountant_process::EventPayload::EffectRejected {
+                effect_key,
+                error_code,
+            } if effect_key == "submit-filing" => Some(error_code),
+            _ => None,
+        })
+}
+
+#[test]
+fn a_success_status_without_a_receipt_parks_unknown_and_blocks_manual_completion() {
+    // A receipt field is present but empty; `broker_with` passes such a body through.
+    for (status, body) in [
+        (
+            200,
+            json!({"UniqueIdentifier": "VERO-R1", "AcceptedTimestamp": ""}),
+        ),
+        (
+            202,
+            json!({"UniqueIdentifier": "VERO-R1", "AcceptedTimestamp": "2026-05-01T10:00:00Z"}),
+        ),
+    ] {
+        let home = sealed_home();
+        let engine = ProcessEngine::open(home.path());
+        let broker = broker_with(home.path(), verotili_ok(), vec![ok(status, body)], vec![]);
+        let started = engine
+            .start_file_vat(&input(), &broker, &PolicySet::default())
+            .unwrap();
+        let run_id = started.run.run_id;
+        let parked = engine
+            .answer_file_vat(&run_id, "ApproveFiling", "approve", &broker)
+            .unwrap();
+        assert_eq!(parked.status, RunStatus::NeedsAttention, "HTTP {status}");
+        assert_eq!(
+            effect_status(&parked, "submit-filing"),
+            EffectStatus::Rejected
+        );
+        assert_eq!(
+            filing_rejection_code(&engine, &run_id).as_deref(),
+            Some("OUTCOME_UNKNOWN"),
+            "HTTP {status}"
+        );
+        let ledger = Ledger::open(home.path()).unwrap();
+        assert!(!ledger.period_view(&q1()).unwrap().vat_filed);
+
+        let refused = engine
+            .complete_manual_vat(&q1(), "omavero", "archive/vero/manual-receipt.txt", None)
+            .unwrap_err();
+        assert!(refused.to_string().contains("OUTCOME_UNKNOWN"), "{refused}");
+        assert!(!ledger.period_view(&q1()).unwrap().vat_filed);
+    }
+}
+
+#[test]
+fn a_receipt_with_an_extra_field_files_the_period() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = broker_with(
+        home.path(),
+        verotili_ok(),
+        vec![ok(
+            200,
+            json!({
+                "UniqueIdentifier": "VERO-R1",
+                "AcceptedTimestamp": "2026-05-01T10:00:00Z",
+                "ProcessingNote": "added by a later API version",
+            }),
+        )],
+        vec![],
+    );
+    let started = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    engine
+        .answer_file_vat(&started.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert!(ledger.period_view(&q1()).unwrap().vat_filed);
+    let receipt = ledger.vat_filing_receipt(&q1()).unwrap().unwrap();
+    assert_eq!(receipt.unique_identifier, "VERO-R1");
+}
+
 #[test]
 fn manual_completion_rejects_secret_shaped_or_blank_evidence_references() {
     let home = sealed_home();

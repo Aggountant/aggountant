@@ -132,8 +132,8 @@ aggountant does not even allow a second submission for the same period
 ## The outcome of a filing is uncertain
 
 **What probably happened.** The connection dropped or the authority's service
-returned an error during sending, and the program does not know whether the
-return got through. The run stays in a state that needs attention
+returned an error during sending, or it reported success without a readable
+receipt, and the program does not know whether the return got through. The run stays in a state that needs attention
 ([Filings](concepts/filings.md#uncertain-outcome)).
 
 **Check.** Ask the agent to query the status from the authority. The query

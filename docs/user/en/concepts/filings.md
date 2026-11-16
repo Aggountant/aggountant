@@ -32,9 +32,10 @@ observation from practice, not a promised service time.
 ## Uncertain outcome
 
 Sometimes the program does not know whether a return got through: the
-connection dropped during sending, the service returned an error, or the
-response was contradictory. The return may have got through even though no
-response came.
+connection dropped during sending, the service returned an error, the service
+reported success but sent no readable receipt, or the response was
+contradictory. The return may have got through even though no clear response
+came. A success response without a receipt is never treated as a rejection.
 
 In that case the program does not send again. If it did, and the first
 submission had got through after all, the authority would have two returns.

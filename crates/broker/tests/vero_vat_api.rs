@@ -1,17 +1,18 @@
 use std::time::Duration;
 
 use aggountant_broker::{
-    project_file_vat_return, Broker, Envelope, FileVatReceipt, FiledVatReturn, Registry,
-    RemoteOutcome, Vault, VeroFileVatReturnAdapter, VeroFiledVatReturnAdapter,
-    VeroVatPeriodsAdapter, SVC_VERO_FILED_VAT_RETURN, SVC_VERO_FILE_VAT_RETURN,
-    SVC_VERO_VAT_PERIODS,
+    project_file_vat_return, AttemptOutcome, Broker, Envelope, FileVatReceipt, FiledVatReturn,
+    RawResponse, Registry, RemoteOutcome, ScriptedTransport, ScriptedVeroFileVatReturnAdapter,
+    Vault, VeroFileVatReturnAdapter, VeroFiledVatReturnAdapter, VeroVatPeriodsAdapter,
+    SVC_VERO_FILED_VAT_RETURN, SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
 };
 use aggountant_domain::{VatReturnField, VatReturnFields};
 use aggountant_model::{
     BusinessId, Currency, FilingContactName, FilingContactPhone, Money, PeriodId,
 };
 use aggountant_vero_vat_api_mock::{
-    GetFiledVatReturnFixture, MockVeroVatServer, MtlsTestCredentials, Scenario,
+    FileVatReturnFixture, GetFiledVatReturnFixture, MockVeroVatServer, MtlsTestCredentials,
+    Scenario,
 };
 use serde_json::json;
 
@@ -247,6 +248,168 @@ fn structured_400_is_rejected_while_timeout_and_5xx_are_unknown() {
             None => assert_eq!(result, RemoteOutcome::Unknown),
         }
     }
+}
+
+fn file_env() -> Envelope {
+    env(
+        SVC_VERO_FILE_VAT_RETURN,
+        "FileVATReturn/v2",
+        &request().bytes().unwrap(),
+    )
+}
+
+fn receipt_of(outcome: RemoteOutcome) -> FileVatReceipt {
+    match outcome {
+        RemoteOutcome::Delivered { receipt } => FileVatReceipt::decode(&receipt).unwrap(),
+        other => panic!("expected a delivered filing, got {other:?}"),
+    }
+}
+
+/// A receipt with a field the Tax Administration might add later. Only the two
+/// receipt fields are kept.
+fn receipt_with_extra_field() -> serde_json::Value {
+    json!({
+        "UniqueIdentifier": "esimerkki-vat-0001",
+        "AcceptedTimestamp": "2026-09-14T10:15:30Z",
+        "ProcessingNote": "added by a later API version",
+    })
+}
+
+/// 2xx answers that carry no readable receipt. None of them is a rejection.
+fn receiptless_success_answers() -> Vec<(u16, serde_json::Value)> {
+    vec![
+        (200, json!({"AcceptedTimestamp": "2026-09-14T10:15:30Z"})),
+        (
+            200,
+            json!({"UniqueIdentifier": "", "AcceptedTimestamp": "2026-09-14T10:15:30Z"}),
+        ),
+        (
+            200,
+            json!({"UniqueIdentifier": "esimerkki-vat-0001", "AcceptedTimestamp": "  "}),
+        ),
+        (200, json!("accepted")),
+        (200, json!(null)),
+        (202, receipt_with_extra_field()),
+        (204, json!(null)),
+    ]
+}
+
+fn assert_parked_unknown(broker: &Broker, outcome: RemoteOutcome, case: &str) {
+    assert_eq!(outcome, RemoteOutcome::Unknown, "{case}");
+    let entry = broker
+        .outbox_entry(SVC_VERO_FILE_VAT_RETURN, "file:2026-07")
+        .unwrap()
+        .expect("the attempt was recorded");
+    assert_eq!(entry.attempts.len(), 1, "{case}: no blind retry");
+    match &entry.attempts[0].outcome {
+        AttemptOutcome::Unknown { code, .. } => {
+            assert!(code.ends_with("_WITHOUT_RECEIPT"), "{case}: {code}")
+        }
+        other => panic!("{case}: expected an unknown attempt, got {other:?}"),
+    }
+}
+
+#[test]
+fn live_receipt_with_an_extra_field_is_delivered() {
+    let server = MockVeroVatServer::start_mtls(Scenario {
+        file_vat_return: FileVatReturnFixture::ServerError {
+            status: 200,
+            body: receipt_with_extra_field(),
+        },
+        ..Scenario::file_receipt("extra-field")
+    })
+    .unwrap();
+    let broker = trusted_broker(&server, Duration::from_secs(2));
+    let receipt = receipt_of(broker.submit("test", "file:2026-07", &file_env()).unwrap());
+    assert_eq!(receipt.unique_identifier, "esimerkki-vat-0001");
+    assert_eq!(receipt.accepted_timestamp, "2026-09-14T10:15:30Z");
+    assert!(!receipt.encode().unwrap().contains("ProcessingNote"));
+}
+
+#[test]
+fn live_success_status_without_a_receipt_is_unknown_not_rejected() {
+    let empty_identifier = FileVatReturnFixture::Receipt {
+        unique_identifier: String::new(),
+        accepted_timestamp: "2026-09-14T10:15:30Z".into(),
+    };
+    let empty_timestamp = FileVatReturnFixture::Receipt {
+        unique_identifier: "esimerkki-vat-0001".into(),
+        accepted_timestamp: String::new(),
+    };
+    let mut fixtures = vec![
+        ("empty UniqueIdentifier".to_string(), empty_identifier),
+        ("empty AcceptedTimestamp".to_string(), empty_timestamp),
+    ];
+    for (status, body) in receiptless_success_answers() {
+        // A 204 cannot carry a body over HTTP; the scripted test covers it.
+        if status != 204 {
+            fixtures.push((
+                format!("{status} {body}"),
+                FileVatReturnFixture::ServerError { status, body },
+            ));
+        }
+    }
+    for (case, file_vat_return) in fixtures {
+        let server = MockVeroVatServer::start_mtls(Scenario {
+            file_vat_return,
+            ..Scenario::file_receipt("receiptless")
+        })
+        .unwrap();
+        let broker = trusted_broker(&server, Duration::from_secs(2));
+        let outcome = broker.submit("test", "file:2026-07", &file_env()).unwrap();
+        assert_parked_unknown(&broker, outcome, &case);
+    }
+}
+
+fn scripted_broker(response: RawResponse) -> Broker {
+    let mut registry = Registry::new();
+    registry.register(Box::new(ScriptedVeroFileVatReturnAdapter::new(Box::new(
+        ScriptedTransport::new(vec![Ok(response)]),
+    ))));
+    let mut vault = Vault::new();
+    vault.set(SVC_VERO_FILE_VAT_RETURN, "scripted");
+    Broker::new(
+        tempfile::tempdir().unwrap().keep().as_path(),
+        vault,
+        registry,
+    )
+}
+
+#[test]
+fn scripted_adapter_classifies_success_statuses_like_the_live_one() {
+    let broker = scripted_broker(RawResponse::new(200, receipt_with_extra_field()));
+    let receipt = receipt_of(broker.submit("test", "file:2026-07", &file_env()).unwrap());
+    assert_eq!(receipt.unique_identifier, "esimerkki-vat-0001");
+
+    for (status, body) in receiptless_success_answers() {
+        let case = format!("{status} {body}");
+        let broker = scripted_broker(RawResponse::new(status, body));
+        let outcome = broker.submit("test", "file:2026-07", &file_env()).unwrap();
+        assert_parked_unknown(&broker, outcome, &case);
+    }
+}
+
+#[test]
+fn scripted_adapter_keeps_the_meaning_of_error_statuses() {
+    let structured = json!({"ErrorCode":"INVALID_DATA","ErrorText":"Field missing"});
+    let rejected = scripted_broker(RawResponse::new(400, structured))
+        .submit("test", "file:2026-07", &file_env())
+        .unwrap();
+    assert!(
+        matches!(&rejected, RemoteOutcome::Rejected { code, .. } if code == "INVALID_DATA"),
+        "{rejected:?}"
+    );
+    let server_error = scripted_broker(RawResponse::new(503, json!({})))
+        .submit("test", "file:2026-07", &file_env())
+        .unwrap();
+    assert_eq!(server_error, RemoteOutcome::Unknown);
+    let forbidden = scripted_broker(RawResponse::new(403, json!({})))
+        .submit("test", "file:2026-07", &file_env())
+        .unwrap();
+    assert!(
+        matches!(&forbidden, RemoteOutcome::Rejected { code, .. } if code == "HTTP_403"),
+        "{forbidden:?}"
+    );
 }
 
 #[test]

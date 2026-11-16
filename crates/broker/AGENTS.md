@@ -30,7 +30,11 @@ the adapter passes one when configured, but nothing fetches it.
   map. The internal field 308 (net VAT) is not sent; the authority computes it.
 - **Only HTTP 200 with a receipt is an accepted filing.** `UniqueIdentifier` and
   `AcceptedTimestamp` prove receipt, not final processing. A 400 is a final,
-  correctable error shown to the user.
+  correctable error shown to the user. A 2xx is never a rejection: any 2xx
+  without both receipt fields is `OutcomeUnknown`, because the return may still
+  have been accepted. The receipt type accepts unknown fields so that a field
+  the Tax Administration adds cannot turn delivered filings into unreadable
+  ones.
 - **No automatic resend.** A 500, timeout or dropped connection is
   `OutcomeUnknown`. Recovery reads `GetVATPeriods` and `GetFiledVATReturn` and
   accepts the remote return as ours only when its values match the approved

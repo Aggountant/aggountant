@@ -239,8 +239,11 @@ lähetetyt kentät. Uusi lähetys vain Veron nimenomaisella ohjeella.
 
 ## Epävarma lopputulos
 
-Aikakatkaisu tai 5xx lähetyksessä jättää efektin `OUTCOME_UNKNOWN`-tilaan ja ajon
-`NeedsAttention`-tilaan. Ilmoitus voi olla Verossa tai olla olematta, joten sitä ei
+Aikakatkaisu, 5xx tai 2xx-vastaus ilman luettavaa kuittia (puuttuva tai tyhjä
+`UniqueIdentifier`/`AcceptedTimestamp`, lukukelvoton runko tai muu kuin 200) jättää
+efektin `OUTCOME_UNKNOWN`-tilaan ja ajon `NeedsAttention`-tilaan; se ei ole hylkäys.
+Ennen tätä tallennetuissa ajoissa sama tilanne näkyy hylkäyskoodina `MALFORMED: …` tai
+`HTTP_2xx: …`, ja sitä käsitellään samoin. Ilmoitus voi olla Verossa tai olla olematta, joten sitä ei
 päätellä kumpaankaan suuntaan. `aggountant file-vat reconcile --run-id fv-…` lukee
 `GetFiledVATReturn/v2`-vastauksen: täsmäävät arvot päättävät ajon paikallisesti ilman
 uutta lähetystä; puuttuva, vanhempi tai poikkeava ilmoitus jättää ajon odottamaan,

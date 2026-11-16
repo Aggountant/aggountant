@@ -127,8 +127,8 @@ toista lähetystä samalle kaudelle (`PERIOD_TRANSITION_CONFLICT`).
 ## Ilmoituksen lopputulos on epävarma
 
 **Mitä todennäköisesti tapahtui.** Yhteys katkesi tai viranomaisen palvelu
-vastasi virheellä kesken lähetyksen, eikä ohjelma tiedä, menikö ilmoitus
-perille. Ajo jää huomiota vaativaan tilaan
+vastasi virheellä kesken lähetyksen, tai se ilmoitti onnistumisesta ilman
+luettavaa kuittia, eikä ohjelma tiedä, menikö ilmoitus perille. Ajo jää huomiota vaativaan tilaan
 ([Viranomaisilmoitukset](concepts/filings.md#epävarma-lopputulos)).
 
 **Tarkista.** Pyydä agenttia kysymään tila viranomaiselta. Kysely ei lähetä

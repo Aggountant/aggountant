@@ -20,7 +20,8 @@ use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
 use aggountant_model::PeriodId;
 
 use super::{
-    approved_filing_request, filed_vat_return_envelope, FileVatState, EFFECT_SUBMIT_FILING,
+    approved_filing_request, filed_vat_return_envelope, filing_outcome_may_be_accepted,
+    FileVatState, EFFECT_SUBMIT_FILING,
 };
 use crate::journal::EventPayload;
 use crate::{fold, EffectStatus, ProcessEngine, ProcessError};
@@ -174,7 +175,7 @@ impl ProcessEngine {
         if let Some(run) = runs.iter().find(|run| {
             run.rejected_code
                 .as_deref()
-                .is_some_and(outcome_may_be_accepted)
+                .is_some_and(filing_outcome_may_be_accepted)
         }) {
             return Ok(answer(
                 FileVatFilingStatus::OutcomeUnknown,
@@ -336,14 +337,6 @@ impl ProcessEngine {
         }
         Ok(runs)
     }
-}
-
-/// Whether a journalled filing rejection leaves open that the authority accepted
-/// the return: an unknown outcome, or a success status whose body could not be
-/// read as a receipt (`MALFORMED`, any other 2xx). Only these can be reconciled
-/// into a filing; every other code is a rejection the authority stated.
-fn outcome_may_be_accepted(code: &str) -> bool {
-    code == "OUTCOME_UNKNOWN" || code.starts_with("MALFORMED") || code.starts_with("HTTP_2")
 }
 
 fn classify(
