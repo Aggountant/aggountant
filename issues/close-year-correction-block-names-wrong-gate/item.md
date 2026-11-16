@@ -2,7 +2,7 @@
 created: 2026-11-16
 updated: 2026-11-16
 type: bug
-status: open
+status: in-progress
 priority: normal
 provenance: other
 provenance_detail: found while rewriting close-year-gates-show-content
