@@ -136,7 +136,8 @@ impl VatAccountReconciliation {
 /// the voucher's untagged reduction-side VAT. Any other balance-sheet leg (advances
 /// received, fixed assets, payables, receivables, equity) makes the reduction
 /// untagged, and so does a money leg whose account has no settlement role: without
-/// roles (`settlement` is `None`) no payment or refund is a settlement. A credit
+/// roles (`settlement` is `None`) only a clearing between VAT accounts is a
+/// settlement, and no payment or refund, even netted with a clearing. A credit
 /// note or credit loss books a net several times its VAT at any rate (at most
 /// 25,5 %). The settlement role is detection evidence only; it never decides a
 /// treatment or a filing figure.
@@ -246,7 +247,12 @@ fn settles_vat(
             }
             continue;
         }
-        if settlement.is_some_and(|s| s.contains(account)) {
+        // Without settlement roles only a clearing between VAT accounts settles: any
+        // other leg, a money leg included, could be a correction's and fails closed.
+        let Some(settlement) = settlement else {
+            return [false; 2];
+        };
+        if settlement.contains(account) {
             continue;
         }
         interest += posting.amount.amount();
@@ -446,7 +452,11 @@ pub fn reconcile_vat_accounts(
         untagged_postings.iter().any(|p| p.direction == Some(role))
             && d.difference.amount().abs() > d.rounding_tolerance.amount()
     };
+    // A reduction that may be a payment only because its chart has no settlement roles
+    // never reconciles by netting against another untagged posting of the period: the
+    // roles are missing, so the comparison cannot be trusted either way.
     let unreconciled = uncomparable
+        || !settlement_roles_missing.is_empty()
         || apart(GeneratedVatRole::Output, &output)
         || apart(GeneratedVatRole::Input, &input);
     Ok(VatAccountReconciliation {

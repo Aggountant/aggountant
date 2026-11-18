@@ -767,6 +767,53 @@ fn a_clearing_between_vat_accounts_needs_no_settlement_role() {
 }
 
 #[test]
+fn a_net_vat_payment_in_a_chart_without_settlement_roles_settles_no_leg() {
+    // The bank leg is smaller than the two VAT legs together; without roles it must
+    // not pass as refund interest and let the input-VAT leg settle.
+    let net_payment = voucher(
+        2,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "255.00", None),
+            line("1763", Side::Credit, "200.00", None),
+            line("1910", Side::Credit, "55.00", None),
+        ],
+    );
+    let r = reconcile_with(&[net_payment], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert!(r.settlement_postings.is_empty());
+    assert_eq!(r.untagged_postings.len(), 2);
+    assert_eq!(r.settlement_roles_missing.len(), 1);
+}
+
+#[test]
+fn without_settlement_roles_a_payment_never_reconciles_by_netting_an_untagged_sale() {
+    // The untagged payment happens to equal the untagged sale's VAT, so the output
+    // accounts agree with the empty return; the sale's VAT would drop out silently.
+    let sale = voucher(
+        1,
+        "fi-general-2026@0",
+        vec![
+            line("1700", Side::Debit, "1255.00", None),
+            line("3000", Side::Credit, "1000.00", None),
+            line("2939", Side::Credit, "255.00", None),
+        ],
+    );
+    let payment = voucher(
+        2,
+        "fi-general-2026@0",
+        vec![
+            line("2939", Side::Debit, "255.00", None),
+            line("1910", Side::Credit, "255.00", None),
+        ],
+    );
+    let r = reconcile_with(&[sale, payment], &SettlementAccountRoleTable::empty());
+    assert_eq!(r.output.difference.amount_str(), "0.00");
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.settlement_roles_missing.len(), 1);
+}
+
+#[test]
 fn an_untagged_sale_in_a_chart_without_settlement_roles_is_not_blamed_on_the_roles() {
     let r = reconcile_with(&[untagged_sale(1)], &SettlementAccountRoleTable::empty());
     assert_eq!(r.status, VatReconciliationStatus::Unreconciled);

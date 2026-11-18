@@ -22,10 +22,13 @@
   interest or penalty line (expense or liability debits beside output VAT, income or
   asset credits beside input VAT) whose total is smaller than the reduced VAT. Any
   other balance-sheet leg or a money account without the role makes it `Untagged`.
-  With no settlement roles for the chart, no payment or refund is a settlement
-  (fails closed); a clearing between VAT accounts still is.
+  With no settlement roles for the chart, only a clearing purely between VAT
+  accounts is a settlement; any other leg (a bank leg included, also in a net
+  payment that clears VAT accounts) makes the reduction untagged (fails closed).
 - **Reconciliation** carries `settlement_roles_missing` (voucher, chart version) for
-  vouchers with an untagged reduction under a chart without roles. `file-vat
+  vouchers with an untagged reduction under a chart without roles; while it is
+  non-empty the period is `unreconciled` even if the untagged postings happen to
+  net to the return (review F1b). `file-vat
   preview` then adds the blocking attention item `VAT_SETTLEMENT_ROLES_MISSING`
   beside `VAT_ACCOUNTS_UNRECONCILED`, naming the chart and `aggountant home upgrade`;
   the `file-vat start` refusal message says the same. The existing acknowledgement
@@ -104,3 +107,18 @@ whose net is an income or asset credit counts as a settlement. Pinned by
 `known_gap_an_expense_booked_customer_refund_beside_a_larger_payment_passes` and
 `known_gap_an_advance_refund_beside_a_larger_payment_passes_as_accrued_interest`.
 Closing them needs a role for interest and penalty accounts or a voucher marker.
+
+## Review
+
+`review.md` and `assessment.md` beside this file. Two confirmed data-integrity
+findings on the no-roles path were fixed with regression tests: a net payment's
+input-VAT leg settled because the unroled bank leg passed as refund interest,
+and a fail-closed payment could net an untagged sale into a `reconciled`
+period. One pre-existing finding (account kinds from the active chart) was
+dropped as out of scope.
+
+Gate: `scripts/ci-local.sh` fmt, clippy, build and test on stable and 1.89 are
+green; its `cargo deny` step fails on advisory RUSTSEC-2026-0543 (chrono
+unmaintained), which is new upstream, affects `main` equally and is unrelated to
+this change (no dependency changed).
+
