@@ -938,7 +938,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | Store(_)
             | VatStatusUnknown(_)
             | EmployerReport {
-                code: "EMPLOYER_REPORT_STATUS_UNKNOWN",
+                code: "EMPLOYER_REPORT_STATUS_UNKNOWN" | "YTJ_UNAVAILABLE" | "YTJ_RESPONSE_INVALID",
                 ..
             } => ErrorClass::System,
             Ledger(error) => classify_ledger_error(error),
@@ -2767,6 +2767,8 @@ fn human_line(command: &Command, value: &Value) -> String {
                 .get("run_id")
                 .or_else(|| value.get("record_hash"))
                 .or_else(|| value.get("state"))
+                .or_else(|| value.get("comparison"))
+                .or_else(|| value.get("artifact"))
                 .and_then(Value::as_str)
                 .unwrap_or("dry-run")
         ),

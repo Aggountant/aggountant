@@ -32,7 +32,9 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `APPROVAL_REQUIRED` | an entry was attempted without an approved preview | preview and approval first |
 | `CAPTURE_PREPARATION_CHANGED` | the receipt details, the proposal or the chart of accounts changed after approval | a new preview and a new approval ([Sealing and approval](../concepts/sealing-and-approval.md)) |
 | `EMPLOYER_REPORT_ALREADY_FILED` | the month already has an employer's separate report that Tulorekisteri accepted | no new report; a correction is a replacement report ([File the employer's separate report](../tasks/file-employer-report.md#if-something-goes-wrong)) |
+| `EMPLOYER_REPORT_FILED_OUTSIDE` | an imported transcript 630 shows the month already reported outside aggountant | no new report; correct it in the e-service or record its reference first ([File the employer's separate report](../tasks/file-employer-report.md#when-an-earlier-payroll-service-filed-reports)) |
 | `EMPLOYER_REPORT_NOT_CONFIGURED` | the Tulorekisteri profile has no separate report settings | [File the employer's separate report](../tasks/file-employer-report.md#set-up-the-separate-report-once) |
+| `EMPLOYER_REPORT_NO_REFERENCE` | the month to replace is known only from transcript 630, which has no report reference | replace it in the e-service, or record the reference first (`complete-manual`) |
 | `EMPLOYER_REPORT_OUTCOME_UNKNOWN` | the outcome of an earlier sending for the month is still unclear | ask for the state (`employer-report status`), do not send again ([When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain)) |
 | `EMPLOYER_REPORT_PAYMENTS_CONFLICT` | "No wages payable" for a month that has a travel allowance report | report the month as having only travel allowances |
 | `EMPLOYER_REPORT_STATUS_UNKNOWN` | Tulorekisteri gave no final state | ask again later or check the e-service; do not send again |
@@ -52,6 +54,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `PERIOD_SEALED` | the period is closed, or the date falls in a closed fiscal year or one before it | record it in the next open period |
 | `PERIOD_TRANSITION_CONFLICT` | the period's state does not allow the requested change, for example the period has already been filed, another close is in progress, or months and quarters are being mixed in the same year, or a quarter is closed in a fiscal year that is not the calendar year | read the message; a filed period is not filed again ([When something goes wrong](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | the run cannot be found | check that the command hit the right home |
+| `TRANSCRIPT_UNKNOWN_HEADER` | the file to import is not a Finnish-language Tulorekisteri transcript 630 with the documented columns | order transcript 630 again in Finnish; nothing was stored ([File the employer's separate report](../tasks/file-employer-report.md#when-an-earlier-payroll-service-filed-reports)) |
 | `VAT_ACCOUNTS_UNRECONCILED` | a VAT account has postings without a VAT code, and tax would be missing from the return | file in OmaVero with corrected figures, or give the reason if the postings do not belong in the return ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)) |
 | `VAT_CURRENCY` | the VAT return figures cannot be formed; also when the period's VAT is negative because of corrections | [What is ready and what is not](status.md#vat-return) |
 | `VAT_FIGURES_MISMATCH` | the VAT return figures do not match the books | the agent uses the preview's figures |
@@ -62,6 +65,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `VERO_NOT_READY` | direct filing readiness is not in order | [Vero.fi readiness blockers](vero-fi-blockers.md) |
 | `VOUCHER_NOT_FOUND` | there is no voucher with the given number | check the number or the home |
 | `WORKFLOW_VERSION_MISMATCH` | a run in progress was started with an older version of the program | [Upgrade aggountant](../tasks/upgrade.md) |
+| `YTJ_UNAVAILABLE` | the YTJ open data did not answer the registration query | the registration is unknown, not absent; try later or look it up on ytj.fi |
 
 In other cases `message` gives the cause. Ask the agent to explain it.
 

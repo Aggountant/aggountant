@@ -1140,6 +1140,13 @@ pub use file_wage::WagePreview;
 mod file_employer_report;
 pub use file_employer_report::{
     EmployerMonthState, EmployerMonthStatus, EmployerReportInput, EmployerReportPreview,
-    EmployerReportReceipt, EmployerReportRun, EmployerRunOutcome, MissingEmployerMonth,
-    MissingEmployerReports,
+    EmployerReportReceipt, EmployerReportRun, EmployerRunOutcome, FiledOutsideMonth,
+    MissingEmployerMonth, MissingEmployerReports,
+};
+mod employer_report_history;
+mod transcript_630;
+pub use employer_report_history::{
+    DataSource, EmployerRegistration, HeldMonth, RegisterPeriod, RegisterPeriodState,
+    RegistrationComparison, TranscriptConflict, TranscriptConflictKind, TranscriptEvidence,
+    TranscriptImport, TranscriptMonthRecord,
 };

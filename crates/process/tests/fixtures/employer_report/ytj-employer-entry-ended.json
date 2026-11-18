@@ -1,0 +1,95 @@
+{
+ "totalResults": 1,
+ "companies": [
+  {
+   "businessId": {
+    "value": "1234567-1",
+    "registrationDate": "2015-01-12",
+    "source": "3"
+   },
+   "names": [
+    {
+     "name": "Esimerkki Oy",
+     "type": "1",
+     "registrationDate": "2015-01-12",
+     "version": 1,
+     "source": "1"
+    }
+   ],
+   "companyForms": [
+    {
+     "type": "16",
+     "descriptions": [
+      {
+       "languageCode": "1",
+       "description": "Osakeyhtiö"
+      }
+     ],
+     "registrationDate": "2015-01-12",
+     "version": 1,
+     "source": "1"
+    }
+   ],
+   "registeredEntries": [
+    {
+     "type": "55",
+     "descriptions": [
+      {
+       "languageCode": "3",
+       "description": "Registered"
+      },
+      {
+       "languageCode": "2",
+       "description": "Registrerad"
+      },
+      {
+       "languageCode": "1",
+       "description": "Rekisterissä"
+      }
+     ],
+     "registrationDate": "2015-02-01",
+     "register": "5",
+     "authority": "1"
+    },
+    {
+     "type": "80",
+     "descriptions": [
+      {
+       "languageCode": "1",
+       "description": "Liiketoiminnasta arvonlisäverovelvollinen"
+      }
+     ],
+     "registrationDate": "2015-02-01",
+     "register": "6",
+     "authority": "1"
+    },
+    {
+     "type": "41",
+     "descriptions": [
+      {
+       "languageCode": "3",
+       "description": "Registered"
+      },
+      {
+       "languageCode": "2",
+       "description": "Registrerad"
+      },
+      {
+       "languageCode": "1",
+       "description": "Rekisterissä"
+      }
+     ],
+     "registrationDate": "2020-02-01",
+     "register": "7",
+     "authority": "1",
+     "endDate": "2025-12-31"
+    }
+   ],
+   "addresses": [],
+   "tradeRegisterStatus": "1",
+   "status": "2",
+   "registrationDate": "2015-01-12",
+   "lastModified": "2026-10-01T10:00:00"
+  }
+ ]
+}

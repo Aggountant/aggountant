@@ -32,7 +32,9 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `APPROVAL_REQUIRED` | kirjausta yritettiin ilman hyväksyttyä esikatselua | esikatselu ja hyväksyntä ensin |
 | `CAPTURE_PREPARATION_CHANGED` | kuitin tiedot, ehdotus tai tilikartta muuttuivat hyväksynnän jälkeen | uusi esikatselu ja uusi hyväksyntä ([Sinetöinti ja hyväksyntä](../concepts/sealing-and-approval.md)) |
 | `EMPLOYER_REPORT_ALREADY_FILED` | kuukaudella on jo Tulorekisterin vastaanottama työnantajan erillisilmoitus | ei uutta ilmoitusta; korjaus on korvaava ilmoitus ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#jos-jokin-menee-pieleen)) |
+| `EMPLOYER_REPORT_FILED_OUTSIDE` | tuodun raportin 630 mukaan kuukaudelle on jo annettu erillisilmoitus aggountantin ulkopuolella | ei uutta ilmoitusta; korjaus asiointipalvelussa tai kirjaa ensin viite ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#kun-aiempi-palkanlaskija-on-antanut-ilmoituksia)) |
 | `EMPLOYER_REPORT_NOT_CONFIGURED` | Tulorekisteri-profiilista puuttuu erillisilmoituksen asetus | [Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#ota-erillisilmoitus-käyttöön-kerran) |
+| `EMPLOYER_REPORT_NO_REFERENCE` | korvattava kuukausi tunnetaan vain raportista 630, jossa ei ole ilmoitusviitettä | korvaa asiointipalvelussa tai kirjaa ensin viite (`complete-manual`) |
 | `EMPLOYER_REPORT_OUTCOME_UNKNOWN` | kuukauden aiemman lähetyksen tulos on vielä epäselvä | kysy tila (`employer-report status`), älä lähetä uudelleen ([Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma)) |
 | `EMPLOYER_REPORT_PAYMENTS_CONFLICT` | "Ei palkanmaksua" kuukaudelle, jolle on matkakorvausilmoitus | ilmoita kuukausi vain matkakorvauksia sisältäväksi |
 | `EMPLOYER_REPORT_STATUS_UNKNOWN` | Tulorekisteri ei antanut lopullista tilaa | kysy myöhemmin uudelleen tai tarkista asiointipalvelusta; älä lähetä uudelleen |
@@ -52,6 +54,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `PERIOD_SEALED` | kausi on suljettu, tai päivä osuu suljetulle tai sitä edeltävälle tilikaudelle | kirjaa seuraavalle avoimelle kaudelle |
 | `PERIOD_TRANSITION_CONFLICT` | kauden tila ei salli pyydettyä muutosta, esimerkiksi kausi on jo ilmoitettu, toinen sulku on kesken tai samana vuonna yritetään sekoittaa kuukausia ja neljänneksiä tai sulkea neljännestä tilikaudella, joka ei ole kalenterivuosi | lue viesti; ilmoitettua kautta ei ilmoiteta uudelleen ([Kun jokin menee vikaan](../troubleshooting.md)) |
 | `RUN_NOT_FOUND` | ajoa ei löydy | tarkista, että komento osui oikeaan kotiin |
+| `TRANSCRIPT_UNKNOWN_HEADER` | tuotava tiedosto ei ole suomenkielinen Tulorekisterin raportti 630 dokumentoiduin sarakkein | tilaa raportti 630 uudelleen suomeksi; muuta ei tallennettu ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#kun-aiempi-palkanlaskija-on-antanut-ilmoituksia)) |
 | `VAT_ACCOUNTS_UNRECONCILED` | ALV-tilillä on vientejä ilman ALV-merkintää, ja ilmoituksesta puuttuisi veroa | ilmoitus OmaVerossa korjatuin luvuin, tai perustelu, jos viennit eivät kuulu ilmoitukseen ([Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen)) |
 | `VAT_CURRENCY` | ALV-ilmoituksen lukuja ei voi muodostaa; myös silloin, kun kauden ALV on korjausten vuoksi negatiivinen | [Mitä on valmista ja mitä ei](status.md#alv-ilmoitus) |
 | `VAT_FIGURES_MISMATCH` | ALV-ilmoituksen luvut eivät vastaa kirjanpitoa | agentti käyttää esikatselun lukuja |
@@ -62,6 +65,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `VERO_NOT_READY` | suoran ilmoittamisen valmius ei ole kunnossa | [Vero.fi-valmiuden esteet](vero-fi-blockers.md) |
 | `VOUCHER_NOT_FOUND` | tositetta ei ole annetulla numerolla | tarkista numero tai koti |
 | `WORKFLOW_VERSION_MISMATCH` | kesken oleva ajo on aloitettu vanhemmalla ohjelmaversiolla | [Päivitä aggountant](../tasks/upgrade.md) |
+| `YTJ_UNAVAILABLE` | YTJ:n avoin data ei vastannut rekisteröintikyselyyn | rekisteröinti on tuntematon, ei puuttuva; kokeile myöhemmin tai katso ytj.fi |
 
 Muissa tapauksissa `message` kertoo syyn. Pyydä agenttia selittämään se.
 

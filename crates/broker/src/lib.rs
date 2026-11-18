@@ -74,3 +74,4 @@ pub use vero_vat_api::{
 
 pub mod tulorekisteri;
 pub mod tulorekisteri_xml;
+pub mod ytj;

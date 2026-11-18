@@ -453,7 +453,8 @@ Satunnainen työnantaja, joka ei ole rekisterissä, ei anna sitä kuukausilta, j
 se ei maksanut mitään; silloin `employer_report` jätetään profiilista pois.
 
 Profiilin `employer_report` on yrityksen asetus: `registered_from` on
-työnantajarekisteröinnin ensimmäinen kuukausi, yhteyshenkilö tulee ilmoitukseen, ja
+työnantajarekisteröinnin ensimmäinen kuukausi (tarkista se `registration`-komennolla,
+alla), yhteyshenkilö tulee ilmoitukseen, ja
 `pension_insurances` (`provider_code` = Tulorekisterin eläkelaitostunnus,
 `policy_number`) lähetetään "Ei palkanmaksua" -ilmoituksen mukana. Tyhjä lista
 on oikea vain, jos yrityksellä ei ole vakuuttamisvelvollisuutta (esimerkiksi vain
@@ -491,12 +492,57 @@ ei ole henkilötietoja, joten sen saa näyttää käyttäjälle. Lähetys sitoo 
 nämä tavut. Ohjelma ei koskaan päätä itse lähettää kuukautta: jokainen kuukausi
 esikatsellaan ja hyväksytään erikseen, myös kiinnikurottaessa.
 
+**Kiinnikurominen, kun historia on epäselvä.** Kun käyttäjä ei tiedä
+rekisteröinnin alkua tai sitä, mitkä kuukaudet aiempi palkanlaskija on jo
+ilmoittanut, etene tässä järjestyksessä:
+
+1. **Rekisteröinti YTJ:stä.** `registration` hakee Y-tunnuksella
+   työnantajarekisterin merkinnät PRH:n avoimesta datasta ja vertaa ne
+   `registered_from`-arvoon (`comparison`: `match`,
+   `profile_later_than_register` = kuukausia piilossa `missing`-listalta,
+   `profile_earlier_than_register`, `register_ended`, `not_in_register`,
+   `profile_not_set`). Komento ei kirjoita mitään. Näytä tulos ja
+   `implied_registered_from`; muuta profiilia vasta käyttäjän luvalla.
+   `YTJ_UNAVAILABLE` tarkoittaa "ei tiedossa", ei koskaan "ei rekisterissä".
+2. **Raportti 630 asiointipalvelusta.** Kerro käyttäjälle suoraan, että tämä
+   on ainoa vaihe, joka vaatii Tulorekisterin asiointipalvelua: Uusi tilaus →
+   *Maksajan palkkatietojen yhteenveto (csv)* (630), kohdekauden aikaväli
+   rekisteröinnin kattamalta ajalta enintään 24 kuukautta kerrallaan, kieleksi
+   **suomi**, lataus *Tehdyt tilaukset* -sivulta (zip puretaan).
+3. **Tuonti.** `import-transcript` ensin `--dry-run`-valinnalla, sitten ilman.
+   Raportissa ei ole maksajan Y-tunnusta: varmista käyttäjältä, että tiedosto
+   on tämän yrityksen. Tulos kertoo `recorded` (merkitty annetuksi
+   aggountantin ulkopuolella), `already_held` (aggountant tunsi jo; ei
+   muutettu), `not_reported` (jää puuttuvaksi) ja `conflicts`. Näytä
+   ristiriidat käyttäjälle äläkä ratkaise niitä itse.
+   `TRANSCRIPT_UNKNOWN_HEADER`: tiedosto ei ole suomenkielinen raportti 630
+   dokumentoiduin sarakkein; älä muokkaa tiedostoa sopivaksi vaan pyydä
+   tilaamaan se uudelleen suomeksi, tai jos se on oikea raportti, kerro
+   käyttäjälle, että muoto poikkeaa dokumentaatiosta.
+4. **`missing`**, ja sen jälkeen jokainen puuttuva kuukausi vanhimmasta
+   alkaen: esikatselu, käyttäjän hyväksyntä, lähetys.
+
+```sh
+aggountant --json file-wage employer-report registration
+aggountant --json file-wage employer-report import-transcript raportti-630.csv --dry-run
+aggountant --json file-wage employer-report import-transcript raportti-630.csv
+aggountant --json file-wage employer-report missing
+```
+
+Raportin perusteella annetuksi merkityllä kuukaudella (`filed_outside`) ei ole
+ilmoitusviitettä. Uusi lähetys palauttaa `EMPLOYER_REPORT_FILED_OUTSIDE` ja
+korvaava (`--replace`) `EMPLOYER_REPORT_NO_REFERENCE`: korjaus tehdään
+asiointipalvelussa, tai käyttäjä hakee viitteen ja se kirjataan
+`complete-manual`-komennolla, minkä jälkeen korvaava onnistuu. Sano tämä
+käyttäjälle, kun hän pyytää korjaamaan tällaista kuukautta.
+
 **Puuttuvat kuukaudet.** `missing` luettelee kuukaudet rekisteröinnistä edelliseen
-kuukauteen asti, joilta ei ole hyväksyttyä ilmoitusta, määräpäivineen ja tiloineen
-(`not_filed`, `pending`, `rejected`, `outcome_unknown`). Käy ne läpi vanhimmasta
-alkaen: selvitä kunkin kuukauden maksut, esikatsele, hyväksytä ja lähetä. Jos
-kuukausi on jo annettu asiointipalvelussa, älä lähetä sitä uudelleen vaan kirjaa
-viite:
+kuukauteen asti, joilta ei ole hyväksyttyä ilmoitusta eikä tuodun raportin 630
+näyttöä, määräpäivineen ja tiloineen (`not_filed`, `pending`, `rejected`,
+`outcome_unknown`); raportin kuukaudet ovat erikseen kohdassa `filed_outside`
+lähteineen. Käy puuttuvat läpi vanhimmasta alkaen: selvitä kunkin kuukauden
+maksut, esikatsele, hyväksytä ja lähetä. Jos kuukausi on jo annettu
+asiointipalvelussa, älä lähetä sitä uudelleen vaan kirjaa viite:
 
 ```sh
 aggountant --json file-wage employer-report complete-manual --month 2026-08 \

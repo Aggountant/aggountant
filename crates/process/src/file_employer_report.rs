@@ -13,6 +13,7 @@
 //! fences the month: the only further send is an explicit replacement of the
 //! accepted report.
 use crate::{
+    employer_report_history::{TranscriptEvidence, TranscriptImports},
     fold,
     journal::{EventPayload, Journal},
     ProcessEngine, ProcessError, RunStatus,
@@ -170,6 +171,10 @@ pub enum EmployerMonthState {
     Rejected,
     OutcomeUnknown,
     Accepted,
+    /// No report of aggountant's own is accepted, but an imported Incomes
+    /// Register transcript counts at least one: reported outside aggountant,
+    /// without a report reference.
+    FiledOutside,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -180,6 +185,9 @@ pub struct EmployerMonthStatus {
     /// The report the register holds now: the accepted Run with the highest sequence.
     pub current: Option<EmployerReportReceipt>,
     pub runs: Vec<EmployerReportRun>,
+    /// The newest imported transcript's count for the month, when it is at least one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcript: Option<TranscriptEvidence>,
 }
 
 impl EmployerMonthStatus {
@@ -216,6 +224,17 @@ pub struct MissingEmployerMonth {
     pub deadline: NaiveDate,
     pub overdue: bool,
     pub state: EmployerMonthState,
+    /// A transcript counts a report for a month whose own send is in doubt; it
+    /// may be that send, so the month stays listed until `status` settles it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcript: Option<TranscriptEvidence>,
+}
+
+/// A month left out of `missing` because a transcript shows it reported.
+#[derive(Debug, Clone, Serialize)]
+pub struct FiledOutsideMonth {
+    pub month: ReportMonth,
+    pub evidence: TranscriptEvidence,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -223,6 +242,8 @@ pub struct MissingEmployerReports {
     pub registered_from: ReportMonth,
     pub as_of: NaiveDate,
     pub months: Vec<MissingEmployerMonth>,
+    /// Months reported outside aggountant, with the transcript that shows it.
+    pub filed_outside: Vec<FiledOutsideMonth>,
 }
 
 struct Plan {
@@ -333,6 +354,15 @@ impl ProcessEngine {
         &self,
         month: ReportMonth,
     ) -> Result<EmployerMonthStatus, ProcessError> {
+        self.employer_report_status_with(month, &self.transcript_imports()?)
+    }
+
+    /// The month's state against already loaded transcript imports.
+    pub(crate) fn employer_report_status_with(
+        &self,
+        month: ReportMonth,
+        imports: &TranscriptImports,
+    ) -> Result<EmployerMonthStatus, ProcessError> {
         let runs = self.employer_runs(month)?;
         let any = |p: fn(&EmployerRunOutcome) -> bool| runs.iter().any(|r| p(&r.outcome));
         let state = if any(|o| *o == EmployerRunOutcome::OutcomeUnknown) {
@@ -346,12 +376,24 @@ impl ProcessEngine {
         } else {
             EmployerMonthState::NotFiled
         };
+        let transcript = imports.evidence(month);
+        let state = match state {
+            EmployerMonthState::NotFiled
+            | EmployerMonthState::Pending
+            | EmployerMonthState::Rejected
+                if transcript.is_some() =>
+            {
+                EmployerMonthState::FiledOutside
+            }
+            other => other,
+        };
         let mut status = EmployerMonthStatus {
             month,
             deadline: month.deadline(),
             state,
             current: None,
             runs,
+            transcript,
         };
         status.current = status.current_run().and_then(|r| match &r.outcome {
             EmployerRunOutcome::Accepted { receipt } => Some(receipt.clone()),
@@ -417,6 +459,19 @@ impl ProcessEngine {
             ));
         }
         let current = status.current_run();
+        if let (None, Some(evidence)) = (current, &status.transcript) {
+            return Err(if input.replace {
+                refused(
+                    "EMPLOYER_REPORT_NO_REFERENCE",
+                    format!("{month} is known only from Incomes Register transcript 630 ({} report(s)), which has no report reference to replace; correct the report in the Incomes Register e-service, or record its reference with `complete-manual` first", evidence.report_count),
+                )
+            } else {
+                refused(
+                    "EMPLOYER_REPORT_FILED_OUTSIDE",
+                    format!("Incomes Register transcript 630 shows {} report(s) for {month} given outside aggountant; do not send another. A correction is made in the Incomes Register e-service, or after recording the report reference with `complete-manual`", evidence.report_count),
+                )
+            });
+        }
         let (action, sequence) = match (current, input.replace) {
             (None, false) => (EmployerReportAction::New, 1),
             (Some(run), false) => {
@@ -814,18 +869,25 @@ impl ProcessEngine {
         as_of: NaiveDate,
     ) -> Result<MissingEmployerReports, ProcessError> {
         let (_, profile) = self.employer_profile()?;
+        let imports = self.transcript_imports()?;
         let until = ReportMonth::of(as_of);
         let mut months = Vec::new();
+        let mut filed_outside = Vec::new();
         let mut month = profile.registered_from;
         while month < until {
-            let status = self.employer_report_status(month)?;
-            if status.state != EmployerMonthState::Accepted {
-                months.push(MissingEmployerMonth {
+            let status = self.employer_report_status_with(month, &imports)?;
+            match (status.state, status.transcript) {
+                (EmployerMonthState::Accepted, _) => {}
+                (EmployerMonthState::FiledOutside, Some(evidence)) => {
+                    filed_outside.push(FiledOutsideMonth { month, evidence })
+                }
+                (state, transcript) => months.push(MissingEmployerMonth {
                     month,
                     deadline: month.deadline(),
                     overdue: as_of > month.deadline(),
-                    state: status.state,
-                });
+                    state,
+                    transcript,
+                }),
             }
             month = month.next();
         }
@@ -833,6 +895,7 @@ impl ProcessEngine {
             registered_from: profile.registered_from,
             as_of,
             months,
+            filed_outside,
         })
     }
 }

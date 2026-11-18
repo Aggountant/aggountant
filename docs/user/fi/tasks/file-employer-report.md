@@ -14,7 +14,8 @@ Matkakorvausilmoitus ei korvaa sitä.
 - **Tulorekisterin rajapintaoikeus ja profiili** ovat kunnossa
   ([Ilmoita matkakorvaukset Tulorekisteriin](report-travel-allowances.md#ota-ilmoittaminen-käyttöön-kerran)).
   Erillisilmoitus käyttää samaa oikeutta ja tunnustiedostoa.
-- **Työnantajarekisteröinnin alkukuukausi.** Näet sen OmaVerosta tai
+- **Työnantajarekisteröinnin alkukuukausi.** Agentti voi tarkistaa sen
+  YTJ:n avoimesta datasta (katso alla), tai näet sen OmaVerosta tai
   Verohallinnon päätöksestä. Satunnaisesti palkkaa maksava yritys, joka ei ole
   rekisterissä, ei anna erillisilmoitusta kuukausilta, joilta se ei maksanut
   mitään.
@@ -34,6 +35,34 @@ Matkakorvausilmoitus ei korvaa sitä.
    yhteyshenkilön ja työeläkevakuutukset. Tarkista ne: ne lähtevät
    ilmoituksen mukana, ja alkukuukaudesta lähtien jokaiselta kuukaudelta
    odotetaan ilmoitusta.
+
+### Tarkista rekisteröinnin alku YTJ:stä
+
+Jos et tiedä tai muista, milloin yritys tuli työnantajarekisteriin, pyydä
+agenttia tarkistamaan:
+
+> Milloin yritys tuli työnantajarekisteriin?
+
+aggountant hakee Y-tunnuksella yrityksen työnantajarekisterimerkinnät PRH:n
+YTJ-avoimesta datasta (ei tunnuksia, vain Y-tunnus lähtee kyselyssä) ja
+vertaa niitä profiilin alkukuukauteen. Tulos kertoo, täsmääkö alkukuukausi,
+alkaako profiili liian myöhään (jolloin vanhoja kuukausia jää puuttuvien
+luettelosta pois) tai liian aikaisin, onko merkintä päättynyt vai eikö yritystä
+ole rekisterissä lainkaan. Myös aiemmat rekisterijaksot näkyvät. Komento ei
+muuta profiilia: agentti muuttaa alkukuukauden vain, kun sinä hyväksyt sen.
+Erillisilmoituksia on annettu tammikuusta 2019 alkaen, joten sitä vanhempi
+rekisteröinti tarkoittaa alkukuukautta 2019-01.
+
+Jos YTJ ei vastaa, tulos on "ei tiedossa" eikä "ei rekisterissä"; kokeile
+myöhemmin uudelleen tai katso yritys ytj.fi:stä.
+
+<details>
+<summary>Komento, jonka agentti ajaa</summary>
+
+```sh
+aggountant file-wage employer-report registration
+```
+</details>
 
 ## Näin teet sen
 
@@ -109,6 +138,51 @@ niin kuukausi merkitään annetuksi.
 aggountant file-wage employer-report missing
 aggountant file-wage employer-report complete-manual --month 2026-08 \
   --ir-report-id <ilmoitusviite>
+```
+</details>
+
+### Kun aiempi palkanlaskija on antanut ilmoituksia
+
+Jos tilitoimisto tai palkkapalvelu on antanut osan kuukausista ennen
+aggountantia, kaikkia viitteitä ei kannata kaivaa yksitellen. Tulorekisterin
+raportti 630 kertoo, monellako erillisilmoituksella kukin kuukausi on
+ilmoitettu. Tämä on ainoa vaihe, joka vaatii Tulorekisterin
+asiointipalvelua; aggountant ei voi tilata raporttia puolestasi.
+
+1. **Tilaa raportti asiointipalvelussa**: Uusi tilaus → *Maksajan
+   palkkatietojen yhteenveto (csv)* (630). Valitse kohdekauden aikaväliksi
+   rekisteröinnin alusta alkaen, enintään 24 kuukautta kerrallaan, ja kieleksi
+   **suomi**. Lataa valmis raportti *Tehdyt tilaukset* -sivulta. Jos lataus on
+   zip-tiedosto, pura se.
+2. **Anna tiedosto agentille.**
+
+   > Tässä Tulorekisterin raportti 630 vuodelta 2025.
+
+3. **Agentti tuo raportin.** aggountant tallentaa tiedoston ja merkitsee
+   jokaisen kuukauden, jolla on vähintään yksi erillisilmoitus, annetuksi
+   aggountantin ulkopuolella. Kuukausi, jolla ei ole ilmoitusta, jää
+   puuttuvaksi. Kuukautta, jonka aggountant jo tuntee omasta lähetyksestään
+   tai kirjatusta viitteestä, ei muuteta. Ristiriita näytetään, esimerkiksi
+   kun aggountantin mukaan kuukausi on annettu mutta raportissa ei ole
+   ilmoitusta. Saman tiedoston tuominen uudelleen ei muuta mitään. Raportissa
+   ei ole maksajan Y-tunnusta, joten varmista, että se on oman yrityksesi.
+
+Puuttuvien kuukausien luettelossa raportin kuukaudet näkyvät erikseen,
+lähteenä raportti. Tällaiselle kuukaudelle aggountant ei lähetä uutta
+ilmoitusta eikä korvaavaa, koska raportissa ei ole ilmoitusviitettä: korjaa
+ilmoitus asiointipalvelussa tai kirjaa ensin sen viite.
+
+aggountant lukee vain suomenkielisen raportin, jonka sarakkeet ovat
+Tulorekisterin dokumentaation mukaiset. Muunlainen tiedosto hylätään
+(`TRANSCRIPT_UNKNOWN_HEADER`), eikä mitään tallenneta.
+
+<details>
+<summary>Komennot, joita agentti ajaa</summary>
+
+```sh
+aggountant file-wage employer-report import-transcript raportti-630.csv --dry-run
+aggountant file-wage employer-report import-transcript raportti-630.csv
+aggountant file-wage employer-report missing
 ```
 </details>
 

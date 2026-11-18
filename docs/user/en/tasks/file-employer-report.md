@@ -15,8 +15,9 @@ travel allowances. A travel allowance report does not replace it.
 - **The Tulorekisteri API permission and profile** are in place
   ([Report travel allowances to Tulorekisteri](report-travel-allowances.md#set-up-reporting-once)).
   The separate report uses the same permission and credential file.
-- **The first month of your employer registration.** You find it in OmaVero or
-  in the Tax Administration's decision. A company that pays wages only
+- **The first month of your employer registration.** The agent can check it
+  in the YTJ open data (see below), or you find it in OmaVero or in the Tax
+  Administration's decision. A company that pays wages only
   occasionally and is not in the register does not file the separate report
   for months in which it paid nothing.
 - **Earnings-related pension insurance (TyEL)**, if the company has one: the
@@ -36,6 +37,34 @@ travel allowances. A travel allowance report does not replace it.
    pension insurances to the Tulorekisteri profile. Check them: they go into
    the report, and from the first month on a report is expected for every
    month.
+
+### Check the registration start in YTJ
+
+If you do not know or remember when the company entered the employer
+register, ask the agent to check:
+
+> When did the company enter the employer register?
+
+aggountant looks up the company's employer-register entries by Business ID in
+PRH's YTJ open data (no credentials; only the Business ID is sent) and
+compares them with the profile's first month. The result says whether the
+month matches, whether the profile starts too late (so old months are left
+out of the missing list) or too early, whether the entry has ended, or whether
+the company is not in the register at all. Earlier register periods are shown
+too. The command does not change the profile: the agent changes the first
+month only when you approve it. Employer's separate reports exist from
+January 2019, so an older registration means a first month of 2019-01.
+
+If YTJ does not answer, the result is "unknown", not "not registered"; try
+again later or look the company up on ytj.fi.
+
+<details>
+<summary>The command the agent runs</summary>
+
+```sh
+aggountant file-wage employer-report registration
+```
+</details>
 
 ## How to do it
 
@@ -113,6 +142,51 @@ filed.
 aggountant file-wage employer-report missing
 aggountant file-wage employer-report complete-manual --month 2026-08 \
   --ir-report-id <report reference>
+```
+</details>
+
+### When an earlier payroll service filed reports
+
+If an accounting firm or payroll service filed some months before aggountant,
+there is no need to dig up every reference one by one. Tulorekisteri's
+transcript 630 shows how many separate reports each month has. This is the one
+step that needs the Tulorekisteri e-service; aggountant cannot order the
+transcript for you.
+
+1. **Order the transcript in the e-service**: New subscription → *Summary of
+   payer's earnings payment data (csv)* (630). Choose the reporting period
+   range from the start of the registration, at most 24 months at a time, and
+   **Finnish** (suomi) as the language. Download it from the *Subscriptions
+   made* page. If the download is a ZIP file, unzip it.
+2. **Give the file to the agent.**
+
+   > Here is Tulorekisteri's transcript 630 for 2025.
+
+3. **The agent imports the transcript.** aggountant stores the file and marks
+   every month with at least one separate report as filed outside aggountant.
+   A month without a report stays missing. A month aggountant already knows
+   from its own sending or a recorded reference is not changed. A conflict is
+   shown, for example when aggountant has the month as filed but the
+   transcript has no report for it. Importing the same file again changes
+   nothing. The transcript does not name the payer, so make sure it is your
+   own company's.
+
+In the missing-months list the transcript's months are shown separately, with
+the transcript as their source. For such a month aggountant sends neither a
+new report nor a replacement, because the transcript carries no report
+reference: correct the report in the e-service, or record its reference first.
+
+aggountant reads only a Finnish-language transcript whose columns are those
+of the Tulorekisteri documentation. Any other file is refused
+(`TRANSCRIPT_UNKNOWN_HEADER`) and nothing is stored.
+
+<details>
+<summary>Commands the agent runs</summary>
+
+```sh
+aggountant file-wage employer-report import-transcript raportti-630.csv --dry-run
+aggountant file-wage employer-report import-transcript raportti-630.csv
+aggountant file-wage employer-report missing
 ```
 </details>
 

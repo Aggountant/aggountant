@@ -1,5 +1,6 @@
 use super::*;
 use aggountant_broker::tulorekisteri::{production_broker, read_wage_profile};
+use aggountant_broker::ytj::HttpYtj;
 use aggountant_domain::{
     payroll::{MonthPayments, ReportMonth},
     WageReport,
@@ -45,7 +46,7 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Monthly employer's separate report (työnantajan erillisilmoitus): preview, approve-and-submit once, settle an unknown outcome, list missing months.
+    /// Monthly employer's separate report (työnantajan erillisilmoitus): preview, approve-and-submit once, settle an unknown outcome, list missing months, check the employer-register start in YTJ, import transcript 630 of months reported elsewhere.
     #[command(subcommand)]
     EmployerReport(EmployerReportCmd),
 }
@@ -97,7 +98,7 @@ pub enum EmployerReportCmd {
         #[arg(long, value_parser = parse_month)]
         month: ReportMonth,
     },
-    /// Read-only: months since the employer-register entry with no accepted report, each with its deadline. Example: file-wage employer-report missing
+    /// Read-only: months since the employer-register entry with no accepted report, each with its deadline. Months an imported transcript 630 shows reported are left out and listed under filed_outside with their evidence. Offline. Example: file-wage employer-report missing
     Missing {
         /// Date to judge against (default: today, UTC).
         #[arg(long)]
@@ -113,6 +114,20 @@ pub enum EmployerReportCmd {
         ir_delivery_id: Option<String>,
         #[arg(long)]
         report_version: Option<u32>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Read-only, online: the employer-register (työnantajarekisteri) entries PRH/YTJ open data holds for the profile's business_id, compared with employer_report.registered_from (match, profile_later_than_register, profile_earlier_than_register, register_ended, not_in_register, profile_not_set). implied_registered_from is the value to write on the user's say-so; nothing is written. A network failure is YTJ_UNAVAILABLE, never "not registered". Example: file-wage employer-report registration
+    Registration {
+        /// Date to judge the entries against (default: today, UTC).
+        #[arg(long)]
+        as_of: Option<NaiveDate>,
+    },
+    /// Import Incomes Register transcript 630 "Maksajan palkkatietojen yhteenveto" (CSV, ordered in Finnish in the e-service): stores the file as an artifact and records each month with at least one employer's separate report as filed outside aggountant. Months aggountant holds are not overwritten; conflicts are reported; the same file again is a no-op; an unknown header is refused (TRANSCRIPT_UNKNOWN_HEADER). Such months have no report reference, so --replace for them is refused. Example: file-wage employer-report import-transcript raportti-630.csv
+    ImportTranscript {
+        /// The CSV file downloaded from the e-service (unzip a ZIP download first).
+        file: std::path::PathBuf,
+        /// Show what would be recorded; write nothing.
         #[arg(long)]
         dry_run: bool,
     },
@@ -193,6 +208,25 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                 },
                 Utc::now(),
             )?)
+        }
+        EmployerReportCmd::Registration { as_of } => {
+            let lookup =
+                HttpYtj::new().map_err(|e| CliError::system("YTJ_UNAVAILABLE", e.to_string()))?;
+            serde_json::to_value(
+                engine.employer_registration(
+                    &lookup,
+                    as_of.unwrap_or_else(|| Utc::now().date_naive()),
+                )?,
+            )
+        }
+        EmployerReportCmd::ImportTranscript { file, dry_run } => {
+            let bytes = std::fs::read(file).map_err(|e| {
+                CliError::user(
+                    "TRANSCRIPT_UNREADABLE",
+                    format!("could not read {}: {e}", file.display()),
+                )
+            })?;
+            serde_json::to_value(engine.import_employer_transcript(&bytes, Utc::now(), *dry_run)?)
         }
     };
     value.map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))
