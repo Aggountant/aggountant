@@ -43,3 +43,6 @@ in `crates/process/tests/close_year.rs`; both failed on main.
   re-supplies the asset, accrual or correction, and its seal replays by
   natural key; a re-supplied entry with different figures is refused by the
   ledger's natural-key conflict check.
+
+The combined review of all three close-year guard issues and its assessment
+are in `review.md` and `assessment.md` beside this file.
