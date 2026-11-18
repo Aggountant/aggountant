@@ -18,7 +18,13 @@
   books changed after the gate opened). Approving `ApproveAdjustments`,
   `ApproveTaseErittelyt` or `ApproveLiitetiedot` runs the same check, so an
   approval is never given on content that cannot be shown. `ApproveStatements`
-  keeps its stronger existing binding (persisted and fresh recompute).
+  keeps its stronger existing binding (persisted and fresh recompute), and now
+  also requires the tase-erittelyt and liitetiedot, both rebuilt from the books
+  and as persisted, to still hash to their own gates. Equal statements do not
+  imply equal breakdowns (a transfer between two accounts on one statement row
+  changes only the breakdown), so without this check a second Run's sealed
+  correction could put stale approved breakdowns into the archive. The same
+  check runs again before `SealYear`.
 - `seal-adjustments` seals the persisted (approved) depreciation lines instead
   of recomputing them; the archive writes the persisted (approved)
   tase-erittelyt and liitetiedot. Runs started before this change have none of
@@ -29,6 +35,15 @@
 - User guide fi+en: the year-end step lists what each approval shows, the
   monthly-report workaround and the limitation bullet in `status.md` are gone,
   and the command list shows `close-year show` before each answer.
+
+## Harvest
+
+The first worker died on 2026-11-16 (disk full). Its committed slice was
+adopted unchanged. Its uncommitted snapshot was adopted after a check that it
+was complete: the human output of `close-year show` prints the gate content,
+and the TE/LT re-check at `ApproveStatements` with its test. The harvest worker
+added the persisted-value comparison to that re-check, plus a test
+(`approved_breakdowns_changed_in_the_run_state_are_not_sealed`).
 
 ## Simplicity
 

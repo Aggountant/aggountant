@@ -1233,3 +1233,81 @@ fn a_run_started_before_content_was_persisted_shows_a_checked_rebuild() {
     let err = engine.show_close_year(&run_id).unwrap_err();
     assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
 }
+
+#[test]
+fn approved_breakdowns_made_stale_by_another_run_are_not_sealed() {
+    // Run A has approved its tase-erittelyt. Run B for the same year then seals a
+    // correction between two cash accounts on the same balance-sheet row, so A's
+    // statements are unchanged but its approved breakdown no longer matches the
+    // books. A must not seal the year with that breakdown.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let mut b_input = base_input(2026);
+    b_input.corrections = vec![CorrectionInput {
+        correction_id: "siirto".into(),
+        description: "siirto pankkitilien välillä".into(),
+        debit_account: acct("1920"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let b = engine
+        .start_close_year(&b_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+    approve(&engine, &a, "ApproveTaseErittelyt");
+    approve(&engine, &a, "ApproveLiitetiedot");
+
+    engine.seal_close_year_correction(&b, "siirto").unwrap();
+    let err = engine
+        .answer_close_year(&a, "ApproveStatements", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT", "{err}");
+    assert!(err.to_string().contains("ApproveTaseErittelyt"), "{err}");
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
+}
+
+#[test]
+fn approved_breakdowns_changed_in_the_run_state_are_not_sealed() {
+    // The archive writes the persisted tase-erittelyt, so a state file changed after
+    // the approval must not reach it even though the books still match.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &run_id, "ApproveAdjustments");
+    approve(&engine, &run_id, "ApproveTaseErittelyt");
+    approve(&engine, &run_id, "ApproveLiitetiedot");
+
+    let path = state_path(home.path(), &run_id);
+    let mut state: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    state["tase_erittelyt"]["fiscal_year"] = serde_json::json!(2025);
+    fs::write(&path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+
+    let err = engine
+        .answer_close_year(&run_id, "ApproveStatements", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "JOURNAL_CORRUPT", "{err}");
+    assert!(err.to_string().contains("persisted"), "{err}");
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
+    assert!(!home.path().join("archive/2026/tilinpaatos.json").exists());
+}

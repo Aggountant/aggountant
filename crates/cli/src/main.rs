@@ -2799,15 +2799,26 @@ fn human_line(command: &Command, value: &Value) -> String {
             "intake candidates: {}",
             value["candidates"].as_array().map(|a| a.len()).unwrap_or(0)
         ),
+        // The gate content is what the user approves, so the human output shows it
+        // in full rather than only summarising the run.
         Command::CloseYear {
             cmd: CloseYearCmd::Show { .. },
-        } => format!(
-            "close-year run {} — {} [{}]; open gate: {}",
-            value["run_id"],
-            value["status"],
-            value["period"],
-            value["open_gate"]["gate_id"].as_str().unwrap_or("none")
-        ),
+        } => {
+            let line = format!(
+                "close-year run {} — {} [{}]; open gate: {}",
+                value["run_id"],
+                value["status"],
+                value["period"],
+                value["open_gate"]["gate_id"].as_str().unwrap_or("none")
+            );
+            match &value["open_gate"] {
+                Value::Null => line,
+                gate => format!(
+                    "{line}\n{}",
+                    serde_json::to_string_pretty(gate).expect("gate view serializes")
+                ),
+            }
+        }
         Command::CloseYear { .. } => format!(
             "close-year run {} — {} [{}]",
             value["run_id"], value["status"], value["period"]

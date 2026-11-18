@@ -99,7 +99,8 @@ aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer a
 
 ## Limitations
 
-The run attributes only its own entries to the year that has ended. Sealing the fiscal year cannot be undone.
+The run attributes only its own entries to the year that has ended. Sealing
+the fiscal year cannot be undone.
 More detail: [What is ready and what is not](../reference/status.md#year-end-financial-statements).
 
 ## See also

@@ -891,7 +891,8 @@ impl ProcessEngine {
 
     /// The `ApproveStatements` Preview binding: recompute the statements from the
     /// sealed chain and from the persisted state, and require both hashes to equal
-    /// the hash the gate bound — the approval signs the exact statement bytes. A
+    /// the hash the gate bound, and the rebuilt tase-erittelyt and liitetiedot to
+    /// equal their gates' hashes — the approval signs the exact statement bytes. A
     /// post-approval input change (or a tampered state file) recomputes differently
     /// and is refused (`s6-spec-ahead.md §3.3`).
     fn assert_statements_binding(
@@ -919,6 +920,45 @@ impl ProcessEngine {
                  refusing to seal unapproved figures",
                 gate.snapshot_hash
             )));
+        }
+        // The tase-erittelyt and liitetiedot are sealed into the archive as approved.
+        // Equal statements do not imply equal breakdowns (a transfer between two
+        // accounts on the same statement row changes only the breakdown), so each is
+        // rebuilt from the current books and must still match its own approval. The
+        // persisted value (what the archive writes) must match it too.
+        for (gate_id, fresh, persisted) in [
+            (
+                GATE_APPROVE_TE,
+                GateContent::TaseErittelyt(self.build_tase_erittelyt(&state)?),
+                state.tase_erittelyt.clone().map(GateContent::TaseErittelyt),
+            ),
+            (
+                GATE_APPROVE_LT,
+                GateContent::Liitetiedot(self.build_liitetiedot(&state)?),
+                state.liitetiedot.clone().map(GateContent::Liitetiedot),
+            ),
+        ] {
+            let bound = f
+                .gate(gate_id)
+                .ok_or_else(|| ProcessError::JournalCorrupt(format!("{gate_id} never opened")))?;
+            let fresh_hash = fresh.snapshot_hash();
+            if fresh_hash != bound.snapshot_hash {
+                return Err(ProcessError::JournalCorrupt(format!(
+                    "{gate_id}: the books changed after it was approved (bound {}, \
+                     recomputed {fresh_hash}) — refusing to seal unapproved content; start \
+                     a new close-year run",
+                    bound.snapshot_hash
+                )));
+            }
+            if let Some(persisted_hash) = persisted.map(|p| p.snapshot_hash()) {
+                if persisted_hash != bound.snapshot_hash {
+                    return Err(ProcessError::JournalCorrupt(format!(
+                        "{gate_id}: the run state no longer matches the approval (bound {}, \
+                         persisted {persisted_hash}) — refusing to seal it",
+                        bound.snapshot_hash
+                    )));
+                }
+            }
         }
         Ok(())
     }
