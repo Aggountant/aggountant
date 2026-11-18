@@ -1046,8 +1046,9 @@ impl ProcessEngine {
                 "close-year for {year} is blocked: {} voucher(s) already attributed to {year} \
                  by an earlier close-year run are not in this run's input, so its approvals \
                  and notes would not cover them: [{}] — start a close-year run whose input \
-                 includes the same asset, accrual or correction (the key names its kind and \
-                 id; its seal replays)",
+                 includes the same asset, accrual or correction with the same figures (the \
+                 key names its kind and id; the voucher is then reused, while different \
+                 figures are refused when the adjustments are sealed)",
                 unplanned.len(),
                 unplanned.join(", ")
             )));
