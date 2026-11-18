@@ -517,7 +517,7 @@ impl ReportMonth {
         }
         let year: i32 = s[..4].parse().map_err(|_| bad())?;
         let month: u32 = s[5..].parse().map_err(|_| bad())?;
-        if year < 2019 || year > 2100 || !(1..=12).contains(&month) {
+        if !(2019..=2100).contains(&year) || !(1..=12).contains(&month) {
             return Err(bad());
         }
         Ok(Self { year, month })
