@@ -63,10 +63,15 @@ hand it over and record the year-end entries.
    approval seals the fiscal year, and it cannot be undone.
 
    If an earlier, unfinished year-end run already recorded some entries,
-   a new run must include the same assets, accruals and corrections, so
-   that what you approve covers everything the year's result contains; the
-   run refuses to start and names the missing entries otherwise. Once one
-   run has sealed the year, any other open run for it can only be rejected.
+   a new run must include the same assets, accruals and corrections with
+   the same figures. That way what you approve covers every year-end entry
+   in the books, also one the earlier run recorded in the new year but did
+   not yet assign to the year being closed, which would otherwise stay in
+   the new year's result. The run refuses to start or to seal the year and
+   names the missing entries otherwise. If such an entry was wrong, include
+   it all the same and reverse it with a correction in the new run. Once
+   one run has sealed the year, any other open run for it can only be
+   rejected.
 
 Drawing up and signing the official financial statements, filing them with
 the trade register and the company's tax return are also done outside

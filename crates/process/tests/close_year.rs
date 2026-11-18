@@ -1686,3 +1686,125 @@ fn a_resumed_run_with_an_entry_outside_its_plan_can_still_be_rejected() {
         FiscalYearState::Open
     );
 }
+
+/// Seal kone-1's 2026 depreciation the way a close-year Run does, and stop before
+/// attributing it: the state an interrupted Run leaves between the two commits.
+fn seal_depreciation_without_attribution(
+    ledger: &Ledger,
+    line: &aggountant_domain::DepreciationLine,
+) -> u64 {
+    let draft = depreciation_voucher(
+        line,
+        Date::parse("2026-12-31").unwrap(),
+        Date::parse("2027-01-01").unwrap(),
+    )
+    .unwrap();
+    let sealed = ledger
+        .seal(
+            &draft,
+            &SealRequest {
+                natural_key: "closeyear:2026:dep:kone-1".into(),
+                actor: "process:close-year".into(),
+                policy_set: PolicySet::default(),
+            },
+        )
+        .unwrap();
+    assert!(ledger
+        .adjustment_attribution(sealed.number)
+        .unwrap()
+        .is_none());
+    sealed.number
+}
+
+#[test]
+fn a_run_without_a_voucher_an_abandoned_run_never_attributed_is_refused_at_start() {
+    // Run A (kone-1, 2,000.00) stops after sealing the depreciation on 2027-01-01
+    // but before attributing it to 2026, and is abandoned. A run without kone-1
+    // would seal 2026 without the depreciation and leave it in 2027's result.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let number = seal_depreciation_without_attribution(&ledger, &a.depreciation[0]);
+
+    let mut without = only_asset_input(2026);
+    without.assets.clear();
+    let err = engine
+        .start_close_year(&without, &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    let message = err.to_string();
+    assert!(message.contains("closeyear:2026:dep:kone-1"), "{message}");
+    assert!(message.contains(&format!("voucher {number}")), "{message}");
+    assert!(message.contains("correction"), "{message}");
+    assert!(ledger.adjustment_attribution(number).unwrap().is_none());
+
+    // Re-supplying the asset reuses the voucher and attributes it to 2026.
+    let b = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    assert_eq!(approve_all(&engine, &b).status, RunStatus::Completed);
+    assert_eq!(
+        ledger
+            .adjustment_attribution(number)
+            .unwrap()
+            .unwrap()
+            .effective_year,
+        2026
+    );
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    // 10,000.00 sale - 2,000.00 expense - 2,000.00 depreciation.
+    assert_eq!(archive["statements"]["result"], "6000.00");
+    assert!(ledger.fiscal_year_data(2027).unwrap().vouchers.is_empty());
+}
+
+#[test]
+fn statements_are_not_sealed_while_another_runs_voucher_is_unattributed() {
+    // Run B (no assets) has its statements computed, then Run A (kone-1) seals its
+    // depreciation and stops before attributing it. B's statements are unchanged by
+    // a 2027 voucher, so only the unattributed close-year voucher can stop B from
+    // sealing 2026 without it; B's last gate stays open so it can be declined.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap();
+    let mut without = only_asset_input(2026);
+    without.assets.clear();
+    let b = engine
+        .start_close_year(&without, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &b, "ApproveAdjustments");
+    approve(&engine, &b, "ApproveTaseErittelyt");
+    approve(&engine, &b, "ApproveLiitetiedot");
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_depreciation_without_attribution(&ledger, &a.depreciation[0]);
+
+    let err = engine
+        .answer_close_year(&b, "ApproveStatements", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert!(
+        err.to_string().contains("closeyear:2026:dep:kone-1"),
+        "{err}"
+    );
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
+    let rejected = engine
+        .answer_close_year(&b, "ApproveStatements", "reject")
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+}

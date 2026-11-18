@@ -59,10 +59,14 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
 
    Jos aiempi, kesken jäänyt tilinpäätösajo on jo kirjannut osan
    kirjauksista, uuteen ajoon on otettava samat hyödykkeet, jaksotukset ja
-   oikaisut, jotta hyväksymäsi sisältö kattaa kaiken, mitä vuoden tulos
-   sisältää; muuten ajo ei käynnisty ja nimeää puuttuvat kirjaukset. Kun
-   yksi ajo on sinetöinyt vuoden, muut saman vuoden avoimet ajot voi vain
-   hylätä.
+   oikaisut samoin summin. Näin hyväksymäsi sisältö kattaa jokaisen
+   kirjanpidossa olevan tilinpäätöskirjauksen, myös sellaisen, jonka aiempi
+   ajo kirjasi uudelle vuodelle mutta ei vielä kohdistanut päätettävään
+   vuoteen ja joka muuten jäisi uuden vuoden tulokseen. Muuten ajo ei
+   käynnisty tai sinetöi vuotta ja nimeää puuttuvat kirjaukset. Jos
+   tällainen kirjaus oli virheellinen, ota se silti mukaan ja peru se
+   oikaisulla uudessa ajossa. Kun yksi ajo on sinetöinyt vuoden, muut saman
+   vuoden avoimet ajot voi vain hylätä.
 
 Myös virallisen tilinpäätösasiakirjan laatiminen ja allekirjoitus, ilmoitus
 kaupparekisteriin ja yhtiön veroilmoitus tehdään aggountantin ulkopuolella.

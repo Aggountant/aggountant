@@ -58,14 +58,17 @@ fn correction_effect_key(id: &str) -> String {
 /// The ledger natural keys of the vouchers a close of `year` seals. They make a
 /// repeated seal replay, also across Runs, and identify the vouchers that must be
 /// attributed to `year`.
+fn close_year_key_prefix(year: i32) -> String {
+    format!("closeyear:{year}:")
+}
 fn depreciation_natural_key(year: i32, asset_id: &str) -> String {
-    format!("closeyear:{year}:dep:{asset_id}")
+    format!("{}dep:{asset_id}", close_year_key_prefix(year))
 }
 fn accrual_natural_key(year: i32, accrual_id: &str) -> String {
-    format!("closeyear:{year}:acc:{accrual_id}")
+    format!("{}acc:{accrual_id}", close_year_key_prefix(year))
 }
 fn correction_natural_key(year: i32, correction_id: &str) -> String {
-    format!("closeyear:{year}:corr:{correction_id}")
+    format!("{}corr:{correction_id}", close_year_key_prefix(year))
 }
 
 /// A D7 pre-close reclassification (`voucher correct`): a balanced adjustment sealed
@@ -408,7 +411,7 @@ impl ProcessEngine {
             tase_erittelyt: None,
             liitetiedot: None,
         };
-        self.assert_no_unplanned_attributions(&state)?;
+        self.assert_no_unplanned_close_year_vouchers(&state)?;
 
         let run_id = crate::new_run_id_with("cy");
         let run_dir = self.run_dir(&run_id);
@@ -592,7 +595,7 @@ impl ProcessEngine {
                 // correction must already be in the books and attributed.
                 GATE_APPROVE_ADJ => {
                     self.assert_corrections_sealed(&f)?;
-                    self.assert_no_unplanned_attributions(&state)?;
+                    self.assert_no_unplanned_close_year_vouchers(&state)?;
                     self.gate_view(run_id, &f, gate_id)?;
                 }
                 // The approval is given on the shown content, so it is refused when
@@ -824,7 +827,7 @@ impl ProcessEngine {
             return Ok(());
         }
         let mut state = self.read_close_year_state(run_id)?;
-        // No `assert_no_unplanned_attributions` here: this runs after
+        // No `assert_no_unplanned_close_year_vouchers` here: this runs after
         // `ApproveAdjustments` is answered, so refusing would leave a resumed Run with
         // no open gate to reject. The approval precondition and the statements
         // binding refuse such an entry while a gate is still open.
@@ -996,7 +999,7 @@ impl ProcessEngine {
         // Checked last so that a change the hashes above already catch is reported as
         // that change; an entry outside the plan that left every hash equal is still
         // one no gate showed.
-        self.assert_no_unplanned_attributions(&state)?;
+        self.assert_no_unplanned_close_year_vouchers(&state)?;
         Ok(())
     }
 
@@ -1027,13 +1030,23 @@ impl ProcessEngine {
     }
 
     /// The converse of [`Self::assert_run_vouchers_attributed`]: refuse while a
-    /// voucher attributed to the closing year is not in this Run's plan, typically
-    /// one an earlier, abandoned close-year Run sealed. The statements include it,
-    /// but the gates and the liitetiedot are built from the plan, so the sealed
-    /// notes would not match the sealed result. Including the same asset, accrual or
-    /// correction in the input brings it into the plan, and its seal replays by
-    /// natural key.
-    fn assert_no_unplanned_attributions(&self, state: &CloseYearState) -> Result<(), ProcessError> {
+    /// close-year voucher of the closing year is in the books but not in this Run's
+    /// plan, typically one an earlier, abandoned close-year Run sealed. Two kinds:
+    ///
+    /// - attributed to the year: the statements include it, but the gates and the
+    ///   liitetiedot are built from the plan, so the sealed notes would not match the
+    ///   sealed result;
+    /// - never attributed (that Run stopped between the seal and the attribution):
+    ///   the statements leave it out, and once the year is sealed it can no longer
+    ///   be attributed, so it would stay in the result of the year it was posted in.
+    ///
+    /// Including the same asset, accrual or correction in the input brings it into
+    /// the plan; its seal replays by natural key and attributes it. Nothing here
+    /// attributes a voucher this Run's gates did not show.
+    fn assert_no_unplanned_close_year_vouchers(
+        &self,
+        state: &CloseYearState,
+    ) -> Result<(), ProcessError> {
         let year = state.year;
         let planned = self.planned_natural_keys(state)?;
         let unplanned: Vec<String> = self
@@ -1041,19 +1054,43 @@ impl ProcessEngine {
             .into_iter()
             .filter(|k| !planned.contains(k))
             .collect();
+        let unattributed: Vec<String> = Ledger::open(&self.home)?
+            .unattributed_vouchers_with_key_prefix(&close_year_key_prefix(year))?
+            .into_iter()
+            .filter(|(_, k)| !planned.contains(k))
+            .map(|(number, k)| format!("{k} (voucher {number})"))
+            .collect();
+        if unplanned.is_empty() && unattributed.is_empty() {
+            return Ok(());
+        }
+        let mut reasons = Vec::new();
         if !unplanned.is_empty() {
-            return Err(ProcessError::CloseYearBlocked(format!(
-                "close-year for {year} is blocked: {} voucher(s) already attributed to {year} \
-                 by an earlier close-year run are not in this run's input, so its approvals \
-                 and notes would not cover them: [{}] — start a close-year run whose input \
-                 includes the same asset, accrual or correction with the same figures (the \
-                 key names its kind and id; the voucher is then reused, while different \
-                 figures are refused when the adjustments are sealed)",
+            reasons.push(format!(
+                "{} voucher(s) already attributed to {year} by an earlier close-year run are \
+                 not in this run's input, so its approvals and notes would not cover them: [{}]",
                 unplanned.len(),
                 unplanned.join(", ")
-            )));
+            ));
         }
-        Ok(())
+        if !unattributed.is_empty() {
+            reasons.push(format!(
+                "{} close-year voucher(s) for {year} sealed by an earlier close-year run that \
+                 stopped before attributing them are not in this run's input, so {year}'s \
+                 statements would leave them out and the year they were posted in would \
+                 carry them: [{}]",
+                unattributed.len(),
+                unattributed.join(", ")
+            ));
+        }
+        Err(ProcessError::CloseYearBlocked(format!(
+            "close-year for {year} is blocked: {} — start a close-year run whose input \
+             includes the same asset, accrual or correction with the same figures (the key \
+             names its kind and id; the voucher is then reused and attributed to {year}, \
+             while different figures are refused when the adjustments are sealed); if the \
+             entry itself was wrong, include it all the same and reverse it with a \
+             correction in that run",
+            reasons.join("; ")
+        )))
     }
 
     /// The natural keys of every voucher this Run seals and attributes.

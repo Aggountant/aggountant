@@ -1589,6 +1589,30 @@ impl Ledger {
             .collect())
     }
 
+    /// Sealed vouchers whose natural key starts with `prefix` and that carry no
+    /// adjustment attribution, as `(voucher number, natural key)` in number order,
+    /// read from one consistent fiscal snapshot. Lets a caller that seals and then
+    /// attributes in two commits find a voucher whose attribution never happened.
+    pub fn unattributed_vouchers_with_key_prefix(
+        &self,
+        prefix: &str,
+    ) -> Result<Vec<(u64, String)>, LedgerError> {
+        let snapshot = self.fiscal.verification_snapshot()?;
+        let attributed: std::collections::BTreeSet<u64> = snapshot
+            .attributions
+            .iter()
+            .map(|a| a.voucher_number)
+            .collect();
+        Ok(snapshot
+            .vouchers
+            .into_iter()
+            .filter(|v| {
+                v.provenance.natural_key.starts_with(prefix) && !attributed.contains(&v.number)
+            })
+            .map(|v| (v.number, v.provenance.natural_key))
+            .collect())
+    }
+
     /// `Effect::TransitionPeriod(Open → Closing)` — the first effect of a
     /// `close-period` Run (ADR-6 §2). Atomic CAS into the authoritative fiscal
     /// row in the seal's writer lock; binds the period to `run_id` and mints the
