@@ -764,6 +764,9 @@ impl ProcessEngine {
         if f.effect_succeeded(EFFECT_SEAL_ADJ) {
             return Ok(());
         }
+        // Seal only what was approved: a resume reaches this without the answer path's
+        // check, and a Run started before the depreciation was persisted recomputes it.
+        self.gate_view(run_id, &f, GATE_APPROVE_ADJ)?;
         let state = self.read_close_year_state(run_id)?;
         let doc_date = parse_date(&state.doc_date)?;
         let posting_date = parse_date(&state.posting_date)?;
