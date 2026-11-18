@@ -2,13 +2,14 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: untriaged
+status: duplicate
 priority: high
 provenance: other
 provenance_detail: observed gate failure in a taskfleet worker
 source_ref: taskfleet:01m7q4nbceha52vkzwr4ahjzej/observed:cargo-deny-chrono
 originating_run: 01m7q4nbceha52vkzwr4ahjzej
 originating_run_kind: spinoff
+closed: 2026-11-18
 ---
 
 # cargo-deny fails on RUSTSEC-2026-0543 (chrono unmaintained), blocking the local and GitHub CI gate
@@ -29,3 +30,9 @@ Options: record a reasoned `ignore` for RUSTSEC-2026-0543 in `deny.toml` while
 the migration is planned, or replace chrono (directly and in whichever
 dependencies pull it in) with `jiff` or `time`. An "unmaintained" advisory is
 not a known vulnerability.
+
+## Resolution
+
+### 2026-11-18T11:10:12Z · @issuectl
+
+Duplicate of terribly-steadfast-birds.

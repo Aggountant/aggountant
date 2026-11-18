@@ -2,8 +2,8 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: bug
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7q4nbceha52vkzwr4ahjzej/review-finding:V3
 review_source: ai-review
@@ -16,6 +16,10 @@ assessment_outcome: SPIN_OFF
 review_confidence: high
 review_severity: should-fix
 review_target: main..HEAD
+lane: close-year
+lane_seq: 6
+collision: [crates/process/src/close_year.rs]
+preparation: ready
 ---
 
 # close-year liitetiedot can omit depreciation an earlier run already booked

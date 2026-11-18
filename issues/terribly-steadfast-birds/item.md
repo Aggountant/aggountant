@@ -2,13 +2,16 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: other
 provenance_detail: observed by CI gate in a taskfleet worker
 source_ref: taskfleet:01m7q4nbnvz9hmns7rtdqygffv/ci-gate:rustsec-2026-0543
 originating_run: 01m7q4nbnvz9hmns7rtdqygffv
 originating_run_kind: spinoff
+lane: unlaned
+collision: [deny.toml]
+preparation: ready
 ---
 
 # cargo-deny fails on main: chrono unmaintained (RUSTSEC-2026-0543)
