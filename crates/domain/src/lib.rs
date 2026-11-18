@@ -18,6 +18,7 @@ use thiserror::Error;
 
 use aggountant_model::{ModelError, Posting, VoucherDraft};
 
+pub mod bank_days;
 pub mod closeyear;
 pub mod consult;
 pub mod eligibility;
