@@ -145,12 +145,18 @@ does not send the return.
   submission.
 - If the return does not show or differs, wait and ask the agent to query
   again later, or check OmaVero or Tulorekisteri's e-service yourself.
+- For a VAT return, two "not found" answers at least one bank day apart close
+  the run as not filed. Then start a new filing run for the period. The
+  command's response tells from which date the second query counts
+  (`next_check_from`).
 - If you decide to file by hand, first make sure the API submission did not
   get through. Recording a VAT return made by hand then requires evidence of
   the Tax Administration's status.
 
-**Do not** repeat the approval or start the filing again. Repeating the
-approval does not send again, and a new run could produce a duplicate return.
+**Do not** repeat the approval or start the filing again before that.
+Repeating the approval does not send again, and aggountant refuses a new VAT
+filing run for the same period (`VAT_FILING_UNRESOLVED`), because it could
+produce a duplicate return.
 `file-vat retry` applies only to the payment step, not to the return.
 
 ## Tulorekisteri rejected the report

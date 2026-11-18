@@ -111,6 +111,13 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
 - **The connection dropped or the service returned an error during
   sending.**
   [When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain).
+- **`VAT_FILING_UNRESOLVED`.** An earlier filing of the same month may have
+  got through, so nothing is sent. The agent asks the Tax Administration
+  (`file-vat reconcile`). If the return is there, the earlier run ends as
+  filed. If the answer is "not found", the agent asks again at least one bank
+  day later; the second "not found" closes the earlier run, and the month can
+  be filed with a new run. This can take a few days
+  ([Uncertain outcome](../concepts/filings.md#uncertain-outcome)).
 
 ## See also
 

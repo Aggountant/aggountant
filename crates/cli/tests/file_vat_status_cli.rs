@@ -1,5 +1,6 @@
-//! `file-vat status` through the CLI: `--json` shape, exit codes, and that a
-//! failed authority read is `VAT_STATUS_UNKNOWN`, never "not filed".
+//! `file-vat status` and `reconcile` through the CLI: `--json` shape, exit codes,
+//! that a failed authority read is `VAT_STATUS_UNKNOWN`, never "not filed", and
+//! that an unknown filing outcome refuses a new Run.
 
 use std::io::Write;
 use std::path::Path;
@@ -237,4 +238,68 @@ fn an_unfiled_period_needs_no_credentials() {
     assert_eq!(code, 0, "{err}");
     assert_eq!(status["status"], "not_filed");
     assert_eq!(status["authority_checked"], false);
+}
+
+#[test]
+fn an_unknown_filing_refuses_a_new_run_and_reconcile_records_the_answer() {
+    let home = tempfile::tempdir().unwrap();
+    sealed_q1(home.path());
+    let script = home.path().join("unknown-script.json");
+    let periods = json!([{"status": 200, "body": {"FilingPeriod": [{
+        "Period": "2026-03-31", "Frequency": "VATQTR",
+        "StartDate": "2026-01-01", "EndDate": "2026-03-31",
+        "Status": "Missing", "DueDate": "2026-05-12"
+    }]}}]);
+    std::fs::write(
+        &script,
+        json!({
+            "vero-vat-periods": periods,
+            "vero-file-vat-return": [{"timeout": true}],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let (code, started, err) = run(home.path(), Some(&script), &["file-vat", "start"], INPUT);
+    assert_eq!(code, 0, "{err}");
+    let run_id = started["run_id"].as_str().unwrap().to_string();
+    let approve = ["file-vat", "approve-filing", "--run-id", &run_id];
+    let (code, parked, err) = run(home.path(), Some(&script), &approve, "");
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(parked["status"], "needs_attention");
+
+    // A second Run would receive a receipt if it were allowed to send.
+    let again = home.path().join("again-script.json");
+    std::fs::write(
+        &again,
+        json!({
+            "vero-vat-periods": periods,
+            "vero-file-vat-return": [{"status": 200, "body": {
+                "UniqueIdentifier": "VERO-R2", "AcceptedTimestamp": "2026-05-01T10:00:00Z"
+            }}],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let (code, _, stderr) = run(home.path(), Some(&again), &["file-vat", "start"], INPUT);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("VAT_FILING_UNRESOLVED"), "{stderr}");
+    assert!(stderr.contains(&run_id), "{stderr}");
+
+    let script = status_script(
+        home.path(),
+        json!({"status": 200, "body": {"Status": "Missing"}}),
+    );
+    let reconcile = ["file-vat", "reconcile", "--run-id", &run_id];
+    let (code, answer, err) = run(home.path(), Some(&script), &reconcile, "");
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(answer["run_id"], run_id.as_str());
+    assert_eq!(answer["status"], "needs_attention");
+    assert_eq!(answer["outcome"], "not_found");
+    assert_eq!(answer["remote_status"], "Missing");
+    assert_eq!(answer["authority_checks"].as_array().unwrap().len(), 1);
+    assert!(answer["next_check_from"].is_string());
+
+    let (code, status, err) = run(home.path(), None, &STATUS, "");
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(status["status"], "outcome_unknown");
 }

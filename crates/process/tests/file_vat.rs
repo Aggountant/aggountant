@@ -19,7 +19,10 @@ use aggountant_domain::{
 };
 use aggountant_ledger::{Ledger, PeriodState, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
-use aggountant_process::{EffectStatus, FileVatInput, ProcessEngine, RunStatus, RunView, Seam};
+use aggountant_process::{
+    EffectStatus, FileVatInput, FileVatReconcile, FileVatReconcileOutcome, FixedClock,
+    ProcessEngine, RunStatus, RunView, Seam,
+};
 
 fn effect_status(view: &RunView, key: &str) -> EffectStatus {
     view.effects
@@ -316,6 +319,18 @@ fn verotili_ok() -> Steps {
 }
 
 fn broker_with(home: &std::path::Path, verotili: Steps, submit: Steps, payment: Steps) -> Broker {
+    let filed = vec![ok(200, json!({"Status":"Missing"}))];
+    broker_with_filed(home, verotili, submit, filed, payment)
+}
+
+/// As [`broker_with`], with the GetFiledVATReturn answers scripted too.
+fn broker_with_filed(
+    home: &std::path::Path,
+    verotili: Steps,
+    submit: Steps,
+    filed: Steps,
+    payment: Steps,
+) -> Broker {
     let mut vault = Vault::new();
     let mut reg = Registry::new();
     for s in [
@@ -345,10 +360,7 @@ fn broker_with(home: &std::path::Path, verotili: Steps, submit: Steps, payment: 
         })
         .collect();
     let sb: Box<dyn Transport> = Box::new(ScriptedTransport::new(submit));
-    let filed: Box<dyn Transport> = Box::new(ScriptedTransport::new(vec![ok(
-        200,
-        json!({"Status":"Missing"}),
-    )]));
+    let filed: Box<dyn Transport> = Box::new(ScriptedTransport::new(filed));
     let pm: Box<dyn Transport> = Box::new(ScriptedTransport::new(payment));
     reg.register(Box::new(ScriptedVeroVatPeriodsAdapter::new(vt)));
     reg.register(Box::new(ScriptedVeroFileVatReturnAdapter::new(sb)));
@@ -932,6 +944,310 @@ fn filing_timeout_parks_and_refuses_blind_retry() {
     let still_missing = engine.reconcile_file_vat(&run_id, &broker).unwrap();
     assert_eq!(still_missing.run.status, RunStatus::NeedsAttention);
     assert!(!ledger.period_view(&q1()).unwrap().vat_filed);
+}
+
+// --- An unknown filing outcome blocks every new filing of the period ---------
+
+/// How many FileVATReturn requests the period's outbox records.
+fn filing_attempts(home: &std::path::Path) -> usize {
+    broker_with(home, vec![], vec![], vec![])
+        .outbox_entry(SVC_VERO_FILE_VAT_RETURN, "submit-filing:2026-Q1")
+        .unwrap()
+        .map_or(0, |entry| entry.attempts.len())
+}
+
+fn q1_filed(home: &std::path::Path) -> bool {
+    Ledger::open(home)
+        .unwrap()
+        .period_view(&q1())
+        .unwrap()
+        .vat_filed
+}
+
+/// Run 1 approves Q1 and its FileVATReturn times out: the outcome is unknown.
+fn run_with_unknown_outcome(engine: &ProcessEngine, home: &std::path::Path) -> String {
+    let broker = broker_with(
+        home,
+        verotili_ok(),
+        vec![Err(TransportError::Timeout)],
+        vec![],
+    );
+    let run_id = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let parked = engine
+        .answer_file_vat(&run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    assert_eq!(parked.status, RunStatus::NeedsAttention);
+    assert_eq!(filing_attempts(home), 1);
+    run_id
+}
+
+/// A clock at a Finnish local time: UTC+3 from April to September, else UTC+2
+/// (the tests use no date in the switch months).
+fn finnish_clock(local: &str) -> FixedClock {
+    use chrono::Datelike;
+    let local = chrono::NaiveDateTime::parse_from_str(local, "%Y-%m-%d %H:%M").unwrap();
+    let offset = if (4..=9).contains(&local.month()) {
+        3
+    } else {
+        2
+    };
+    let utc = local - chrono::Duration::hours(offset);
+    FixedClock::new(u64::try_from(utc.and_utc().timestamp()).unwrap())
+}
+
+/// Ask the authority about `run_id` at `local` time; it answers `answer`.
+fn reconcile_at(
+    engine: &ProcessEngine,
+    home: &std::path::Path,
+    run_id: &str,
+    local: &str,
+    answer: Result<RawResponse, TransportError>,
+) -> Result<FileVatReconcile, aggountant_process::ProcessError> {
+    let broker = broker_with_filed(home, vec![], vec![], vec![answer], vec![]);
+    engine.reconcile_file_vat_at(run_id, &broker, &finnish_clock(local))
+}
+
+fn not_found() -> Result<RawResponse, TransportError> {
+    ok(200, json!({"Status": "Missing"}))
+}
+
+/// A second Run would succeed at once if it were allowed to send.
+fn broker_that_would_file(home: &std::path::Path) -> Broker {
+    broker_with(
+        home,
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R2"}))],
+        vec![],
+    )
+}
+
+#[test]
+fn a_new_run_is_refused_before_any_request_while_an_earlier_filing_is_unknown() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    // Run 2 was started before Run 1's filing went unknown and waits for approval.
+    let early = engine
+        .start_file_vat(
+            &input(),
+            &broker_with(home.path(), verotili_ok(), vec![], vec![]),
+            &PolicySet::default(),
+        )
+        .unwrap()
+        .run
+        .run_id;
+    run_with_unknown_outcome(&engine, home.path());
+
+    let refused = engine
+        .start_file_vat(
+            &input(),
+            &broker_that_would_file(home.path()),
+            &PolicySet::default(),
+        )
+        .unwrap_err();
+    assert_eq!(refused.error_code(), "VAT_FILING_UNRESOLVED", "{refused}");
+    assert!(
+        refused.to_string().contains("file-vat reconcile"),
+        "{refused}"
+    );
+
+    let refused = engine
+        .answer_file_vat(
+            &early,
+            "ApproveFiling",
+            "approve",
+            &broker_that_would_file(home.path()),
+        )
+        .unwrap_err();
+    assert_eq!(refused.error_code(), "VAT_FILING_UNRESOLVED", "{refused}");
+    // The refused approval is not recorded, and nothing was sent.
+    let view = engine.show(&early).unwrap();
+    assert_eq!(view.status, RunStatus::AwaitingGate);
+    assert_eq!(filing_attempts(home.path()), 1);
+    assert!(!q1_filed(home.path()));
+}
+
+#[test]
+fn not_found_answers_without_a_bank_day_between_do_not_release_the_period() {
+    // Friday then the weekend; Maundy Thursday then Good Friday and Easter Monday.
+    for (first, too_soon) in [
+        ("2026-11-20 10:00", ["2026-11-20 16:00", "2026-11-22 23:00"]),
+        ("2026-04-02 10:00", ["2026-04-03 10:00", "2026-04-06 23:00"]),
+    ] {
+        let home = sealed_home();
+        let engine = ProcessEngine::open(home.path());
+        let run1 = run_with_unknown_outcome(&engine, home.path());
+
+        let answer = reconcile_at(&engine, home.path(), &run1, first, not_found()).unwrap();
+        assert_eq!(answer.outcome, FileVatReconcileOutcome::NotFound);
+        assert!(answer.next_check_from.is_some());
+        for when in too_soon {
+            let answer = reconcile_at(&engine, home.path(), &run1, when, not_found()).unwrap();
+            assert_eq!(answer.outcome, FileVatReconcileOutcome::NotFound, "{when}");
+            assert_eq!(answer.run.status, RunStatus::NeedsAttention, "{when}");
+        }
+        assert_eq!(
+            engine
+                .start_file_vat(
+                    &input(),
+                    &broker_that_would_file(home.path()),
+                    &PolicySet::default()
+                )
+                .unwrap_err()
+                .error_code(),
+            "VAT_FILING_UNRESOLVED"
+        );
+        assert_eq!(filing_attempts(home.path()), 1);
+        assert!(!q1_filed(home.path()));
+    }
+}
+
+#[test]
+fn two_not_found_answers_a_bank_day_apart_close_run_1_and_run_2_files_once() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = run_with_unknown_outcome(&engine, home.path());
+
+    let first = reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
+    assert_eq!(first.next_check_from.unwrap().to_string(), "2026-11-23");
+    let closed =
+        reconcile_at(&engine, home.path(), &run1, "2026-11-23 09:00", not_found()).unwrap();
+    assert_eq!(closed.outcome, FileVatReconcileOutcome::ClosedNotFiled);
+    assert_eq!(
+        effect_status(&closed.run, "submit-filing"),
+        EffectStatus::Skipped
+    );
+    let dates: Vec<String> = closed
+        .authority_checks
+        .iter()
+        .map(|check| format!("{} {}", check.finnish_date, check.remote_status))
+        .collect();
+    assert_eq!(dates, ["2026-11-20 Missing", "2026-11-23 Missing"]);
+    // The evidence is in Run 1's journal.
+    assert!(engine.journal(&run1).unwrap().iter().any(|event| matches!(
+        &event.payload,
+        aggountant_process::EventPayload::EffectSucceeded { effect_key, note }
+            if effect_key.starts_with("authority-check:") && note.starts_with("Missing")
+    )));
+
+    let broker = broker_that_would_file(home.path());
+    let run2 = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    engine
+        .answer_file_vat(&run2, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    assert!(q1_filed(home.path()));
+    assert_eq!(
+        filing_attempts(home.path()),
+        2,
+        "Run 1's timeout and Run 2's filing"
+    );
+
+    // The closed Run never adopts Run 2's filing, nor sends anything.
+    let resumed = engine
+        .resume_file_vat(&run1, &broker_with(home.path(), vec![], vec![], vec![]))
+        .unwrap();
+    assert_eq!(
+        effect_status(&resumed, "submit-filing"),
+        EffectStatus::Skipped
+    );
+    assert_eq!(filing_attempts(home.path()), 2);
+}
+
+#[test]
+fn a_found_return_is_adopted_and_nothing_is_sent() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = run_with_unknown_outcome(&engine, home.path());
+    let state_path = home
+        .path()
+        .join("process/runs")
+        .join(&run1)
+        .join("file_vat_state.json");
+    let state: Value = serde_json::from_slice(&std::fs::read(state_path).unwrap()).unwrap();
+    let request: Value =
+        serde_json::from_str(state["filing_body"]["request_bytes"].as_str().unwrap()).unwrap();
+    let details = &request["VATDetails"];
+    let processed = ok(
+        200,
+        json!({
+            "Status": "Processed",
+            "SubmittedDate": "2099-01-01",
+            "VATOnDomesticSales": details["VATOnDomesticSalesByTaxRate"],
+            "VATOnPurchasesAndImports": details["VATOnPurchasesAndImports"],
+            "DeductibleTax": {"DeductibleVAT": details["DeductibleVAT"]},
+            "SalesPurchasesImports": details["SalesPurchasesImports"],
+        }),
+    );
+    // A "not found" first does not stand in the way of a later adoption.
+    reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
+    let adopted = reconcile_at(&engine, home.path(), &run1, "2026-11-20 14:00", processed).unwrap();
+    assert_eq!(adopted.outcome, FileVatReconcileOutcome::Adopted);
+    assert_eq!(
+        effect_status(&adopted.run, "submit-filing"),
+        EffectStatus::Succeeded
+    );
+    assert!(q1_filed(home.path()));
+    assert_eq!(filing_attempts(home.path()), 1);
+    assert!(engine
+        .start_file_vat(
+            &input(),
+            &broker_that_would_file(home.path()),
+            &PolicySet::default()
+        )
+        .is_err());
+    assert_eq!(filing_attempts(home.path()), 1);
+}
+
+#[test]
+fn a_failed_or_unreadable_read_records_nothing() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = run_with_unknown_outcome(&engine, home.path());
+    reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
+    for failed in [
+        Err(TransportError::Timeout),
+        ok(500, json!({"ErrorCode": "TEMPORARY"})),
+        ok(200, json!(["not", "an", "object"])),
+    ] {
+        assert!(reconcile_at(&engine, home.path(), &run1, "2026-11-23 09:00", failed).is_err());
+    }
+    let checks = engine
+        .journal(&run1)
+        .unwrap()
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                &event.payload,
+                aggountant_process::EventPayload::EffectSucceeded { effect_key, .. }
+                    if effect_key.starts_with("authority-check:")
+            )
+        })
+        .count();
+    assert_eq!(checks, 1);
+    assert_eq!(
+        engine.show(&run1).unwrap().status,
+        RunStatus::NeedsAttention
+    );
+    // An answer that is neither the return nor "not found" starts the count over.
+    let other = reconcile_at(
+        &engine,
+        home.path(),
+        &run1,
+        "2026-11-23 10:00",
+        ok(200, json!({"Status": "Being Processed"})),
+    )
+    .unwrap();
+    assert_eq!(other.outcome, FileVatReconcileOutcome::Unresolved);
+    let again = reconcile_at(&engine, home.path(), &run1, "2026-11-24 10:00", not_found()).unwrap();
+    assert_eq!(again.outcome, FileVatReconcileOutcome::NotFound);
+    assert_eq!(filing_attempts(home.path()), 1);
 }
 
 #[test]

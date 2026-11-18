@@ -44,8 +44,19 @@ authority what it has:
 
 - If the authority has exactly the same return, the run ends without a new
   submission.
-- If the return does not show or differs, the run keeps waiting, because the
-  authority may not show the latest information yet. It is asked again later.
+- If the return differs, or the authority shows something else for the
+  period, the run keeps waiting. Compare the return in OmaVero.
+- If the authority says it has no return for the period, that is not yet
+  proof: a return can take days to show. The answer is recorded in the run,
+  and the authority is asked again at least one bank day later. Bank days are
+  Monday to Friday, except Finnish bank holidays such as Good Friday, Easter
+  Monday, Ascension Day, Midsummer Eve and the Christmas days. When the
+  authority has said "not found" twice, at least one bank day apart, the run
+  is closed as not filed, and a new filing run may send the period's return.
+
+Until then, aggountant refuses to start or approve a new filing for the same
+period (`VAT_FILING_UNRESOLVED`). A query that fails, or an answer the program
+cannot read, does not count.
 
 A return is never sent again blindly. What to do is described in
 [When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain).

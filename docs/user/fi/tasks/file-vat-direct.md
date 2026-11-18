@@ -104,6 +104,13 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
   ilmoiteta uudelleen.
 - **Yhteys katkesi tai palvelu vastasi virheellä kesken lähetyksen.**
   [Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
+- **`VAT_FILING_UNRESOLVED`.** Saman kuukauden aiempi ilmoitus on voinut
+  mennä perille, joten mitään ei lähetetä. Agentti kysyy Verohallinnolta
+  (`file-vat reconcile`). Jos ilmoitus löytyy, aiempi ajo päättyy
+  ilmoitettuna. Jos vastaus on "ei löydy", agentti kysyy uudelleen
+  aikaisintaan seuraavana pankkipäivänä; toinen "ei löydy" sulkee aiemman
+  ajon, ja kuukauden voi ilmoittaa uudella ajolla. Tähän voi mennä muutama
+  päivä ([Epävarma lopputulos](../concepts/filings.md#epävarma-lopputulos)).
 
 ## Katso myös
 

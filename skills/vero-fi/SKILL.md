@@ -249,11 +249,19 @@ efektin `OUTCOME_UNKNOWN`-tilaan ja ajon `NeedsAttention`-tilaan; se ei ole hylk
 Ennen tätä tallennetuissa ajoissa sama tilanne näkyy hylkäyskoodina `MALFORMED: …` tai
 `HTTP_2xx: …`, ja sitä käsitellään samoin. Ilmoitus voi olla Verossa tai olla olematta, joten sitä ei
 päätellä kumpaankaan suuntaan. `aggountant file-vat reconcile --run-id fv-…` lukee
-`GetFiledVATReturn/v2`-vastauksen: täsmäävät arvot päättävät ajon paikallisesti ilman
-uutta lähetystä; puuttuva, vanhempi tai poikkeava ilmoitus jättää ajon odottamaan,
-koska Vero ei välttämättä vielä näytä uusinta. Odota ja aja reconcile uudelleen, tai
-pyydä käyttäjää katsomaan OmaVero. `file-vat retry` koskee vain maksuefektiä; ilmoitusta
-ei koskaan lähetetä uudelleen sokkona.
+`GetFiledVATReturn/v2`-vastauksen ja kirjaa sen ajoon (`authority_checks`):
+täsmäävät arvot päättävät ajon paikallisesti ilman uutta lähetystä (`outcome: adopted`);
+vanhempi tai poikkeava ilmoitus jättää ajon odottamaan (`unresolved`). `Missing` on yksi
+"ei löydy" (`not_found`); toinen `Missing` aikaisintaan vastauksen `next_check_from`-päivänä
+(seuraava suomalainen pankkipäivä) sulkee ajon ilmoittamattomana (`closed_not_filed`), ja
+vasta sitten uusi `file-vat start` voi lähettää kauden. Muu vastaus välissä nollaa
+laskun; epäonnistunut tai lukukelvoton kysely ei kirjaa mitään. Siihen asti
+`file-vat start` ja `approve-filing` kieltäytyvät koodilla `VAT_FILING_UNRESOLVED`
+(myös kun toisen ajon lähetys on keskeytynyt). Älä kierrä tätä: kerro käyttäjälle, milloin
+kysytään uudelleen, tai pyydä häntä katsomaan OmaVero. Jos uusi ajo muodostaisi eri
+pyynnön kuin aiempi yritys, se kieltäytyy; silloin ilmoitus tehdään käsin
+(`complete-manual` ja "ei löydy" -vastaukset näyttönä). `file-vat retry` koskee vain
+maksuefektiä; ilmoitusta ei koskaan lähetetä uudelleen sokkona.
 
 ## Manuaalinen reitti
 

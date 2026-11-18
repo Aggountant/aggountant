@@ -19,9 +19,9 @@ use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
 use aggountant_model::PeriodId;
 
+use super::recovery::Unresolved;
 use super::{
-    approved_filing_request, filed_vat_return_envelope, filing_outcome_may_be_accepted,
-    FileVatState, EFFECT_SUBMIT_FILING,
+    approved_filing_request, filed_vat_return_envelope, FileVatState, EFFECT_SUBMIT_FILING,
 };
 use crate::journal::EventPayload;
 use crate::{fold, EffectStatus, ProcessEngine, ProcessError};
@@ -172,41 +172,33 @@ impl ProcessEngine {
             ));
         }
 
-        if let Some(run) = runs.iter().find(|run| {
-            run.rejected_code
-                .as_deref()
-                .is_some_and(filing_outcome_may_be_accepted)
-        }) {
-            return Ok(answer(
-                FileVatFilingStatus::OutcomeUnknown,
-                Some(run.run_id.clone()),
-                Some(format!(
-                    "aggountant file-vat reconcile --run-id {}",
-                    run.run_id
-                )),
-                "A direct filing was sent but its outcome is unknown (no timely answer, or \
-                 an answer that was neither a receipt nor a rejection). It may have been \
-                 received. Resolve it with `file-vat reconcile`; do not file again."
-                    .into(),
-            ));
-        }
-        // Executing, or Succeeded without the fiscal record: the dispatch began and
-        // its outcome never reached the books. It may have been accepted.
-        if let Some(run) = runs.iter().find(|run| {
-            matches!(
-                run.status,
-                EffectStatus::Executing | EffectStatus::Succeeded
-            )
-        }) {
-            return Ok(answer(
-                FileVatFilingStatus::FilingInterrupted,
-                Some(run.run_id.clone()),
-                None,
-                "A direct filing was dispatched but the Run was interrupted before its outcome \
-                 reached the books. It may have been accepted; do not file again until the Run \
-                 has been resumed."
-                    .into(),
-            ));
+        match self.unresolved_filing(period, None)? {
+            Some((run_id, Unresolved::OutcomeUnknown)) => {
+                return Ok(answer(
+                    FileVatFilingStatus::OutcomeUnknown,
+                    Some(run_id.clone()),
+                    Some(format!("aggountant file-vat reconcile --run-id {run_id}")),
+                    "A direct filing was sent but its outcome is unknown (no timely answer, or \
+                     an answer that was neither a receipt nor a rejection). It may have been \
+                     received. Resolve it with `file-vat reconcile`: it adopts the filing if \
+                     the Tax Administration has it, and two answers that it has none, at \
+                     least one bank day apart, close the Run so the period can be filed again. \
+                     Do not file again before that."
+                        .into(),
+                ));
+            }
+            Some((run_id, Unresolved::Interrupted)) => {
+                return Ok(answer(
+                    FileVatFilingStatus::FilingInterrupted,
+                    Some(run_id),
+                    None,
+                    "A direct filing was dispatched but the Run was interrupted before its \
+                     outcome reached the books. It may have been accepted; do not file again \
+                     until the Run has been resumed."
+                        .into(),
+                ));
+            }
+            None => {}
         }
         let rejected = runs.iter().rev().find(|run| run.rejected_code.is_some());
         let message = match rejected {

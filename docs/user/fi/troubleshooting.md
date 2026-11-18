@@ -141,12 +141,18 @@ ilmoitusta.
 - Jos ilmoitusta ei näy tai se poikkeaa, odota ja pyydä agenttia kysymään
   uudelleen myöhemmin, tai tarkista OmaVerosta tai Tulorekisterin
   asiointipalvelusta itse.
+- ALV-ilmoituksessa kaksi "ei löydy" -vastausta vähintään yhden pankkipäivän
+  välein sulkee ajon ilmoittamattomana. Aloita sen jälkeen kaudelle uusi
+  ilmoitusajo. Komennon vastaus kertoo, mistä päivästä alkaen toinen kysely
+  lasketaan (`next_check_from`).
 - Jos päätät tehdä ilmoituksen käsin, selvitä ensin, ettei rajapintalähetys
   mennyt perille. ALV-ilmoituksen käsin kirjaaminen vaatii silloin näytön
   Verohallinnon tilasta.
 
-**Älä** toista hyväksyntää tai käynnistä ilmoitusta uudelleen. Hyväksynnän
-toisto ei lähetä uudelleen, ja uusi ajo voisi tuottaa kaksoisilmoituksen.
+**Älä** toista hyväksyntää tai käynnistä ilmoitusta uudelleen ennen sitä.
+Hyväksynnän toisto ei lähetä uudelleen, ja aggountant kieltäytyy uudesta
+saman kauden ALV-ilmoitusajosta (`VAT_FILING_UNRESOLVED`), koska se voisi
+tuottaa kaksoisilmoituksen.
 `file-vat retry` koskee vain maksuvaihetta, ei ilmoitusta.
 
 ## Tulorekisteri hylkäsi ilmoituksen

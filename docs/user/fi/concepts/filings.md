@@ -43,8 +43,20 @@ mitä sillä on:
 
 - Jos viranomaisella on täsmälleen sama ilmoitus, ajo päättyy ilman uutta
   lähetystä.
-- Jos ilmoitusta ei näy tai se poikkeaa, ajo jää odottamaan, koska viranomainen
-  ei välttämättä vielä näytä uusinta tietoa. Kysytään myöhemmin uudelleen.
+- Jos ilmoitus poikkeaa tai viranomainen näyttää kaudelle jotain muuta, ajo
+  jää odottamaan. Vertaa ilmoitusta OmaVerossa.
+- Jos viranomainen vastaa, ettei sillä ole kaudelle ilmoitusta, se ei vielä
+  todista mitään: ilmoituksen näkyminen voi kestää päiviä. Vastaus kirjataan
+  ajoon, ja viranomaiselta kysytään uudelleen aikaisintaan seuraavana
+  pankkipäivänä. Pankkipäiviä ovat maanantaista perjantaihin, paitsi
+  suomalaiset pankkien vapaapäivät, kuten pitkäperjantai, toinen pääsiäispäivä,
+  helatorstai, juhannusaatto ja joulunpyhät. Kun viranomainen on vastannut
+  "ei löydy" kahdesti, vähintään yhden pankkipäivän välein, ajo suljetaan
+  ilmoittamattomana, ja uusi ilmoitusajo saa lähettää kauden ilmoituksen.
+
+Siihen asti aggountant kieltäytyy aloittamasta tai hyväksymästä samalle
+kaudelle uutta ilmoitusta (`VAT_FILING_UNRESOLVED`). Epäonnistunut kysely tai
+vastaus, jota ohjelma ei pysty lukemaan, ei lasketa.
 
 Ilmoitusta ei koskaan lähetetä uudelleen sokkona. Toimintaohjeet ovat sivulla
 [Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).

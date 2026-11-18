@@ -581,7 +581,10 @@ enum FileVatCmd {
         #[arg(long, default_value = "approve")]
         answer: String,
     },
-    /// Reconcile a filing parked on OUTCOME_UNKNOWN through GetFiledVATReturn/v2.
+    /// Reconcile a filing parked on OUTCOME_UNKNOWN through GetFiledVATReturn/v2
+    /// (read only). A matching processed return is adopted; every answer is
+    /// recorded on the Run, and two "not found" answers at least one Finnish bank
+    /// day apart close it as not filed so a new Run may file the period.
     #[command(after_long_help = VERO_TRANSPORT_HELP)]
     Reconcile {
         #[arg(long)]

@@ -733,7 +733,11 @@ impl ProcessEngine {
         let fiscal = ledger.period_view(&period)?;
 
         // --- Reconcile the filing ---
-        if !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
+        // A filing closed as not filed (`file-vat reconcile`) is finished: the Run
+        // neither sends it nor adopts a filing a later Run made.
+        let closed = f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status)
+            == Some(EffectStatus::Skipped);
+        if !closed && !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
             if fiscal.vat_filed && f.gate_approved(GATE_APPROVE_FILING) {
                 // Fiscal COMMIT landed but the process never recorded the success. Adopt
                 // fiscal (fiscal wins) — no authority round-trip. Gate-approval is required
@@ -815,6 +819,12 @@ impl ProcessEngine {
         // One guard owns every path that can dispatch the filing: initial approval,
         // any deliberate re-drive, and crash resume. It runs before EffectExecuting
         // and, most importantly, before the Broker can create an outbox attempt.
+        if f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status) == Some(EffectStatus::Skipped)
+        {
+            return Err(ProcessError::VatFilingUnresolved(format!(
+                "Run {run_id} was closed as not filed; start a new file-vat Run for {period}"
+            )));
+        }
         self.assert_current_filing_proposal(&f, period, state)?;
         self.refuse_while_filing_unresolved(period, Some(run_id))?;
         let env = rebuild_filing_env(period, &state.filing_body);

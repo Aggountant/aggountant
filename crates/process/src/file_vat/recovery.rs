@@ -85,7 +85,7 @@ pub struct FileVatReconcile {
 }
 
 /// Why a period may not be filed now.
-enum Unresolved {
+pub(super) enum Unresolved {
     OutcomeUnknown,
     Interrupted,
 }
@@ -119,9 +119,9 @@ impl ProcessEngine {
         Err(ProcessError::VatFilingUnresolved(message))
     }
 
-    /// Whether a filing for `period` is unresolved. One rule for the dispatch
-    /// guard and for `complete-manual`.
-    fn unresolved_filing(
+    /// Whether a filing for `period` is unresolved, and in which Run. One rule for
+    /// the dispatch guard, `complete-manual` and `file-vat status`.
+    pub(super) fn unresolved_filing(
         &self,
         period: &PeriodId,
         own_run: Option<&str>,
