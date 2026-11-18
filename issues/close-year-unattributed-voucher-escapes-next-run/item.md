@@ -2,7 +2,7 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: bug
-status: in-progress
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7q5ksn5752w7p5s6j0s4qss/review-finding:C1-unattributed-closeyear-voucher
@@ -21,6 +21,8 @@ lane: close-year
 lane_seq: 7
 collision: [crates/process/src/close_year.rs]
 preparation: ready
+closed: 2026-11-18
+closed_by: spinoff-close-year-orphan
 ---
 
 # close-year: a voucher sealed but never attributed by an abandoned run escapes the next run
