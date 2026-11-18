@@ -4,7 +4,9 @@ use aggountant_broker::{
     *,
 };
 use aggountant_domain::{
-    payroll::{EmployerReportAction, EmployerReportContent, MonthPayments, ReportMonth},
+    payroll::{
+        EmployerReportAction, EmployerReportContent, MonthPayments, PensionInsurance, ReportMonth,
+    },
     TaxCard, WageReport,
 };
 use aggountant_ledger::{EmployeeState, Ledger};
@@ -507,7 +509,7 @@ fn crash_after_an_accepted_send_recovers_from_the_outbox_without_network() {
 
 #[test]
 fn replacement_targets_the_accepted_report_and_its_version() {
-    let h = home(json!([{"provider_code":46,"policy_number":"12-3456789"}]));
+    let h = home(json!([]));
     let e = ProcessEngine::open(h.path());
     let at = t("2026-11-02T08:00:00Z");
     let (b, s) = broker(
@@ -585,6 +587,113 @@ fn replacement_targets_the_accepted_report_and_its_version() {
         code(r.unwrap_err()),
         "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED"
     );
+    // Moving from "no wages payable" with a pension policy to a contribution is
+    // a replacement; it repeats the previous version's policy, as the register's
+    // processing rule requires, not the changed profile.
+    let r = e
+        .preview_employer_report(replace(MonthPayments::TaxFreeReimbursementsOnly), later)
+        .unwrap();
+    assert_eq!(
+        r.report.sent_pension_insurances(),
+        [PensionInsurance {
+            provider_code: 46,
+            policy_number: "12-3456789".into()
+        }]
+    );
+}
+
+#[test]
+fn e_service_evidence_settles_a_replacement_only_with_a_newer_version() {
+    let h = home(json!([]));
+    let e = ProcessEngine::open(h.path());
+    let at = t("2026-11-02T08:00:00Z");
+    let later = t("2026-11-03T08:00:00Z");
+    let (b, s) = broker(
+        h.path(),
+        vec![Answer::Accept(1), Answer::Unknown],
+        Answer::Unknown,
+    );
+    let p = e
+        .preview_employer_report(input("2026-10", MonthPayments::None), at)
+        .unwrap();
+    e.submit_employer_report(
+        input("2026-10", MonthPayments::None),
+        at,
+        &p.record_hash,
+        &b,
+        at,
+    )
+    .unwrap();
+    let replace = EmployerReportInput {
+        replace: true,
+        ..input("2026-10", MonthPayments::TaxFreeReimbursementsOnly)
+    };
+    let r = e.preview_employer_report(replace, later).unwrap();
+    let status = e
+        .submit_employer_report(replace, later, &r.record_hash, &b, later)
+        .unwrap();
+    assert_eq!(status.state, EmployerMonthState::OutcomeUnknown);
+    let evidence = |version| EmployerReportReceipt {
+        ir_delivery_id: None,
+        ir_report_id: IR_REPORT.into(),
+        version,
+        source: "e_service".into(),
+    };
+    // The e-service still showing version 1 (or no version) proves nothing about
+    // the replacement; the month stays parked.
+    for stale in [None, Some(1)] {
+        let r = e.complete_employer_report_manual(month("2026-10"), evidence(stale), later);
+        assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_INVALID_EVIDENCE");
+        assert!(e.employer_report_in_doubt(month("2026-10")).unwrap());
+    }
+    let status = e
+        .complete_employer_report_manual(month("2026-10"), evidence(Some(2)), later)
+        .unwrap();
+    assert_eq!(status.state, EmployerMonthState::Accepted);
+    assert_eq!(status.current.unwrap().version, Some(2));
+    assert_eq!(s.sends.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn e_service_evidence_cannot_settle_a_replacement_of_an_unknown_version() {
+    let h = home(json!([]));
+    let e = ProcessEngine::open(h.path());
+    let at = t("2026-11-02T08:00:00Z");
+    let later = t("2026-11-03T08:00:00Z");
+    let (b, _) = broker(h.path(), vec![Answer::Unknown], Answer::Unknown);
+    // The month was given in the e-service and recorded without its version.
+    e.complete_employer_report_manual(
+        month("2026-10"),
+        EmployerReportReceipt {
+            ir_delivery_id: None,
+            ir_report_id: IR_REPORT.into(),
+            version: None,
+            source: "e_service".into(),
+        },
+        at,
+    )
+    .unwrap();
+    let replace = EmployerReportInput {
+        replace: true,
+        ..input("2026-10", MonthPayments::TaxFreeReimbursementsOnly)
+    };
+    let r = e.preview_employer_report(replace, later).unwrap();
+    e.submit_employer_report(replace, later, &r.record_hash, &b, later)
+        .unwrap();
+    for version in [Some(2), Some(5)] {
+        let r = e.complete_employer_report_manual(
+            month("2026-10"),
+            EmployerReportReceipt {
+                ir_delivery_id: None,
+                ir_report_id: IR_REPORT.into(),
+                version,
+                source: "e_service".into(),
+            },
+            later,
+        );
+        assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_INVALID_EVIDENCE");
+    }
+    assert!(e.employer_report_in_doubt(month("2026-10")).unwrap());
 }
 
 #[test]

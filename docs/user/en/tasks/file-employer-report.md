@@ -127,8 +127,11 @@ check the report in Tulorekisteri's e-service.
 - **The outcome of the sending is unclear**: nothing is sent again for the
   month until its state is settled. The agent asks Tulorekisteri for the state
   ([When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain)).
-- **The report needs correcting**: ask for a replacement report. Correcting the
-  pension insurance details and cancelling a report are done in the e-service.
+- **The report needs correcting**: ask for a replacement report, for example
+  when travel allowances turn out to have been paid in a month reported as "No
+  wages payable". A replacement repeats the pension insurance details of the
+  report it replaces. Correcting the pension insurance details themselves, and
+  cancelling a report, are done in the e-service.
 - **Tulorekisteri rejected the report**:
   [When something goes wrong](../troubleshooting.md#tulorekisteri-rejected-the-report).
 

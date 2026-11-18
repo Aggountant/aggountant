@@ -123,8 +123,10 @@ tarkistaa ilmoituksen myös Tulorekisterin asiointipalvelusta.
 - **Lähetyksen tulos jäi epäselväksi**: kuukaudelle ei lähetetä mitään
   uudelleen ennen kuin tila on selvitetty. Agentti kysyy tilan Tulorekisteristä
   ([Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma)).
-- **Ilmoitus pitää korjata**: pyydä korvaava ilmoitus. Eläkevakuutustietojen
-  korjaus ja mitätöinti tehdään asiointipalvelussa.
+- **Ilmoitus pitää korjata**: pyydä korvaava ilmoitus, esimerkiksi kun
+  "Ei palkanmaksua" -kuukaudelle selviää maksetun matkakorvauksia. Korvaava
+  ilmoitus toistaa korvattavan ilmoituksen eläkevakuutustiedot.
+  Eläkevakuutustietojen korjaus ja mitätöinti tehdään asiointipalvelussa.
 - **Tulorekisteri hylkäsi ilmoituksen**:
   [Kun jokin menee vikaan](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
 

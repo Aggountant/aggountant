@@ -305,6 +305,11 @@ fn every_report_shape_validates_against_the_official_schema() {
             ir_report_id: "22222222222233334444555555555555".into(),
             replaces_version,
         };
+        // A replacement repeats the previous version's pension insurances, also
+        // with a contribution.
+        assert!(payer_summary_record(&replacement, at())
+            .unwrap()
+            .contains("<PensionInsurances>"));
         shapes.push(replacement);
     }
     let mut no_pensions = report();
@@ -380,7 +385,11 @@ fn record_carries_the_documented_codes() {
     assert!(
         xml.contains("<SummaryTransactionCode>102</SummaryTransactionCode><Amount>0.00</Amount>")
     );
-    // Pension insurances go only with "No wages payable".
-    assert!(!xml.contains("PensionInsurances"));
+    // A replacement repeats the pension insurances it is given (the previous
+    // version's); a new contribution report carries none.
+    assert!(xml.contains("<PensionInsurances>"));
     assert!(!xml.contains("<ReportId>"));
+    r.action = EmployerReportAction::New;
+    let xml = payer_summary_record(&r, at()).unwrap();
+    assert!(!xml.contains("PensionInsurances"));
 }

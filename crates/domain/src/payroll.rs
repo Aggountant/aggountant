@@ -725,11 +725,15 @@ impl EmployerSeparateReport {
     pub fn report_id(&self) -> String {
         format!("agg-er-{}", self.month.compact())
     }
-    /// Pension insurances that go into the record: only with `No wages payable`.
+    /// Pension insurances that go into the record: with `No wages payable`, and in
+    /// a replacement, which must repeat the previous version's insurances (the
+    /// caller puts exactly those into `pension_insurances`). A new contribution
+    /// report carries none.
     pub fn sent_pension_insurances(&self) -> &[PensionInsurance] {
-        match self.content {
-            EmployerReportContent::NoWagesPayable => &self.pension_insurances,
-            EmployerReportContent::HealthInsuranceContribution { .. } => &[],
+        match (&self.content, &self.action) {
+            (EmployerReportContent::NoWagesPayable, _)
+            | (_, EmployerReportAction::Replacement { .. }) => &self.pension_insurances,
+            (EmployerReportContent::HealthInsuranceContribution { .. }, _) => &[],
         }
     }
     /// The record reference, unique per record: derived from the whole report

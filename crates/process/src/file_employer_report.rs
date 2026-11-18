@@ -444,6 +444,17 @@ impl ProcessEngine {
                 )
             }
         };
+        let previous = current.and_then(|r| r.report.as_ref());
+        // Register processing rule (Data delivery – Schemas – Employer's separate
+        // reports, §2.9): in a replacement the pension insurances match the
+        // previous version. A contribution replacement carries them forward; a
+        // "no wages payable" replacement must already state the same ones.
+        let pension_insurances = match (previous, &content) {
+            (Some(previous), EmployerReportContent::HealthInsuranceContribution { .. }) => {
+                previous.sent_pension_insurances().to_vec()
+            }
+            _ => profile.pension_insurances,
+        };
         let report = EmployerSeparateReport {
             business_id,
             month,
@@ -451,12 +462,12 @@ impl ProcessEngine {
             action,
             contact_name: profile.contact_name,
             contact_phone: profile.contact_phone,
-            pension_insurances: profile.pension_insurances,
+            pension_insurances,
         };
         report
             .validate()
             .map_err(|e| refused("EMPLOYER_REPORT_INVALID", e.to_string()))?;
-        if let Some(previous) = current.and_then(|r| r.report.as_ref()) {
+        if let Some(previous) = previous {
             if previous.content == report.content
                 && previous.contact_name == report.contact_name
                 && previous.contact_phone == report.contact_phone
@@ -467,12 +478,10 @@ impl ProcessEngine {
                     "the replacement would repeat the accepted report",
                 ));
             }
-            // The register's guidance: a changed pension provider or policy number
-            // is corrected by cancelling and re-sending, not by a replacement.
-            if previous.content == EmployerReportContent::NoWagesPayable
-                && report.content == EmployerReportContent::NoWagesPayable
-                && previous.pension_insurances != report.pension_insurances
-            {
+            // A changed pension provider or policy is corrected by cancelling and
+            // re-sending (employer's separate report guidance §5), never by a
+            // replacement, which must repeat the previous version's insurances.
+            if previous.sent_pension_insurances() != report.sent_pension_insurances() {
                 return Err(refused(
                     "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED",
                     "pension insurance details cannot be corrected with a replacement; cancel the report in the e-service and send a new one",
@@ -726,13 +735,30 @@ impl ProcessEngine {
         let status = self.employer_report_status(month)?;
         if let Some(run) = status.in_doubt() {
             let run_id = run.run_id.clone();
-            if let Some(EmployerReportAction::Replacement { ir_report_id, .. }) =
-                run.report.as_ref().map(|r| &r.action)
+            if let Some(EmployerReportAction::Replacement {
+                ir_report_id,
+                replaces_version,
+            }) = run.report.as_ref().map(|r| &r.action)
             {
                 if *ir_report_id != receipt.ir_report_id {
                     return Err(refused(
                         "EMPLOYER_REPORT_INVALID_EVIDENCE",
                         "a replacement keeps the register's report reference; the evidence names another report",
+                    ));
+                }
+                // The reference alone also matches the version being replaced, so
+                // only a newer version proves the replacement arrived; without the
+                // replaced version no e-service version can prove it.
+                let Some(replaced) = *replaces_version else {
+                    return Err(refused(
+                        "EMPLOYER_REPORT_INVALID_EVIDENCE",
+                        "the replaced report's version was not recorded, so e-service evidence cannot show that this replacement arrived; settle it with `file-wage employer-report status`",
+                    ));
+                };
+                if receipt.version.is_none_or(|v| v <= replaced) {
+                    return Err(refused(
+                        "EMPLOYER_REPORT_INVALID_EVIDENCE",
+                        format!("settling a replacement needs the e-service version of the report, newer than version {replaced}; an older version shows only that the replacement has not arrived"),
                     ));
                 }
             }

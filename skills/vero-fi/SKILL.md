@@ -506,13 +506,21 @@ aggountant --json file-wage employer-report complete-manual --month 2026-08 \
 Viite on kuvitteellinen; käytä asiointipalvelun ilmoitusviitettä. Versio
 (`--report-version`) ja tietueviite (`--ir-delivery-id`) annetaan, jos ne ovat
 tiedossa; tunnettu versio tekee myöhemmästä korvaavasta ilmoituksesta tarkemman.
+Jos epävarma lähetys oli korvaava ilmoitus, versio on pakollinen ja sen pitää
+olla korvattua versiota uudempi; asiointipalvelun vanha versio tarkoittaa, ettei
+korvaava ole perillä, ja kuukausi jää odottamaan (`EMPLOYER_REPORT_INVALID_EVIDENCE`).
+Jos korvatun version numeroa ei kirjattu, korvaava ratkaistaan vain
+`status`-tilakyselyllä.
 
 **Kuittaus estää uuden lähetyksen.** Kun kuukaudella on hyväksytty ilmoitus,
 uusi lähetys palauttaa `EMPLOYER_REPORT_ALREADY_FILED`. Korjaus on korvaava
 ilmoitus `--replace`-valinnalla: ohjelma kohdistaa sen Tulorekisterin
-ilmoitusviitteeseen ja tunnettuun versioon. Eläkevakuutustietojen korjausta ei
-tehdä korvaavalla (`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`); mitätöinti ja
-uusi ilmoitus tehdään asiointipalvelussa.
+ilmoitusviitteeseen ja tunnettuun versioon. Korvaavassa on samat
+eläkevakuutustiedot kuin edellisessä versiossa (Tulorekisterin käsittelysääntö):
+"Ei palkanmaksua" → 0 € -korvaava toistaa edellisen version vakuutukset.
+Eläkevakuutustietojen korjausta ei tehdä korvaavalla
+(`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`); mitätöinti ja uusi ilmoitus tehdään
+asiointipalvelussa.
 
 **Epävarma lopputulos.** Aikakatkaisu, 5xx tai ristiriitainen palaute jättää
 kuukauden tilaan `outcome_unknown`. Silloin kaikki uudet lähetykset kuukaudelle
