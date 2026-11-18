@@ -156,7 +156,9 @@ transcript for you.
 1. **Order the transcript in the e-service**: New subscription → *Summary of
    payer's earnings payment data (csv)* (630). Choose the reporting period
    range from the start of the registration, at most 24 months at a time, and
-   **Finnish** (suomi) as the language. Download it from the *Subscriptions
+   **Finnish** (suomi) as the language. Leave the reception time range empty:
+   a limited transcript leaves out reports received at other times, and the
+   file does not show the limit. Download it from the *Subscriptions
    made* page. If the download is a ZIP file, unzip it.
 2. **Give the file to the agent.**
 
@@ -175,6 +177,11 @@ In the missing-months list the transcript's months are shown separately, with
 the transcript as their source. For such a month aggountant sends neither a
 new report nor a replacement, because the transcript carries no report
 reference: correct the report in the e-service, or record its reference first.
+
+If two imported transcripts disagree about a month (one has a report, the
+other none), aggountant does not guess which is newer. The month is listed
+among the missing months as a conflict, and nothing is sent for it until you
+check it in the e-service and the agent records the report reference.
 
 aggountant reads only a Finnish-language transcript whose columns are those
 of the Tulorekisteri documentation. Any other file is refused

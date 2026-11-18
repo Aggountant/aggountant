@@ -508,13 +508,20 @@ ilmoittanut, etene tässä järjestyksessä:
    on ainoa vaihe, joka vaatii Tulorekisterin asiointipalvelua: Uusi tilaus →
    *Maksajan palkkatietojen yhteenveto (csv)* (630), kohdekauden aikaväli
    rekisteröinnin kattamalta ajalta enintään 24 kuukautta kerrallaan, kieleksi
-   **suomi**, lataus *Tehdyt tilaukset* -sivulta (zip puretaan).
+   **suomi**, **vastaanottohetken aikaväli tyhjäksi** (rajattu raportti jättää
+   pois muulloin vastaanotetut ilmoitukset, eikä sitä näe tiedostosta), lataus
+   *Tehdyt tilaukset* -sivulta (zip puretaan).
 3. **Tuonti.** `import-transcript` ensin `--dry-run`-valinnalla, sitten ilman.
    Raportissa ei ole maksajan Y-tunnusta: varmista käyttäjältä, että tiedosto
    on tämän yrityksen. Tulos kertoo `recorded` (merkitty annetuksi
    aggountantin ulkopuolella), `already_held` (aggountant tunsi jo; ei
    muutettu), `not_reported` (jää puuttuvaksi) ja `conflicts`. Näytä
-   ristiriidat käyttäjälle äläkä ratkaise niitä itse.
+   ristiriidat käyttäjälle äläkä ratkaise niitä itse. Jos kaksi raporttia
+   on eri mieltä kuukaudesta (`transcripts_disagree`), kuukausi on
+   `missing`-listalla tilassa `transcript_conflict`, eikä sille lähetetä
+   mitään (`EMPLOYER_REPORT_TRANSCRIPT_CONFLICT`): käyttäjä tarkistaa
+   kuukauden asiointipalvelusta, ja olemassa olevan ilmoituksen viite
+   kirjataan `complete-manual`-komennolla.
    `TRANSCRIPT_UNKNOWN_HEADER`: tiedosto ei ole suomenkielinen raportti 630
    dokumentoiduin sarakkein; älä muokkaa tiedostoa sopivaksi vaan pyydä
    tilaamaan se uudelleen suomeksi, tai jos se on oikea raportti, kerro
@@ -539,7 +546,7 @@ käyttäjälle, kun hän pyytää korjaamaan tällaista kuukautta.
 **Puuttuvat kuukaudet.** `missing` luettelee kuukaudet rekisteröinnistä edelliseen
 kuukauteen asti, joilta ei ole hyväksyttyä ilmoitusta eikä tuodun raportin 630
 näyttöä, määräpäivineen ja tiloineen (`not_filed`, `pending`, `rejected`,
-`outcome_unknown`); raportin kuukaudet ovat erikseen kohdassa `filed_outside`
+`outcome_unknown`, `transcript_conflict`); raportin kuukaudet ovat erikseen kohdassa `filed_outside`
 lähteineen. Käy puuttuvat läpi vanhimmasta alkaen: selvitä kunkin kuukauden
 maksut, esikatsele, hyväksytä ja lähetä. Jos kuukausi on jo annettu
 asiointipalvelussa, älä lähetä sitä uudelleen vaan kirjaa viite:

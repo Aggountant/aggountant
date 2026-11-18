@@ -152,7 +152,8 @@ asiointipalvelua; aggountant ei voi tilata raporttia puolestasi.
 1. **Tilaa raportti asiointipalvelussa**: Uusi tilaus → *Maksajan
    palkkatietojen yhteenveto (csv)* (630). Valitse kohdekauden aikaväliksi
    rekisteröinnin alusta alkaen, enintään 24 kuukautta kerrallaan, ja kieleksi
-   **suomi**. Lataa valmis raportti *Tehdyt tilaukset* -sivulta. Jos lataus on
+   **suomi**. Jätä vastaanottohetken aikaväli tyhjäksi: rajattu raportti jättää
+   pois muulloin vastaanotetut ilmoitukset, eikä rajausta näe tiedostosta. Lataa valmis raportti *Tehdyt tilaukset* -sivulta. Jos lataus on
    zip-tiedosto, pura se.
 2. **Anna tiedosto agentille.**
 
@@ -171,6 +172,11 @@ Puuttuvien kuukausien luettelossa raportin kuukaudet näkyvät erikseen,
 lähteenä raportti. Tällaiselle kuukaudelle aggountant ei lähetä uutta
 ilmoitusta eikä korvaavaa, koska raportissa ei ole ilmoitusviitettä: korjaa
 ilmoitus asiointipalvelussa tai kirjaa ensin sen viite.
+
+Jos kaksi tuotua raporttia on eri mieltä kuukaudesta (toisessa on ilmoitus,
+toisessa ei), aggountant ei arvaa, kumpi on uudempi. Kuukausi näkyy
+puuttuvien luettelossa ristiriitana, eikä sille lähetetä mitään ennen kuin
+tarkistat sen asiointipalvelusta ja agentti kirjaa ilmoituksen viitteen.
 
 aggountant lukee vain suomenkielisen raportin, jonka sarakkeet ovat
 Tulorekisterin dokumentaation mukaiset. Muunlainen tiedosto hylätään

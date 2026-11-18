@@ -123,7 +123,7 @@ pub enum EmployerReportCmd {
         #[arg(long)]
         as_of: Option<NaiveDate>,
     },
-    /// Import Incomes Register transcript 630 "Maksajan palkkatietojen yhteenveto" (CSV, ordered in Finnish in the e-service): stores the file as an artifact and records each month with at least one employer's separate report as filed outside aggountant. Months aggountant holds are not overwritten; conflicts are reported; the same file again is a no-op; an unknown header is refused (TRANSCRIPT_UNKNOWN_HEADER). Such months have no report reference, so --replace for them is refused. Example: file-wage employer-report import-transcript raportti-630.csv
+    /// Import Incomes Register transcript 630 "Maksajan palkkatietojen yhteenveto" (CSV, ordered in Finnish in the e-service without a reception time range): stores the file as an artifact and records each month with at least one employer's separate report as filed outside aggountant. Months aggountant holds are not overwritten; conflicts are reported, and a month two transcripts disagree on becomes transcript_conflict and refuses every send; the same file again is a no-op; an unknown header is refused (TRANSCRIPT_UNKNOWN_HEADER). Such months have no report reference, so --replace for them is refused. Example: file-wage employer-report import-transcript raportti-630.csv
     ImportTranscript {
         /// The CSV file downloaded from the e-service (unzip a ZIP download first).
         file: std::path::PathBuf,

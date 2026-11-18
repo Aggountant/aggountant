@@ -175,6 +175,9 @@ pub enum EmployerMonthState {
     /// Register transcript counts at least one: reported outside aggountant,
     /// without a report reference.
     FiledOutside,
+    /// Imported transcripts disagree: one counts a report, another none. Listed
+    /// as missing, but nothing is sent until the e-service shows which is true.
+    TranscriptConflict,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -185,7 +188,7 @@ pub struct EmployerMonthStatus {
     /// The report the register holds now: the accepted Run with the highest sequence.
     pub current: Option<EmployerReportReceipt>,
     pub runs: Vec<EmployerReportRun>,
-    /// The newest imported transcript's count for the month, when it is at least one.
+    /// Transcript evidence for the month, when any imported transcript counts a report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transcript: Option<TranscriptEvidence>,
 }
@@ -383,7 +386,14 @@ impl ProcessEngine {
             | EmployerMonthState::Rejected
                 if transcript.is_some() =>
             {
-                EmployerMonthState::FiledOutside
+                if transcript
+                    .as_ref()
+                    .is_some_and(|t| t.contradicted_by.is_empty())
+                {
+                    EmployerMonthState::FiledOutside
+                } else {
+                    EmployerMonthState::TranscriptConflict
+                }
             }
             other => other,
         };
@@ -460,7 +470,12 @@ impl ProcessEngine {
         }
         let current = status.current_run();
         if let (None, Some(evidence)) = (current, &status.transcript) {
-            return Err(if input.replace {
+            return Err(if !evidence.contradicted_by.is_empty() {
+                refused(
+                    "EMPLOYER_REPORT_TRANSCRIPT_CONFLICT",
+                    format!("imported Incomes Register transcripts disagree about {month}: one counts {} report(s), {} count(s) none. Check the month in the Incomes Register e-service: record an existing report's reference with `complete-manual`, or give the missing report in the e-service and record it", evidence.report_count, evidence.contradicted_by.len()),
+                )
+            } else if input.replace {
                 refused(
                     "EMPLOYER_REPORT_NO_REFERENCE",
                     format!("{month} is known only from Incomes Register transcript 630 ({} report(s)), which has no report reference to replace; correct the report in the Incomes Register e-service, or record its reference with `complete-manual` first", evidence.report_count),

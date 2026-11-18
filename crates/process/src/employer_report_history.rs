@@ -354,32 +354,58 @@ pub struct TranscriptEvidence {
     pub report_count: u32,
     pub health_insurance_contribution: String,
     pub deductions: String,
+    /// Other imported transcripts covering the month that count no report.
+    /// Non-empty makes the month a conflict that only the e-service settles.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub contradicted_by: Vec<String>,
 }
 
 /// All imported transcripts, read once for a whole `missing` listing.
 pub(crate) struct TranscriptImports(Vec<TranscriptImportRecord>);
 
 impl TranscriptImports {
-    /// The newest import covering the month decides, because a transcript shows
-    /// the reports valid when it was generated (a cancelled report drops out).
-    /// Evidence exists only when it counts at least one report.
+    /// Evidence exists when any imported transcript counts a report for the
+    /// month. Imports are not ranked: a transcript carries no generation time,
+    /// and one ordered with a reception-time range leaves out reports received
+    /// outside it, so a zero never cancels a positive count. Transcripts that
+    /// disagree are reported in `contradicted_by` instead, and the month is a
+    /// conflict rather than either filed or missing.
     pub(crate) fn evidence(&self, month: ReportMonth) -> Option<TranscriptEvidence> {
-        let latest = self
-            .0
+        let covering = || self.0.iter().filter(|r| r.covers(month));
+        let (record, count) = covering()
+            .filter_map(|r| {
+                let count = r.count(month);
+                (count > 0).then_some((r, count))
+            })
+            .max_by(|(a, _), (b, _)| {
+                (a.imported_at, &a.artifact).cmp(&(b.imported_at, &b.artifact))
+            })?;
+        let row = record
+            .months
             .iter()
-            .filter(|r| r.covers(month))
-            .max_by(|a, b| (a.imported_at, &a.artifact).cmp(&(b.imported_at, &b.artifact)))?;
-        let row = latest.months.iter().find(|m| m.month == month)?;
-        (row.report_count > 0).then(|| TranscriptEvidence {
+            .find(|m| m.month == month)
+            .expect("a positive count has a row");
+        Some(TranscriptEvidence {
             source: SOURCE_630,
-            artifact: latest.artifact.clone(),
-            imported_at: latest.imported_at,
-            covers_from: latest.covers_from,
-            covers_to: latest.covers_to,
-            report_count: row.report_count,
+            artifact: record.artifact.clone(),
+            imported_at: record.imported_at,
+            covers_from: record.covers_from,
+            covers_to: record.covers_to,
+            report_count: count,
             health_insurance_contribution: row.health_insurance_contribution.clone(),
             deductions: row.deductions.clone(),
+            contradicted_by: covering()
+                .filter(|r| r.count(month) == 0)
+                .map(|r| r.artifact.clone())
+                .collect(),
         })
+    }
+
+    /// Whether any import covering the month counts no report for it.
+    fn counts_none(&self, month: ReportMonth) -> bool {
+        self.0
+            .iter()
+            .any(|r| r.covers(month) && r.count(month) == 0)
     }
 }
 
@@ -396,9 +422,11 @@ pub struct HeldMonth {
 pub enum TranscriptConflictKind {
     /// aggountant holds an accepted report; the transcript counts none.
     AcceptedInAggountantNoneInTranscript,
-    /// An earlier transcript counted a report; this one counts none, so the
-    /// month is missing again (for example a cancelled report).
-    EarlierTranscriptCountedReport,
+    /// Transcripts disagree: one counts a report, another counts none. The
+    /// order they were generated in is unknown and one may have been ordered
+    /// with a reception-time range, so the month is a conflict until the
+    /// e-service shows which is true.
+    TranscriptsDisagree,
     /// aggountant sent a report whose outcome is unknown; the transcript counts
     /// one. It may be that report, so the month stays parked until `status`
     /// settles it.
@@ -428,8 +456,11 @@ pub struct TranscriptImport {
     pub recorded: Vec<ReportMonth>,
     /// Months the transcript counts that aggountant already holds; not overwritten.
     pub already_held: Vec<HeldMonth>,
-    /// Covered months with no report in the transcript; they stay missing.
+    /// Covered months with no report in the transcript and no other evidence;
+    /// they stay missing.
     pub not_reported: Vec<ReportMonth>,
+    /// Months to show the user; a `transcripts_disagree` month is listed by
+    /// `missing` as `transcript_conflict` and refuses every send.
     pub conflicts: Vec<TranscriptConflict>,
     /// The transcript does not name the payer; the user confirms it is this company's.
     pub warnings: Vec<String>,
@@ -540,6 +571,11 @@ impl ProcessEngine {
             let own = self.employer_report_status_with(month, &TranscriptImports(Vec::new()))?;
             // The receipt of the month's current accepted report, if any.
             let held_source = own.current.map(|receipt| receipt.source);
+            let disagrees = if count == 0 {
+                earlier.evidence(month).is_some()
+            } else {
+                earlier.counts_none(month)
+            };
             match (count, held_source, own.state) {
                 (0, Some(_), _) => conflicts.push(TranscriptConflict {
                     month,
@@ -558,16 +594,12 @@ impl ProcessEngine {
                         report_count: n,
                     })
                 }
-                (0, None, _) => {
-                    if earlier.evidence(month).is_some() {
-                        conflicts.push(TranscriptConflict {
-                            month,
-                            kind: TranscriptConflictKind::EarlierTranscriptCountedReport,
-                            report_count: 0,
-                        });
-                    }
-                    not_reported.push(month);
-                }
+                (n, None, _) if disagrees => conflicts.push(TranscriptConflict {
+                    month,
+                    kind: TranscriptConflictKind::TranscriptsDisagree,
+                    report_count: n,
+                }),
+                (0, None, _) => not_reported.push(month),
                 (_, None, _) => recorded.push(month),
             }
             month = month.next();

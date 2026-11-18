@@ -38,6 +38,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `EMPLOYER_REPORT_OUTCOME_UNKNOWN` | the outcome of an earlier sending for the month is still unclear | ask for the state (`employer-report status`), do not send again ([When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain)) |
 | `EMPLOYER_REPORT_PAYMENTS_CONFLICT` | "No wages payable" for a month that has a travel allowance report | report the month as having only travel allowances |
 | `EMPLOYER_REPORT_STATUS_UNKNOWN` | Tulorekisteri gave no final state | ask again later or check the e-service; do not send again |
+| `EMPLOYER_REPORT_TRANSCRIPT_CONFLICT` | imported transcripts 630 disagree about the month | check the month in the e-service and record the report reference (`complete-manual`) |
 | `EMPLOYER_REPORT_WAGES_UNSUPPORTED` | wages were paid in the month, and aggountant does not compute the health insurance contribution | file the report in the e-service ([What is ready and what is not](status.md#tulorekisteri-and-employees)) |
 | `FISCAL_YEAR_CONFLICT` | a fiscal-year definition would move recorded vouchers or a closed year to another fiscal year | read the message; a definition cannot change what has already been recorded |
 | `FISCAL_YEAR_UNDEFINED` | the date is before the company's first fiscal year, or no fiscal year ends in the given year | check the date or the year; `fiscal-year list` shows the definitions |

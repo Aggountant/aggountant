@@ -297,39 +297,61 @@ fn a_month_known_only_from_a_transcript_is_neither_resent_nor_replaced() {
 }
 
 #[test]
-fn a_newer_transcript_that_counts_no_report_puts_the_month_back() {
-    let h = home(Some(settings("2025-01")));
-    let e = ProcessEngine::open(h.path());
-    e.import_employer_transcript(
-        &fixture("transcript-630-2025.csv"),
-        t("2026-03-10T09:00:00Z"),
-        false,
-    )
-    .unwrap();
-    let later = e
-        .import_employer_transcript(
-            &fixture("transcript-630-2025-h1-later.csv"),
-            t("2026-04-02T09:00:00Z"),
-            false,
-        )
-        .unwrap();
-    assert_eq!(later.conflicts.len(), 1);
-    assert_eq!(later.conflicts[0].month, month("2025-02"));
-    assert_eq!(
-        later.conflicts[0].kind,
-        TranscriptConflictKind::EarlierTranscriptCountedReport
-    );
-    let missing = e.missing_employer_reports(day("2026-04-02")).unwrap();
-    let listed: Vec<ReportMonth> = missing.months.iter().map(|m| m.month).collect();
-    assert_eq!(
-        listed,
-        months(&["2025-02", "2025-04", "2025-06", "2026-01", "2026-02", "2026-03"])
-    );
-    // July is outside the newer transcript, so the older one still shows it.
-    assert!(missing
-        .filed_outside
-        .iter()
-        .any(|m| m.month == month("2025-07")));
+fn transcripts_that_disagree_make_a_visible_conflict_whatever_the_import_order() {
+    // The 2025 transcript counts a February report, the first-half one counts
+    // none. Neither order may silently decide: February is listed, and no
+    // report can be sent for it until the e-service shows which is true.
+    let full = fixture("transcript-630-2025.csv");
+    let half = fixture("transcript-630-2025-h1-later.csv");
+    for (first, second) in [(&full, &half), (&half, &full)] {
+        let h = home(Some(settings("2025-01")));
+        let e = ProcessEngine::open(h.path());
+        e.import_employer_transcript(first, t("2026-03-10T09:00:00Z"), false)
+            .unwrap();
+        let later = e
+            .import_employer_transcript(second, t("2026-04-02T09:00:00Z"), false)
+            .unwrap();
+        assert_eq!(later.conflicts.len(), 1);
+        assert_eq!(later.conflicts[0].month, month("2025-02"));
+        assert_eq!(
+            later.conflicts[0].kind,
+            TranscriptConflictKind::TranscriptsDisagree
+        );
+        assert!(!later.recorded.contains(&month("2025-02")));
+        assert!(!later.not_reported.contains(&month("2025-02")));
+
+        let missing = e.missing_employer_reports(day("2026-04-02")).unwrap();
+        let listed: Vec<ReportMonth> = missing.months.iter().map(|m| m.month).collect();
+        assert_eq!(
+            listed,
+            months(&["2025-02", "2025-04", "2025-06", "2026-01", "2026-02", "2026-03"])
+        );
+        let feb = &missing.months[0];
+        assert_eq!(feb.state, EmployerMonthState::TranscriptConflict);
+        assert_eq!(feb.transcript.as_ref().unwrap().contradicted_by.len(), 1);
+        // July is outside the first-half transcript, so it stays filed outside.
+        assert!(missing
+            .filed_outside
+            .iter()
+            .any(|m| m.month == month("2025-07")));
+
+        let preview = e
+            .preview_employer_report(
+                EmployerReportInput {
+                    month: month("2025-02"),
+                    payments: MonthPayments::None,
+                    replace: false,
+                },
+                t("2026-04-02T10:00:00Z"),
+            )
+            .unwrap_err();
+        assert_eq!(preview.error_code(), "EMPLOYER_REPORT_TRANSCRIPT_CONFLICT");
+
+        // The e-service reference settles it.
+        manual(&e, "2025-02");
+        let feb = e.employer_report_status(month("2025-02")).unwrap();
+        assert_eq!(feb.state, EmployerMonthState::Accepted);
+    }
 }
 
 #[test]
