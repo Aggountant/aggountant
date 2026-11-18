@@ -2,7 +2,7 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7q5ksn5752w7p5s6j0s4qss/review-finding:C1-unattributed-closeyear-voucher
