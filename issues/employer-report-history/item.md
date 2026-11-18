@@ -2,12 +2,14 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: feature
-status: open
+status: done
 priority: high
 lane: wage-reporting
 lane_seq: 0
 collision: [crates/cli/src/wage.rs, crates/process/src/file_employer_report.rs, skills/vero-fi/SKILL.md]
 preparation: ready
+closed: 2026-11-18
+closed_by: claude-opus-5-5
 ---
 
 # employer-report: read the employer-register start from YTJ and import already-filed months from the Incomes Register transcript
@@ -101,3 +103,9 @@ Sources: vero.fi Incomes Register documentation page
 and records from the Incomes Register 2026* (§4.6, §7.5), *Application
 instructions for the employer's separate report 2027*, *Technical interface –
 Application instructions … 2026* (PayerSummaryReportQueryService).
+
+## Resolution
+
+### 2026-11-18T14:41:22Z · @claude-opus-5-5
+
+Both commands landed with docs, skill and review; see result.md. The transcript 630 CSV layout is pinned from the Finnish documentation only and has not been seen in a real file yet.
