@@ -2,13 +2,16 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: follow-up decided with terribly-steadfast-birds
 source_ref: taskfleet:01m7q5ksc4yp9nhd6egpt8chbq/followup:chrono-migration
 originating_run: 01m7q5ksc4yp9nhd6egpt8chbq
 originating_run_kind: spinoff
+lane: dependencies
+lane_seq: 1
+preparation: pending
 ---
 
 # Migrate from chrono to jiff or time
