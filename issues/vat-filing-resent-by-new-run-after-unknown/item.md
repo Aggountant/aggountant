@@ -1,8 +1,8 @@
 ---
 created: 2026-11-13
-updated: 2026-11-16
+updated: 2026-11-18
 type: bug
-status: in-progress
+status: fixed
 priority: high
 provenance: other
 provenance_detail: found while verifying an issue rewrite
@@ -13,6 +13,8 @@ lane: vat-filing
 lane_seq: 6
 collision: [crates/process/src/file_vat.rs, crates/broker/src/vero_vat_api.rs]
 preparation: ready
+closed: 2026-11-18
+closed_by: spinoff-vat-unknown-guard
 ---
 
 # A new file-vat Run re-sends a filing whose outcome is still unknown
