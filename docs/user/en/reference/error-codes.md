@@ -31,6 +31,12 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `ALREADY_INITIALIZED` | setting up a home was run on an existing home | nothing; the home already exists and was not touched |
 | `APPROVAL_REQUIRED` | an entry was attempted without an approved preview | preview and approval first |
 | `CAPTURE_PREPARATION_CHANGED` | the receipt details, the proposal or the chart of accounts changed after approval | a new preview and a new approval ([Sealing and approval](../concepts/sealing-and-approval.md)) |
+| `EMPLOYER_REPORT_ALREADY_FILED` | the month already has an employer's separate report that Tulorekisteri accepted | no new report; a correction is a replacement report ([File the employer's separate report](../tasks/file-employer-report.md#if-something-goes-wrong)) |
+| `EMPLOYER_REPORT_NOT_CONFIGURED` | the Tulorekisteri profile has no separate report settings | [File the employer's separate report](../tasks/file-employer-report.md#set-up-the-separate-report-once) |
+| `EMPLOYER_REPORT_OUTCOME_UNKNOWN` | the outcome of an earlier sending for the month is still unclear | ask for the state (`employer-report status`), do not send again ([When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain)) |
+| `EMPLOYER_REPORT_PAYMENTS_CONFLICT` | "No wages payable" for a month that has a travel allowance report | report the month as having only travel allowances |
+| `EMPLOYER_REPORT_STATUS_UNKNOWN` | Tulorekisteri gave no final state | ask again later or check the e-service; do not send again |
+| `EMPLOYER_REPORT_WAGES_UNSUPPORTED` | wages were paid in the month, and aggountant does not compute the health insurance contribution | file the report in the e-service ([What is ready and what is not](status.md#tulorekisteri-and-employees)) |
 | `FISCAL_YEAR_CONFLICT` | a fiscal-year definition would move recorded vouchers or a closed year to another fiscal year | read the message; a definition cannot change what has already been recorded |
 | `FISCAL_YEAR_UNDEFINED` | the date is before the company's first fiscal year, or no fiscal year ends in the given year | check the date or the year; `fiscal-year list` shows the definitions |
 | `GATE_NOT_OPEN` | the approval has already been answered or is not open | ask the agent to show the run's state |

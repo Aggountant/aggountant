@@ -48,6 +48,10 @@ ordinary month is recorded, closed and filed in one session.
    [directly to the Tax Administration](file-vat-direct.md). Pay the tax
    yourself.
 
+9. **Employer's separate report** to Tulorekisteri, if the company is in the
+   employer register. It is filed every month, also without payments:
+   [File the employer's separate report](file-employer-report.md).
+
 ## Done when
 
 - The month's state is `sealed` and `vat_filed true`. Ask the agent to show

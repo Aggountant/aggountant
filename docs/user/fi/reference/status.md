@@ -24,6 +24,8 @@ versioiden välillä.
 - kuukausiraportit
 - ALV-ilmoitus suoraan Verohallinnolle tai käsin OmaVerossa
 - verovapaiden matkakorvausten ilmoitus Tulorekisteriin
+- työnantajan erillisilmoitus Tulorekisteriin kuukausilta, joilta ei maksettu
+  palkkaa
 - tilinpäätöksen kirjaukset ja tilikauden sinetöinti tilinpäätösajolla.
 
 **Ohjelmassa, mutta ei vielä käytettävissä oikeaan kirjanpitoon:**
@@ -159,8 +161,18 @@ palkkatosite aggountantiin:
 
 - **Vain verovapaat matkakorvaukset.** aggountant ilmoittaa
   kilometrikorvaukset (311) ja päivärahat (331) yhdelle tulonsaajalle ja
-  yhdestä maksusta kerrallaan. Työnantajan erillisilmoitus, korvaava ilmoitus
-  ja mitätöinti tehdään Tulorekisterin asiointipalvelussa.
+  yhdestä maksusta kerrallaan. Niiden korvaava ilmoitus ja mitätöinti tehdään
+  Tulorekisterin asiointipalvelussa.
+- **Työnantajan erillisilmoitus vain kuukausilta ilman palkkaa.** aggountant
+  antaa "Ei palkanmaksua" -ilmoituksen ja kuukausille, joilta maksettiin vain
+  verovapaita matkakorvauksia, sairausvakuutusmaksun 0 €. Palkkakuukauden
+  sairausvakuutusmaksua se ei laske, joten sellainen kuukausi hylätään
+  (`EMPLOYER_REPORT_WAGES_UNSUPPORTED`). Tee näin: anna kuukauden ilmoitus
+  asiointipalvelussa ja anna viite agentille. Myös eläkevakuutustietojen
+  korjaus ja ilmoituksen mitätöinti tehdään asiointipalvelussa. Määräpäivänä
+  näytetään aina kuukauden 5. päivä, vaikka lauantaina tai pyhänä ilmoituksen
+  saa antaa seuraavana pankkipäivänä
+  ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md)).
 - **Tulorekisteri-profiilille ei ole omaa komentoa.** Agentti kirjoittaa sen
   `vero-fi`-skillin ohjeen mukaan.
 - **Työntekijärekisteriä ei ole salattu.** Komennon ohje puhuu salatusta

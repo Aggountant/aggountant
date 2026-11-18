@@ -27,6 +27,7 @@ the program tells you those itself, with `aggountant --help` and, for example,
 | `vero-fi` | direct filing settings, the readiness check and the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | the employee register | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `file-wage` | the travel allowance report to Tulorekisteri | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
+| `file-wage employer-report` | the employer's separate report and missing months | [File the employer's separate report](../tasks/file-employer-report.md) |
 
 ## In the program, but not in use
 

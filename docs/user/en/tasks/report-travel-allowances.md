@@ -9,6 +9,11 @@ first part of this page is a one-time setup.
 Cash wages cannot yet be paid or reported with aggountant
 ([What is ready and what is not](../reference/status.md#payroll)).
 
+If the company is in the employer register, an employer's separate report also
+goes to Tulorekisteri every month. For a month in which you paid only travel
+allowances it gives a health insurance contribution of €0:
+[File the employer's separate report](file-employer-report.md).
+
 ## Before you start
 
 - **API permission.** In the Tax Administration's certificate service, apply
@@ -108,8 +113,8 @@ check it in Tulorekisteri's e-service.
 
 ## Limitations
 
-- The employer's separate report, replacement reports and cancellations are
-  not made with aggountant. They are made in Tulorekisteri's e-service.
+- Replacement reports and cancellations of a travel allowance report are not
+  made with aggountant. They are made in Tulorekisteri's e-service.
 - The employee register is not yet encrypted, even though the command's help
   says so. Keep the home directory and its backups for your own use only.
 
@@ -128,5 +133,6 @@ More detail: [What is ready and what is not](../reference/status.md#tulorekister
 
 ## See also
 
+- [File the employer's separate report](file-employer-report.md)
 - [Filings and uncertain outcomes](../concepts/filings.md)
 - [The company home: what is stored where](../concepts/company-home.md)

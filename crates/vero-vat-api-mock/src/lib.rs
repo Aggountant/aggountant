@@ -364,7 +364,9 @@ fn handle<S: Read + Write>(
     }
 
     if let Some(soap) = &scenario.soap {
-        let (body, status) = if path.ends_with("/WageReportService.svc") {
+        let (body, status) = if path.ends_with("/WageReportService.svc")
+            || path.ends_with("/PayerSummaryReportService.svc")
+        {
             thread::sleep(soap.send_delay);
             (&soap.send_body, soap.send_status)
         } else if path.ends_with("/StatusService.svc") {

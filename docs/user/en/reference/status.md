@@ -23,6 +23,7 @@ formats may still change between versions.
 - monthly reports
 - the VAT return, directly to the Tax Administration or by hand in OmaVero
 - reporting tax-free travel allowances to Tulorekisteri
+- the employer's separate report to Tulorekisteri for months without wages
 - the year-end entries and sealing the fiscal year with the year-end run.
 
 **In the program, but not yet usable for real bookkeeping:** the payroll run,
@@ -163,8 +164,18 @@ record the payroll voucher in aggountant:
 
 - **Only tax-free travel allowances.** aggountant reports mileage allowances
   (311) and per diems (331) for one income earner and one payment at a time.
-  The employer's separate report, replacement reports and cancellations are
-  made in Tulorekisteri's e-service.
+  Their replacement reports and cancellations are made in Tulorekisteri's
+  e-service.
+- **The employer's separate report only for months without wages.** aggountant
+  files "No wages payable" and, for months in which only tax-free travel
+  allowances were paid, a health insurance contribution of €0. It does not
+  compute the contribution for a month with wages, so such a month is refused
+  (`EMPLOYER_REPORT_WAGES_UNSUPPORTED`). Do this: file that month in the
+  e-service and give the reference to the agent. Correcting pension insurance
+  details and cancelling a report are also done in the e-service. The deadline
+  shown is always the 5th of the month, although a report due on a Saturday or
+  a holiday may be filed on the next banking day
+  ([File the employer's separate report](../tasks/file-employer-report.md)).
 - **There is no command for the Tulorekisteri profile.** The agent writes it
   as the `vero-fi` skill instructs.
 - **The employee register is not encrypted.** The command's help talks about

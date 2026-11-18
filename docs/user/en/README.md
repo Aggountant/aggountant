@@ -38,6 +38,8 @@ Want to join early or help build it? [Join as an early user](start/early-users.m
 - [Close the month](tasks/close-month.md)
 - [File the VAT return in OmaVero](tasks/file-vat-omavero.md) or
   [send it directly to the Tax Administration](tasks/file-vat-direct.md)
+- [File the employer's separate report](tasks/file-employer-report.md), if the
+  company is in the employer register
 
 ## Once or occasionally
 

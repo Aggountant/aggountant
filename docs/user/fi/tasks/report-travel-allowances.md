@@ -9,6 +9,11 @@ käyttöönotto.
 Rahapalkkoja aggountantilla ei vielä voi maksaa eikä ilmoittaa
 ([Mitä on valmista ja mitä ei](../reference/status.md#palkat)).
 
+Jos yritys on työnantajarekisterissä, Tulorekisteriin annetaan lisäksi joka
+kuukausi työnantajan erillisilmoitus. Kuukaudelta, jolta maksoit vain
+matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
+[Anna työnantajan erillisilmoitus](file-employer-report.md).
+
 ## Ennen kuin aloitat
 
 - **Rajapintaoikeus.** Hae Verohallinnon varmennepalvelussa
@@ -101,7 +106,7 @@ tarkistaa sen myös Tulorekisterin asiointipalvelusta.
 
 ## Rajoitukset
 
-- Työnantajan erillisilmoitusta, korvaavaa ilmoitusta ja mitätöintiä ei tehdä
+- Matkakorvausilmoituksen korvaavaa ilmoitusta ja mitätöintiä ei tehdä
   aggountantilla. Ne tehdään Tulorekisterin asiointipalvelussa.
 - Työntekijärekisteriä ei vielä ole salattu, vaikka komennon ohje niin sanoo.
   Pidä kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.
@@ -120,5 +125,6 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tulorekisteri-
 
 ## Katso myös
 
+- [Anna työnantajan erillisilmoitus](file-employer-report.md)
 - [Viranomaisilmoitukset ja epävarma lopputulos](../concepts/filings.md)
 - [Yrityskoti: mitä tallentuu minne](../concepts/company-home.md)

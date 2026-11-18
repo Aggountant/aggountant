@@ -111,3 +111,110 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     let done: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(done["status"], "completed");
 }
+
+#[test]
+fn employer_report_preview_missing_manual_evidence_and_offline_guards() {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    let h = home.path();
+    let ok = |args: &[&str]| {
+        let (code, out, err) = run(h, args, "");
+        assert_eq!(code, 0, "{args:?}: {err}");
+        serde_json::from_str::<Value>(&out).unwrap()
+    };
+    let fails = |args: &[&str]| {
+        let (code, _, err) = run(h, args, "");
+        assert_eq!(code, 1, "{args:?}");
+        serde_json::from_str::<Value>(&err).unwrap()["error_code"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let preview = [
+        "file-wage",
+        "employer-report",
+        "preview",
+        "--month",
+        "2026-10",
+        "--payments",
+        "none",
+        "--timestamp",
+        "2026-11-02T08:00:00Z",
+    ];
+    assert_eq!(fails(&preview), "EMPLOYER_REPORT_NOT_CONFIGURED");
+    std::fs::create_dir_all(h.join(".aggountant")).unwrap();
+    std::fs::write(
+        h.join(".aggountant/tulorekisteri.json"),
+        json!({"schema_version":1,"mode":"production","business_id":"1234567-1","reporting_permission_active":true,"credentials_file":null,
+            "employer_report":{"registered_from":"2026-08","contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","pension_insurances":[]}})
+            .to_string(),
+    )
+    .unwrap();
+    let p = ok(&preview);
+    assert_eq!(p["schema_version"], 1);
+    assert_eq!(p["deadline"], "2026-11-05");
+    assert_eq!(p["report"]["content"]["kind"], "no_wages_payable");
+    let hash = p["record_hash"].as_str().unwrap().to_string();
+    let mut wages = preview;
+    wages[6] = "wages";
+    assert_eq!(fails(&wages), "EMPLOYER_REPORT_WAGES_UNSUPPORTED");
+
+    let mut submit: Vec<&str> = preview.to_vec();
+    submit[2] = "submit";
+    submit.extend(["--record-hash", &hash, "--dry-run"]);
+    let dry = ok(&submit);
+    assert_eq!(dry["would"][0]["matches_approval"], true);
+    assert!(!h.join("process").exists());
+    submit.pop();
+    // No credential: refused before anything is written or sent.
+    assert_eq!(fails(&submit), "MISSING_CREDENTIAL");
+    assert!(!h.join("process").exists());
+
+    let missing = ok(&[
+        "file-wage",
+        "employer-report",
+        "missing",
+        "--as-of",
+        "2026-11-16",
+    ]);
+    let months: Vec<_> = missing["months"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["month"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(months, ["2026-08", "2026-09", "2026-10"]);
+
+    let done = ok(&[
+        "file-wage",
+        "employer-report",
+        "complete-manual",
+        "--month",
+        "2026-08",
+        "--ir-report-id",
+        "22222222222233334444555555555555",
+        "--report-version",
+        "1",
+    ]);
+    assert_eq!(done["state"], "accepted");
+    assert_eq!(done["current"]["source"], "e_service");
+    let status = ok(&[
+        "file-wage",
+        "employer-report",
+        "status",
+        "--month",
+        "2026-08",
+    ]);
+    assert_eq!(status["state"], "accepted");
+    let missing = ok(&[
+        "file-wage",
+        "employer-report",
+        "missing",
+        "--as-of",
+        "2026-11-16",
+    ]);
+    assert_eq!(missing["months"].as_array().unwrap().len(), 2);
+    let mut again = preview;
+    again[4] = "2026-08";
+    assert_eq!(fails(&again), "EMPLOYER_REPORT_ALREADY_FILED");
+}

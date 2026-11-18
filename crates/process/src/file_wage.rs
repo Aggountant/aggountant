@@ -13,7 +13,7 @@ use aggountant_broker::{
     tulorekisteri_xml::{record_hash, wage_record},
     Broker, RemoteOutcome,
 };
-use aggountant_domain::WageReport;
+use aggountant_domain::{payroll::ReportMonth, WageReport};
 use aggountant_ledger::Ledger;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -152,6 +152,20 @@ impl ProcessEngine {
             })?;
         }
         self.show(&run_id)
+    }
+    /// Months that hold a payment date of any file-wage report, whatever its state.
+    /// The employer's separate report uses it to refuse "no wages payable" for a
+    /// month in which reimbursements were paid.
+    pub(crate) fn wage_payment_months(&self) -> Result<Vec<ReportMonth>, ProcessError> {
+        let mut months = Vec::new();
+        for run_id in self.list()? {
+            if run_id.starts_with("wr-") && self.run_dir(&run_id).join("wage.json").exists() {
+                months.push(ReportMonth::of(
+                    self.read_wage(&run_id)?.report.payment_date.inner(),
+                ));
+            }
+        }
+        Ok(months)
     }
     fn read_wage(&self, run_id: &str) -> Result<WageState, ProcessError> {
         // Identity is a full digest, never a caller-controlled path.

@@ -34,6 +34,8 @@ Haluatko mukaan ensimmäisten joukossa tai kehittämään? [Lähde mukaan](start
 - [Sulje kuukausi](tasks/close-month.md)
 - [Tee ALV-ilmoitus OmaVerossa](tasks/file-vat-omavero.md) tai
   [lähetä se suoraan Verohallinnolle](tasks/file-vat-direct.md)
+- [Anna työnantajan erillisilmoitus](tasks/file-employer-report.md), jos yritys
+  on työnantajarekisterissä
 
 ## Kerran tai harvoin
 

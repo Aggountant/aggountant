@@ -31,6 +31,12 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `ALREADY_INITIALIZED` | kodin perustaminen ajettiin olemassa olevaan kotiin | ei mitään; koti on jo olemassa eikä siihen koskettu |
 | `APPROVAL_REQUIRED` | kirjausta yritettiin ilman hyväksyttyä esikatselua | esikatselu ja hyväksyntä ensin |
 | `CAPTURE_PREPARATION_CHANGED` | kuitin tiedot, ehdotus tai tilikartta muuttuivat hyväksynnän jälkeen | uusi esikatselu ja uusi hyväksyntä ([Sinetöinti ja hyväksyntä](../concepts/sealing-and-approval.md)) |
+| `EMPLOYER_REPORT_ALREADY_FILED` | kuukaudella on jo Tulorekisterin vastaanottama työnantajan erillisilmoitus | ei uutta ilmoitusta; korjaus on korvaava ilmoitus ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#jos-jokin-menee-pieleen)) |
+| `EMPLOYER_REPORT_NOT_CONFIGURED` | Tulorekisteri-profiilista puuttuu erillisilmoituksen asetus | [Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#ota-erillisilmoitus-käyttöön-kerran) |
+| `EMPLOYER_REPORT_OUTCOME_UNKNOWN` | kuukauden aiemman lähetyksen tulos on vielä epäselvä | kysy tila (`employer-report status`), älä lähetä uudelleen ([Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma)) |
+| `EMPLOYER_REPORT_PAYMENTS_CONFLICT` | "Ei palkanmaksua" kuukaudelle, jolle on matkakorvausilmoitus | ilmoita kuukausi vain matkakorvauksia sisältäväksi |
+| `EMPLOYER_REPORT_STATUS_UNKNOWN` | Tulorekisteri ei antanut lopullista tilaa | kysy myöhemmin uudelleen tai tarkista asiointipalvelusta; älä lähetä uudelleen |
+| `EMPLOYER_REPORT_WAGES_UNSUPPORTED` | kuukaudella maksettiin palkkaa, eikä aggountant laske sairausvakuutusmaksua | anna ilmoitus asiointipalvelussa ([Mitä on valmista ja mitä ei](status.md#tulorekisteri-ja-työntekijät)) |
 | `FISCAL_YEAR_CONFLICT` | tilikauden määrittely siirtäisi kirjattuja tositteita tai suljetun tilikauden toiselle tilikaudelle | lue viesti; määrittely ei voi muuttaa jo kirjattua |
 | `FISCAL_YEAR_UNDEFINED` | päivä on ennen yrityksen ensimmäistä tilikautta, tai annettuna vuonna ei pääty tilikautta | tarkista päivä tai vuosi; `fiscal-year list` näyttää määrittelyt |
 | `GATE_NOT_OPEN` | hyväksyntään on jo vastattu tai se ei ole auki | pyydä agenttia näyttämään ajon tila |

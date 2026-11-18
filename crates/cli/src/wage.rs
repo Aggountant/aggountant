@@ -1,7 +1,11 @@
 use super::*;
 use aggountant_broker::tulorekisteri::{production_broker, read_wage_profile};
-use aggountant_domain::WageReport;
-use chrono::{DateTime, Utc};
+use aggountant_domain::{
+    payroll::{MonthPayments, ReportMonth},
+    WageReport,
+};
+use aggountant_process::{EmployerReportInput, EmployerReportReceipt};
+use chrono::{DateTime, NaiveDate, Utc};
 
 #[derive(Subcommand, Debug)]
 pub enum WageCmd {
@@ -41,10 +45,168 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Monthly employer's separate report (työnantajan erillisilmoitus): preview, approve-and-submit once, settle an unknown outcome, list missing months.
+    #[command(subcommand)]
+    EmployerReport(EmployerReportCmd),
 }
-pub fn execute(cmd: &WageCmd, home: &Path) -> Result<Value, CliError> {
+
+/// What was paid in the month. A month with wages is refused: its contribution is not computed yet.
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum Payments {
+    /// Nothing at all: reported as "No wages payable".
+    None,
+    /// Only tax-free reimbursements (kilometre or daily allowances): EUR 0 health insurance contribution.
+    TaxFreeReimbursementsOnly,
+    /// Wages or other pay; refused with EMPLOYER_REPORT_WAGES_UNSUPPORTED.
+    Wages,
+}
+
+#[derive(clap::Args, Debug)]
+pub struct EmployerReportArgs {
+    /// Reporting month, YYYY-MM.
+    #[arg(long, value_parser = parse_month)]
+    month: ReportMonth,
+    #[arg(long, value_enum)]
+    payments: Payments,
+    /// Record creation time; it also sets the report date. Use the same value in preview and submit.
+    #[arg(long)]
+    timestamp: DateTime<Utc>,
+    /// Replace the month's accepted report instead of sending a new one.
+    #[arg(long)]
+    replace: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum EmployerReportCmd {
+    /// Offline, writes nothing: the exact report, its deadline and the record_hash an approval names. Example: file-wage employer-report preview --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z
+    Preview {
+        #[command(flatten)]
+        args: EmployerReportArgs,
+    },
+    /// Approve the previewed record_hash and send once. Refused when the month already has an accepted report or an unsettled send. Example: file-wage employer-report submit --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z --record-hash HASH
+    Submit {
+        #[command(flatten)]
+        args: EmployerReportArgs,
+        #[arg(long)]
+        record_hash: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// The month's state and receipt. An unknown outcome is settled with the signed status query; nothing is ever resent. Example: file-wage employer-report status --month 2026-10
+    Status {
+        #[arg(long, value_parser = parse_month)]
+        month: ReportMonth,
+    },
+    /// Read-only: months since the employer-register entry with no accepted report, each with its deadline. Example: file-wage employer-report missing
+    Missing {
+        /// Date to judge against (default: today, UTC).
+        #[arg(long)]
+        as_of: Option<NaiveDate>,
+    },
+    /// Record e-service evidence: the answer to an unsettled send, or a report given outside aggountant. Example: file-wage employer-report complete-manual --month 2026-07 --ir-report-id GUID
+    CompleteManual {
+        #[arg(long, value_parser = parse_month)]
+        month: ReportMonth,
+        #[arg(long)]
+        ir_report_id: String,
+        #[arg(long)]
+        ir_delivery_id: Option<String>,
+        #[arg(long)]
+        report_version: Option<u32>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+fn parse_month(s: &str) -> Result<ReportMonth, String> {
+    ReportMonth::parse(s).map_err(|e| e.to_string())
+}
+
+impl EmployerReportArgs {
+    fn input(&self) -> EmployerReportInput {
+        EmployerReportInput {
+            month: self.month,
+            payments: match self.payments {
+                Payments::None => MonthPayments::None,
+                Payments::TaxFreeReimbursementsOnly => MonthPayments::TaxFreeReimbursementsOnly,
+                Payments::Wages => MonthPayments::Wages,
+            },
+            replace: self.replace,
+        }
+    }
+}
+
+fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliError> {
     let engine = ProcessEngine::open(home);
     let value = match cmd {
+        EmployerReportCmd::Preview { args } => {
+            serde_json::to_value(engine.preview_employer_report(args.input(), args.timestamp)?)
+        }
+        EmployerReportCmd::Submit {
+            args,
+            record_hash,
+            dry_run,
+        } => {
+            let preview = engine.preview_employer_report(args.input(), args.timestamp)?;
+            if *dry_run {
+                return Ok(
+                    json!({"dry_run":true,"would":[{"action":"submit","resource":"file-wage employer-report","matches_approval":preview.record_hash == *record_hash,"preview":preview}]}),
+                );
+            }
+            serde_json::to_value(engine.submit_employer_report(
+                args.input(),
+                args.timestamp,
+                record_hash,
+                &broker(home)?,
+                Utc::now(),
+            )?)
+        }
+        EmployerReportCmd::Status { month } => {
+            if engine.employer_report_in_doubt(*month)? {
+                serde_json::to_value(engine.reconcile_employer_report(
+                    *month,
+                    &broker(home)?,
+                    Utc::now(),
+                )?)
+            } else {
+                serde_json::to_value(engine.employer_report_status(*month)?)
+            }
+        }
+        EmployerReportCmd::Missing { as_of } => serde_json::to_value(
+            engine.missing_employer_reports(as_of.unwrap_or_else(|| Utc::now().date_naive()))?,
+        ),
+        EmployerReportCmd::CompleteManual {
+            month,
+            ir_report_id,
+            ir_delivery_id,
+            report_version,
+            dry_run,
+        } => {
+            refuse_dry_run(*dry_run)?;
+            serde_json::to_value(engine.complete_employer_report_manual(
+                *month,
+                EmployerReportReceipt {
+                    ir_delivery_id: ir_delivery_id.clone(),
+                    ir_report_id: ir_report_id.clone(),
+                    version: *report_version,
+                    source: "e_service".into(),
+                },
+                Utc::now(),
+            )?)
+        }
+    };
+    value.map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))
+}
+pub fn execute(cmd: &WageCmd, home: &Path) -> Result<Value, CliError> {
+    if let WageCmd::EmployerReport(cmd) = cmd {
+        return employer_report(cmd, home).map(|mut v| {
+            v["schema_version"] = json!(1);
+            v
+        });
+    }
+    let engine = ProcessEngine::open(home);
+    let value = match cmd {
+        WageCmd::EmployerReport(_) => unreachable!("handled above"),
         WageCmd::Preview { timestamp } => serde_json::to_value(
             engine.preview_wage(&read_stdin_json::<WageReport>()?, *timestamp)?,
         ),

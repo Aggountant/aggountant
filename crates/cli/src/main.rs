@@ -75,7 +75,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Tax-free travel earnings report: offline preview/start, explicit approval, reconcile-only recovery.
+    /// Tulorekisteri: tax-free travel earnings report (offline preview/start, explicit approval, reconcile-only recovery) and the monthly employer's separate report (`file-wage employer-report`).
     FileWage {
         #[command(subcommand)]
         cmd: wage::WageCmd,
@@ -933,9 +933,14 @@ impl From<aggountant_process::ProcessError> for CliError {
         use aggountant_process::ProcessError::*;
 
         let class = match &e {
-            JournalCorrupt(_) | KnowledgeHistoryCorrupt(_) | Store(_) | VatStatusUnknown(_) => {
-                ErrorClass::System
-            }
+            JournalCorrupt(_)
+            | KnowledgeHistoryCorrupt(_)
+            | Store(_)
+            | VatStatusUnknown(_)
+            | EmployerReport {
+                code: "EMPLOYER_REPORT_STATUS_UNKNOWN",
+                ..
+            } => ErrorClass::System,
             Ledger(error) => classify_ledger_error(error),
             RunNotFound(_)
             | WorkflowVersionMismatch(_)
@@ -954,7 +959,8 @@ impl From<aggountant_process::ProcessError> for CliError {
             | InvalidKnowledge(_)
             | KnowledgeNotFound(_)
             | OpenObligation(_)
-            | CloseYearBlocked(_) => ErrorClass::CallerActionable,
+            | CloseYearBlocked(_)
+            | EmployerReport { .. } => ErrorClass::CallerActionable,
         };
         CliError {
             code: e.error_code().to_string(),
@@ -2760,6 +2766,7 @@ fn human_line(command: &Command, value: &Value) -> String {
             value
                 .get("run_id")
                 .or_else(|| value.get("record_hash"))
+                .or_else(|| value.get("state"))
                 .and_then(Value::as_str)
                 .unwrap_or("dry-run")
         ),

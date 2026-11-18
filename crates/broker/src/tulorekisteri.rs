@@ -1,13 +1,21 @@
-//! Own-organisation production travel reimbursement channel. Separate from the
+//! Own-organisation production Incomes Register channel: the travel-only earnings
+//! payment report and the monthly employer's separate report. Separate from the
 //! synthetic payroll adapter, which remains deliberately offline.
-use crate::tulorekisteri_xml::{sign_record, soap, status_record, wage_record};
+use crate::tulorekisteri_xml::{
+    payer_summary_record, sign_record, soap, status_record, wage_record, DELIVERY_TYPE_EMPLOYER,
+    DELIVERY_TYPE_WAGE,
+};
 use crate::vero_filing::{VeroCredentialTarget, VeroCredentials};
 use crate::{
     AdapterError, AdapterKind, AdapterResponse, Broker, CredentialHandle, DeliverySemantics,
     Envelope, Registry, RequestResponse, Vault,
 };
-use aggountant_domain::WageReport;
+use aggountant_domain::{
+    payroll::{EmployerReportAction, EmployerSeparateReport, PensionInsurance, ReportMonth},
+    WageReport,
+};
 use aggountant_model::BusinessId;
+use aggountant_model::{FilingContactName, FilingContactPhone};
 use chrono::{DateTime, Utc};
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
@@ -15,6 +23,8 @@ use serde_json::json;
 use std::{path::Path, time::Duration};
 pub const SVC_WAGE: &str = "tulorekisteri-wage";
 pub const SVC_STATUS: &str = "tulorekisteri-status";
+pub const SVC_EMPLOYER: &str = "tulorekisteri-employer-report";
+pub const SVC_EMPLOYER_STATUS: &str = "tulorekisteri-employer-status";
 const BASE: &str = "https://ws.tulorekisteri.fi/20170526/";
 const RESPONSE_NS: &str = "http://www.tulorekisteri.fi/2017/1/StatusResponseFromIR";
 const SOAP_NS: &str = "http://schemas.xmlsoap.org/soap/envelope/";
@@ -28,6 +38,23 @@ pub struct WageProfile {
     pub reporting_permission_active: bool,
     /// Optional separate credential. Absence uses the configured Vero bundle.
     pub credentials_file: Option<std::path::PathBuf>,
+    /// Settings of the monthly employer's separate report. Absent until the
+    /// company is in the Tax Administration's employer register.
+    pub employer_report: Option<EmployerReportProfile>,
+}
+/// Company settings for the employer's separate report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EmployerReportProfile {
+    /// First month of the employer-register entry: a report is due for every
+    /// month from this one on, also when nothing was paid.
+    pub registered_from: ReportMonth,
+    pub contact_name: FilingContactName,
+    pub contact_phone: FilingContactPhone,
+    /// Earnings-related pension insurances sent with "No wages payable". Empty
+    /// when the payer has no obligation to insure (for example only YEL-insured
+    /// owners); stated explicitly so an omission is a decision, not an accident.
+    pub pension_insurances: Vec<PensionInsurance>,
 }
 pub fn read_wage_profile(home: &Path) -> Result<WageProfile, String> {
     let raw = std::fs::read(home.join(".aggountant/tulorekisteri.json"))
@@ -85,6 +112,36 @@ pub fn wage_envelope(request: &WageRequest, status: bool) -> Result<Envelope, Ad
         secret_fields: vec!["hetu".into()],
     }))
 }
+/// One employer's separate report as sent at `timestamp`. Carries no PII.
+/// For a status query `status_timestamp` is the query time; the record identity
+/// still comes from the report and its send `timestamp`.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EmployerReportRequest {
+    pub report: EmployerSeparateReport,
+    pub timestamp: DateTime<Utc>,
+    pub status_timestamp: Option<DateTime<Utc>>,
+}
+pub fn employer_envelope(
+    request: &EmployerReportRequest,
+    status: bool,
+) -> Result<Envelope, AdapterError> {
+    Ok(Envelope::new(
+        if status {
+            SVC_EMPLOYER_STATUS
+        } else {
+            SVC_EMPLOYER
+        },
+        if status {
+            "GetDeliveryDataStatus"
+        } else {
+            "SendPayerSummaryReport"
+        },
+        request.report.delivery_id(request.timestamp),
+        serde_json::to_value(request)
+            .map_err(|_| AdapterError::Malformed("invalid employer report request".into()))?,
+    ))
+}
 /// Only this constructor exposes a live broker; no configurable production URL.
 pub fn production_broker(
     home: &Path,
@@ -93,8 +150,9 @@ pub fn production_broker(
     now: DateTime<Utc>,
 ) -> Result<Broker, AdapterError> {
     let mut vault = Vault::new();
-    vault.set(SVC_WAGE, &secret);
-    vault.set(SVC_STATUS, secret);
+    for op in Op::ALL {
+        vault.set(op.service(), &secret);
+    }
     check_readiness(
         &profile,
         &vault
@@ -103,43 +161,123 @@ pub fn production_broker(
         now,
     )?;
     let mut registry = Registry::new();
-    registry.register(Box::new(WageAdapter {
-        profile: profile.clone(),
-        status: false,
-        base: BASE.into(),
-        timeout: Duration::from_secs(30),
-    }));
-    registry.register(Box::new(WageAdapter {
-        profile,
-        status: true,
-        base: BASE.into(),
-        timeout: Duration::from_secs(30),
-    }));
+    for op in Op::ALL {
+        registry.register(Box::new(TulorekisteriAdapter {
+            profile: profile.clone(),
+            op,
+            base: BASE.into(),
+            timeout: Duration::from_secs(30),
+        }));
+    }
     Ok(Broker::new(home, vault, registry))
 }
-struct WageAdapter {
+/// The four operations of the own-organisation channel. Each is its own broker
+/// service so the outbox keys sends and status reads separately.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Op {
+    Wage,
+    WageStatus,
+    Employer,
+    EmployerStatus,
+}
+impl Op {
+    const ALL: [Op; 4] = [Op::Wage, Op::WageStatus, Op::Employer, Op::EmployerStatus];
+    fn service(self) -> &'static str {
+        match self {
+            Op::Wage => SVC_WAGE,
+            Op::WageStatus => SVC_STATUS,
+            Op::Employer => SVC_EMPLOYER,
+            Op::EmployerStatus => SVC_EMPLOYER_STATUS,
+        }
+    }
+    fn is_status(self) -> bool {
+        matches!(self, Op::WageStatus | Op::EmployerStatus)
+    }
+    /// Service path and SOAPAction from the official WSDLs.
+    fn endpoint(self) -> (&'static str, &'static str) {
+        match self {
+            Op::Wage => ("WageReportService.svc", "SendWageReport"),
+            Op::Employer => ("PayerSummaryReportService.svc", "SendPayerSummaryReport"),
+            Op::WageStatus | Op::EmployerStatus => ("StatusService.svc", "GetDeliveryDataStatus"),
+        }
+    }
+}
+struct TulorekisteriAdapter {
     profile: WageProfile,
-    status: bool,
+    op: Op,
     base: String,
     timeout: Duration,
 }
-impl RequestResponse for WageAdapter {
-    fn service(&self) -> &str {
-        if self.status {
-            SVC_STATUS
-        } else {
-            SVC_WAGE
+impl TulorekisteriAdapter {
+    /// Rebuild the record from validated input (never sign caller-supplied XML)
+    /// and say which feedback item would prove acceptance.
+    fn record(&self, envelope: &Envelope) -> Result<(String, ExpectedItem), AdapterError> {
+        let mismatch = || AdapterError::Malformed("Tulorekisteri target identity mismatch".into());
+        match self.op {
+            Op::Wage | Op::WageStatus => {
+                let req: WageRequest = serde_json::from_value(envelope.body.clone())
+                    .map_err(|_| AdapterError::Malformed("invalid wage request".into()))?;
+                if req.report.business_id != self.profile.business_id
+                    || envelope.natural_key != req.report.delivery_id()
+                {
+                    return Err(mismatch());
+                }
+                let expected = ExpectedItem::wage(&req.report);
+                let record = if self.op.is_status() {
+                    status_record(
+                        DELIVERY_TYPE_WAGE,
+                        &expected.delivery_id,
+                        &expected.business_id,
+                        req.timestamp,
+                    )
+                } else {
+                    wage_record(&req.report, &req.hetu, req.timestamp)?
+                };
+                Ok((record, expected))
+            }
+            Op::Employer | Op::EmployerStatus => {
+                let req: EmployerReportRequest = serde_json::from_value(envelope.body.clone())
+                    .map_err(|_| {
+                        AdapterError::Malformed("invalid employer report request".into())
+                    })?;
+                if req.report.business_id != self.profile.business_id
+                    || envelope.natural_key != req.report.delivery_id(req.timestamp)
+                {
+                    return Err(mismatch());
+                }
+                let expected = ExpectedItem::employer(&req.report, req.timestamp);
+                let record = match (self.op.is_status(), req.status_timestamp) {
+                    (true, Some(at)) => status_record(
+                        DELIVERY_TYPE_EMPLOYER,
+                        &expected.delivery_id,
+                        &expected.business_id,
+                        at,
+                    ),
+                    (false, None) => payer_summary_record(&req.report, req.timestamp)?,
+                    _ => {
+                        return Err(AdapterError::Malformed(
+                            "invalid employer report request".into(),
+                        ))
+                    }
+                };
+                Ok((record, expected))
+            }
         }
     }
+}
+impl RequestResponse for TulorekisteriAdapter {
+    fn service(&self) -> &str {
+        self.op.service()
+    }
     fn kind(&self) -> AdapterKind {
-        if self.status {
+        if self.op.is_status() {
             AdapterKind::Pull
         } else {
             AdapterKind::Submit
         }
     }
     fn assurance(&self) -> DeliverySemantics {
-        if self.status {
+        if self.op.is_status() {
             DeliverySemantics::AtLeastOnce
         } else {
             DeliverySemantics::AtMostOnce
@@ -151,20 +289,7 @@ impl RequestResponse for WageAdapter {
         handle: &CredentialHandle,
     ) -> Result<AdapterResponse, AdapterError> {
         check_readiness(&self.profile, handle, Utc::now())?;
-        let req: WageRequest = serde_json::from_value(envelope.body.clone())
-            .map_err(|_| AdapterError::Malformed("invalid wage request".into()))?;
-        if req.report.business_id != self.profile.business_id
-            || envelope.natural_key != req.report.delivery_id()
-        {
-            return Err(AdapterError::Malformed(
-                "wage target identity mismatch".into(),
-            ));
-        }
-        let record = if self.status {
-            status_record(&req.report, req.timestamp)
-        } else {
-            wage_record(&req.report, &req.hetu, req.timestamp)?
-        };
+        let (record, expected) = self.record(envelope)?;
         let signed = sign_record(&record, handle)?;
         let cred = VeroCredentials::parse(handle.expose_secret())
             .map_err(|_| AdapterError::Unauthorized("invalid credential".into()))?;
@@ -176,11 +301,7 @@ impl RequestResponse for WageAdapter {
             material.trust_certificate,
             self.timeout,
         )?;
-        let (path, action) = if self.status {
-            ("StatusService.svc", "GetDeliveryDataStatus")
-        } else {
-            ("WageReportService.svc", "SendWageReport")
-        };
+        let (path, action) = self.op.endpoint();
         let response = client
             .post(format!("{}{path}", self.base))
             .header("Content-Type", "text/xml;charset=UTF-8")
@@ -202,7 +323,62 @@ impl RequestResponse for WageAdapter {
             return Err(unknown("RESPONSE_SIZE"));
         }
         let body = std::str::from_utf8(&bytes).map_err(|_| unknown("RESPONSE_XML"))?;
-        interpret_status(body, &req.report)
+        interpret_status(body, &expected)
+    }
+}
+/// The report version an accepted feedback item must carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VersionRule {
+    Exactly(u32),
+    AtLeast(u32),
+}
+/// What a matching, accepted processing-feedback item looks like for one record.
+#[derive(Debug, Clone)]
+pub struct ExpectedItem {
+    pub delivery_data_type: &'static str,
+    pub delivery_id: String,
+    pub business_id: String,
+    /// Payer's report reference the item must echo (new reports).
+    pub item_id: Option<String>,
+    /// Incomes Register report reference the item must carry (replacements).
+    pub ir_item_id: Option<String>,
+    pub version: VersionRule,
+}
+impl ExpectedItem {
+    pub fn wage(report: &WageReport) -> Self {
+        Self {
+            delivery_data_type: DELIVERY_TYPE_WAGE,
+            delivery_id: report.delivery_id(),
+            business_id: report.business_id.as_str().into(),
+            item_id: Some(report.report_id()),
+            ir_item_id: None,
+            version: VersionRule::Exactly(1),
+        }
+    }
+    /// A new report becomes version 1. A replacement keeps the register's report
+    /// reference and gets the next version (the register assigns replaced + 1).
+    pub fn employer(report: &EmployerSeparateReport, timestamp: DateTime<Utc>) -> Self {
+        let (item_id, ir_item_id, version) = match &report.action {
+            EmployerReportAction::New => (Some(report.report_id()), None, VersionRule::Exactly(1)),
+            EmployerReportAction::Replacement {
+                ir_report_id,
+                replaces_version,
+            } => (
+                None,
+                Some(ir_report_id.clone()),
+                replaces_version
+                    .map(|v| VersionRule::Exactly(v + 1))
+                    .unwrap_or(VersionRule::AtLeast(2)),
+            ),
+        };
+        Self {
+            delivery_data_type: DELIVERY_TYPE_EMPLOYER,
+            delivery_id: report.delivery_id(timestamp),
+            business_id: report.business_id.as_str().into(),
+            item_id,
+            ir_item_id,
+            version,
+        }
     }
 }
 fn unknown(code: &str) -> AdapterError {
@@ -231,7 +407,10 @@ pub fn ir_reference(s: &str) -> bool {
 }
 /// Strict scoped feedback parsing: never find a matching field elsewhere in the
 /// document. Ambiguous/malformed/duplicate/pending feedback is NOT acceptance.
-pub fn interpret_status(xml: &str, report: &WageReport) -> Result<AdapterResponse, AdapterError> {
+pub fn interpret_status(
+    xml: &str,
+    expected: &ExpectedItem,
+) -> Result<AdapterResponse, AdapterError> {
     let doc = Document::parse(xml).map_err(|_| unknown("RESPONSE_XML"))?;
     let envelope = doc.root_element();
     if !envelope.has_tag_name((SOAP_NS, "Envelope")) {
@@ -250,8 +429,8 @@ pub fn interpret_status(xml: &str, report: &WageReport) -> Result<AdapterRespons
     }
     let root = roots[0];
     let delivery = child(root, "DeliveryData").ok_or_else(|| unknown("DELIVERY_IDENTITY"))?;
-    if value(delivery, "DeliveryId") != Some(report.delivery_id().as_str())
-        || value(delivery, "DeliveryDataType") != Some("100")
+    if value(delivery, "DeliveryId") != Some(expected.delivery_id.as_str())
+        || value(delivery, "DeliveryDataType") != Some(expected.delivery_data_type)
         || value(delivery, "ProductionEnvironment") != Some("true")
     {
         return Err(unknown("DELIVERY_IDENTITY"));
@@ -263,7 +442,7 @@ pub fn interpret_status(xml: &str, report: &WageReport) -> Result<AdapterRespons
     ] {
         let actor = child(delivery, n).ok_or_else(|| unknown("DELIVERY_IDENTITY"))?;
         if value(actor, "Type") != Some("1")
-            || value(actor, "Code") != Some(report.business_id.as_str())
+            || value(actor, "Code") != Some(expected.business_id.as_str())
         {
             return Err(unknown("DELIVERY_IDENTITY"));
         }
@@ -284,22 +463,32 @@ pub fn interpret_status(xml: &str, report: &WageReport) -> Result<AdapterRespons
             }
             let valid = child(status, "ValidItems").ok_or_else(|| unknown("VALID_ITEMS"))?;
             let items: Vec<_> = valid.children().filter(Node::is_element).collect();
-            if items.len() != 1
-                || !items[0].has_tag_name("Item")
-                || value(items[0], "ItemId") != Some(report.report_id().as_str())
-                || value(items[0], "ItemVersion") != Some("1")
-            {
+            if items.len() != 1 || !items[0].has_tag_name("Item") {
                 return Err(unknown("REPORT_IDENTITY"));
             }
-            let remote = value(items[0], "IRItemId")
+            let item = items[0];
+            let item_id = value(item, "ItemId");
+            if expected.item_id.is_some() && item_id != expected.item_id.as_deref() {
+                return Err(unknown("REPORT_IDENTITY"));
+            }
+            let version = value(item, "ItemVersion")
+                .filter(|v| !v.starts_with('+') && !v.starts_with('0'))
+                .and_then(|v| v.parse::<u32>().ok())
+                .filter(|v| match expected.version {
+                    VersionRule::Exactly(n) => *v == n,
+                    VersionRule::AtLeast(n) => *v >= n,
+                })
+                .ok_or_else(|| unknown("REPORT_IDENTITY"))?;
+            let remote = value(item, "IRItemId")
                 .filter(|s| ir_reference(s))
+                .filter(|s| expected.ir_item_id.as_deref().is_none_or(|want| want == *s))
                 .ok_or_else(|| unknown("REPORT_REFERENCE"))?;
             let delivery = value(status, "IRDeliveryId")
                 .filter(|s| ir_reference(s))
                 .ok_or_else(|| unknown("DELIVERY_REFERENCE"))?;
             Ok(AdapterResponse::Accepted {
-                receipt: format!("{delivery}/{remote}/1"),
-                body: json!({"delivery_id":report.delivery_id(),"report_id":report.report_id(),"ir_delivery_id":delivery,"ir_report_id":remote,"version":1}),
+                receipt: format!("{delivery}/{remote}/{version}"),
+                body: json!({"delivery_id":expected.delivery_id,"report_id":item_id,"ir_delivery_id":delivery,"ir_report_id":remote,"version":version}),
             })
         }
         Some("4" | "5") => Err(AdapterError::Rejected {
@@ -337,6 +526,7 @@ mod tests {
             business_id: BusinessId::parse("1234567-1").unwrap(),
             reporting_permission_active: true,
             credentials_file: None,
+            employer_report: None,
         }
     }
     fn feedback(status: &str, extra: &str) -> String {
@@ -379,10 +569,10 @@ mod tests {
     fn broker(home: &Path, mock: &MockVeroVatServer, timeout: Duration) -> Broker {
         let mut registry = Registry::new();
         let mut vault = Vault::new();
-        for status in [false, true] {
-            let adapter = WageAdapter {
+        for op in Op::ALL {
+            let adapter = TulorekisteriAdapter {
                 profile: profile(),
-                status,
+                op,
                 base: format!("{}/20170526/", mock.base_url()),
                 timeout,
             };
@@ -450,7 +640,7 @@ mod tests {
             accepted().replace("<DeliveryDataStatus>3", "<DeliveryDataStatus>6"),
         ] {
             assert!(matches!(
-                interpret_status(&body, &report()),
+                interpret_status(&body, &ExpectedItem::wage(&report())),
                 Err(AdapterError::AmbiguousDelivery { .. })
             ));
         }
@@ -479,7 +669,15 @@ mod tests {
                 "wage",
                 wage_record(&r.report, &r.hetu, r.timestamp).unwrap(),
             ),
-            ("status", status_record(&r.report, r.timestamp)),
+            (
+                "status",
+                status_record(
+                    DELIVERY_TYPE_WAGE,
+                    &r.report.delivery_id(),
+                    r.report.business_id.as_str(),
+                    r.timestamp,
+                ),
+            ),
         ] {
             let signed = sign_record(&unsigned, &h).unwrap();
             let doc = Document::parse(&signed).unwrap();
@@ -527,5 +725,136 @@ mod tests {
         ] {
             assert!(!ir_reference(bad));
         }
+    }
+
+    fn employer_request(action: EmployerReportAction) -> EmployerReportRequest {
+        EmployerReportRequest {
+            report: serde_json::from_value(json!({"business_id":"1234567-1","month":"2026-10","content":{"kind":"health_insurance_contribution","total":"0.00"},"action":action,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","pension_insurances":[]})).unwrap(),
+            timestamp: "2026-11-02T08:00:00Z".parse().unwrap(),
+            status_timestamp: None,
+        }
+    }
+    fn employer_feedback(r: &EmployerReportRequest, status: &str, item: &str) -> String {
+        let actors = [
+            "DeliveryDataOwner",
+            "DeliveryDataCreator",
+            "DeliveryDataSender",
+        ]
+        .iter()
+        .map(|n| format!("<{n}><Type>1</Type><Code>1234567-1</Code></{n}>"))
+        .collect::<String>();
+        soap(&format!("<ir:StatusResponseFromIR xmlns:ir=\"{RESPONSE_NS}\"><DeliveryData><DeliveryDataType>101</DeliveryDataType><DeliveryId>{}</DeliveryId><ProductionEnvironment>true</ProductionEnvironment>{actors}</DeliveryData><StatusResponse><DeliveryDataStatus>{status}</DeliveryDataStatus><IRDeliveryId>33333333222233334444555555555555</IRDeliveryId>{item}</StatusResponse></ir:StatusResponseFromIR>", r.report.delivery_id(r.timestamp)))
+    }
+    fn employer_item(item_id: &str, ir: &str, version: u32) -> String {
+        format!("<ValidItems><Item><ItemId>{item_id}</ItemId><IRItemId>{ir}</IRItemId><ItemVersion>{version}</ItemVersion></Item></ValidItems>")
+    }
+    const IR_REPORT: &str = "44444444222233334444555555555555";
+    #[test]
+    fn employer_report_mtls_send_and_status_use_the_payer_summary_service() {
+        let r = employer_request(EmployerReportAction::New);
+        let ok = employer_feedback(&r, "3", &employer_item("agg-er-202610", IR_REPORT, 1));
+        let mut s = Scenario::file_receipt("wage-soap");
+        s.soap = Some(SoapScenario {
+            send_body: ok.clone(),
+            send_status: 200,
+            send_delay: Duration::ZERO,
+            status_body: ok,
+        });
+        let m = MockVeroVatServer::start_wage_mtls(s).unwrap();
+        let h = tempfile::tempdir().unwrap();
+        let b = broker(h.path(), &m, Duration::from_secs(2));
+        let outcome = b
+            .submit("test", "effect", &employer_envelope(&r, false).unwrap())
+            .unwrap();
+        assert_eq!(
+            outcome,
+            RemoteOutcome::Delivered {
+                receipt: format!("33333333222233334444555555555555/{IR_REPORT}/1")
+            }
+        );
+        let status = EmployerReportRequest {
+            status_timestamp: Some("2026-11-02T09:00:00Z".parse().unwrap()),
+            ..employer_request(EmployerReportAction::New)
+        };
+        let body = b.fetch(&employer_envelope(&status, true).unwrap()).unwrap();
+        assert_eq!(body["ir_report_id"], IR_REPORT);
+        let requests = m.requests();
+        assert_eq!(requests.len(), 2);
+        assert!(requests[0].path.ends_with("/PayerSummaryReportService.svc"));
+        assert_eq!(
+            requests[0].headers["soapaction"],
+            "\"SendPayerSummaryReport\""
+        );
+        assert!(requests[1].path.ends_with("/StatusService.svc"));
+        let sent = std::str::from_utf8(&requests[0].body).unwrap();
+        assert!(sent.contains(crate::tulorekisteri_xml::PSR_NS) && sent.contains("<ds:Signature"));
+        let query = std::str::from_utf8(&requests[1].body).unwrap();
+        assert!(query.contains("<DeliveryDataType>101</DeliveryDataType>"));
+        assert!(query.contains(&r.report.delivery_id(r.timestamp)));
+        // A status envelope without a query time, or a send envelope with one, is refused offline.
+        assert!(b.fetch(&employer_envelope(&r, true).unwrap()).is_err());
+    }
+    #[test]
+    fn employer_feedback_must_match_action_and_version() {
+        let new = employer_request(EmployerReportAction::New);
+        let exp = |r: &EmployerReportRequest| ExpectedItem::employer(&r.report, r.timestamp);
+        let accepted = |r: &EmployerReportRequest, item: &str| {
+            interpret_status(&employer_feedback(r, "3", item), &exp(r))
+        };
+        assert!(accepted(&new, &employer_item("agg-er-202610", IR_REPORT, 1)).is_ok());
+        for item in [
+            employer_item("agg-er-202609", IR_REPORT, 1),
+            employer_item("agg-er-202610", IR_REPORT, 2),
+            employer_item("agg-er-202610", "not-a-reference", 1),
+        ] {
+            assert!(matches!(
+                accepted(&new, &item),
+                Err(AdapterError::AmbiguousDelivery { .. })
+            ));
+        }
+        // Wage feedback (record type 100) never proves an employer report.
+        let wage_type = employer_feedback(&new, "3", &employer_item("agg-er-202610", IR_REPORT, 1))
+            .replace("<DeliveryDataType>101", "<DeliveryDataType>100");
+        assert!(interpret_status(&wage_type, &exp(&new)).is_err());
+        let known = employer_request(EmployerReportAction::Replacement {
+            ir_report_id: IR_REPORT.into(),
+            replaces_version: Some(1),
+        });
+        assert!(accepted(&known, &employer_item("agg-er-202610", IR_REPORT, 2)).is_ok());
+        assert!(accepted(&known, &employer_item("agg-er-202610", IR_REPORT, 3)).is_err());
+        assert!(accepted(
+            &known,
+            &employer_item("agg-er-202610", "55555555222233334444555555555555", 2)
+        )
+        .is_err());
+        let unknown_version = employer_request(EmployerReportAction::Replacement {
+            ir_report_id: IR_REPORT.into(),
+            replaces_version: None,
+        });
+        assert!(accepted(&unknown_version, &employer_item("other-ref", IR_REPORT, 4)).is_ok());
+        assert!(accepted(&unknown_version, &employer_item("other-ref", IR_REPORT, 1)).is_err());
+        assert!(matches!(
+            interpret_status(&employer_feedback(&new, "5", ""), &exp(&new)),
+            Err(AdapterError::Rejected { .. })
+        ));
+        assert!(matches!(
+            interpret_status(&employer_feedback(&new, "2", ""), &exp(&new)),
+            Err(AdapterError::AmbiguousDelivery { .. })
+        ));
+    }
+    #[test]
+    fn golden_signed_employer_record() {
+        let r = employer_request(EmployerReportAction::New);
+        let signed = sign_record(
+            &payer_summary_record(&r.report, r.timestamp).unwrap(),
+            &handle(),
+        )
+        .unwrap();
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/employer-report-signed.xml");
+        if std::env::var_os("UPDATE_WAGE_GOLDEN").is_some() {
+            std::fs::write(&path, &signed).unwrap();
+        }
+        assert_eq!(signed, std::fs::read_to_string(path).unwrap());
     }
 }

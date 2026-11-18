@@ -25,7 +25,10 @@ use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use aggountant_model::{AccountId, Currency, Date, Money, Posting, Side, VoucherDraft};
+use aggountant_model::{
+    AccountId, BusinessId, Currency, Date, FilingContactName, FilingContactPhone, Money, Posting,
+    Side, VoucherDraft,
+};
 
 use crate::DomainError;
 
@@ -488,6 +491,265 @@ pub fn erillisilmoitus(payment_date: Date) -> TulorekisteriReport {
 }
 
 // ---------------------------------------------------------------------------
+// Employer's separate report (työnantajan erillisilmoitus) content
+// ---------------------------------------------------------------------------
+
+/// A reporting month (`YYYY-MM`) of the employer's separate report. The Incomes
+/// Register accepts no month before January 2019.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ReportMonth {
+    year: i32,
+    month: u32,
+}
+
+impl ReportMonth {
+    pub fn parse(s: &str) -> Result<Self, DomainError> {
+        let bad = || DomainError::Payroll(format!("month must be YYYY-MM from 2019-01, got {s:?}"));
+        let b = s.as_bytes();
+        if b.len() != 7
+            || b[4] != b'-'
+            || !b
+                .iter()
+                .enumerate()
+                .all(|(i, c)| i == 4 || c.is_ascii_digit())
+        {
+            return Err(bad());
+        }
+        let year: i32 = s[..4].parse().map_err(|_| bad())?;
+        let month: u32 = s[5..].parse().map_err(|_| bad())?;
+        if year < 2019 || year > 2100 || !(1..=12).contains(&month) {
+            return Err(bad());
+        }
+        Ok(Self { year, month })
+    }
+    pub fn of(date: chrono::NaiveDate) -> Self {
+        Self {
+            year: chrono::Datelike::year(&date),
+            month: chrono::Datelike::month(&date),
+        }
+    }
+    pub fn year(&self) -> i32 {
+        self.year
+    }
+    pub fn month(&self) -> u32 {
+        self.month
+    }
+    pub fn next(&self) -> Self {
+        if self.month == 12 {
+            Self {
+                year: self.year + 1,
+                month: 1,
+            }
+        } else {
+            Self {
+                year: self.year,
+                month: self.month + 1,
+            }
+        }
+    }
+    pub fn first_day(&self) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(self.year, self.month, 1).expect("validated month")
+    }
+    /// Statutory deadline: the 5th day of the following month. When that day is a
+    /// Saturday or a holiday the report may be sent on the next banking day; that
+    /// relief is not computed here, so this date is the conservative one.
+    pub fn deadline(&self) -> chrono::NaiveDate {
+        let next = self.next();
+        chrono::NaiveDate::from_ymd_opt(next.year, next.month, 5).expect("valid date")
+    }
+    /// `YYYYMM`, used inside report and delivery references.
+    pub fn compact(&self) -> String {
+        format!("{:04}{:02}", self.year, self.month)
+    }
+}
+
+impl std::fmt::Display for ReportMonth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04}-{:02}", self.year, self.month)
+    }
+}
+
+impl Serialize for ReportMonth {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for ReportMonth {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Self::parse(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+/// What the employer paid in the month, as stated by the agent or person who
+/// approves the report. The program does not infer it from accounts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MonthPayments {
+    /// Nothing at all was paid: no wages, no reimbursements, no benefits.
+    None,
+    /// Only tax-free reimbursements of expenses (kilometre or daily allowances).
+    TaxFreeReimbursementsOnly,
+    /// Wages or other pay subject to the health insurance contribution.
+    Wages,
+}
+
+/// The income-type content of one employer's separate report.
+///
+/// Incomes Register guidance ("Reporting data to the Incomes Register: employer's
+/// separate report", VH/6456/05.00.00/2025, §4.2–4.3): a regular employer that
+/// paid nothing reports `No wages payable` (101); one that paid only tax-free
+/// reimbursements of expenses does not, and reports the health insurance
+/// contribution (102) as EUR 0.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EmployerReportContent {
+    NoWagesPayable,
+    HealthInsuranceContribution {
+        /// Canonical 2-dp EUR amount, never negative.
+        total: String,
+    },
+}
+
+impl EmployerReportContent {
+    /// The content for the stated payments. `None` for a month with wages: the
+    /// contribution from wages is not computed in this slice, so such a month is
+    /// refused rather than filed with a guessed figure.
+    pub fn for_payments(payments: MonthPayments) -> Option<Self> {
+        match payments {
+            MonthPayments::None => Some(Self::NoWagesPayable),
+            MonthPayments::TaxFreeReimbursementsOnly => Some(Self::HealthInsuranceContribution {
+                total: "0.00".into(),
+            }),
+            MonthPayments::Wages => None,
+        }
+    }
+    /// The Incomes Register `SummaryTransactionCode` and optional amount.
+    pub fn transaction(&self) -> (&'static str, Option<&str>) {
+        match self {
+            Self::NoWagesPayable => ("101", None),
+            Self::HealthInsuranceContribution { total } => ("102", Some(total)),
+        }
+    }
+    fn validate(&self) -> Result<(), DomainError> {
+        if let Self::HealthInsuranceContribution { total } = self {
+            let d = Decimal::from_str_exact(total)
+                .map_err(|_| DomainError::Payroll("contribution total must be a decimal".into()))?;
+            if d < Decimal::ZERO || d.scale() != 2 || d >= Decimal::from(10_000_000_000_000_i64) {
+                return Err(DomainError::Payroll(
+                    "contribution total must be a non-negative EUR amount with exactly 2 decimals"
+                        .into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// An earnings-related pension insurance stated with a `No wages payable` report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PensionInsurance {
+    /// Incomes Register `PensionProvIdCode` (for example 46 for Ilmarinen).
+    pub provider_code: u32,
+    /// Pension policy number, 1..11 characters.
+    pub policy_number: String,
+}
+
+/// New report or replacement of the month's accepted report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EmployerReportAction {
+    New,
+    /// Replaces the report the Incomes Register knows as `ir_report_id`. When the
+    /// replaced version is known it is sent, so the register refuses to replace
+    /// anything but the latest version.
+    Replacement {
+        ir_report_id: String,
+        replaces_version: Option<u32>,
+    },
+}
+
+/// One employer's separate report for one month, as it will be sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EmployerSeparateReport {
+    pub business_id: BusinessId,
+    pub month: ReportMonth,
+    pub content: EmployerReportContent,
+    pub action: EmployerReportAction,
+    pub contact_name: FilingContactName,
+    pub contact_phone: FilingContactPhone,
+    /// Sent only with `No wages payable`, as the register's guidance requires.
+    pub pension_insurances: Vec<PensionInsurance>,
+}
+
+impl EmployerSeparateReport {
+    pub fn validate(&self) -> Result<(), DomainError> {
+        let bad = |s: &str| DomainError::Payroll(s.into());
+        self.content.validate()?;
+        if self.pension_insurances.len() > 20 {
+            return Err(bad("at most 20 pension insurances"));
+        }
+        for p in &self.pension_insurances {
+            let n = &p.policy_number;
+            if n.is_empty()
+                || n.chars().count() > 11
+                || n.trim() != n
+                || n.chars()
+                    .any(|c| c.is_control() || (c.is_whitespace() && c != ' '))
+                || p.provider_code == 0
+                || p.provider_code > 99_999
+            {
+                return Err(bad("pension insurance needs a provider code 1..99999 and a policy number of 1..11 printable characters"));
+            }
+        }
+        if let EmployerReportAction::Replacement {
+            ir_report_id,
+            replaces_version,
+        } = &self.action
+        {
+            if ir_report_id.len() != 32 || !ir_report_id.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return Err(bad(
+                    "replacement needs the 32-character Incomes Register report reference",
+                ));
+            }
+            if *replaces_version == Some(0) {
+                return Err(bad("replaced report version must be positive"));
+            }
+        }
+        Ok(())
+    }
+    /// The payer's report reference: one report per payer and month.
+    pub fn report_id(&self) -> String {
+        format!("agg-er-{}", self.month.compact())
+    }
+    /// Pension insurances that go into the record: only with `No wages payable`.
+    pub fn sent_pension_insurances(&self) -> &[PensionInsurance] {
+        match self.content {
+            EmployerReportContent::NoWagesPayable => &self.pension_insurances,
+            EmployerReportContent::HealthInsuranceContribution { .. } => &[],
+        }
+    }
+    /// The record reference, unique per record: derived from the whole report
+    /// and its creation time, so a corrected resend after a definitive rejection
+    /// never reuses a reference. At most 40 characters from `[A-Za-z0-9_-]`.
+    pub fn delivery_id(&self, timestamp: chrono::DateTime<chrono::Utc>) -> String {
+        let mut h = Sha256::new();
+        h.update(b"aggountant/employer-separate-report/v1");
+        let body = serde_json::to_vec(&(self, timestamp)).expect("report serializes");
+        h.update((body.len() as u64).to_be_bytes());
+        h.update(&body);
+        format!(
+            "er-{}-{}",
+            self.month.compact(),
+            &hex::encode(h.finalize())[..30]
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // HETU (Finnish personal identity code) validation — the Run's HETU-preflight
 // ---------------------------------------------------------------------------
 
@@ -714,6 +976,80 @@ mod tests {
             }
             _ => panic!("wrong kind"),
         }
+    }
+
+    #[test]
+    fn report_month_parses_strictly_and_knows_its_deadline() {
+        let m = ReportMonth::parse("2026-12").unwrap();
+        assert_eq!(m.deadline().to_string(), "2027-01-05");
+        assert_eq!(m.next().to_string(), "2027-01");
+        assert_eq!(m.compact(), "202612");
+        for bad in [
+            "2018-12", "2026-13", "2026-1", "26-01", "2026/01", "2026-00", " 2026-01",
+        ] {
+            assert!(ReportMonth::parse(bad).is_err(), "{bad}");
+        }
+        assert!(ReportMonth::parse("2026-02").unwrap() < m);
+    }
+
+    #[test]
+    fn employer_report_content_follows_incomes_register_guidance() {
+        assert_eq!(
+            EmployerReportContent::for_payments(MonthPayments::None),
+            Some(EmployerReportContent::NoWagesPayable)
+        );
+        let reimbursements =
+            EmployerReportContent::for_payments(MonthPayments::TaxFreeReimbursementsOnly).unwrap();
+        assert_eq!(reimbursements.transaction(), ("102", Some("0.00")));
+        assert_eq!(
+            EmployerReportContent::for_payments(MonthPayments::Wages),
+            None
+        );
+    }
+
+    fn employer_report() -> EmployerSeparateReport {
+        serde_json::from_value(serde_json::json!({
+            "business_id":"1234567-1","month":"2026-10","content":{"kind":"no_wages_payable"},
+            "action":{"kind":"new"},"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567",
+            "pension_insurances":[{"provider_code":46,"policy_number":"12-345678"}]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn employer_report_references_and_validation() {
+        let r = employer_report();
+        r.validate().unwrap();
+        assert_eq!(r.report_id(), "agg-er-202610");
+        let t1: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:00Z".parse().unwrap();
+        let t2: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:01Z".parse().unwrap();
+        let id = r.delivery_id(t1);
+        assert_eq!(id.len(), 40);
+        assert!(id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'));
+        assert_ne!(id, r.delivery_id(t2));
+        assert_eq!(r.sent_pension_insurances().len(), 1);
+        let mut zero = r.clone();
+        zero.content =
+            EmployerReportContent::for_payments(MonthPayments::TaxFreeReimbursementsOnly).unwrap();
+        assert!(zero.sent_pension_insurances().is_empty());
+        let mut bad = r.clone();
+        bad.content = EmployerReportContent::HealthInsuranceContribution {
+            total: "-1.00".into(),
+        };
+        assert!(bad.validate().is_err());
+        bad.content = EmployerReportContent::HealthInsuranceContribution {
+            total: "1.5".into(),
+        };
+        assert!(bad.validate().is_err());
+        let mut bad = r.clone();
+        bad.pension_insurances[0].policy_number = "123456789012".into();
+        assert!(bad.validate().is_err());
+        let mut bad = r;
+        bad.action = EmployerReportAction::Replacement {
+            ir_report_id: "not-a-guid".into(),
+            replaces_version: None,
+        };
+        assert!(bad.validate().is_err());
     }
 
     #[test]

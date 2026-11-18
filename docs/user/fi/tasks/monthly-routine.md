@@ -45,6 +45,10 @@ koossa.
    [OmaVerossa](file-vat-omavero.md) tai
    [suoraan Verohallinnolle](file-vat-direct.md). Maksa vero itse.
 
+9. **Työnantajan erillisilmoitus** Tulorekisteriin, jos yritys on
+   työnantajarekisterissä. Se annetaan joka kuukausi, myös ilman maksuja:
+   [Anna työnantajan erillisilmoitus](file-employer-report.md).
+
 ## Valmis, kun
 
 - Kuukauden tila on `sealed` ja `vat_filed true`. Pyydä agenttia näyttämään

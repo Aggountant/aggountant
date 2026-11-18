@@ -27,6 +27,7 @@ ole: ne kertoo ohjelma itse, `aggountant --help` ja esimerkiksi
 | `vero-fi` | suoran ilmoittamisen asetukset, valmiuden tarkistus ja hyväksyntätestit | [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md) |
 | `employee` | työntekijärekisteri | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `file-wage` | matkakorvausilmoitus Tulorekisteriin | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
+| `file-wage employer-report` | työnantajan erillisilmoitus ja puuttuvat kuukaudet | [Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md) |
 
 ## Ohjelmassa, mutta ei käytössä
 

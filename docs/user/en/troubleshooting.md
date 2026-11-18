@@ -27,6 +27,7 @@ time.
 | month's close (`cp-…`) | `aggountant run resume --run-id cp-…` |
 | VAT return (`fv-…`), uncertain submission | `aggountant file-vat reconcile --run-id fv-…` |
 | Tulorekisteri report (`wr-…`), uncertain submission | `aggountant file-wage reconcile wr-…` |
+| employer's separate report (`er-…`), uncertain submission | `aggountant file-wage employer-report status --month YYYY-MM` |
 | year-end (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
 
 **Do not** start a filing again from the beginning. A filing is never sent
@@ -173,7 +174,10 @@ Then give the agent the delivery and report identifiers the service gave you,
 and the agent records them in aggountant
 (`aggountant file-wage complete-manual wr-… --ir-delivery-id … --ir-report-id …`).
 The same fallback works when the API route does not succeed for other
-reasons.
+reasons. An employer's separate report can also be previewed and sent again
+once the cause is fixed, or the reference of the report filed in the e-service
+is recorded
+(`aggountant file-wage employer-report complete-manual --month … --ir-report-id …`).
 
 **Do not** make a new original report in the e-service before you have
 checked whether an uncertain API submission already got through. Do not

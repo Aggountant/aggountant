@@ -27,6 +27,7 @@ ennen kaatumista, ajo huomaa sen eikä tee mitään toiseen kertaan.
 | kuukauden sulku (`cp-…`) | `aggountant run resume --run-id cp-…` |
 | ALV-ilmoitus (`fv-…`), epävarma lähetys | `aggountant file-vat reconcile --run-id fv-…` |
 | Tulorekisteri-ilmoitus (`wr-…`), epävarma lähetys | `aggountant file-wage reconcile wr-…` |
+| työnantajan erillisilmoitus (`er-…`), epävarma lähetys | `aggountant file-wage employer-report status --month VVVV-KK` |
 | tilinpäätös (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
 
 **Älä** käynnistä ilmoitusta uudelleen alusta. Viranomaisilmoitusta ei koskaan
@@ -167,7 +168,10 @@ Tulorekisterin virhetekstiä, koska siinä voi olla henkilötunnus.
 sen jälkeen agentille palvelun antamat aineiston ja ilmoituksen tunnisteet,
 niin agentti kirjaa ne aggountantiin
 (`aggountant file-wage complete-manual wr-… --ir-delivery-id … --ir-report-id …`).
-Sama varapolku käy, kun rajapintapolku ei muuten onnistu.
+Sama varapolku käy, kun rajapintapolku ei muuten onnistu. Työnantajan
+erillisilmoituksen voi myös korjatun syyn jälkeen esikatsella ja lähettää
+uudelleen, tai sen asiointipalvelussa annetun ilmoituksen viite kirjataan
+(`aggountant file-wage employer-report complete-manual --month … --ir-report-id …`).
 
 **Älä** tee asiointipalvelussa uutta alkuperäistä ilmoitusta ennen kuin olet
 tarkistanut, onko epävarma rajapintalähetys jo mennyt perille. Älä myöskään

@@ -4,6 +4,8 @@ description: >-
   Ota aggountantin suora Vero.fi-ALV-ilmoittaminen käyttöön, tarkista valmius,
   uusi varmenne, lähetä ALV-ilmoitus hyväksynnän kautta, selvitä epävarma tai
   näkymätön lähetys tai kirjaa manuaalinen ilmoitus (OmaVero, Ilmoitin.fi).
+  Ilmoita Tulorekisteriin verovapaat matkakorvaukset ja kuukausittainen
+  työnantajan erillisilmoitus, ja kuro kiinni puuttuvat kuukaudet.
 cli_version: "0.1.0"
 schema_version: 1
 ---
@@ -295,8 +297,9 @@ vastaus vaikuttaa, ja vie muu työ eteenpäin vastausta odottaessa.
 Tämä on eri kanava kuin Vero API:n ALV-ilmoitus. `run-payroll` on edelleen
 synteettinen koe eikä lähetä oikeaa palkkailmoitusta. Oikea, rajattu polku on
 `aggountant file-wage`: yksi tulonsaaja, yksi maksutapahtuma, vain verovapaat
-matkakorvaukset. Työnantajan erillisilmoitus, korvaava ilmoitus ja mitätöinti
-API:n kautta eivät kuulu tähän polkuun. Ohje ei ole lupa lähettää mitään:
+matkakorvaukset. Palkkatietoilmoituksen korvaava ilmoitus ja mitätöinti API:n
+kautta eivät kuulu tähän polkuun. Kuukausittainen työnantajan erillisilmoitus on
+oma ilmoituksensa samassa kanavassa (alla). Ohje ei ole lupa lähettää mitään:
 käyttäjän pitää hyväksyä juuri tämän ilmoituksen esikatselu.
 
 ### Rajapintaoikeus ja konfigurointi
@@ -316,9 +319,18 @@ Kirjanpitokodin `.aggountant/tulorekisteri.json` sisältää ei-salaisen profiil
   "mode": "production",
   "business_id": "1234567-1",
   "reporting_permission_active": true,
-  "credentials_file": null
+  "credentials_file": null,
+  "employer_report": {
+    "registered_from": "2026-08",
+    "contact_name": "Maija Meikäläinen",
+    "contact_phone": "+358 40 1234567",
+    "pension_insurances": []
+  }
 }
 ```
+
+`employer_report` puuttuu, kunnes yritys on työnantajarekisterissä; katso
+erillisilmoituksen osio alla.
 
 `credentials_file: null` käyttää nykyistä Vero-credentialin polkua
 (`AGGOUNTANT_VERO_CREDENTIALS_FILE` > alustakonfiguraation
@@ -429,3 +441,83 @@ säilymistä. Integraation outbox pitää omassa `.gitignore`-tiedostossaan tiet
 ja WAL-tiedostot poissa gitistä; tarkista ennen ensimmäistä oikeaa käyttöä, ettei
 vanhaa outbox-tietokantaa ole jo lisätty seurantaan (ignore ei poista seurattua
 historiaa).
+
+## Työnantajan erillisilmoitus (joka kuukausi)
+
+Verohallinnon työnantajarekisterissä oleva yritys antaa Tulorekisteriin
+työnantajan erillisilmoituksen **jokaiselta kuukaudelta**, myös silloin kun mitään
+ei maksettu. Määräpäivä on seuraavan kuukauden 5. päivä (lauantaina tai
+pyhäpäivänä seuraava pankkipäivä; ohjelma näyttää aina 5. päivän). Ilmoitus on
+eri asia kuin palkkatietoilmoitus: matkakorvausilmoitus ei korvaa sitä.
+Satunnainen työnantaja, joka ei ole rekisterissä, ei anna sitä kuukausilta, joilta
+se ei maksanut mitään; silloin `employer_report` jätetään profiilista pois.
+
+Profiilin `employer_report` on yrityksen asetus: `registered_from` on
+työnantajarekisteröinnin ensimmäinen kuukausi, yhteyshenkilö tulee ilmoitukseen, ja
+`pension_insurances` (`provider_code` = Tulorekisterin eläkelaitostunnus,
+`policy_number`) lähetetään "Ei palkanmaksua" -ilmoituksen mukana. Tyhjä lista
+on oikea vain, jos yrityksellä ei ole vakuuttamisvelvollisuutta (esimerkiksi vain
+YEL-vakuutettu omistaja); kysy käyttäjältä, älä arvaa. Yhteyshenkilön ja
+eläkevakuutuksen tiedot ovat käyttäjän antamia, eivät keksittyjä.
+
+Sisällön ratkaisee se, mitä kuukaudella maksettiin. Kysy tai selvitä se
+kirjanpidosta ja tiliotteelta; ohjelma ei päättele sitä tileistä:
+
+- `none`: ei mitään maksuja → "Ei palkanmaksua" (tulolaji 101).
+- `tax-free-reimbursements-only`: vain verovapaita matkakorvauksia →
+  työnantajan sairausvakuutusmaksu 0,00 € (102), ei "Ei palkanmaksua"
+  (Tulorekisterin ohje, kohta 4.3). Ohjelma kieltää `none`-valinnan, jos
+  kuukaudelle on `file-wage`-ilmoitus, ja varoittaa, jos matkakorvauksille ei
+  löydy ilmoitusta.
+- `wages`: rahapalkkaa → `EMPLOYER_REPORT_WAGES_UNSUPPORTED`. Sairausvakuutusmaksua
+  ei vielä lasketa; käyttäjä antaa kuukauden ilmoituksen asiointipalvelussa ja
+  kirjaa sen `complete-manual`-komennolla.
+
+```sh
+aggountant --json file-wage employer-report missing
+aggountant --json file-wage employer-report preview --month 2026-10 \
+  --payments none --timestamp 2026-11-02T08:00:00Z
+# Vasta kun käyttäjä on hyväksynyt kuukauden, sisällön ja record_hashin:
+aggountant --json file-wage employer-report submit --month 2026-10 \
+  --payments none --timestamp 2026-11-02T08:00:00Z --record-hash PREVIEW_RECORD_HASH
+aggountant --json file-wage employer-report status --month 2026-10
+```
+
+Esikatselu ei kirjoita mitään eikä käytä verkkoa. Sama `--month`, `--payments`,
+`--timestamp` (ja `--replace`) annetaan esikatselulle ja lähetykselle; aikaleima on
+myös ilmoituksen ilmoituspäivä, joten se saa olla enintään vuorokauden vanha
+lähetettäessä. `record_hash` on allekirjoittamattoman XML-tietueen SHA-256. Siinä
+ei ole henkilötietoja, joten sen saa näyttää käyttäjälle. Lähetys sitoo juuri
+nämä tavut. Ohjelma ei koskaan päätä itse lähettää kuukautta: jokainen kuukausi
+esikatsellaan ja hyväksytään erikseen, myös kiinnikurottaessa.
+
+**Puuttuvat kuukaudet.** `missing` luettelee kuukaudet rekisteröinnistä edelliseen
+kuukauteen asti, joilta ei ole hyväksyttyä ilmoitusta, määräpäivineen ja tiloineen
+(`not_filed`, `pending`, `rejected`, `outcome_unknown`). Käy ne läpi vanhimmasta
+alkaen: selvitä kunkin kuukauden maksut, esikatsele, hyväksytä ja lähetä. Jos
+kuukausi on jo annettu asiointipalvelussa, älä lähetä sitä uudelleen vaan kirjaa
+viite:
+
+```sh
+aggountant --json file-wage employer-report complete-manual --month 2026-08 \
+  --ir-report-id 22222222222233334444555555555555 --report-version 1
+```
+
+Viite on kuvitteellinen; käytä asiointipalvelun ilmoitusviitettä. Versio
+(`--report-version`) ja tietueviite (`--ir-delivery-id`) annetaan, jos ne ovat
+tiedossa; tunnettu versio tekee myöhemmästä korvaavasta ilmoituksesta tarkemman.
+
+**Kuittaus estää uuden lähetyksen.** Kun kuukaudella on hyväksytty ilmoitus,
+uusi lähetys palauttaa `EMPLOYER_REPORT_ALREADY_FILED`. Korjaus on korvaava
+ilmoitus `--replace`-valinnalla: ohjelma kohdistaa sen Tulorekisterin
+ilmoitusviitteeseen ja tunnettuun versioon. Eläkevakuutustietojen korjausta ei
+tehdä korvaavalla (`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`); mitätöinti ja
+uusi ilmoitus tehdään asiointipalvelussa.
+
+**Epävarma lopputulos.** Aikakatkaisu, 5xx tai ristiriitainen palaute jättää
+kuukauden tilaan `outcome_unknown`. Silloin kaikki uudet lähetykset kuukaudelle
+estetään (`EMPLOYER_REPORT_OUTCOME_UNKNOWN`). `status --month` tekee allekirjoitetun
+tilakyselyn eikä lähetä uudelleen. `EMPLOYER_REPORT_STATUS_UNKNOWN` tarkoittaa,
+että kysy myöhemmin uudelleen tai tarkista asiointipalvelusta ja kirjaa viite
+`complete-manual`-komennolla. Hylätty kuukausi (`rejected`) on lopullinen: selvitä
+syy asiointipalvelusta ja esikatsele uudelleen uudella aikaleimalla.

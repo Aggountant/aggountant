@@ -84,6 +84,10 @@ valmiit ja ohjelman readiness-tulos sallii tuotannon. Käytä tähän `vero-fi`-
 Käyttäjä hyväksyy varsinaisen ilmoituksen nimenomaisesti. Ohjelma ei hoida
 pankkimaksua; käyttäjä maksaa veron erikseen. Manuaalinen OmaVero- tai Ilmoitin.fi-
 reitti säilyy vaihtoehtona, ja sen valmistuminen kirjataan lähetysnäytön perusteella.
+Jos yritys on Verohallinnon työnantajarekisterissä, Tulorekisteriin annetaan joka
+kuukausi työnantajan erillisilmoitus, myös kuukausilta ilman maksuja; tarkista
+kuukauden lopuksi `aggountant file-wage employer-report missing` ja käytä
+`vero-fi`-skilliä.
 
 Käytettävissä olevat komennot löydät ohjeella `aggountant --help`. Komennon tarkat
 parametrit ja syötteet näet esimerkiksi ohjeella `aggountant voucher seal --help`.
