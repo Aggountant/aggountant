@@ -145,15 +145,12 @@ for a month that has a `file-wage` report.
 
 ## Gates
 
-- `cargo fmt`, `clippy -D warnings`, build and test on stable and 1.89: green
-  (884 tests on each toolchain, after the review fixes).
-- `scripts/check-user-guide.sh`: green.
-- `cargo deny check advisories`: **red on unchanged `main` too**:
-  RUSTSEC-2026-0543 (chrono unmaintained, no safe upgrade). `Cargo.lock` and
-  `deny.toml` are untouched by this change. Filed as
-  `cargo-deny-chrono-unmaintained`.
+- `scripts/ci-local.sh`: all gates green after rebasing onto current `main`
+  (fmt, clippy, cargo-deny, build and test on stable and 1.89, user guide).
+  Before the rebase, cargo-deny failed on RUSTSEC-2026-0543 (chrono
+  unmaintained); `main` has since added a dated ignore pending
+  `migrate-from-chrono`, so this worker's duplicate intake was dropped.
 
 ## Follow-ups filed (unlaned)
 
-- `cargo-deny-chrono-unmaintained`
 - `employer-report-record-cancellation`
