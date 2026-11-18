@@ -45,6 +45,17 @@ and the TE/LT re-check at `ApproveStatements` with its test. The harvest worker
 added the persisted-value comparison to that re-check, plus a test
 (`approved_breakdowns_changed_in_the_run_state_are_not_sealed`).
 
+## Review
+
+`review.md` and `assessment.md` beside this issue. Fixed here: a resumed run
+adopts a sealed year only when the ledger names it as the sealer (otherwise an
+abandoned run with equal statements but different breakdowns overwrote the
+archive), and `seal-adjustments` checks the depreciation against the gate hash
+before sealing. Three pre-existing close-year defects found by the verifier
+were filed unlaned: `close-year-seal-after-year-sealed`,
+`close-year-correction-on-rejected-run`,
+`close-year-liitetiedot-miss-booked-depreciation`.
+
 ## Simplicity
 
 Reuses the existing run state file and Preview-binding pattern of `statements`
