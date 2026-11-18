@@ -2,13 +2,17 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: found by taskfleet worker during employer-separate-report review
 source_ref: taskfleet:01m7q4nb0tg24x4ny8ffkhv28m/observed:employer-report-cancellation-unrecordable
 originating_run: 01m7q4nb0tg24x4ny8ffkhv28m
 originating_run_kind: spinoff
+lane: wage-reporting
+lane_seq: 1
+collision: [crates/broker/src/tulorekisteri.rs, crates/cli/src/wage.rs]
+preparation: ready
 ---
 
 # employer-report: an e-service cancellation cannot be recorded; the month keeps the cancelled report as current
