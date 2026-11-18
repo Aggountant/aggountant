@@ -476,7 +476,8 @@ impl ProcessEngine {
     /// Seal one D7 correction on its own approval (the thin commit boundary). The
     /// correction voucher seals into the next open period and is attributed to the
     /// closing year; the effect flips to `Succeeded`. Every correction is sealed
-    /// before `ApproveAdjustments` is approved. Idempotent — a repeat is a no-op (the
+    /// before `ApproveAdjustments` is approved, and none after that gate is
+    /// answered. Idempotent — a repeat is a no-op (the
     /// seal and the attribution replay).
     pub fn seal_close_year_correction(
         &self,
@@ -497,6 +498,20 @@ impl ProcessEngine {
         }
         if f.effect_succeeded(&key) {
             return Ok(f.to_view()); // already sealed
+        }
+        // A correction belongs to the year-end entries approved at
+        // `ApproveAdjustments`, so it is sealed only while that gate waits for its
+        // answer. Once the gate is answered (approved, or rejected and the Run
+        // declined) a sealed correction would reach the year's result without any
+        // gate having shown it.
+        if f.gate(GATE_APPROVE_ADJ)
+            .is_none_or(|gate| gate.answered.is_some())
+        {
+            return Err(ProcessError::GateNotOpen(format!(
+                "D7 correction {correction_id:?} of run {run_id} can only be sealed while \
+                 {GATE_APPROVE_ADJ} is open and unanswered; start a new close-year run that \
+                 includes it"
+            )));
         }
         let correction = state
             .input

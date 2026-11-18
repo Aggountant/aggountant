@@ -1470,3 +1470,42 @@ fn sealing_a_correction_after_another_run_sealed_the_year_books_nothing() {
     let view = engine.show_close_year(&a).unwrap().run;
     assert_eq!(eff(&view, "correction:myohassa"), EffectStatus::Planned);
 }
+
+#[test]
+fn a_rejected_run_does_not_seal_its_correction() {
+    // Run A's ApproveAdjustments is rejected, so the Run is declined. Its 100.00
+    // correction must not reach 2026, where a later run would seal it into the
+    // result without any of its gates naming the entry.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let mut a_input = base_input(2026);
+    a_input.corrections = vec![CorrectionInput {
+        correction_id: "hylatty".into(),
+        description: "hylätyn ajon oikaisu".into(),
+        debit_account: acct("7690"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let a = engine
+        .start_close_year(&a_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let rejected = engine
+        .answer_close_year(&a, "ApproveAdjustments", "reject")
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    let before = books_of(&ledger, 2027);
+    let err = engine
+        .seal_close_year_correction(&a, "hylatty")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "GATE_NOT_OPEN", "{err}");
+    assert_eq!(books_of(&ledger, 2027), before);
+    assert!(ledger
+        .adjustment_attributions_for_year(2026)
+        .unwrap()
+        .is_empty());
+}
