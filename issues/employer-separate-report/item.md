@@ -1,14 +1,16 @@
 ---
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-18
 type: feature
 reporter: jari
-status: in-progress
+status: done
 priority: high
 preparation: ready
 lane: wage-reporting
 lane_seq: 0
 collision: [crates/broker/src/tulorekisteri.rs, crates/cli/src/wage.rs]
+closed: 2026-11-18
+closed_by: spinoff-employer-report
 ---
 
 # File the employer's separate report (työnantajan erillisilmoitus) to the Incomes Register
