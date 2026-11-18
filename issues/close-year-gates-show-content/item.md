@@ -1,8 +1,8 @@
 ---
 created: 2026-11-13
-updated: 2026-11-16
+updated: 2026-11-18
 type: improvement
-status: open
+status: in-progress
 priority: high
 provenance: other
 provenance_detail: found during spinoff run
