@@ -2,13 +2,14 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: untriaged
+status: duplicate
 priority: high
 provenance: other
 provenance_detail: observed while running the local CI gate
 source_ref: taskfleet:01m7q4nbywn89zhtgd1bgv0819/observation:cargo-deny-chrono-unmaintained
 originating_run: 01m7q4nbywn89zhtgd1bgv0819
 originating_run_kind: spinoff
+closed: 2026-11-18
 ---
 
 # cargo-deny fails on main: RUSTSEC-2026-0543 (chrono unmaintained)
@@ -38,3 +39,9 @@ that fails blocks merge" or must run the remaining steps by hand.
   replacement is chosen (chrono is still functionally correct; the advisory is
   about maintenance, not a vulnerability).
 - Replace chrono (for example with `jiff` or `time`) across the workspace.
+
+## Resolution
+
+### 2026-11-18T11:20:49Z · @issuectl
+
+Duplicate of terribly-steadfast-birds, fixed in ad268fc.
