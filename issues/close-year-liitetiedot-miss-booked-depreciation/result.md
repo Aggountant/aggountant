@@ -12,8 +12,12 @@ replace the inline construction the old check had. It runs:
 - in the `ApproveAdjustments` approval precondition, before the answer is
   recorded, so a Run started before another Run booked an entry keeps its gate
   open and can be rejected;
-- in `run_compute_statements` (the resume path) and last in
-  `assert_statements_binding`, as backstops.
+- last in `assert_statements_binding`, as the backstop before `SealYear`.
+
+It deliberately does not run in `run_compute_statements`: that step follows
+an answered `ApproveAdjustments`, so a resumed Run refused there would have no
+open gate left to reject (found by the review; test
+`a_resumed_run_with_an_entry_outside_its_plan_can_still_be_rejected`).
 
 The user guide (fi + en, `tasks/year-end.md`) says that a new run must include
 what an earlier unfinished run already recorded, and that other open runs can

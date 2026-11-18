@@ -1616,3 +1616,73 @@ fn approving_adjustments_is_refused_while_another_runs_entry_is_outside_the_plan
         .unwrap();
     assert_eq!(rejected.status, RunStatus::Rejected);
 }
+
+#[test]
+fn a_resumed_run_with_an_entry_outside_its_plan_can_still_be_rejected() {
+    // Run A's ApproveAdjustments approval is recorded, then the process stops before
+    // the statements are computed. Meanwhile Run B seals a correction A's plan does
+    // not have. Resuming A must reach a gate that can be rejected, and A must not
+    // seal statements whose approvals never named the correction.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let mut b_input = base_input(2026);
+    b_input.corrections = vec![CorrectionInput {
+        correction_id: "myohainen".into(),
+        description: "myöhäinen oikaisu".into(),
+        debit_account: acct("7690"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let b = engine
+        .start_close_year(&b_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+    // Drop A's journal events after the recorded answer: the crash point.
+    let events = home.path().join("process/runs").join(&a).join("events");
+    let mut files: Vec<_> = fs::read_dir(&events)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    files.sort();
+    let answered = files
+        .iter()
+        .position(|p| {
+            let event: serde_json::Value = serde_json::from_slice(&fs::read(p).unwrap()).unwrap();
+            event["event_type"] == "gate_answered"
+        })
+        .unwrap();
+    for path in &files[answered + 1..] {
+        fs::remove_file(path).unwrap();
+    }
+    engine.seal_close_year_correction(&b, "myohainen").unwrap();
+
+    let resumed = engine.resume_close_year(&a).unwrap();
+    assert_eq!(resumed.status, RunStatus::AwaitingGate);
+    approve(&engine, &a, "ApproveTaseErittelyt");
+    approve(&engine, &a, "ApproveLiitetiedot");
+    let err = engine
+        .answer_close_year(&a, "ApproveStatements", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert!(
+        err.to_string().contains("closeyear:2026:corr:myohainen"),
+        "{err}"
+    );
+    let rejected = engine
+        .answer_close_year(&a, "ApproveStatements", "reject")
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.fiscal_year_view(2026).unwrap().state,
+        FiscalYearState::Open
+    );
+}

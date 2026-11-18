@@ -824,8 +824,11 @@ impl ProcessEngine {
             return Ok(());
         }
         let mut state = self.read_close_year_state(run_id)?;
+        // No `assert_no_unplanned_attributions` here: this runs after
+        // `ApproveAdjustments` is answered, so refusing would leave a resumed Run with
+        // no open gate to reject. The approval precondition and the statements
+        // binding refuse such an entry while a gate is still open.
         self.assert_run_vouchers_attributed(&state)?;
-        self.assert_no_unplanned_attributions(&state)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_COMPUTE_STMT.to_string(),
         })?;
