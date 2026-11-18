@@ -91,11 +91,11 @@ pub struct FiledVatQuery {
 }
 
 /// What a period's `file-vat` Run journal says about its filing effect.
-struct FilingRun {
-    run_id: String,
-    status: EffectStatus,
+pub(super) struct FilingRun {
+    pub(super) run_id: String,
+    pub(super) status: EffectStatus,
     /// The error code of the latest `EffectRejected` for the filing effect.
-    rejected_code: Option<String>,
+    pub(super) rejected_code: Option<String>,
 }
 
 impl ProcessEngine {
@@ -303,7 +303,10 @@ impl ProcessEngine {
     }
 
     /// The filing effect of every `file-vat` Run for `period`, in run-id order.
-    fn file_vat_filing_runs(&self, period: &PeriodId) -> Result<Vec<FilingRun>, ProcessError> {
+    pub(super) fn file_vat_filing_runs(
+        &self,
+        period: &PeriodId,
+    ) -> Result<Vec<FilingRun>, ProcessError> {
         let period = period.to_string();
         let mut runs = Vec::new();
         for run_id in self.list()? {

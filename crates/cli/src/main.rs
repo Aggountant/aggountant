@@ -940,6 +940,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | GateNotOpen(_)
             | InvalidAnswer(_)
             | VatFiguresMismatch(_)
+            | VatFilingUnresolved(_)
             | VatAccountsUnreconciled(_)
             | VatReconciliationAckMismatch(_)
             | CaptureVatMismatch(_)

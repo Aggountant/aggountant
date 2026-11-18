@@ -40,6 +40,11 @@ pub enum ProcessError {
     /// "not filed": the stored receipt still proves the filing.
     #[error("VAT_STATUS_UNKNOWN: {0}")]
     VatStatusUnknown(String),
+    /// A VAT return for the period may already have been accepted (an earlier
+    /// filing's outcome is unknown, or its dispatch was interrupted), so nothing may
+    /// send it again until the Tax Administration has answered.
+    #[error("VAT_FILING_UNRESOLVED: {0}")]
+    VatFilingUnresolved(String),
     /// The period's VAT accounts carry untagged postings the return would leave out
     /// (issue `vat-untagged-posting-omitted`). The filing is refused before anything
     /// is sent unless the operator acknowledges exactly those vouchers with a reason.
@@ -106,6 +111,7 @@ impl ProcessError {
             ProcessError::JournalCorrupt(_) => "JOURNAL_CORRUPT",
             ProcessError::VatFiguresMismatch(_) => "VAT_FIGURES_MISMATCH",
             ProcessError::VatStatusUnknown(_) => "VAT_STATUS_UNKNOWN",
+            ProcessError::VatFilingUnresolved(_) => "VAT_FILING_UNRESOLVED",
             ProcessError::VatAccountsUnreconciled(_) => "VAT_ACCOUNTS_UNRECONCILED",
             ProcessError::VatReconciliationAckMismatch(_) => "VAT_RECONCILIATION_ACK_MISMATCH",
             ProcessError::CaptureVatMismatch(_) => "CAPTURE_VAT_MISMATCH",

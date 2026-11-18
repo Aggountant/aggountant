@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use aggountant_broker::{
-    project_file_vat_return, Broker, Envelope, FileVatReceipt, FileVatReturn, FiledVatReturn,
+    project_file_vat_return, Broker, Envelope, FileVatReceipt, FileVatReturn,
     GetVatPeriodsResponse, RemoteOutcome, SVC_PANKKI_MAKSU, SVC_VERO_FILED_VAT_RETURN,
     SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
 };
@@ -42,9 +42,11 @@ use crate::vat_reconciliation::{
 };
 use crate::{fold, EffectStatus, Fold, GateView, ProcessEngine, ProcessError, RunView, Seam};
 
+mod recovery;
 mod status;
 #[cfg(test)]
 mod tests;
+pub use recovery::{AuthorityCheck, FileVatReconcile, FileVatReconcileOutcome};
 pub use status::{FileVatFilingStatus, FileVatStatus, FileVatStatusPlan, FiledVatQuery};
 
 /// Effect keys for the `file-vat` Run (stable idempotency keys).
@@ -254,9 +256,7 @@ impl ProcessEngine {
         if let Some(reference) = remote_status_evidence_ref {
             validate_evidence_ref(reference)?;
         }
-        if self.period_has_unresolved_unknown_filing(period)?
-            && remote_status_evidence_ref.is_none()
-        {
+        if self.period_has_unresolved_filing(period)? && remote_status_evidence_ref.is_none() {
             return Err(ProcessError::InvalidAnswer(
                 "OUTCOME_UNKNOWN: manual filing is refused until remote status resolution evidence is supplied".into(),
             ));
@@ -280,42 +280,6 @@ impl ProcessEngine {
         })
     }
 
-    fn period_has_unresolved_unknown_filing(
-        &self,
-        period: &PeriodId,
-    ) -> Result<bool, ProcessError> {
-        for run_id in self.list()? {
-            let state_path = self.file_vat_state_path(&run_id);
-            if !state_path.exists() {
-                continue;
-            }
-            let state = self.read_file_vat_state(&run_id)?;
-            if state.period != period.to_string() {
-                continue;
-            }
-            let events = self.open_journal(&run_id)?.read_all()?;
-            let unresolved_unknown = events.iter().rev().find_map(|event| match &event.payload {
-                EventPayload::EffectSucceeded { effect_key, .. }
-                | EventPayload::EffectReconciled { effect_key, .. }
-                    if effect_key == EFFECT_SUBMIT_FILING =>
-                {
-                    Some(false)
-                }
-                EventPayload::EffectRejected {
-                    effect_key,
-                    error_code,
-                } if effect_key == EFFECT_SUBMIT_FILING => {
-                    Some(filing_outcome_may_be_accepted(error_code))
-                }
-                _ => None,
-            });
-            if unresolved_unknown == Some(true) {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
     /// Start a `file-vat` Run: precondition-check (period `Sealed`), pull the
     /// verotili snapshot, compute + reconcile the filing, persist the envelopes, and
     /// park on the `ApproveFiling` `Preview` gate bound to the filing `sent_hash`.
@@ -325,6 +289,9 @@ impl ProcessEngine {
         broker: &Broker,
         policy_set: &PolicySet,
     ) -> Result<FileVatStart, ProcessError> {
+        // Refused before a Run exists, so an unresolved earlier filing leaves no
+        // second Run waiting for an approval it could never use.
+        self.refuse_while_filing_unresolved(&input.period, None)?;
         let run_id = crate::new_run_id_with("fv");
         let run_dir = self.run_dir(&run_id);
         fs::create_dir_all(&run_dir).map_err(|e| ProcessError::Store(e.to_string()))?;
@@ -631,6 +598,12 @@ impl ProcessEngine {
             }
         }
 
+        // Checked before the approval is recorded, so a refused Run can still be
+        // approved once the earlier filing is resolved. The dispatch checks again.
+        if answer == "approve" && gate_id == GATE_APPROVE_FILING {
+            self.refuse_while_filing_unresolved(&period, Some(run_id))?;
+        }
+
         journal.append(EventPayload::GateAnswered {
             gate_id: gate_id.to_string(),
             answer: answer.to_string(),
@@ -655,69 +628,6 @@ impl ProcessEngine {
             }
         }
 
-        Ok(fold(run_id, &journal.read_all()?)?.to_view())
-    }
-
-    /// Reconcile a Vero filing parked on `OutcomeUnknown` using the documented
-    /// GetFiledVATReturn/v2 read. Missing, stale, and mismatching values remain
-    /// NeedsAttention; matching semantic values complete locally without a re-submit.
-    pub fn reconcile_file_vat(
-        &self,
-        run_id: &str,
-        broker: &Broker,
-    ) -> Result<RunView, ProcessError> {
-        let _lease = self.acquire_lease(run_id)?;
-        let journal = self.open_journal(run_id)?;
-        let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
-        if f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status)
-            != Some(EffectStatus::Rejected)
-        {
-            return Err(ProcessError::InvalidAnswer(
-                "submit-filing is not parked for reconciliation".into(),
-            ));
-        }
-        let state = self.read_file_vat_state(run_id)?;
-        assert_filing_gate_approved_and_bound(
-            &f,
-            &state.filing_body,
-            &state.vero_period,
-            &state.filing_sent_hash,
-        )?;
-        let expected = approved_filing_request(&state)?;
-        let envelope = filed_vat_return_envelope(&expected, format!("reconcile:{}", state.period))?;
-        let body = broker.fetch(&envelope).map_err(map_broker)?;
-        let filed: FiledVatReturn = serde_json::from_value(body)
-            .map_err(|e| ProcessError::Store(format!("GetFiledVATReturn malformed: {e}")))?;
-        let effect_key = format!("{EFFECT_SUBMIT_FILING}:{}", state.period);
-        let outbox = broker
-            .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &effect_key)
-            .map_err(map_broker)?
-            .ok_or_else(|| ProcessError::Store("Vero filing outbox entry is missing".into()))?;
-        let attempted_date = outbox
-            .attempts
-            .last()
-            .and_then(|attempt| attempt.provenance.ts.get(..10))
-            .ok_or_else(|| {
-                ProcessError::Store("Vero filing attempt timestamp is missing".into())
-            })?;
-        if filed.semantically_matches_attempt(&expected, Some(attempted_date)) {
-            let period = PeriodId::parse(&state.period)
-                .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
-            let ledger = Ledger::open(&self.home)?;
-            if !ledger.period_view(&period)?.vat_filed {
-                let auth = ledger.acquire_filing_authority(&period, run_id)?;
-                // A reconciliation response carries no FileVATReturn receipt fields;
-                // never invent them. The approved payload hash is still audited.
-                ledger.file_vat(&period, &auth, &state.filing_sent_hash, ACTOR)?;
-            }
-            journal.append(EventPayload::EffectReconciled {
-                effect_key: EFFECT_SUBMIT_FILING.into(),
-                note: "GetFiledVATReturn semantically matches approved FileVATReturn bytes".into(),
-            })?;
-            let f2 = fold(run_id, &journal.read_all()?)?;
-            self.finish_filing_postcondition(&journal, &f2, &state)?;
-        }
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
     }
 
@@ -906,14 +816,40 @@ impl ProcessEngine {
         // any deliberate re-drive, and crash resume. It runs before EffectExecuting
         // and, most importantly, before the Broker can create an outbox attempt.
         self.assert_current_filing_proposal(&f, period, state)?;
-        journal.append(EventPayload::EffectExecuting {
-            effect_key: EFFECT_SUBMIT_FILING.to_string(),
-        })?;
+        self.refuse_while_filing_unresolved(period, Some(run_id))?;
         let env = rebuild_filing_env(period, &state.filing_body);
         // The outbox key is period-scoped so two Runs filing the *same* period
         // dedupe (never a double filing), while different periods stay independent.
+        let outbox_key = format!("{EFFECT_SUBMIT_FILING}:{period}");
+        if f.effect(EFFECT_SUBMIT_FILING)
+            .is_none_or(|effect| effect.status == EffectStatus::Planned)
+        {
+            // A first dispatch needs a period that is still unfiled: a manual filing
+            // or another Run may have filed it since this Run started.
+            Ledger::open(&self.home)?.acquire_filing_authority(period, run_id)?;
+            // The Broker binds every attempt under the period's key to the bytes of
+            // the first. A Run re-filing after an earlier attempt was closed as not
+            // filed can only send the same bytes; refuse here rather than leave the
+            // effect executing behind a refused submit.
+            let earlier = broker
+                .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &outbox_key)
+                .map_err(map_broker)?
+                .and_then(|entry| entry.attempts.first().map(|a| a.sent_hash.clone()));
+            let sent_hash = env.sent_hash().map_err(map_broker)?;
+            if earlier.is_some_and(|hash| hash != sent_hash) {
+                return Err(ProcessError::VatFilingUnresolved(format!(
+                    "an earlier filing attempt for {period} sent a different FileVATReturn \
+                     request, and aggountant can re-send a period only with the same request. \
+                     File this return manually (`file-vat complete-manual`, citing the \
+                     recorded \"not found\" answers as the remote status evidence)"
+                )));
+            }
+        }
+        journal.append(EventPayload::EffectExecuting {
+            effect_key: EFFECT_SUBMIT_FILING.to_string(),
+        })?;
         let outcome = broker
-            .submit(ACTOR, &format!("{EFFECT_SUBMIT_FILING}:{period}"), &env)
+            .submit(ACTOR, &outbox_key, &env)
             .map_err(map_broker)?;
         match outcome {
             RemoteOutcome::Delivered { receipt } => {

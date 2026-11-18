@@ -930,7 +930,7 @@ fn filing_timeout_parks_and_refuses_blind_retry() {
         .unwrap_err();
     assert_eq!(error.error_code(), "INVALID_ANSWER");
     let still_missing = engine.reconcile_file_vat(&run_id, &broker).unwrap();
-    assert_eq!(still_missing.status, RunStatus::NeedsAttention);
+    assert_eq!(still_missing.run.status, RunStatus::NeedsAttention);
     assert!(!ledger.period_view(&q1()).unwrap().vat_filed);
 }
 

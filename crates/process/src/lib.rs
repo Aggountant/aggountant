@@ -49,8 +49,8 @@ pub use company_knowledge::{
     CompanyKnowledgeSource, CompanyKnowledgeStatus, RetireCompanyKnowledge, UpdateCompanyKnowledge,
 };
 pub use file_vat::{
-    FileVatFilingStatus, FileVatInput, FileVatStart, FileVatStatus, FileVatStatusPlan,
-    FiledVatQuery,
+    AuthorityCheck, FileVatFilingStatus, FileVatInput, FileVatReconcile, FileVatReconcileOutcome,
+    FileVatStart, FileVatStatus, FileVatStatusPlan, FiledVatQuery,
 };
 pub use hunt_receipts::{BankTransaction, HuntReceiptsInput};
 pub use intake::{Intake, MatchCandidate, MatchStatus};
