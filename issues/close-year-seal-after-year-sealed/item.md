@@ -2,7 +2,7 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: bug
-status: open
+status: in-progress
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7q4nbceha52vkzwr4ahjzej/review-finding:V1
