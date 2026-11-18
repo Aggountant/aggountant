@@ -2,7 +2,7 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: in-progress
+status: done
 priority: high
 provenance: other
 provenance_detail: observed by CI gate in a taskfleet worker
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: unlaned
 collision: [deny.toml]
 preparation: ready
+closed: 2026-11-18
+closed_by: spinoff-chrono-advisory
 ---
 
 # cargo-deny fails on main: chrono unmaintained (RUSTSEC-2026-0543)
