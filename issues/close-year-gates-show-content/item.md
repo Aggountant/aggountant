@@ -2,7 +2,7 @@
 created: 2026-11-13
 updated: 2026-11-18
 type: improvement
-status: in-progress
+status: done
 priority: high
 provenance: other
 provenance_detail: found during spinoff run
@@ -13,6 +13,8 @@ lane: close-year
 lane_seq: 3
 collision: [crates/process/src/close_year.rs, crates/cli/src/main.rs]
 preparation: ready
+closed: 2026-11-18
+closed_by: spinoff-close-year-gates
 ---
 
 # close-year approval steps do not show what the user approves
