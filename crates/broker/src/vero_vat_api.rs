@@ -341,8 +341,10 @@ impl FiledVatReturn {
         earliest_submitted_date: Option<&str>,
     ) -> bool {
         // Being Processed may still expose the previous return's values, so it is
-        // never sufficient evidence for recovery of the just-attempted filing.
-        if matches!(self.status.as_deref(), Some(status) if status != "Processed") {
+        // never sufficient evidence for recovery of the just-attempted filing. An
+        // answer without a status says nothing either: a no-activity return has no
+        // amounts to compare, so its date alone would otherwise count as proof.
+        if self.status.as_deref() != Some("Processed") {
             return false;
         }
         if let Some(earliest) = earliest_submitted_date {
@@ -953,6 +955,9 @@ mod tests {
         assert_eq!(expected.no_activity, Some(true));
         let filed = |body: Value| -> FiledVatReturn { serde_json::from_value(body).unwrap() };
         assert!(filed(json!({"Status": "Processed"})).semantically_matches(&expected));
+        // Without a status nothing is proven, even with a plausible submission date.
+        assert!(!filed(json!({"SubmittedDate": "2099-01-01"}))
+            .semantically_matches_attempt(&expected, Some("2026-08-01")));
         assert!(filed(json!({
             "Status": "Processed",
             "VATOnDomesticSales": {"HighVATRate": 0.0},

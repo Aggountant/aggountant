@@ -48,9 +48,10 @@ authority what it has:
   period, the run keeps waiting. Compare the return in OmaVero.
 - If the authority says it has no return for the period, that is not yet
   proof: a return can take days to show. The answer is recorded in the run,
-  and the authority is asked again at least one bank day later. Bank days are
-  Monday to Friday, except Finnish bank holidays such as Good Friday, Easter
-  Monday, Ascension Day, Midsummer Eve and the Christmas days. When the
+  and the authority is asked again at the same time of day on the next bank
+  day or later. Bank days are Monday to Friday, except Finnish bank holidays
+  such as Good Friday, Easter Monday, Ascension Day, Midsummer Eve and the
+  Christmas days. When the
   authority has said "not found" twice, at least one bank day apart, the run
   is closed as not filed, and a new filing run may send the period's return.
 

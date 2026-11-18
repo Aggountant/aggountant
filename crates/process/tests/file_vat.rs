@@ -1112,10 +1112,22 @@ fn two_not_found_answers_a_bank_day_apart_close_run_1_and_run_2_files_once() {
     let run1 = run_with_unknown_outcome(&engine, home.path());
 
     let first = reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
-    assert_eq!(first.next_check_from.unwrap().to_string(), "2026-11-23");
+    // 10:00 Finnish time is 08:00 UTC; the second answer counts from Monday 10:00.
+    assert_eq!(
+        first.next_check_from.unwrap().to_rfc3339(),
+        "2026-11-23T08:00:00+00:00"
+    );
+    let early = reconcile_at(&engine, home.path(), &run1, "2026-11-23 09:59", not_found()).unwrap();
+    assert_eq!(early.outcome, FileVatReconcileOutcome::NotFound);
     let closed =
-        reconcile_at(&engine, home.path(), &run1, "2026-11-23 09:00", not_found()).unwrap();
+        reconcile_at(&engine, home.path(), &run1, "2026-11-23 10:00", not_found()).unwrap();
     assert_eq!(closed.outcome, FileVatReconcileOutcome::ClosedNotFiled);
+    // Nothing is left to do in Run 1: its filing and payment are skipped.
+    assert_eq!(closed.run.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&closed.run, "submit-payment"),
+        EffectStatus::Skipped
+    );
     assert_eq!(
         effect_status(&closed.run, "submit-filing"),
         EffectStatus::Skipped
@@ -1125,7 +1137,14 @@ fn two_not_found_answers_a_bank_day_apart_close_run_1_and_run_2_files_once() {
         .iter()
         .map(|check| format!("{} {}", check.finnish_date, check.remote_status))
         .collect();
-    assert_eq!(dates, ["2026-11-20 Missing", "2026-11-23 Missing"]);
+    assert_eq!(
+        dates,
+        [
+            "2026-11-20 Missing",
+            "2026-11-23 Missing",
+            "2026-11-23 Missing"
+        ]
+    );
     // The evidence is in Run 1's journal.
     assert!(engine.journal(&run1).unwrap().iter().any(|event| matches!(
         &event.payload,

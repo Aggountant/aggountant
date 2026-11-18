@@ -252,8 +252,8 @@ päätellä kumpaankaan suuntaan. `aggountant file-vat reconcile --run-id fv-…
 `GetFiledVATReturn/v2`-vastauksen ja kirjaa sen ajoon (`authority_checks`):
 täsmäävät arvot päättävät ajon paikallisesti ilman uutta lähetystä (`outcome: adopted`);
 vanhempi tai poikkeava ilmoitus jättää ajon odottamaan (`unresolved`). `Missing` on yksi
-"ei löydy" (`not_found`); toinen `Missing` aikaisintaan vastauksen `next_check_from`-päivänä
-(seuraava suomalainen pankkipäivä) sulkee ajon ilmoittamattomana (`closed_not_filed`), ja
+"ei löydy" (`not_found`); toinen `Missing` aikaisintaan vastauksen `next_check_from`-hetkellä
+(sama kellonaika seuraavana suomalaisena pankkipäivänä) sulkee ajon ilmoittamattomana (`closed_not_filed`), ja
 vasta sitten uusi `file-vat start` voi lähettää kauden. Muu vastaus välissä nollaa
 laskun; epäonnistunut tai lukukelvoton kysely ei kirjaa mitään. Siihen asti
 `file-vat start` ja `approve-filing` kieltäytyvät koodilla `VAT_FILING_UNRESOLVED`

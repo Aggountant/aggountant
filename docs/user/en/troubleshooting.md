@@ -147,8 +147,8 @@ does not send the return.
   again later, or check OmaVero or Tulorekisteri's e-service yourself.
 - For a VAT return, two "not found" answers at least one bank day apart close
   the run as not filed. Then start a new filing run for the period. The
-  command's response tells from which date the second query counts
-  (`next_check_from`).
+  command's response tells from which moment the second query counts
+  (`next_check_from`): the same time of day on the next bank day.
 - If you decide to file by hand, first make sure the API submission did not
   get through. Recording a VAT return made by hand then requires evidence of
   the Tax Administration's status.

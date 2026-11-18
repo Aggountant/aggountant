@@ -47,8 +47,8 @@ mitä sillä on:
   jää odottamaan. Vertaa ilmoitusta OmaVerossa.
 - Jos viranomainen vastaa, ettei sillä ole kaudelle ilmoitusta, se ei vielä
   todista mitään: ilmoituksen näkyminen voi kestää päiviä. Vastaus kirjataan
-  ajoon, ja viranomaiselta kysytään uudelleen aikaisintaan seuraavana
-  pankkipäivänä. Pankkipäiviä ovat maanantaista perjantaihin, paitsi
+  ajoon, ja viranomaiselta kysytään uudelleen aikaisintaan samaan kellonaikaan
+  seuraavana pankkipäivänä. Pankkipäiviä ovat maanantaista perjantaihin, paitsi
   suomalaiset pankkien vapaapäivät, kuten pitkäperjantai, toinen pääsiäispäivä,
   helatorstai, juhannusaatto ja joulunpyhät. Kun viranomainen on vastannut
   "ei löydy" kahdesti, vähintään yhden pankkipäivän välein, ajo suljetaan

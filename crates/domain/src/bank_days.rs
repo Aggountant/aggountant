@@ -8,9 +8,10 @@
 //! 19 and 25 June.
 //!
 //! Dates are Finnish calendar dates. [`finnish_date`] turns an instant into
-//! one, so a check made late in the evening UTC counts on the next Finnish day.
+//! one, so a check made late in the evening UTC counts on the next Finnish day;
+//! [`one_bank_day_after`] is the earliest instant a full bank day later.
 
-use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, TimeZone, Utc, Weekday};
 
 /// Easter Sunday of `year` in the Gregorian calendar (the anonymous computus).
 pub fn easter_sunday(year: i32) -> NaiveDate {
@@ -66,17 +67,23 @@ pub fn next_finnish_bank_day(date: NaiveDate) -> NaiveDate {
     next
 }
 
-/// Whether `later` is at least one bank day after `earlier`: a bank day falls on
-/// a date after `earlier` and no later than `later`. Monday is one bank day after
-/// the Friday before it; Sunday is not one bank day after Saturday.
-pub fn a_bank_day_has_passed(earlier: NaiveDate, later: NaiveDate) -> bool {
-    next_finnish_bank_day(earlier) <= later
+/// The earliest instant one bank day after `instant`: the same Finnish clock time
+/// on the next bank day, and never before that day begins. A check at 23:59 on a
+/// Monday is followed by one at 23:59 on Tuesday, not at midnight; one on a
+/// Friday by one at the same time on Monday. The days in between are counted as
+/// whole 24-hour days, so across a summer-time switch the clock time can differ
+/// by an hour.
+pub fn one_bank_day_after(instant: DateTime<Utc>) -> DateTime<Utc> {
+    let date = finnish_date(instant);
+    let next = next_finnish_bank_day(date);
+    let same_time = instant + Duration::days((next - date).num_days());
+    same_time.max(start_of_finnish_day(next))
 }
 
-/// The Finnish calendar date of an instant. Finland keeps UTC+2, and UTC+3 from
-/// the last Sunday of March to the last Sunday of October, switching at 01:00
-/// UTC (the EU summer-time rule).
-pub fn finnish_date(instant: DateTime<Utc>) -> NaiveDate {
+/// Finnish local time of an instant. Finland keeps UTC+2, and UTC+3 from the last
+/// Sunday of March to the last Sunday of October, switching at 01:00 UTC (the EU
+/// summer-time rule).
+pub fn finnish_local_time(instant: DateTime<Utc>) -> NaiveDateTime {
     let year = instant.year();
     let switch = |month: u32| {
         let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
@@ -89,7 +96,22 @@ pub fn finnish_date(instant: DateTime<Utc>) -> NaiveDate {
     };
     let summer = switch(3) <= instant && instant < switch(10);
     let offset = Duration::hours(if summer { 3 } else { 2 });
-    (instant + offset).date_naive()
+    (instant + offset).naive_utc()
+}
+
+/// The Finnish calendar date of an instant.
+pub fn finnish_date(instant: DateTime<Utc>) -> NaiveDate {
+    finnish_local_time(instant).date()
+}
+
+/// The first instant of a Finnish calendar date.
+fn start_of_finnish_day(date: NaiveDate) -> DateTime<Utc> {
+    let midnight = date.and_hms_opt(0, 0, 0).expect("midnight exists");
+    [3, 2]
+        .into_iter()
+        .map(|offset| Utc.from_utc_datetime(&(midnight - Duration::hours(offset))))
+        .find(|candidate| finnish_date(*candidate) == date)
+        .expect("a Finnish date starts at UTC+3 or UTC+2")
 }
 
 #[cfg(test)]
@@ -173,19 +195,30 @@ mod tests {
     }
 
     #[test]
-    fn a_bank_day_has_passed_only_across_a_bank_day() {
-        // Same day, weekend and holiday spans are not enough.
-        assert!(!a_bank_day_has_passed(d("2026-11-16"), d("2026-11-16")));
-        assert!(!a_bank_day_has_passed(d("2026-11-21"), d("2026-11-22")));
-        assert!(!a_bank_day_has_passed(d("2026-11-20"), d("2026-11-22")));
-        assert!(!a_bank_day_has_passed(d("2026-04-02"), d("2026-04-06")));
-        // The next bank day is.
-        assert!(a_bank_day_has_passed(d("2026-11-16"), d("2026-11-17")));
-        assert!(a_bank_day_has_passed(d("2026-11-20"), d("2026-11-23")));
-        assert!(a_bank_day_has_passed(d("2026-11-21"), d("2026-11-23")));
-        assert!(a_bank_day_has_passed(d("2026-04-02"), d("2026-04-07")));
-        assert!(a_bank_day_has_passed(d("2026-12-31"), d("2027-01-04")));
-        assert!(!a_bank_day_has_passed(d("2026-12-31"), d("2027-01-03")));
+    fn one_bank_day_after_is_the_same_time_on_the_next_bank_day() {
+        // Times are Finnish: UTC+2 in winter, UTC+3 in summer.
+        for (from, earliest) in [
+            // A weekday: the next day at the same time, not at midnight.
+            ("2026-11-16T21:59:00Z", "2026-11-17T21:59:00Z"),
+            // Friday and Saturday: Monday.
+            ("2026-11-20T08:00:00Z", "2026-11-23T08:00:00Z"),
+            ("2026-11-21T08:00:00Z", "2026-11-23T08:00:00Z"),
+            // Maundy Thursday: over Good Friday and Easter Monday to Tuesday.
+            ("2026-04-02T07:00:00Z", "2026-04-07T07:00:00Z"),
+            // Thursday before Midsummer Eve: Monday.
+            ("2026-06-18T07:00:00Z", "2026-06-22T07:00:00Z"),
+            // New Year's Eve: over New Year's Day and the weekend to 4 January.
+            ("2026-12-31T08:00:00Z", "2027-01-04T08:00:00Z"),
+        ] {
+            assert_eq!(one_bank_day_after(utc(from)), utc(earliest), "{from}");
+        }
+        // Friday 00:30 before the October switch: 72 hours later is still Sunday
+        // in Finland, so the next bank day's start is the floor.
+        assert_eq!(
+            one_bank_day_after(utc("2026-10-22T21:30:00Z")),
+            utc("2026-10-25T22:00:00Z")
+        );
+        assert_eq!(finnish_date(utc("2026-10-25T22:00:00Z")), d("2026-10-26"));
     }
 
     #[test]

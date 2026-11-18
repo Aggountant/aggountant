@@ -143,8 +143,8 @@ ilmoitusta.
   asiointipalvelusta itse.
 - ALV-ilmoituksessa kaksi "ei löydy" -vastausta vähintään yhden pankkipäivän
   välein sulkee ajon ilmoittamattomana. Aloita sen jälkeen kaudelle uusi
-  ilmoitusajo. Komennon vastaus kertoo, mistä päivästä alkaen toinen kysely
-  lasketaan (`next_check_from`).
+  ilmoitusajo. Komennon vastaus kertoo, mistä hetkestä alkaen toinen kysely
+  lasketaan (`next_check_from`): samasta kellonajasta seuraavana pankkipäivänä.
 - Jos päätät tehdä ilmoituksen käsin, selvitä ensin, ettei rajapintalähetys
   mennyt perille. ALV-ilmoituksen käsin kirjaaminen vaatii silloin näytön
   Verohallinnon tilasta.

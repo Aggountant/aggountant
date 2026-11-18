@@ -9,7 +9,8 @@
 //! the answer on the unresolved Run:
 //! - the approved return, processed: the filing is adopted and nothing is sent;
 //! - `Missing`: one "not found". A second one at least one Finnish bank day after
-//!   the first closes the Run as not filed, and a new Run may file the period;
+//!   the first (the same clock time on the next bank day or later) closes the Run
+//!   as not filed, and a new Run may file the period;
 //! - anything else: recorded, and the "not found" count starts over, because the
 //!   authority shows something for the period;
 //! - a failed or unreadable read: nothing is recorded.
@@ -26,7 +27,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
 use aggountant_broker::{Broker, FiledVatReturn, SVC_VERO_FILE_VAT_RETURN};
-use aggountant_domain::bank_days::{a_bank_day_has_passed, finnish_date, next_finnish_bank_day};
+use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
 use aggountant_ledger::Ledger;
 use aggountant_model::PeriodId;
 
@@ -50,7 +51,7 @@ pub enum FileVatReconcileOutcome {
     /// The authority has processed the approved return; the filing is recorded.
     Adopted,
     /// The authority has no return for the period. Recorded; one more such answer
-    /// on a later bank day closes the Run.
+    /// a bank day later closes the Run.
     NotFound,
     /// The second qualifying "not found": the Run is closed as not filed.
     ClosedNotFiled,
@@ -61,8 +62,7 @@ pub enum FileVatReconcileOutcome {
 /// One answer recorded on the Run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AuthorityCheck {
-    /// RFC 3339, UTC.
-    pub checked_at: String,
+    pub checked_at: DateTime<Utc>,
     /// The Finnish calendar date of the check, which bank days are counted in.
     pub finnish_date: NaiveDate,
     /// GetFiledVATReturn's `Status`, or `(none)`.
@@ -79,8 +79,8 @@ pub struct FileVatReconcile {
     pub remote_status: Option<String>,
     /// Every answer recorded on the Run, oldest first.
     pub authority_checks: Vec<AuthorityCheck>,
-    /// After one "not found": the first Finnish date on which a second one counts.
-    pub next_check_from: Option<NaiveDate>,
+    /// After a "not found": the earliest instant a second one counts.
+    pub next_check_from: Option<DateTime<Utc>>,
     pub message: String,
 }
 
@@ -250,27 +250,29 @@ impl ProcessEngine {
             let checks = authority_checks(&journal.read_all()?)?;
             match not_found_streak(&checks) {
                 NotFoundStreak::Conclusive { first, last } => {
-                    close_as_not_filed(&journal, first, last)?;
+                    let (first, last) = (finnish_minute(first), finnish_minute(last));
+                    close_as_not_filed(&journal, &first, &last)?;
                     (
                         FileVatReconcileOutcome::ClosedNotFiled,
                         None,
                         format!(
-                            "The Tax Administration answered on {first} and again on {last} that \
-                             it has no return for {period}. This Run is closed as not filed; \
-                             start a new file-vat Run to file the period."
+                            "The Tax Administration answered on {first} and again on {last} \
+                             (Finnish time) that it has no return for {period}. This Run is \
+                             closed as not filed; start a new file-vat Run to file the period."
                         ),
                     )
                 }
                 NotFoundStreak::Waiting { first } => {
-                    let next = next_finnish_bank_day(first);
+                    let next = one_bank_day_after(first);
                     (
                         FileVatReconcileOutcome::NotFound,
                         Some(next),
                         format!(
                             "The Tax Administration has no return for {period} yet; a return can \
-                             take days to show. Ask again on {next} or later: a second \"not \
-                             found\" then closes this Run so the period can be filed again. Do \
-                             not file before that."
+                             take days to show. Ask again at {} (Finnish time) or later: a \
+                             second \"not found\" then closes this Run so the period can be \
+                             filed again. Do not file before that.",
+                            finnish_minute(next)
                         ),
                     )
                 }
@@ -311,6 +313,13 @@ fn clock_now(clock: &dyn Clock) -> Result<DateTime<Utc>, ProcessError> {
         .ok()
         .and_then(|secs| DateTime::from_timestamp(secs, 0))
         .ok_or_else(|| ProcessError::Store("the clock is out of range".into()))
+}
+
+/// An instant as Finnish local time to the minute, for messages and notes.
+fn finnish_minute(instant: DateTime<Utc>) -> String {
+    finnish_local_time(instant)
+        .format("%Y-%m-%d %H:%M")
+        .to_string()
 }
 
 fn latest_filing_rejection(events: &[crate::journal::JournalEvent]) -> Option<String> {
@@ -372,7 +381,7 @@ fn authority_checks(
                 .map_err(|_| corrupt())?
                 .to_utc();
             Ok(AuthorityCheck {
-                checked_at: checked_at.to_string(),
+                checked_at: instant,
                 finnish_date: finnish_date(instant),
                 remote_status: remote_status.to_string(),
             })
@@ -382,25 +391,31 @@ fn authority_checks(
 
 enum NotFoundStreak {
     None,
-    Waiting { first: NaiveDate },
-    Conclusive { first: NaiveDate, last: NaiveDate },
+    Waiting {
+        first: DateTime<Utc>,
+    },
+    Conclusive {
+        first: DateTime<Utc>,
+        last: DateTime<Utc>,
+    },
 }
 
 /// The "not found" answers since the last other answer. Conclusive once one of
-/// them came at least one bank day after the first.
+/// them came at least one bank day after the first ([`one_bank_day_after`]).
 fn not_found_streak(checks: &[AuthorityCheck]) -> NotFoundStreak {
     let since = checks
         .iter()
         .rposition(|check| check.remote_status != NOT_FOUND)
         .map_or(0, |index| index + 1);
     let streak = &checks[since..];
-    let Some(first) = streak.first().map(|check| check.finnish_date) else {
+    let Some(first) = streak.first().map(|check| check.checked_at) else {
         return NotFoundStreak::None;
     };
+    let due = one_bank_day_after(first);
     match streak
         .iter()
-        .map(|check| check.finnish_date)
-        .find(|date| a_bank_day_has_passed(first, *date))
+        .map(|check| check.checked_at)
+        .find(|checked_at| *checked_at >= due)
     {
         Some(last) => NotFoundStreak::Conclusive { first, last },
         None => NotFoundStreak::Waiting { first },
@@ -409,15 +424,12 @@ fn not_found_streak(checks: &[AuthorityCheck]) -> NotFoundStreak {
 
 /// Close a Run whose filing the authority has twice said it does not have: the
 /// filing and the payment will never run.
-fn close_as_not_filed(
-    journal: &Journal,
-    first: NaiveDate,
-    last: NaiveDate,
-) -> Result<(), ProcessError> {
+fn close_as_not_filed(journal: &Journal, first: &str, last: &str) -> Result<(), ProcessError> {
     journal.append(EventPayload::EffectSkipped {
         effect_key: EFFECT_SUBMIT_FILING.into(),
         reason: format!(
-            "NOT_FILED: GetFiledVATReturn answered {NOT_FOUND} on {first} and on {last}"
+            "NOT_FILED: GetFiledVATReturn answered {NOT_FOUND} on {first} and on {last} \
+             (Finnish time)"
         ),
     })?;
     journal.append(EventPayload::EffectSkipped {
@@ -432,9 +444,12 @@ mod tests {
     use super::*;
 
     fn check(status: &str, date: &str) -> AuthorityCheck {
+        let checked_at = DateTime::parse_from_rfc3339(&format!("{date}T09:00:00Z"))
+            .unwrap()
+            .to_utc();
         AuthorityCheck {
-            checked_at: format!("{date}T09:00:00Z"),
-            finnish_date: NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap(),
+            checked_at,
+            finnish_date: finnish_date(checked_at),
             remote_status: status.into(),
         }
     }
@@ -447,7 +462,7 @@ mod tests {
             check("Missing", "2026-11-18"),
         ]);
         assert!(matches!(streak, NotFoundStreak::Waiting { first }
-            if first.to_string() == "2026-11-18"));
+            if finnish_date(first).to_string() == "2026-11-18"));
         assert!(matches!(
             not_found_streak(&[
                 check("Missing", "2026-11-16"),
@@ -463,5 +478,20 @@ mod tests {
             ]),
             NotFoundStreak::Conclusive { .. }
         ));
+    }
+
+    #[test]
+    fn two_answers_across_midnight_are_not_a_bank_day_apart() {
+        let at = |value: &str| AuthorityCheck {
+            checked_at: DateTime::parse_from_rfc3339(value).unwrap().to_utc(),
+            finnish_date: finnish_date(DateTime::parse_from_rfc3339(value).unwrap().to_utc()),
+            remote_status: NOT_FOUND.into(),
+        };
+        // Monday 23:59 and Tuesday 00:00 in Finland (UTC+2).
+        let streak = not_found_streak(&[at("2026-11-16T21:59:00Z"), at("2026-11-16T22:00:00Z")]);
+        assert!(matches!(streak, NotFoundStreak::Waiting { .. }));
+        // Tuesday 23:59 counts.
+        let streak = not_found_streak(&[at("2026-11-16T21:59:00Z"), at("2026-11-17T21:59:00Z")]);
+        assert!(matches!(streak, NotFoundStreak::Conclusive { .. }));
     }
 }

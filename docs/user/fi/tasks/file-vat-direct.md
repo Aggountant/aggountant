@@ -108,7 +108,7 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
   mennä perille, joten mitään ei lähetetä. Agentti kysyy Verohallinnolta
   (`file-vat reconcile`). Jos ilmoitus löytyy, aiempi ajo päättyy
   ilmoitettuna. Jos vastaus on "ei löydy", agentti kysyy uudelleen
-  aikaisintaan seuraavana pankkipäivänä; toinen "ei löydy" sulkee aiemman
+  aikaisintaan samaan kellonaikaan seuraavana pankkipäivänä; toinen "ei löydy" sulkee aiemman
   ajon, ja kuukauden voi ilmoittaa uudella ajolla. Tähän voi mennä muutama
   päivä ([Epävarma lopputulos](../concepts/filings.md#epävarma-lopputulos)).
 
