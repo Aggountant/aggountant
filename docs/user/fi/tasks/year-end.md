@@ -57,6 +57,13 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
    voi hyväksyä sitä; hylkää vaihe ja aloita ajo alusta. Viimeinen hyväksyntä
    sinetöi tilikauden, eikä sitä voi perua.
 
+   Jos aiempi, kesken jäänyt tilinpäätösajo on jo kirjannut osan
+   kirjauksista, uuteen ajoon on otettava samat hyödykkeet, jaksotukset ja
+   oikaisut, jotta hyväksymäsi sisältö kattaa kaiken, mitä vuoden tulos
+   sisältää; muuten ajo ei käynnisty ja nimeää puuttuvat kirjaukset. Kun
+   yksi ajo on sinetöinyt vuoden, muut saman vuoden avoimet ajot voi vain
+   hylätä.
+
 Myös virallisen tilinpäätösasiakirjan laatiminen ja allekirjoitus, ilmoitus
 kaupparekisteriin ja yhtiön veroilmoitus tehdään aggountantin ulkopuolella.
 

@@ -62,6 +62,12 @@ hand it over and record the year-end entries.
    you cannot approve it; reject the step and start the run again. The last
    approval seals the fiscal year, and it cannot be undone.
 
+   If an earlier, unfinished year-end run already recorded some entries,
+   a new run must include the same assets, accruals and corrections, so
+   that what you approve covers everything the year's result contains; the
+   run refuses to start and names the missing entries otherwise. Once one
+   run has sealed the year, any other open run for it can only be rejected.
+
 Drawing up and signing the official financial statements, filing them with
 the trade register and the company's tax return are also done outside
 aggountant.

@@ -1509,3 +1509,110 @@ fn a_rejected_run_does_not_seal_its_correction() {
         .unwrap()
         .is_empty());
 }
+
+fn only_asset_input(year: i32) -> CloseYearInput {
+    CloseYearInput {
+        year,
+        assets: vec![asset()],
+        accruals: vec![],
+        corrections: vec![],
+    }
+}
+
+#[test]
+fn a_run_without_depreciation_another_run_booked_is_refused_at_start() {
+    // Run A (kone-1) approves ApproveAdjustments, so its 2,000.00 depreciation is
+    // sealed and attributed to 2026, and is then abandoned. A run without kone-1
+    // would seal statements carrying that depreciation with empty notes.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+
+    let mut without = only_asset_input(2026);
+    without.assets.clear();
+    let err = engine
+        .start_close_year(&without, &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert!(
+        err.to_string().contains("closeyear:2026:dep:kone-1"),
+        "{err}"
+    );
+
+    // Re-supplying the asset replays its seal, and the notes cover it.
+    let b = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    assert_eq!(approve_all(&engine, &b).status, RunStatus::Completed);
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.adjustment_attributions_for_year(2026).unwrap().len(),
+        1
+    );
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    let poistot = archive["statements"]["income"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["row_id"] == "IS-POISTOT")
+        .unwrap()["amount"]
+        .clone();
+    assert_eq!(poistot, "2000.00");
+    let notes = archive["liitetiedot"]["depreciation_notes"]
+        .as_array()
+        .unwrap();
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0]["asset_class"], "koneet-ja-kalusto");
+}
+
+#[test]
+fn approving_adjustments_is_refused_while_another_runs_entry_is_outside_the_plan() {
+    // Run B (no assets) starts before Run A (kone-1) books its depreciation. B's
+    // approval must not go on to compute statements whose notes miss it, and the
+    // gate stays open so B can be declined.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let mut without = only_asset_input(2026);
+    without.assets.clear();
+    let b = engine
+        .start_close_year(&without, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+
+    let err = engine
+        .answer_close_year(&b, "ApproveAdjustments", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert!(
+        err.to_string().contains("closeyear:2026:dep:kone-1"),
+        "{err}"
+    );
+    let shown = engine.show_close_year(&b).unwrap();
+    assert_eq!(
+        shown.open_gate.map(|g| g.gate_id).as_deref(),
+        Some("ApproveAdjustments")
+    );
+    let rejected = engine
+        .answer_close_year(&b, "ApproveAdjustments", "reject")
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+}

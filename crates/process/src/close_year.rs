@@ -395,28 +395,28 @@ impl ProcessEngine {
             build_correction_draft(c, doc_date, posting_date)?;
         }
 
+        let state = CloseYearState {
+            year,
+            policy_set: policy_set.id.clone(),
+            subperiods: subperiods.iter().map(|p| p.to_string()).collect(),
+            next_open_period: next_open.to_string(),
+            doc_date: doc_date.to_string(),
+            posting_date: posting_date.to_string(),
+            input: input.clone(),
+            depreciation: Some(depreciation.clone()),
+            statements: None,
+            tase_erittelyt: None,
+            liitetiedot: None,
+        };
+        self.assert_no_unplanned_attributions(&state)?;
+
         let run_id = crate::new_run_id_with("cy");
         let run_dir = self.run_dir(&run_id);
         fs::create_dir_all(&run_dir).map_err(|e| ProcessError::Store(e.to_string()))?;
         let _lease = self.acquire_lease(&run_id)?;
         let journal = Journal::new(&run_dir);
 
-        self.write_close_year_state(
-            &run_id,
-            &CloseYearState {
-                year,
-                policy_set: policy_set.id.clone(),
-                subperiods: subperiods.iter().map(|p| p.to_string()).collect(),
-                next_open_period: next_open.to_string(),
-                doc_date: doc_date.to_string(),
-                posting_date: posting_date.to_string(),
-                input: input.clone(),
-                depreciation: Some(depreciation.clone()),
-                statements: None,
-                tase_erittelyt: None,
-                liitetiedot: None,
-            },
-        )?;
+        self.write_close_year_state(&run_id, &state)?;
 
         journal.append(EventPayload::RunStarted {
             workflow: "close-year".to_string(),
@@ -592,6 +592,7 @@ impl ProcessEngine {
                 // correction must already be in the books and attributed.
                 GATE_APPROVE_ADJ => {
                     self.assert_corrections_sealed(&f)?;
+                    self.assert_no_unplanned_attributions(&state)?;
                     self.gate_view(run_id, &f, gate_id)?;
                 }
                 // The approval is given on the shown content, so it is refused when
@@ -824,6 +825,7 @@ impl ProcessEngine {
         }
         let mut state = self.read_close_year_state(run_id)?;
         self.assert_run_vouchers_attributed(&state)?;
+        self.assert_no_unplanned_attributions(&state)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_COMPUTE_STMT.to_string(),
         })?;
@@ -988,6 +990,10 @@ impl ProcessEngine {
                 }
             }
         }
+        // Checked last so that a change the hashes above already catch is reported as
+        // that change; an entry outside the plan that left every hash equal is still
+        // one no gate showed.
+        self.assert_no_unplanned_attributions(&state)?;
         Ok(())
     }
 
@@ -998,10 +1004,62 @@ impl ProcessEngine {
     /// `seal-correction` completes it) or one started before attribution existed and
     /// carried over by `run migrate` (a new Run replays the seals and attributes them).
     fn assert_run_vouchers_attributed(&self, state: &CloseYearState) -> Result<(), ProcessError> {
-        let ledger = Ledger::open(&self.home)?;
         let year = state.year;
-        let depreciation = self.depreciation_lines(state)?;
-        let expected = depreciation
+        let attributed = self.attributed_natural_keys(year)?;
+        let missing: Vec<String> = self
+            .planned_natural_keys(state)?
+            .into_iter()
+            .filter(|k| !attributed.contains(k))
+            .collect();
+        if !missing.is_empty() {
+            return Err(ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: {} voucher(s) of this run are not attributed \
+                 to {year}, so its statements would leave them out: [{}] — resume the run, \
+                 seal the listed correction(s), or start a new close-year run",
+                missing.len(),
+                missing.join(", ")
+            )));
+        }
+        Ok(())
+    }
+
+    /// The converse of [`Self::assert_run_vouchers_attributed`]: refuse while a
+    /// voucher attributed to the closing year is not in this Run's plan, typically
+    /// one an earlier, abandoned close-year Run sealed. The statements include it,
+    /// but the gates and the liitetiedot are built from the plan, so the sealed
+    /// notes would not match the sealed result. Including the same asset, accrual or
+    /// correction in the input brings it into the plan, and its seal replays by
+    /// natural key.
+    fn assert_no_unplanned_attributions(&self, state: &CloseYearState) -> Result<(), ProcessError> {
+        let year = state.year;
+        let planned = self.planned_natural_keys(state)?;
+        let unplanned: Vec<String> = self
+            .attributed_natural_keys(year)?
+            .into_iter()
+            .filter(|k| !planned.contains(k))
+            .collect();
+        if !unplanned.is_empty() {
+            return Err(ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: {} voucher(s) already attributed to {year} \
+                 by an earlier close-year run are not in this run's input, so its approvals \
+                 and notes would not cover them: [{}] — start a close-year run whose input \
+                 includes the same asset, accrual or correction (the key names its kind and \
+                 id; its seal replays)",
+                unplanned.len(),
+                unplanned.join(", ")
+            )));
+        }
+        Ok(())
+    }
+
+    /// The natural keys of every voucher this Run seals and attributes.
+    fn planned_natural_keys(
+        &self,
+        state: &CloseYearState,
+    ) -> Result<std::collections::BTreeSet<String>, ProcessError> {
+        let year = state.year;
+        Ok(self
+            .depreciation_lines(state)?
             .iter()
             .map(|line| depreciation_natural_key(year, &line.asset_id))
             .chain(
@@ -1017,7 +1075,17 @@ impl ProcessEngine {
                     .corrections
                     .iter()
                     .map(|c| correction_natural_key(year, &c.correction_id)),
-            );
+            )
+            .collect())
+    }
+
+    /// The natural keys of the vouchers attributed to `year` (only close-year Runs
+    /// attribute vouchers).
+    fn attributed_natural_keys(
+        &self,
+        year: i32,
+    ) -> Result<std::collections::BTreeSet<String>, ProcessError> {
+        let ledger = Ledger::open(&self.home)?;
         let mut attributed = std::collections::BTreeSet::new();
         for attribution in ledger.adjustment_attributions_for_year(year)? {
             attributed.insert(
@@ -1027,17 +1095,7 @@ impl ProcessEngine {
                     .natural_key,
             );
         }
-        let missing: Vec<String> = expected.filter(|k| !attributed.contains(k)).collect();
-        if !missing.is_empty() {
-            return Err(ProcessError::CloseYearBlocked(format!(
-                "close-year for {year} is blocked: {} voucher(s) of this run are not attributed \
-                 to {year}, so its statements would leave them out: [{}] — resume the run, \
-                 seal the listed correction(s), or start a new close-year run",
-                missing.len(),
-                missing.join(", ")
-            )));
-        }
-        Ok(())
+        Ok(attributed)
     }
 
     /// Compute the statements deterministically from the sealed year chain + pinned
