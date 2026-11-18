@@ -1,8 +1,8 @@
 ---
 created: 2026-11-13
-updated: 2026-11-16
+updated: 2026-11-18
 type: bug
-status: in-progress
+status: fixed
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7a1vmb1vv3rhg8nx3dx98sq/review-finding:verifier-unlisted-settlement-gaps
@@ -20,6 +20,8 @@ lane: vat-calculation
 lane_seq: 0
 collision: [crates/domain/src/vat/reconcile.rs, crates/ledger, crates/process/src/vat_reconciliation.rs]
 preparation: ready
+closed: 2026-11-18
+closed_by: spinoff-vat-bank-role
 ---
 
 # Untagged VAT reductions pass as VAT payments and drop out of the return
