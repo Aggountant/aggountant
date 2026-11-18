@@ -509,11 +509,12 @@ impl ProcessEngine {
         let doc_date = parse_date(&state.doc_date)?;
         let posting_date = parse_date(&state.posting_date)?;
         let draft = build_correction_draft(correction, doc_date, posting_date)?;
+        let ledger = Ledger::open(&self.home)?;
+        assert_year_open(&ledger, state.year)?;
 
         journal.append(EventPayload::EffectExecuting {
             effect_key: key.clone(),
         })?;
-        let ledger = Ledger::open(&self.home)?;
         let natural_key = correction_natural_key(state.year, correction_id);
         match seal_attributed(&ledger, &draft, natural_key, &state, run_id) {
             Ok(()) => {
@@ -567,6 +568,10 @@ impl ProcessEngine {
         // Preconditions that must hold BEFORE the answer is recorded (so a refusal
         // leaves the gate open for the operator to resolve, never a wedged Run).
         if answer == "approve" {
+            // An approval moves the Run towards putting entries in the books and
+            // sealing the year, which another Run may already have done.
+            let state = self.read_close_year_state(run_id)?;
+            assert_year_open(&Ledger::open(&self.home)?, state.year)?;
             match gate_id {
                 // The statements are computed right after this approval, so every
                 // correction must already be in the books and attributed.
@@ -1240,9 +1245,29 @@ fn statement_provenance(
     })
 }
 
+/// Refuse once `year` is sealed. Another Run may have sealed it while this one
+/// waited at a gate; the ledger would still accept this Run's voucher into the next
+/// year's open period but refuse to attribute it to the sealed year, leaving a
+/// closing-year entry in the next year's result. Such a Run can only be rejected.
+fn assert_year_open(ledger: &Ledger, year: i32) -> Result<(), ProcessError> {
+    let fy = ledger.fiscal_year_view(year)?;
+    if fy.state == FiscalYearState::Sealed {
+        let by = fy
+            .sealed_by_run_id
+            .map(|run| format!(" by run {run}"))
+            .unwrap_or_default();
+        return Err(ProcessError::CloseYearBlocked(format!(
+            "fiscal year {year} is already sealed{by}; this run can no longer put entries in \
+             the books or seal the year — reject its open gate"
+        )));
+    }
+    Ok(())
+}
+
 /// Seal one Run voucher into the next open period and attribute it to the closing
 /// year. Both steps replay on a repeat (the seal by natural key, the attribution
 /// by voucher and year), so a Run interrupted between them completes on retry.
+/// Nothing is sealed once the year is sealed ([`assert_year_open`]).
 fn seal_attributed(
     ledger: &Ledger,
     draft: &aggountant_model::VoucherDraft,
@@ -1250,6 +1275,7 @@ fn seal_attributed(
     state: &CloseYearState,
     run_id: &str,
 ) -> Result<(), ProcessError> {
+    assert_year_open(ledger, state.year)?;
     let sealed = ledger.seal(
         draft,
         &aggountant_ledger::SealRequest {

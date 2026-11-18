@@ -1375,3 +1375,98 @@ fn resuming_a_superseded_run_leaves_the_sealing_runs_archive_alone() {
         Some(b.as_str())
     );
 }
+
+fn second_asset() -> AssetInput {
+    AssetInput {
+        asset_id: "kone-2".into(),
+        ..asset()
+    }
+}
+
+/// The vouchers in the books for `year` and the attributions to `year`, so a test
+/// can show that a refused call left the books as they were.
+fn books_of(ledger: &Ledger, year: i32) -> (usize, usize) {
+    (
+        ledger.year_vouchers(year).unwrap().len(),
+        ledger
+            .adjustment_attributions_for_year(year - 1)
+            .unwrap()
+            .len(),
+    )
+}
+
+#[test]
+fn approving_adjustments_after_another_run_sealed_the_year_books_nothing() {
+    // Run A (kone-1 and kone-2) stops at ApproveAdjustments; Run B (kone-1 only)
+    // completes and seals 2026. Approving A must not seal kone-2's depreciation into
+    // 2027, where it could no longer be attributed to the sealed 2026.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let mut a_input = base_input(2026);
+    a_input.assets.push(second_asset());
+    let a = engine
+        .start_close_year(&a_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let b = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    assert_eq!(approve_all(&engine, &b).status, RunStatus::Completed);
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    let before = books_of(&ledger, 2027);
+    let err = engine
+        .answer_close_year(&a, "ApproveAdjustments", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert!(err.to_string().contains("already sealed"), "{err}");
+    assert!(err.to_string().contains(&b), "names the sealing run: {err}");
+    assert_eq!(books_of(&ledger, 2027), before);
+
+    // The gate stays open, so the Run can still be declined.
+    let rejected = engine
+        .answer_close_year(&a, "ApproveAdjustments", "reject")
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+    assert_eq!(books_of(&ledger, 2027), before);
+}
+
+#[test]
+fn sealing_a_correction_after_another_run_sealed_the_year_books_nothing() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let mut a_input = base_input(2026);
+    a_input.corrections = vec![CorrectionInput {
+        correction_id: "myohassa".into(),
+        description: "myöhässä tullut oikaisu".into(),
+        debit_account: acct("7690"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let a = engine
+        .start_close_year(&a_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let b = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    assert_eq!(approve_all(&engine, &b).status, RunStatus::Completed);
+
+    let ledger = Ledger::open(home.path()).unwrap();
+    let before = books_of(&ledger, 2027);
+    let err = engine
+        .seal_close_year_correction(&a, "myohassa")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED", "{err}");
+    assert_eq!(books_of(&ledger, 2027), before);
+    let view = engine.show_close_year(&a).unwrap().run;
+    assert_eq!(eff(&view, "correction:myohassa"), EffectStatus::Planned);
+}
