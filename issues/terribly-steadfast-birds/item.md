@@ -2,7 +2,7 @@
 created: 2026-11-18
 updated: 2026-11-18
 type: chore
-status: open
+status: in-progress
 priority: high
 provenance: other
 provenance_detail: observed by CI gate in a taskfleet worker
