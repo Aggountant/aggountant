@@ -674,9 +674,14 @@ impl ProcessEngine {
             // the sealed statements are this run's own — otherwise a *different* run
             // sealed the year (single-user sequential: an abandoned run then a fresh
             // one), and this run must not claim it or overwrite the authoritative
-            // archive with different figures.
+            // archive with different figures. Equal statements alone do not prove it:
+            // another run's tase-erittelyt can differ behind the same statements, and
+            // the archive would then be overwritten with this run's.
             let own_hash = state.statements.as_ref().map(|s| s.statements_hash());
-            if own_hash.is_some() && fy.statements_hash == own_hash {
+            if fy.sealed_by_run_id.as_deref() == Some(run_id)
+                && own_hash.is_some()
+                && fy.statements_hash == own_hash
+            {
                 journal.append(EventPayload::EffectReconciled {
                     effect_key: EFFECT_SEAL_YEAR.to_string(),
                     note: format!(

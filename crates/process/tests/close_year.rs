@@ -1311,3 +1311,67 @@ fn approved_breakdowns_changed_in_the_run_state_are_not_sealed() {
     );
     assert!(!home.path().join("archive/2026/tilinpaatos.json").exists());
 }
+
+#[test]
+fn resuming_a_superseded_run_leaves_the_sealing_runs_archive_alone() {
+    // Run A approves its breakdowns and stops. Run B seals a transfer between two
+    // cash accounts on the same balance-sheet row (equal statements, a different
+    // breakdown), completes and seals the year. Resuming A must not claim the seal
+    // or overwrite B's archive with A's stale breakdowns.
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let a = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let mut b_input = base_input(2026);
+    b_input.corrections = vec![CorrectionInput {
+        correction_id: "siirto".into(),
+        description: "siirto pankkitilien välillä".into(),
+        debit_account: acct("1920"),
+        credit_account: acct("1910"),
+        amount: money("100.00"),
+    }];
+    let b = engine
+        .start_close_year(&b_input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &a, "ApproveAdjustments");
+    approve(&engine, &a, "ApproveTaseErittelyt");
+    approve(&engine, &a, "ApproveLiitetiedot");
+
+    engine.seal_close_year_correction(&b, "siirto").unwrap();
+    for gate in [
+        "ApproveAdjustments",
+        "ApproveTaseErittelyt",
+        "ApproveLiitetiedot",
+        "ApproveStatements",
+    ] {
+        approve(&engine, &b, gate);
+    }
+    let archive_path = home.path().join("archive/2026/tilinpaatos.json");
+    let sealed_by_b = fs::read(&archive_path).unwrap();
+    let a_state: serde_json::Value =
+        serde_json::from_slice(&fs::read(state_path(home.path(), &a)).unwrap()).unwrap();
+    let b_archive: serde_json::Value = serde_json::from_slice(&sealed_by_b).unwrap();
+    assert_eq!(
+        a_state["statements"]["result"],
+        b_archive["statements"]["result"]
+    );
+    assert_ne!(a_state["tase_erittelyt"], b_archive["tase_erittelyt"]);
+
+    engine.resume_close_year(&a).unwrap();
+    assert_eq!(fs::read(&archive_path).unwrap(), sealed_by_b);
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger
+            .fiscal_year_view(2026)
+            .unwrap()
+            .sealed_by_run_id
+            .as_deref(),
+        Some(b.as_str())
+    );
+}
