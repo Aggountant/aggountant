@@ -1,6 +1,6 @@
 ---
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-19
 type: bug
 status: open
 priority: high
@@ -12,7 +12,7 @@ originating_run_kind: spinoff
 lane: bank-import
 lane_seq: 0
 collision: [crates/import, skills/capture-receipt/SKILL.md]
-preparation: pending
+preparation: ready
 ---
 
 # Guide says a bank row for an already recorded receipt is not recorded again, but the import requires every row
@@ -49,3 +49,13 @@ that also appears on the bank statement (for example: record the receipt against
 a liability such as 2700 Ostovelat, or 2740 when the owner paid, and assign the
 bank row to clear it), or the import gains an explicit way to mark a row as
 settled by an existing voucher. Which of the two is a product decision.
+
+## Decision (2026-11-19, Jari Mustonen)
+
+Option (a): a receipt that will also appear on the bank statement is recorded
+against a liability, 2700 Ostovelat for a company-paid purchase or 2740 when
+the owner paid personally, and the bank row is assigned to that liability to
+clear it. Each event is recorded once: the receipt records the cost, the bank
+row records the payment. No new import mechanism. The guide (fi, en) and the
+`capture-receipt` skill state this one convention and their examples follow
+it; a receipt paid in cash or with no bank row keeps its direct contra.
