@@ -96,6 +96,7 @@ aggountant employee list
 aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
 aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < report.json
 aggountant file-wage approve wr-… --record-hash <checksum>
+aggountant run show --run-id wr-…
 ```
 
 In the employee input the identifier is `employee_id` and the withholding
@@ -104,6 +105,12 @@ field `record_hash`. The preview and the start get the same timestamp.
 `aggountant employee show --employee <identifier>` shows the personal identity
 code and bank account number in plain text, so the agent does not run it
 needlessly.
+
+Once Tulorekisteri has accepted the report, the output of `file-wage approve`
+and `run show` carries its receipt on the `submit-wage` effect:
+`outcome.receipt.ir_delivery_id` and `outcome.receipt.ir_report_id`.
+`run show` reads it offline. If `outcome.state` is `outcome_unknown`,
+`outcome.next_command` names `file-wage reconcile`, which asks Tulorekisteri.
 </details>
 
 ## Done when

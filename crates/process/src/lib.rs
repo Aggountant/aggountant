@@ -22,6 +22,7 @@
 
 #![forbid(unsafe_code)]
 
+mod authority;
 mod capture_receipt;
 mod close_year;
 mod company_knowledge;
@@ -35,6 +36,7 @@ mod obligation;
 mod run_payroll;
 mod vat_reconciliation;
 
+pub use authority::{AuthorityOutcome, AuthorityReceipt};
 pub use capture_receipt::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, PreparedReceipt,
     ReceiptSourceFacts, ReceiptTreatmentProposal, ReceiptVatProposal, StructuredReceiptInput,
@@ -192,6 +194,11 @@ pub struct EffectView {
     pub key: String,
     pub effect_type: String,
     pub status: EffectStatus,
+    /// The authority's answer to a filing effect (VAT return, Incomes Register
+    /// report): the recorded receipt, or that the outcome is unknown and how to
+    /// settle it. Absent for every other effect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<AuthorityOutcome>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -252,6 +259,11 @@ struct Fold {
     /// The ordered per-turn disclosure `sent_hash`es a multi-turn consult re-bound
     /// (S5/RF1) — the audit that every outbound turn re-projected + re-bound.
     disclosure_bindings: Vec<String>,
+    /// `effect_key → note` of the effect's latest success or reconciliation (an
+    /// authority effect's note is the receipt the broker returned).
+    notes: std::collections::HashMap<String, String>,
+    /// `effect_key → error_code` of the effect's latest rejection.
+    error_codes: std::collections::HashMap<String, String>,
 }
 
 impl Fold {
@@ -339,6 +351,8 @@ fn fold(run_id: &str, events: &[JournalEvent]) -> Result<Fold, ProcessError> {
         gates: Vec::new(),
         waits: std::collections::HashMap::new(),
         disclosure_bindings: Vec::new(),
+        notes: std::collections::HashMap::new(),
+        error_codes: std::collections::HashMap::new(),
     };
     for event in events {
         match &event.payload {
@@ -361,16 +375,22 @@ fn fold(run_id: &str, events: &[JournalEvent]) -> Result<Fold, ProcessError> {
                 key: effect_key.clone(),
                 effect_type: effect_type.clone(),
                 status: EffectStatus::Planned,
+                outcome: None,
             }),
             EventPayload::EffectExecuting { effect_key } => {
                 set_effect(&mut f, effect_key, EffectStatus::Executing)?
             }
-            EventPayload::EffectSucceeded { effect_key, .. }
-            | EventPayload::EffectReconciled { effect_key, .. } => {
-                set_effect(&mut f, effect_key, EffectStatus::Succeeded)?
+            EventPayload::EffectSucceeded { effect_key, note }
+            | EventPayload::EffectReconciled { effect_key, note } => {
+                set_effect(&mut f, effect_key, EffectStatus::Succeeded)?;
+                f.notes.insert(effect_key.clone(), note.clone());
             }
-            EventPayload::EffectRejected { effect_key, .. } => {
-                set_effect(&mut f, effect_key, EffectStatus::Rejected)?
+            EventPayload::EffectRejected {
+                effect_key,
+                error_code,
+            } => {
+                set_effect(&mut f, effect_key, EffectStatus::Rejected)?;
+                f.error_codes.insert(effect_key.clone(), error_code.clone());
             }
             EventPayload::EffectSkipped { effect_key, .. } => {
                 set_effect(&mut f, effect_key, EffectStatus::Skipped)?
@@ -796,10 +816,14 @@ impl ProcessEngine {
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
     }
 
-    /// `run show` — the derived view of the Run (no lease; a pure read).
+    /// `run show` — the derived view of the Run (no lease; a pure read), with the
+    /// authority's recorded answer on each filing effect.
     pub fn show(&self, run_id: &str) -> Result<RunView, ProcessError> {
         let journal = self.open_journal(run_id)?;
-        Ok(fold(run_id, &journal.read_all()?)?.to_view())
+        let f = fold(run_id, &journal.read_all()?)?;
+        let mut view = f.to_view();
+        self.authority_outcomes(&f, &mut view.effects)?;
+        Ok(view)
     }
 
     /// The raw journal events (`journal show <run-id>`).

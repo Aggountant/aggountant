@@ -20,7 +20,9 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io::Write};
 const WORKFLOW: &str = "file-wage/v1: Preview(bind canonical unsigned record) -> ApproveWage -> SendWageReport(at-most-once) -> signed GetDeliveryDataStatus";
 const GATE: &str = "ApproveWage";
-const EFFECT: &str = "submit-wage";
+pub(crate) const EFFECT: &str = "submit-wage";
+/// A dispatch with no definitive answer; settled only by `reconcile`, never resent.
+pub(crate) const UNKNOWN_CODE: &str = "OUTCOME_UNKNOWN_RECONCILE_ONLY";
 fn invalid(s: &str) -> ProcessError {
     ProcessError::InvalidAnswer(s.into())
 }
@@ -279,7 +281,7 @@ impl ProcessEngine {
             }
             RemoteOutcome::Unknown => EventPayload::EffectRejected {
                 effect_key: EFFECT.into(),
-                error_code: "OUTCOME_UNKNOWN_RECONCILE_ONLY".into(),
+                error_code: UNKNOWN_CODE.into(),
             },
             RemoteOutcome::Rejected { code, .. } => EventPayload::EffectRejected {
                 effect_key: EFFECT.into(),

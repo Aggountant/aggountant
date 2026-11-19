@@ -22,7 +22,7 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Approve exactly the record hash and dispatch once. Example: file-wage approve wr-DIGEST --record-hash HASH
+    /// Approve exactly the record hash and dispatch once. The effect's `outcome` carries the Incomes Register receipt (ir_delivery_id, ir_report_id, version) once accepted, or names `file-wage reconcile` when the outcome is unknown; read it again offline with `run show --run-id wr-DIGEST`. Example: file-wage approve wr-DIGEST --record-hash HASH
     Approve {
         run_id: String,
         #[arg(long)]
@@ -30,7 +30,7 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Signed status query; never repeats SendWageReport. Example: file-wage reconcile wr-DIGEST
+    /// Signed status query for an unknown outcome; never repeats SendWageReport. To read an already recorded receipt use `run show --run-id wr-DIGEST` (offline). Example: file-wage reconcile wr-DIGEST
     Reconcile {
         run_id: String,
         #[arg(long)]

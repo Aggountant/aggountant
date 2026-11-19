@@ -290,3 +290,78 @@ fn definitive_status_rejection_is_journalled_not_described_as_pending() {
     assert_eq!(send.load(Ordering::SeqCst), 1);
     assert_eq!(read.load(Ordering::SeqCst), 1);
 }
+
+/// The approve output and `run show` carry the Incomes Register receipt once the
+/// report is accepted, and name `reconcile` while the outcome is unknown.
+#[test]
+fn receipt_is_in_approve_output_and_run_show() {
+    use aggountant_process::{AuthorityOutcome, AuthorityReceipt};
+    const DELIVERY: &str = "11111111222233334444555555555555";
+    const REPORT: &str = "22222222222233334444555555555555";
+    let h = home();
+    let e = ProcessEngine::open(h.path());
+    let p = e.preview_wage(&report(), time()).unwrap();
+    let run = e.start_wage(&report(), time()).unwrap();
+    assert_eq!(run.effects[0].outcome, None, "nothing sent yet");
+    let (b, _, _) = broker(h.path(), true);
+    let unknown = e.approve_wage(&run.run_id, &p.record_hash, &b).unwrap();
+    match &unknown.effects[0].outcome {
+        Some(AuthorityOutcome::OutcomeUnknown { next_command, .. }) => assert_eq!(
+            next_command.as_deref(),
+            Some(format!("aggountant file-wage reconcile {}", run.run_id).as_str())
+        ),
+        other => panic!("expected outcome_unknown, got {other:?}"),
+    }
+    let json = serde_json::to_value(&unknown).unwrap();
+    assert_eq!(json["effects"][0]["outcome"]["state"], "outcome_unknown");
+
+    let settled = e.reconcile_wage(&run.run_id, &b, time()).unwrap();
+    let shown = e.show(&run.run_id).unwrap();
+    for view in [&settled, &shown] {
+        let Some(AuthorityOutcome::Accepted {
+            receipt: Some(AuthorityReceipt::Tulorekisteri(receipt)),
+            ..
+        }) = &view.effects[0].outcome
+        else {
+            panic!(
+                "expected accepted receipt, got {:?}",
+                view.effects[0].outcome
+            );
+        };
+        assert_eq!(receipt.ir_delivery_id.as_deref(), Some(DELIVERY));
+        assert_eq!(receipt.ir_report_id, REPORT);
+        assert_eq!(receipt.version, Some(1));
+        assert_eq!(receipt.source, "api");
+    }
+    let json = serde_json::to_value(&shown).unwrap();
+    assert_eq!(json["effects"][0]["outcome"]["state"], "accepted");
+    assert_eq!(
+        json["effects"][0]["outcome"]["receipt"]["authority"],
+        "tulorekisteri"
+    );
+    assert_eq!(
+        json["effects"][0]["outcome"]["receipt"]["ir_delivery_id"],
+        DELIVERY
+    );
+
+    // Manual completion from e-service evidence has no version.
+    let h = home();
+    let e = ProcessEngine::open(h.path());
+    let run = e.start_wage(&report(), time()).unwrap();
+    let view = e
+        .complete_wage_manual(&run.run_id, DELIVERY, REPORT)
+        .unwrap();
+    let Some(AuthorityOutcome::Accepted {
+        receipt: Some(AuthorityReceipt::Tulorekisteri(receipt)),
+        ..
+    }) = &view.effects[0].outcome
+    else {
+        panic!(
+            "expected accepted receipt, got {:?}",
+            view.effects[0].outcome
+        );
+    };
+    assert_eq!(receipt.source, "e_service");
+    assert_eq!(receipt.ir_report_id, REPORT);
+    assert_eq!(receipt.version, None);
+}

@@ -35,10 +35,10 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io::Write};
 
 const WORKFLOW: &str = "file-employer-report/v1: Preview(bind unsigned PayerSummaryReportRequestToIR) -> ApproveEmployerReport -> SendPayerSummaryReport(at-most-once) -> signed GetDeliveryDataStatus";
-const WORKFLOW_NAME: &str = "file-employer-report";
+pub(crate) const WORKFLOW_NAME: &str = "file-employer-report";
 const GATE: &str = "ApproveEmployerReport";
-const EFFECT: &str = "submit-employer-report";
-const UNKNOWN_CODE: &str = "OUTCOME_UNKNOWN_RECONCILE_ONLY";
+pub(crate) const EFFECT: &str = "submit-employer-report";
+pub(crate) const UNKNOWN_CODE: &str = "OUTCOME_UNKNOWN_RECONCILE_ONLY";
 const STATE_FILE: &str = "employer-report.json";
 /// How far the record timestamp may be from the moment of sending. The record's
 /// `ReportDate` is taken from it and must state when the report was given.
@@ -109,7 +109,7 @@ impl EmployerReportReceipt {
             _ => format!("manual-e-service:{d}/{}/{v}", self.ir_report_id),
         }
     }
-    fn parse(note: &str) -> Option<Self> {
+    pub(crate) fn parse(note: &str) -> Option<Self> {
         let (source, rest) = match note.strip_prefix("manual-e-service:") {
             Some(rest) => ("e_service", rest),
             None => ("api", note),

@@ -59,7 +59,11 @@ aggountant file-vat status --period 2026-03
 
 Ilmoitusajon syötteessä Verohallinnon tilinumero on kentässä `payee_iban`.
 Ajo odottaa ensin hyväksyntää `ApproveFiling` ja maksettavassa ilmoituksessa
-lopuksi `ApprovePayment`. Hylkäys on `--answer reject`.
+lopuksi `ApprovePayment`. Hylkäys on `--answer reject`. Kuittaus näkyy
+`approve-filing`- ja `run show` -vastauksissa `submit-filing`-efektin kentissä
+`outcome.receipt.unique_identifier` ja `outcome.receipt.accepted_timestamp`. Jos
+`outcome.state` on `outcome_unknown`, `outcome.next_command` kertoo komennon,
+jolla tilanne selvitetään.
 </details>
 
 ## Valmis, kun

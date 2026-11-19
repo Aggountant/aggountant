@@ -210,7 +210,12 @@ ehdotuksen ennen lähetystä. Hylkäys (`--answer reject`) päättää ajon hyl�
 ole lupa korjata lukuja ja lähettää omin päin, vaan uusi kierros alkaa esikatselusta.
 
 Onnistunut lähetys tallentaa Veron HTTP 200 -kuitin (`UniqueIdentifier`,
-`AcceptedTimestamp`) audit trailiin ja merkitsee kauden `vat_filed`. Palautettava
+`AcceptedTimestamp`) audit trailiin ja merkitsee kauden `vat_filed`. Kuitti on
+`approve-filing`-vastauksessa `submit-filing`-efektin kentässä `outcome`
+(`state: accepted`, `receipt.unique_identifier`, `receipt.accepted_timestamp`), ja
+`aggountant --json run show --run-id fv-…` näyttää saman myöhemmin verkkoa käyttämättä.
+Lue kuitti näistä, älä ajon journal-tiedostoista. `state: outcome_unknown` kertoo
+`next_command`-kentässä reconcile-komennon. Palautettava
 ilmoitus (negatiivinen netto) päättää ajon ilman maksuvaihetta. Maksettava ilmoitus
 avaa `ApprovePayment`-portin, mutta suoralla Vero-reitillä ei ole maksuadapteria, joten
 sen hyväksyminen ei voi onnistua: käyttäjä maksaa OmaVeron viitteellä erikseen. Kerro
@@ -376,7 +381,7 @@ pysäköintikuluja ei lisätä näihin riveihin.
 ```sh
 aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
 aggountant --json file-wage start --timestamp 2026-10-25T12:00:00Z < report.json
-aggountant --json run show wr-FULL_IDENTITY_DIGEST
+aggountant --json run show --run-id wr-FULL_IDENTITY_DIGEST
 # Vasta käyttäjän hyväksyttyä rivit, kauden, osakkuuden ja hashin:
 aggountant --json file-wage approve wr-FULL_IDENTITY_DIGEST --record-hash PREVIEW_RECORD_HASH
 ```
@@ -395,6 +400,14 @@ sisältävät vain ei-henkilötietoperusteisen ehdotustarkisteen; täysi tarkist
 annetaan hyväksyntäkomennolle tilapäisesti ja tarkistetaan PII-storea vasten.
 Allekirjoitus ja varmenne lisätään vasta
 hyväksynnän jälkeen. Tämä hash ei ole allekirjoitetun SOAP-kehyksen hash.
+
+Hyväksytyn ilmoituksen kuitti on `approve`-vastauksen `submit-wage`-efektin
+kentässä `outcome` (`state: accepted`; `receipt.ir_delivery_id` = IRDeliveryId,
+`receipt.ir_report_id` = IRItemId, `receipt.version`, `receipt.source` `api` tai
+`e_service`). `run show --run-id wr-…` lukee saman myöhemmin ilman verkkoa ja
+credentialia; reconcile on vain epävarman tuloksen selvittämiseen, ja
+`state: outcome_unknown` nimeää sen `next_command`-kentässä. Älä lue ajon
+journal-tiedostoja.
 
 `source_reference` yksilöi maksutapahtuman pysyvästi. Älä vaihda sitä tai
 maksupäivää kiertääksesi hylkäyksen/epävarmuuden: sisältömuutos ei saa synnyttää

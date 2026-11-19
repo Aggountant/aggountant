@@ -51,7 +51,7 @@ pub use status::{FileVatFilingStatus, FileVatStatus, FileVatStatusPlan, FiledVat
 
 /// Effect keys for the `file-vat` Run (stable idempotency keys).
 const EFFECT_RECONCILE: &str = "reconcile";
-const EFFECT_SUBMIT_FILING: &str = "submit-filing";
+pub(crate) const EFFECT_SUBMIT_FILING: &str = "submit-filing";
 const EFFECT_SUBMIT_PAYMENT: &str = "submit-payment";
 const GATE_APPROVE_FILING: &str = "ApproveFiling";
 const GATE_APPROVE_PAYMENT: &str = "ApprovePayment";
@@ -628,7 +628,7 @@ impl ProcessEngine {
             }
         }
 
-        Ok(fold(run_id, &journal.read_all()?)?.to_view())
+        self.show(run_id)
     }
 
     /// Deliberately re-drive a parked payment submit. Vero filing must use
@@ -690,7 +690,7 @@ impl ProcessEngine {
             }
             _ => unreachable!("effect key validated above"),
         }
-        Ok(fold(run_id, &journal.read_all()?)?.to_view())
+        self.show(run_id)
     }
 
     /// Resume an interrupted `file-vat` Run (crash recovery). Reconciles the Run to
@@ -794,7 +794,7 @@ impl ProcessEngine {
             self.run_submit_payment(&journal, run_id, &period, &state, broker)?;
         }
 
-        Ok(fold(run_id, &journal.read_all()?)?.to_view())
+        self.show(run_id)
     }
 
     /// The filing submit: broker.submit → on a terminal success, record the audited,
@@ -1145,7 +1145,7 @@ fn hash_framed(hash: &mut Sha256, bytes: &[u8]) {
 /// possibly accepted as well, which only asks for remote-status evidence. Every
 /// other code is a rejection the authority stated. Both `file-vat status` and the
 /// `complete-manual` guard read a filing through this.
-fn filing_outcome_may_be_accepted(code: &str) -> bool {
+pub(crate) fn filing_outcome_may_be_accepted(code: &str) -> bool {
     code == "OUTCOME_UNKNOWN" || code.starts_with("MALFORMED") || code.starts_with("HTTP_2")
 }
 

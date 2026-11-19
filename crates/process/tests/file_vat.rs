@@ -19,10 +19,20 @@ use aggountant_domain::{
 };
 use aggountant_ledger::{Ledger, PeriodState, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
+use aggountant_process::{AuthorityOutcome, AuthorityReceipt};
 use aggountant_process::{
     EffectStatus, FileVatInput, FileVatReconcile, FileVatReconcileOutcome, FixedClock,
     ProcessEngine, RunStatus, RunView, Seam,
 };
+
+fn filing_outcome(view: &RunView) -> Option<AuthorityOutcome> {
+    view.effects
+        .iter()
+        .find(|e| e.key == "submit-filing")
+        .expect("submit-filing effect")
+        .outcome
+        .clone()
+}
 
 fn effect_status(view: &RunView, key: &str) -> EffectStatus {
     view.effects
@@ -638,6 +648,34 @@ fn happy_path_files_and_pays() {
         "VERO-R1"
     );
     assert!(ledger.verify().unwrap().ok, "the audited filing verifies");
+    // The approve output and `run show` carry the receipt; the payment is not an
+    // authority filing and has none.
+    let receipt = Some(AuthorityOutcome::Accepted {
+        receipt: Some(AuthorityReceipt::Vero {
+            unique_identifier: "VERO-R1".into(),
+            accepted_timestamp: "2026-05-01T10:00:00Z".into(),
+        }),
+        next_command: None,
+    });
+    assert_eq!(filing_outcome(&after_filing), receipt);
+    let shown = engine.show(&run_id).unwrap();
+    assert_eq!(filing_outcome(&shown), receipt);
+    let json = serde_json::to_value(&shown).unwrap();
+    let filing = json["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["key"] == "submit-filing")
+        .unwrap();
+    assert_eq!(filing["outcome"]["state"], "accepted");
+    assert_eq!(filing["outcome"]["receipt"]["authority"], "vero");
+    assert_eq!(filing["outcome"]["receipt"]["unique_identifier"], "VERO-R1");
+    assert!(json["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["key"] != "submit-filing")
+        .all(|e| e.get("outcome").is_none()));
 
     // Approve the payment → Completed.
     let done = engine
@@ -982,6 +1020,13 @@ fn run_with_unknown_outcome(engine: &ProcessEngine, home: &std::path::Path) -> S
         .unwrap();
     assert_eq!(parked.status, RunStatus::NeedsAttention);
     assert_eq!(filing_attempts(home), 1);
+    match filing_outcome(&parked) {
+        Some(AuthorityOutcome::OutcomeUnknown { next_command, .. }) => assert_eq!(
+            next_command,
+            Some(format!("aggountant file-vat reconcile --run-id {run_id}"))
+        ),
+        other => panic!("expected outcome_unknown, got {other:?}"),
+    }
     run_id
 }
 
@@ -1213,6 +1258,14 @@ fn a_found_return_is_adopted_and_nothing_is_sent() {
         EffectStatus::Succeeded
     );
     assert!(q1_filed(home.path()));
+    // Adopted from the authority's processed return: accepted, but no receipt.
+    assert_eq!(
+        filing_outcome(&adopted.run),
+        Some(AuthorityOutcome::Accepted {
+            receipt: None,
+            next_command: Some("aggountant file-vat status --period 2026-Q1".into()),
+        })
+    );
     assert_eq!(filing_attempts(home.path()), 1);
     assert!(engine
         .start_file_vat(

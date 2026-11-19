@@ -204,6 +204,17 @@ fn no_wages_month_previews_offline_submits_once_and_the_receipt_fences_it() {
     let receipt = status.current.clone().unwrap();
     assert_eq!(receipt.ir_report_id, IR_REPORT);
     assert_eq!(receipt.version, Some(1));
+    // `run show` reads the same receipt offline.
+    let shown = e.show(&status.runs[0].run_id).unwrap();
+    assert_eq!(
+        shown.effects[0].outcome,
+        Some(aggountant_process::AuthorityOutcome::Accepted {
+            receipt: Some(aggountant_process::AuthorityReceipt::Tulorekisteri(
+                receipt.clone()
+            )),
+            next_command: None,
+        })
+    );
     assert_eq!(
         status.runs[0].record_hash.as_deref(),
         Some(p.record_hash.as_str())

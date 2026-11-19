@@ -110,6 +110,20 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     assert_eq!(code, 0, "{err}");
     let done: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(done["status"], "completed");
+    assert_eq!(done["effects"][0]["outcome"]["state"], "accepted");
+    // The recorded receipt is read back offline with `run show`, without a profile
+    // or credential.
+    let (code, out, err) = run(home.path(), &["run", "show", "--run-id", id], "");
+    assert_eq!(code, 0, "{err}");
+    let shown: Value = serde_json::from_str(&out).unwrap();
+    let receipt = &shown["effects"][0]["outcome"]["receipt"];
+    assert_eq!(receipt["authority"], "tulorekisteri");
+    assert_eq!(
+        receipt["ir_delivery_id"],
+        "11111111222233334444555555555555"
+    );
+    assert_eq!(receipt["ir_report_id"], "22222222222233334444555555555555");
+    assert_eq!(receipt["source"], "e_service");
 }
 
 #[test]

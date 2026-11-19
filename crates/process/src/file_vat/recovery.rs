@@ -298,7 +298,7 @@ impl ProcessEngine {
         };
         let events = journal.read_all()?;
         Ok(FileVatReconcile {
-            run: fold(run_id, &events)?.to_view(),
+            run: self.show(run_id)?,
             outcome,
             remote_status,
             authority_checks: authority_checks(&events)?,

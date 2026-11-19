@@ -63,7 +63,10 @@ aggountant file-vat status --period 2026-03
 In the filing run's input, the Tax Administration's bank account number is
 the field `payee_iban`. The run first waits at the approval `ApproveFiling`,
 and for a return with tax to pay finally at `ApprovePayment`. Rejecting is
-`--answer reject`.
+`--answer reject`. The acknowledgement is in the output of `approve-filing`
+and `run show`, on the `submit-filing` effect: `outcome.receipt.unique_identifier`
+and `outcome.receipt.accepted_timestamp`. If `outcome.state` is
+`outcome_unknown`, `outcome.next_command` names the command that settles it.
 </details>
 
 ## Done when

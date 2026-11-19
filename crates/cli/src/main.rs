@@ -567,6 +567,9 @@ enum FileVatCmd {
     #[command(after_long_help = VERO_TRANSPORT_HELP)]
     Start,
     /// Approve (or reject) the filing preview gate: `--answer approve|reject`.
+    /// The submit-filing effect's `outcome` carries the Vero receipt
+    /// (`unique_identifier`, `accepted_timestamp`) once accepted, or names
+    /// `file-vat reconcile` when the outcome is unknown; `run show` reads it later.
     #[command(after_long_help = VERO_TRANSPORT_HELP)]
     ApproveFiling {
         #[arg(long)]
@@ -643,6 +646,12 @@ enum RunCmd {
         period: String,
     },
     /// Derived view of a Run (folded from its effect states — no stored status).
+    /// Offline and read-only. An authority filing effect (`file-vat`
+    /// submit-filing, `file-wage` submit-wage, employer-report) carries `outcome`:
+    /// `accepted` with the recorded `receipt` (Vero `unique_identifier` and
+    /// `accepted_timestamp`; Incomes Register `ir_delivery_id`, `ir_report_id`,
+    /// `version`), `outcome_unknown` with the `next_command` that settles it, or
+    /// `rejected` with its `error_code`.
     Show {
         #[arg(long)]
         run_id: String,

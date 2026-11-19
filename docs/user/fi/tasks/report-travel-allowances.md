@@ -90,6 +90,7 @@ aggountant employee list
 aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
 aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
 aggountant file-wage approve wr-… --record-hash <tarkiste>
+aggountant run show --run-id wr-…
 ```
 
 Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
@@ -97,6 +98,13 @@ Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
 Esikatselulle ja käynnistykselle annetaan sama aikaleima.
 `aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
 tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
+
+Kun Tulorekisteri on hyväksynyt ilmoituksen, `file-wage approve`- ja
+`run show` -vastauksissa on sen kuittaus `submit-wage`-efektin kentissä
+`outcome.receipt.ir_delivery_id` ja `outcome.receipt.ir_report_id`. `run show`
+lukee sen ilman verkkoa. Jos `outcome.state` on `outcome_unknown`,
+`outcome.next_command` nimeää komennon `file-wage reconcile`, joka kysyy tilan
+Tulorekisteriltä.
 </details>
 
 ## Valmis, kun
