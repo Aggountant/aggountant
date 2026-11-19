@@ -293,7 +293,11 @@ kirjaamatta mitään:
   katoamista), tai Vero näyttää muuta. `Missing`-vastauksella `reconcile` toimii
   kuten epävarmassa lopputuloksessa: kaksi "ei löydy" -vastausta pankkipäivän
   välein sulkee ajon. Muulla vastauksella `next_command` puuttuu: vertaa OmaVerossa
-  ja kysy myöhemmin.
+  ja kysy myöhemmin. Jos ajo ei lähettänyt mitään mutta Vero näyttää hyväksytyt
+  luvut käsiteltyinä, ilmoitus on tehty muuta kautta: sitä ei oteta ajon omaksi,
+  vaan käyttäjä vahvistaa sen ja se kirjataan `complete-manual`illa (Veron vastaus
+  `--remote-status-evidence-ref`-näyttönä). Sen jälkeen `reconcile` sulkee ajon
+  (`superseded`).
 
 Kuitatun ilmoituksen tila voi myös kertoa `next_command`-kentässä `reconcile`n, jos
 ajo keskeytyi kirjauksen jälkeen; se vain päivittää ajon. `VAT_STATUS_UNKNOWN` ei

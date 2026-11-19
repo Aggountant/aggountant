@@ -31,9 +31,10 @@
 //!   crash between the outbox intent and its answer): exactly as an unknown
 //!   outcome above, because `Missing` right after sending does not prove the
 //!   return was lost;
-//! - no request of the Run left, or the authority refused each outright (by the
-//!   same codes rule as a journalled rejection): one
-//!   `Missing` closes the Run as not filed, because no return of it can surface.
+//! - no request for the period left, or the authority refused each outright (by
+//!   the same codes rule as a journalled rejection): one `Missing` closes the Run
+//!   as not filed, because no return of it can surface. A processed return is then
+//!   someone else's filing, recorded with `complete-manual`, never adopted.
 //!
 //! `file-vat status` reads the same evidence without recording it and names
 //! `file-vat reconcile`; there is no resume command.
@@ -42,8 +43,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
 use aggountant_broker::{
-    Attempt, AttemptOutcome, Broker, FileVatReceipt, FileVatReturn, FiledVatReturn,
-    SVC_VERO_FILE_VAT_RETURN,
+    AttemptOutcome, Broker, FileVatReceipt, FileVatReturn, FiledVatReturn, SVC_VERO_FILE_VAT_RETURN,
 };
 use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence};
@@ -356,6 +356,16 @@ impl ProcessEngine {
         let status = remote_status.as_deref().unwrap_or("(none)").to_string();
 
         let step = match judge(&filed, &expected, reach) {
+            // This Run's request provably did not reach the authority, so a processed
+            // return is someone else's filing, never this Run's to record.
+            Finding::Matches if interrupted && matches!(reach, Reach::Refused { .. }) => {
+                record_authority_check(journal, f, &status, checked_at)?;
+                (
+                    FileVatReconcileOutcome::Unresolved,
+                    filed_elsewhere(period),
+                    None,
+                )
+            }
             Finding::Matches => {
                 let ledger = Ledger::open(&self.home)?;
                 if !ledger.period_view(period)?.vat_filed {
@@ -478,7 +488,7 @@ impl ProcessEngine {
     }
 
     /// What the outbox says about the dispatch of an interrupted Run: the requests
-    /// made under the period's key since the Run first began dispatching.
+    /// made under the period's key.
     pub(super) fn interrupted_dispatch(
         &self,
         broker: &Broker,
@@ -522,19 +532,20 @@ impl ProcessEngine {
             let receipt = FileVatReceipt::decode(receipt).map_err(map_adapter)?;
             return Ok(Dispatch::Receipt(receipt));
         }
-        // An attempt whose time cannot be read is counted as this Run's.
-        let ours: Vec<&Attempt> = entry
+        // Every attempt under the period's key counts, not only this Run's: an earlier
+        // Run closed as not filed sent the same bytes, and telling attempts apart by
+        // wall-clock time would let a clock step hide one that may have arrived.
+        let arrived = entry
             .attempts
             .iter()
-            .filter(|attempt| parse_instant(&attempt.provenance.ts).map_or(true, |ts| ts >= began))
-            .collect();
-        let arrived = ours.iter().rev().find(|attempt| match &attempt.outcome {
-            AttemptOutcome::Unknown { .. } => true,
-            // The same rule as a journalled rejection: older binaries recorded a
-            // receiptless 2xx under these codes.
-            AttemptOutcome::Failed { code, .. } => filing_outcome_may_be_accepted(code),
-            _ => false,
-        });
+            .rev()
+            .find(|attempt| match &attempt.outcome {
+                AttemptOutcome::Unknown { .. } => true,
+                // The same rule as a journalled rejection: older binaries recorded a
+                // receiptless 2xx under these codes.
+                AttemptOutcome::Failed { code, .. } => filing_outcome_may_be_accepted(code),
+                _ => false,
+            });
         Ok(match arrived {
             Some(attempt) => Dispatch::MayHaveArrived {
                 attempted: parse_instant(&attempt.provenance.ts).unwrap_or(began),
@@ -559,6 +570,18 @@ impl ProcessEngine {
             .map(|attempt| parse_instant(&attempt.provenance.ts))
             .transpose()
     }
+}
+
+/// The message for an interrupted Run that sent nothing while the authority shows
+/// the approved values processed.
+pub(super) fn filed_elsewhere(period: &PeriodId) -> String {
+    format!(
+        "The Tax Administration shows a processed return for {period} with the approved \
+         values, but this Run's request never reached it, so the return was filed some \
+         other way. Confirm it in OmaVero and record it with `file-vat complete-manual` \
+         (citing this answer as the remote status evidence); `file-vat reconcile` then \
+         closes this Run. Do not file again."
+    )
 }
 
 /// The period's FileVATReturn outbox key.
@@ -596,8 +619,9 @@ pub(super) enum Dispatch {
     Receipt(FileVatReceipt),
     /// A request may have reached the authority without an answer recorded.
     MayHaveArrived { attempted: DateTime<Utc> },
-    /// No request of the Run left, or every one was refused outright, so no
-    /// return of the Run can surface later. `since` is when the Run began.
+    /// No request for the period left, or every one was refused outright, so no
+    /// return of the Run can surface later. `since` is when the Run began
+    /// dispatching.
     NotAccepted { since: DateTime<Utc> },
 }
 

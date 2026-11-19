@@ -21,7 +21,7 @@ use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
 use aggountant_model::PeriodId;
 
-use super::recovery::{judge, Dispatch, Finding, Reach, Unresolved};
+use super::recovery::{filed_elsewhere, judge, Dispatch, Finding, Reach, Unresolved};
 use super::{
     approved_filing_request, filed_vat_return_envelope, FileVatState, EFFECT_SUBMIT_FILING,
 };
@@ -371,7 +371,13 @@ impl ProcessEngine {
         let filed = read_filed_return(query, broker).map_err(unknown)?;
         let remote = filed.status.as_deref().unwrap_or("(none)");
         Ok(match (judge(&filed, &query.expected, &reach), &reach) {
-            (Finding::Matches, _) => status(
+            (Finding::Matches, Reach::Refused { .. }) => status(
+                FileVatFilingStatus::FilingInterrupted,
+                Some(&filed),
+                None,
+                filed_elsewhere(&period_id),
+            ),
+            (Finding::Matches, Reach::MayHaveArrived { .. }) => status(
                 FileVatFilingStatus::InterruptedFiled,
                 Some(&filed),
                 reconcile,

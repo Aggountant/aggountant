@@ -1647,6 +1647,25 @@ fn an_interrupted_request_is_judged_by_the_outbox_answer_it_left() {
 }
 
 #[test]
+fn an_earlier_unknown_attempt_keeps_an_interrupted_run_from_closing_on_one_answer() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = run_with_unknown_outcome(&engine, home.path());
+    reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
+    reconcile_at(&engine, home.path(), &run1, "2026-11-23 10:00", not_found()).unwrap();
+    // Run 2 stops before it sends anything; Run 1's attempt still may have arrived,
+    // and attempts are not told apart by the clock.
+    interrupted_run(
+        &engine,
+        home.path(),
+        Seam::CrashBeforeFilingDispatch,
+        vec![],
+    );
+    let reported = status_with(&engine, home.path(), vec![not_found()]).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::FilingInterrupted);
+}
+
+#[test]
 fn a_manual_filing_after_an_interruption_closes_the_run_without_claiming_it() {
     let home = sealed_home();
     let engine = ProcessEngine::open(home.path());
@@ -1656,6 +1675,23 @@ fn a_manual_filing_after_an_interruption_closes_the_run_without_claiming_it() {
         Seam::CrashBeforeFilingDispatch,
         vec![],
     );
+    // The authority shows the approved values processed, but Run 1 sent nothing:
+    // the return was filed some other way and is not Run 1's to record.
+    let processed = || processed_return(home.path(), &run1);
+    let reported = status_with(&engine, home.path(), vec![processed()]).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::FilingInterrupted);
+    assert!(reported.next_command.is_none());
+    assert!(
+        reported.message.contains("complete-manual"),
+        "{}",
+        reported.message
+    );
+    let unresolved =
+        reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", processed()).unwrap();
+    assert_eq!(unresolved.outcome, FileVatReconcileOutcome::Unresolved);
+    assert!(!q1_filed(home.path()));
+    refuses_a_new_run(&engine, home.path());
+
     engine
         .complete_manual_vat(
             &q1(),

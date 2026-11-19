@@ -195,6 +195,12 @@ kertoo:
   "ei löydy" -vastauksen jälkeen, jotka ovat vähintään yhden pankkipäivän
   välein.
 
+Jos ajo ei lähettänyt mitään, mutta Verohallinto näyttää hyväksytyn
+ilmoituksen käsiteltynä, ilmoitus on tehty muuta kautta. Varmista se
+OmaVerosta ja kirjaa se käsin tehdyksi (`file-vat complete-manual`,
+Verohallinnon vastaus näyttönä); `file-vat reconcile` sulkee sen jälkeen
+keskeytyneen ajon ottamatta ilmoitusta omakseen.
+
 Jos kysely epäonnistuu (`VAT_STATUS_UNKNOWN`), mikään ei muutu; kysy
 myöhemmin uudelleen.
 

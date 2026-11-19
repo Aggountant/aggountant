@@ -199,6 +199,12 @@ command looks at what the run left behind and asks the Tax Administration
   a return can take days to show, so two "not found" answers at least one
   bank day apart are needed before the run is closed.
 
+If the run sent nothing but the Tax Administration shows the approved return
+processed, the return was filed some other way. Confirm it in OmaVero and
+record it as a manual filing (`file-vat complete-manual`, citing the Tax
+Administration's answer); `file-vat reconcile` then closes the interrupted run
+without claiming that filing.
+
 If the query fails (`VAT_STATUS_UNKNOWN`), nothing changes; ask again later.
 
 **Do not** start a new filing run or file by hand before the status has said
