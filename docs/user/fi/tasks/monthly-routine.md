@@ -34,7 +34,10 @@ koossa.
 
 5. **Avoimet asiat.** Agentti kertoo, mitkä tapahtumat jäivät avoimiksi ja
    mitä niistä puuttuu, esimerkiksi kuitti, jota ei löytynyt. Hanki puuttuva
-   tai päätä, että asia kirjataan myöhemmin.
+   tai päätä, että asia kirjataan myöhemmin. Agentti pitää kodin
+   `TODO.md`-tiedoston ajan tasalla: se poistaa kuukauden aikana ratkenneet
+   kohdat ja lisää sen, mikä jäi odottamaan, joten seuraava kuukausi alkaa
+   siitä ([Yrityskoti](../concepts/company-home.md#kodin-todomd)).
 
 6. **Tarkistus.** Katso kuukausiraportista, että pankkitilin saldo vastaa
    tiliotteen loppusaldoa: [Katso, miten kuukausi meni](monthly-report.md).

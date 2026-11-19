@@ -70,10 +70,25 @@ Agentti lukee sen ennen kuin se etsii, kopioi tai siirtää mitään. Tiedosto
 kirjoitetaan käyttöönotossa:
 [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md).
 
+## Kodin TODO.md
+
+Kodin juuren `TODO.md` on muistilista siitä, mikä odottaa: muiden lupaamat
+laskut ja kuitit, mitkä kuukaudet ovat auki ja mitä niiden sulku vielä
+vaatii, sekä määräajat, kuten ALV-ilmoitus ja tilinpäätös. Agentti lukee sen
+istunnon alussa ja päivittää sen samalla, kun kirjaa asian, joka ratkaisee
+kohdan, joten seuraava istunto jatkaa siitä mihin edellinen jäi. Tiedosto on
+tavallista tekstiä, jota voit lukea ja muokata itsekin; ohjelma ei lue sitä.
+
+Odottava asia ei kuulu yrityksen tietovarastoon, koska siellä on vain
+pysyviä faktoja lähteineen. Velvoitteet (`aggountant obligation`) ovat eri
+asia: ne syntyvät ohjelmassa ja estävät kauden sulun
+([Kaudet, sulku ja tilikausi](periods.md#velvoitteet)).
+
 ## Salaisuudet eivät kuulu kotiin
 
-**Salasanoja, tunnuksia ja avaimia ei kirjoiteta `AGENTS.md`-tiedostoon,
-yrityksen tietovarastoon eikä keskusteluun agentin kanssa.** Koti on
+**Salasanoja, tunnuksia ja avaimia ei kirjoiteta `AGENTS.md`- tai
+`TODO.md`-tiedostoon, yrityksen tietovarastoon eikä keskusteluun agentin
+kanssa.** Koti on
 git-versioitua tekstiä, ja keskustelut tallentuvat usein lokeihin. Vero.fi- ja
 Tulorekisteri-tunnukset ovat omassa tiedostossaan kodin ulkopuolella, ja
 ohjelma kieltäytyy käyttämästä tunnustiedostoa, joka on kodin sisällä.
@@ -88,6 +103,7 @@ ohjelma kieltäytyy käyttämästä tunnustiedostoa, joka on kodin sisällä.
 | `vero-filing.json` | suoran ALV-ilmoittamisen asetukset ilman salaisuuksia | kyllä |
 | `.aggountant/tulorekisteri.json` | Tulorekisteri-profiili ilman salaisuuksia | kyllä |
 | `AGENTS.md` | yrityksen oma kuvaus aineistolähteistä | kyllä |
+| `TODO.md` | odottavat asiat, avoimet kuukaudet ja määräajat | kyllä |
 | `fiscal.sqlite` | sinetöidyt tositteet, kausien tila ja tositeketju | **ei** |
 | `artifacts/` | arkistoidut kuitit, laskut ja tiliotteet | **ei** |
 | `masterdata/pii.sqlite` | työntekijöiden henkilötiedot | **ei** |

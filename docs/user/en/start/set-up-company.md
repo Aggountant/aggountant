@@ -1,8 +1,8 @@
 # Set up your company's books
 
 On this page you set up your company's real books: the company home, the
-company's basic details, the opening balances and a description of where your
-receipts and bank statements come from. The agent goes through the setup with
+company's basic details, the opening balances, a description of where your
+receipts and bank statements come from, and a list of what is left waiting. The agent goes through the setup with
 you using the `aggountant-init` skill. You do the setup once, and an
 unfinished setup can be continued later.
 
@@ -96,7 +96,17 @@ unfinished setup can be continued later.
    Without this file the agent has to ask every time or guess. **Do not put
    passwords, credentials or keys in the file.**
 
-7. **The agent makes a report for the first month.** Check it before you
+7. **The agent writes a `TODO.md` file at the root of the home**, where it
+   gathers what is left waiting. It has three sections: what is expected from
+   others (for example the receipt for a registration fee the founder paid
+   from their own account), which months are open and what closing them still
+   needs, and deadlines (for example the VAT return and the first fiscal
+   year's financial statements). `AGENTS.md` tells every session to read the
+   file first and to update it when an item is settled. Check that the list
+   matches your own picture:
+   [The company home: what is stored where](../concepts/company-home.md#the-homes-todomd).
+
+8. **The agent makes a report for the first month.** Check it before you
    record the month's transactions (below, "Done when").
 
 <details>
@@ -128,7 +138,7 @@ The default home is set in the configuration file whose location
   result is zero, the balance sheet matches the old system's report and the
   bank account balance matches the bank statement.
 - There is an `AGENTS.md` at the root of the home that names the sources of
-  your material.
+  your material, and a `TODO.md` that says what is waiting.
 
 ## Limitations
 

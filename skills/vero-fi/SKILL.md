@@ -301,6 +301,23 @@ tuotantotilaan siirtyminen, jokainen attestointi, ja jokainen ilmoituksen lähet
 täsmälleen näytettyyn ehdotukseen. Kun kysyt, näytä mitä päätös koskee ja mihin
 vastaus vaikuttaa, ja vie muu työ eteenpäin vastausta odottaessa.
 
+## Määräajat kodin `TODO.md`-tiedostossa
+
+Kodin `TODO.md` on yrityksen muistilista odottavasta työstä ja määräajoista
+(`aggountant-init` kuvaa sen). Lue sen määräajat ennen kuin kerrot käyttäjälle, mitä
+ilmoituksia on edessä, ja päivitä se heti ilmoituksen tilan muututtua (jos koti on
+git-repositorio, samalla kertaa ajon tilan kanssa). Määräaika poistetaan, kun
+ilmoitus on käsitelty (ALV:ssa `file-vat status` kertoo `processed`) tai kirjattu
+`complete-manual`-komennolla; lisää silloin seuraavan kauden määräaika, jos se on
+tiedossa. Kuitattu mutta vielä
+käsittelemätön ilmoitus tai `outcome_unknown`-tilaan jäänyt ajo kirjataan kohdaksi,
+jossa on ajon tunniste, eräpäivä ja milloin tila tarkistetaan uudelleen. Tiedosto on
+muistilista, ei tilan lähde: ilmoituksen tila luetaan aina ohjelmalta (`file-vat
+status`, `run show`), ja ristiriidassa ohjelma on oikeassa ja kohta korjataan.
+
+Odottava ilmoitus tai määräpäivä ei kuulu `knowledge company`-tietueeksi. Tietoon
+kuuluu pysyvä fakta lähteineen, esimerkiksi yrityksen ALV-kauden pituus.
+
 ## Tulorekisterin verovapaat matkakorvaukset (311 ja 331)
 
 Tämä on eri kanava kuin Vero API:n ALV-ilmoitus. `run-payroll` on edelleen

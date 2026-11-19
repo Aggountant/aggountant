@@ -17,8 +17,8 @@ Käyttöönotto on valmis, kun yrityksen kirjanpitoa voi jatkaa aggountantissa i
 kukaan selvittää enää, mikä yritys tämä on, mistä sen tilikausi ja saldot alkavat ja
 mistä aineisto tulee. Sama skilli palvelee sekä uuden yrityksen käyttöönottoa että
 keskeneräisen jatkamista: katso ensin, mitä kodissa jo on (`aggountant config show`,
-`chart list`, `voucher verify`, `knowledge company list`, kodin `AGENTS.md`), ja jatka
-siitä.
+`chart list`, `voucher verify`, `knowledge company list`, kodin `AGENTS.md` ja
+`TODO.md`), ja jatka siitä.
 
 ## Tekninen alustus on pieni osa työtä
 
@@ -107,7 +107,9 @@ käyttäjältä käyttöönotossa, koska myöhemmin ne paljastuvat vasta täsmä
 
 Nämä ovat käyttäjän päätettäviä asioita. Kokoa ne yhdeksi kokonaiskuvaksi ehdotuksineen
 sen sijaan että kysyisit joka erää erikseen, ja kirjaa vahvistetut tulkinnat
-`knowledge company`-tietueiksi, jotta niitä ei kysytä uudelleen kuukausittain.
+`knowledge company`-tietueiksi, jotta niitä ei kysytä uudelleen kuukausittain. Se, mikä
+jää odottamaan (lasku tulossa, saldo selvittämättä), kirjataan kodin `TODO.md`-tiedostoon
+(alla).
 
 ## Yrityksen aineistolähteet: `<AGGOUNTANT_HOME>/AGENTS.md`
 
@@ -137,9 +139,46 @@ rajan; yrityksen omat kansiot lisätään `.gitignore`-tiedostoon itse. Sovittu 
 
 Pidä `AGENTS.md`-tiedostossa vain toimintatavat ja reitit; yrityksen faktat ja
 kirjanpitokäytännöt ovat `knowledge company`-tietueissa, jossa niillä on lähde,
-soveltamisala ja historia. Salasanoja, tunnuksia tai tokeneita ei kirjoiteta
-kumpaankaan: koti on git-versioitua selkotekstiä ja keskusteluloki päätyy usein
-talteen.
+soveltamisala ja historia, ja odottava työ on `TODO.md`-tiedostossa. Kirjoita
+`AGENTS.md`-tiedostoon myös ohje, että jokainen istunto lukee `TODO.md`-tiedoston
+ensin ja päivittää sen heti, kun kohdan ratkaiseva tosite on sinetöity tai toimi tehty;
+jos koti on git-repositorio, muutos commitoidaan samalla kertaa kodin muiden muutosten
+kanssa. Olemassa olevaan `AGENTS.md`-tiedostoon lisätään vain tämä ohje, jos se
+puuttuu. Salasanoja, tunnuksia tai tokeneita ei kirjoiteta mihinkään näistä: koti on
+git-versioitua selkotekstiä ja keskusteluloki päätyy usein talteen.
+
+## Odottava työ ja määräajat: `<AGGOUNTANT_HOME>/TODO.md`
+
+Istuntojen välillä jää asioita kesken: perustajan omalta tililtään maksama
+rekisteröintimaksu, jonka kuittia odotetaan; kuukausi, jota ei voi sulkea ennen kuin
+koko kuun tiliote on haettu; ALV-ilmoituksen tai tilinpäätöksen määräpäivä. Ilman
+sovittua paikkaa seuraava istunto joko kysyy saman uudelleen tai unohtaa sen. Luo siksi
+käyttöönotossa kodin juureen `TODO.md`. Se on yrityksen omaa proosaa kuten `AGENTS.md`,
+ei ohjelman jäsentämä tiedosto, ja se kuuluu gitiin. Jos `TODO.md` on jo olemassa,
+lue se ja täydennä sitä; käyttäjä voi muokata sitä itsekin, joten älä kirjoita sen yli.
+Kolme osiota riittää:
+
+- **Odottaa muita**: lasku, kuitti tai tieto, jonka joku muu on luvannut, ja mitä sen
+  saapuminen ratkaisee.
+- **Kausien sulkutilanne**: mitkä kuukaudet ovat auki ja mitä kukin vielä tarvitsee
+  ennen sulkua.
+- **Määräajat**: lakisääteiset päivät, kuten kauden ALV-ilmoitus, ensimmäisen
+  tilikauden loppu ja tilinpäätös.
+
+Esimerkiksi Esimerkki Oy:n tiedostossa voi lukea, että perustajan rekisteröintimaksun
+kuitti puuttuu, lokakuuta ei suljeta ennen sitä ja joulukuun ALV-ilmoitus on annettava
+12.2. mennessä.
+
+Mikä menee minne:
+
+- **`TODO.md`**: odottava työ. Kohta poistetaan, kun sen tosite on sinetöity tai asia
+  muuten hoidettu.
+- **`knowledge company`**: lähteelliset faktat ja käytännöt. Odottavaa asiaa ei
+  tallenneta tietueeksi: "lasku tulossa" ei ole fakta, ja se jäisi myöhemmin
+  vanhentuneena poistettavaksi (`retire`).
+- **`aggountant obligation`**: ohjelman seuraamat velvoitteet, jotka estävät kauden
+  sulun. Niitä syntyy vain poikkeuksellisten kuittien reitiltä eikä niitä luoda käsin,
+  joten muu sulkua odottava asia kirjataan `TODO.md`-tiedoston sulkutilanteeseen.
 
 ## Vero.fi
 

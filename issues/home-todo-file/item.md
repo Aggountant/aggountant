@@ -2,11 +2,12 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: improvement
-status: open
+status: done
 priority: normal
 lane: home-todo
 collision: [skills/aggountant-init]
 preparation: ready
+closed: 2026-11-19
 ---
 
 # Company home TODO.md for pending items, open periods and deadlines
@@ -58,11 +59,43 @@ Out of scope: a program command or a parsed format for the file.
 
 ## Acceptance Criteria
 
-- [ ] `aggountant-init` asks for `TODO.md` and the home `AGENTS.md` pointer.
-- [ ] `capture-receipt` and `vero-fi` read and maintain it, and say what does not belong in knowledge.
-- [ ] User guide fi + en describe the file; the home table in `company-home.md` lists it.
-- [ ] Skill bundle tests and docs checks pass.
+- [x] `aggountant-init` asks for `TODO.md` and the home `AGENTS.md` pointer.
+- [x] `capture-receipt` and `vero-fi` read and maintain it, and say what does not belong in knowledge.
+- [x] User guide fi + en describe the file; the home table in `company-home.md` lists it.
+- [x] Skill bundle tests and docs checks pass.
 
 ## Tests Run
 
+- `scripts/ci-local.sh`: all gates passed (fmt, clippy, cargo-deny, build and
+  test on stable and 1.89, user guide: 34 page pairs in step, site build and
+  link check, practice month).
+- After the review fixes: `cargo test --locked -p aggountant --test skill_cli`
+  (10 passed) and `scripts/check-user-guide.sh` (passed).
+
 ## Implementation Notes
+
+- `aggountant-init` has a new section "Odottava työ ja määräajat" that holds
+  the convention once: three sections, Esimerkki Oy example, and what goes
+  where (`TODO.md` / `knowledge company` / `obligation`). It also tells the
+  agent to add the read-first pointer to the home `AGENTS.md`, to supplement
+  an existing `TODO.md` instead of overwriting it, and to send unresolved
+  cut-over matters to `TODO.md`.
+- `capture-receipt` reads and maintains the file, creates it (with the
+  pointer) when missing, and says pending items are not knowledge records or
+  obligations. `vero-fi` keeps filing deadlines there: a deadline goes when
+  the filing is processed or recorded manually, an unprocessed or uncertain
+  filing stays as an item with run id, due date and recheck time, and the
+  program's state wins over the file.
+- "Same commit" from the issue became "update as soon as the voucher is
+  sealed; in a git home commit it with the home's other changes", because
+  sealing touches no tracked file and a home need not be in git (review R1).
+- Guide: `company-home.md` gets a "Kodin TODO.md" / "The home's TODO.md"
+  section and a table row (git: yes), `set-up-company.md` a new step 7 and a
+  done-when line, `monthly-routine.md` one sentence in the open-items step.
+- Review and assessment: `review.md`, `assessment.md` in this directory.
+
+## Resolution
+
+### 2026-11-19T12:08:53Z · @issuectl
+
+Acceptance criteria met; see Implementation Notes.

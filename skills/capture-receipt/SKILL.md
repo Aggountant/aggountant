@@ -15,7 +15,7 @@ ja `aggountant`-työvälineesi.
 Käyttäjä antaa sinulle aineistoa: yhden kuitin, nipun tositteita tai kuukauden
 tapahtumat. Hyvä lopputulos on, että jokainen tapahtuma on joko sinetöity tositteeksi
 lähdeaineisto liitettynä tai nimetty avoimeksi niin, että käyttäjä tietää mitä siltä
-puuttuu. Kerro lopuksi mitä käsittelit, mitä kokonaisuudesta pitäisi ymmärtää ja mikä
+puuttuu, ja avoin kohta on kirjattu kodin `TODO.md`-tiedostoon. Kerro lopuksi mitä käsittelit, mitä kokonaisuudesta pitäisi ymmärtää ja mikä
 tarvitsee vielä huomiota.
 
 ## Mistä aineisto tulee ja minne se menee
@@ -34,6 +34,25 @@ Tiedosto on proosaa toimintatavoista. Yrityksen vahvistetut faktat ja
 kirjanpitokäytännöt ovat `knowledge/company`-tiedossa (`aggountant knowledge company
 list` ja `search`); tarkista sieltä ennen kuin selvität saman asian uudelleen. Salaisuudet
 eivät kuulu kumpaankaan.
+
+## Odottava työ: kodin `TODO.md`
+
+Kodin `TODO.md` kertoo, mitä edelliset istunnot jättivät odottamaan: muiden lupaamat
+laskut ja kuitit, avoimet kuukaudet ja mitä kukin tarvitsee ennen sulkua, sekä
+määräajat. Lue se ennen aineiston käsittelyä, sillä uusi aineisto ratkaisee usein jonkin
+sen kohdan, ja pidä se ajan tasalla kirjausten mukana: poista kohta, kun sen tosite on
+sinetöity tai asia muuten hoidettu, ja lisää se, mikä jäi nyt odottamaan. Jos koti on
+git-repositorio, muutos commitoidaan samalla kertaa kodin muiden muutosten kanssa. Jos
+tiedostoa ei ole, luo se `aggountant-init`-skillin kuvaamilla kolmella osiolla ja lisää
+kodin `AGENTS.md`-tiedostoon ohje lukea se, jos ohje puuttuu.
+
+Odottava asia ei ole yrityksen tietoa: älä tallenna "lasku tulossa" tai "kuukausi
+odottaa tiliotetta" `knowledge company`-tietueeksi, koska tietue on lähteellinen fakta
+tai käytäntö ja odottava kohta jäisi myöhemmin vanhentuneena poistettavaksi. Tietoon
+kuuluu se, mikä asian ratketessa selviää pysyvästi (esimerkiksi miten sisaryhtiön
+edelleenlaskutus kirjataan). `aggountant obligation` taas on ohjelman velvoitelista,
+jonka avoin velvoite estää sulun; sitä syntyy vain poikkeuksellisten kuittien reitiltä,
+eikä siihen kirjata muistiinpanoja.
 
 Aiempi kirjanpito on käytettävissäsi: `aggountant voucher list` (mm. `--attachment-ref`
 paljastaa, onko sama lähdetiedosto jo kirjattu), `aggountant voucher show` ja tilit

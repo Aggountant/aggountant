@@ -75,10 +75,25 @@ the root of the home. The agent reads it before it looks for, copies or moves
 anything. The file is written during setup:
 [Set up your company's books](../start/set-up-company.md).
 
+## The home's TODO.md
+
+The `TODO.md` file at the root of the home is a list of what is waiting:
+invoices and receipts someone else has promised, which months are still open
+and what closing them still needs, and deadlines such as the VAT return and
+the financial statements (tilinpäätös). The agent reads it at the start of a
+session and updates it when it records the matter that settles an item, so
+the next session picks up where the last one left off. The file is plain
+text that you can read and edit yourself; the program does not read it.
+
+Pending items do not belong in the company knowledge store, which holds only
+lasting facts with their sources. Obligations (`aggountant obligation`) are a
+different thing: the program raises them and they block closing the period
+([Periods, closing and the fiscal year](periods.md#obligations)).
+
 ## Secrets do not belong in the home
 
-**Passwords, credentials and keys are never written into `AGENTS.md`, the
-company knowledge store or the conversation with the agent.** The home is
+**Passwords, credentials and keys are never written into `AGENTS.md`,
+`TODO.md`, the company knowledge store or the conversation with the agent.** The home is
 version-controlled text, and conversations are often saved in logs. The
 Vero.fi and Tulorekisteri credentials are in their own file outside the home,
 and the program refuses to use a credential file that is inside the home.
@@ -93,6 +108,7 @@ and the program refuses to use a credential file that is inside the home.
 | `vero-filing.json` | direct VAT filing settings, without secrets | yes |
 | `.aggountant/tulorekisteri.json` | Tulorekisteri profile, without secrets | yes |
 | `AGENTS.md` | the company's own description of its material sources | yes |
+| `TODO.md` | pending items, open months and deadlines | yes |
 | `fiscal.sqlite` | sealed vouchers, period state and the voucher chain | **no** |
 | `artifacts/` | archived receipts, invoices and bank statements | **no** |
 | `masterdata/pii.sqlite` | employees' personal data | **no** |

@@ -1,8 +1,8 @@
 # Ota yrityksesi kirjanpito käyttöön
 
 Tällä sivulla perustat yrityksesi oikean kirjanpidon: yrityskodin, yrityksen
-perustiedot, avaavat saldot ja kuvauksen siitä, mistä kuitit ja tiliotteet
-tulevat. Agentti käy käyttöönoton läpi kanssasi `aggountant-init`-skillin
+perustiedot, avaavat saldot, kuvauksen siitä, mistä kuitit ja tiliotteet
+tulevat, ja listan siitä, mikä jää odottamaan. Agentti käy käyttöönoton läpi kanssasi `aggountant-init`-skillin
 avulla. Käyttöönotto tehdään kerran, ja keskeneräisen käyttöönoton voi jatkaa
 myöhemmin.
 
@@ -90,7 +90,16 @@ myöhemmin.
    Ilman tätä tiedostoa agentti joutuu kysymään joka kerta tai arvaamaan.
    **Älä kirjoita tiedostoon salasanoja, tunnuksia tai avaimia.**
 
-7. **Agentti tekee ensimmäisestä kuukaudesta raportin.** Tarkista se ennen kuin
+7. **Agentti kirjoittaa kodin juureen `TODO.md`-tiedoston**, johon se kokoaa,
+   mikä jäi odottamaan. Siinä on kolme osiota: mitä odotetaan muilta
+   (esimerkiksi perustajan omalta tililtään maksaman rekisteröintimaksun
+   kuitti), mitkä kuukaudet ovat auki ja mitä niiden sulku vielä vaatii, sekä
+   määräajat (esimerkiksi ALV-ilmoitus ja ensimmäisen tilikauden
+   tilinpäätös). `AGENTS.md` ohjaa jokaisen istunnon lukemaan tiedoston ensin
+   ja päivittämään sen, kun kohta ratkeaa. Tarkista, että lista vastaa omaa
+   käsitystäsi: [Yrityskoti: mitä tallentuu minne](../concepts/company-home.md#kodin-todomd).
+
+8. **Agentti tekee ensimmäisestä kuukaudesta raportin.** Tarkista se ennen kuin
    kirjaat kuukauden tapahtumia (alla, "Valmis, kun").
 
 <details>
@@ -121,7 +130,8 @@ Tiedosto on JSON-muotoinen: `{"home": "/polku/kotiin"}`.
 - Ensimmäisen kuukauden raportissa, ennen uusia tapahtumia, kuukauden tulos on
   nolla, tase vastaa vanhan järjestelmän raporttia ja pankkitilin saldo
   tiliotetta.
-- Kodin juuressa on `AGENTS.md`, joka kertoo aineiston lähteet.
+- Kodin juuressa on `AGENTS.md`, joka kertoo aineiston lähteet, ja
+  `TODO.md`, joka kertoo, mikä odottaa.
 
 ## Rajoitukset
 

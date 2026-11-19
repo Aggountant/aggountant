@@ -35,7 +35,10 @@ ordinary month is recorded, closed and filed in one session.
 
 5. **Open items.** The agent tells you which transactions were left open and
    what is missing for them, for example a receipt it could not find. Get
-   what is missing, or decide that it will be recorded later.
+   what is missing, or decide that it will be recorded later. The agent keeps
+   the home's `TODO.md` up to date: it removes the items settled during the
+   month and adds what is left waiting, so the next month starts from there
+   ([The company home](../concepts/company-home.md#the-homes-todomd)).
 
 6. **Check.** Check in the monthly report that the bank account balance
    matches the statement's closing balance:
