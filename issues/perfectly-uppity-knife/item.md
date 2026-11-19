@@ -1,8 +1,8 @@
 ---
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-19
 type: bug
-status: open
+status: fixed
 priority: normal
 provenance: other
 provenance_detail: observed while implementing vat-filed-status
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: vat-filing
 lane_seq: 8
 collision: [crates/process/src/file_vat.rs]
+closed: 2026-11-19
+closed_by: claude-opus-5-5
 ---
 
 # An interrupted file-vat Run: check with the Tax Administration, then adopt or start over
@@ -54,3 +56,9 @@ Administration what happened, then act on the answer.
 
 Originally observed while building `file-vat status` (issue vat-filed-status,
 taskfleet run 01m79z4hcfcrhvd8c8jtkffejr, 2026-11-13).
+
+## Resolution
+
+### 2026-11-19T12:37:44Z · @claude-opus-5-5
+
+Implemented: file-vat status checks an interrupted Run with the Tax Administration and names file-vat reconcile, which adopts, closes as not filed, or closes as superseded. See result.md.
