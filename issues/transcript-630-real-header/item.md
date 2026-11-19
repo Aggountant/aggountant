@@ -4,6 +4,10 @@ updated: 2026-11-19
 type: bug
 status: open
 priority: high
+lane: wage-reporting
+lane_seq: 0
+collision: [crates/process/src/transcript_630.rs]
+preparation: ready
 ---
 
 # Raportti 630: oikea asiointipalvelun CSV hylätään (TRANSCRIPT_UNKNOWN_HEADER)
