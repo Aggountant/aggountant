@@ -781,6 +781,7 @@ fn validate_seal_predicts_replay_and_conflict_without_writing() {
         .validate_seal(&draft("50.00"), "bank:event-1")
         .unwrap_err();
     assert_eq!(err.error_code(), "IDEMPOTENCY_KEY_REUSE");
+    assert!(err.to_string().contains("already in the books"), "{err}");
     assert_eq!(
         ledger
             .seal(&draft("50.00"), &req("bank:event-1"))

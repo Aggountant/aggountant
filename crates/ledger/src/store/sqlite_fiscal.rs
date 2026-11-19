@@ -1978,8 +1978,6 @@ fn implicit_open(period_id: &str) -> PeriodRow {
     }
 }
 
-/// The F5 per-voucher period check (ADR-6 §2), evaluated inside the seal txn.
-/// `None` = the write may proceed; `Some(err)` = a refusal to be logged.
 /// The fiscal-calendar and period gate a voucher dated `gate.posting_date` must
 /// pass, with the rejection-log target of a refusal. `commit` evaluates it inside
 /// its writer lock and logs the refusal; the `validate` dry-run only reads it.
@@ -2033,6 +2031,8 @@ fn posting_gate_refusal(
     Ok(None)
 }
 
+/// The F5 per-voucher period check (ADR-6 §2), evaluated inside the seal txn.
+/// `None` = the write may proceed; `Some(err)` = a refusal to be logged.
 fn evaluate_period_gate(prow: &PeriodRow, gate: &PeriodGate<'_>) -> Option<LedgerError> {
     match prow.state {
         PeriodState::Open => None,

@@ -2,12 +2,14 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: cli-canon
 lane_seq: 5
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-19
+closed_by: claude-opus-5-5
 ---
 
 # voucher validate refuses the seal envelope that voucher seal accepts
@@ -40,3 +42,9 @@ checked, e.g. an already-used natural key reported as a warning). Existing
 bare-draft input keeps working. `--help` for both commands shows the shape
 each accepts with an example, and the guide/skill says "validate the same file
 you seal".
+
+## Resolution
+
+### 2026-11-19T09:56:14Z · @claude-opus-5-5
+
+voucher validate accepts the seal envelope; see result.md, review.md, assessment.md.

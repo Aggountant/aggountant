@@ -649,15 +649,21 @@ impl Ledger {
         let request_hash = self.draft_request_hash(draft)?;
         let number = existing.number;
         // Mirrors `commit`: a source-bound key conflicts with a fingerprint-less seal.
-        if existing.provenance.request_hash != request_hash
-            || existing.provenance.source_fingerprint.is_some()
-        {
+        if existing.provenance.request_hash != request_hash {
             return Err(LedgerError::IdempotencyKeyReuse(format!(
                 "natural_key {natural_key:?} already sealed voucher #{number} with different \
                  content (existing request_hash {}, incoming {request_hash}); `voucher seal` \
                  would refuse this input. Use a new natural_key for a new voucher, or correct \
                  #{number} with a new voucher that refers to it",
                 existing.provenance.request_hash
+            )));
+        }
+        if let Some(fingerprint) = &existing.provenance.source_fingerprint {
+            return Err(LedgerError::IdempotencyKeyReuse(format!(
+                "natural_key {natural_key:?} already sealed voucher #{number} from a source \
+                 event (source fingerprint {fingerprint:?}) with this same content, so the \
+                 voucher is already in the books; `voucher seal` would refuse this input. Do \
+                 not seal it again under a new natural_key"
             )));
         }
         report.warnings.push(ValidationWarning {
