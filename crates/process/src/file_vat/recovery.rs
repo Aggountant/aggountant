@@ -22,14 +22,17 @@
 //!
 //! An interrupted Run (the filing effect left executing, `vat_filed` not set) is
 //! reconciled the same way, after what the Run left locally is used first:
-//! - the fiscal filing already landed: the Run records it, nothing is read;
+//! - the fiscal filing already landed: the Run records it, nothing is read; a
+//!   filing `complete-manual` recorded meanwhile is not the Run's, which is
+//!   closed without claiming it;
 //! - the outbox holds the authority's receipt: the receipt is recorded, nothing
 //!   is read;
 //! - a request may have reached the authority (an `Unknown` attempt, including a
 //!   crash between the outbox intent and its answer): exactly as an unknown
 //!   outcome above, because `Missing` right after sending does not prove the
 //!   return was lost;
-//! - no request of the Run left, or the authority refused each outright: one
+//! - no request of the Run left, or the authority refused each outright (by the
+//!   same codes rule as a journalled rejection): one
 //!   `Missing` closes the Run as not filed, because no return of it can surface.
 //!
 //! `file-vat status` reads the same evidence without recording it and names
@@ -43,7 +46,7 @@ use aggountant_broker::{
     SVC_VERO_FILE_VAT_RETURN,
 };
 use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
-use aggountant_ledger::Ledger;
+use aggountant_ledger::{Ledger, ManualVatFilingEvidence};
 use aggountant_model::PeriodId;
 
 use super::{
@@ -71,6 +74,9 @@ pub enum FileVatReconcileOutcome {
     NotFound,
     /// The second qualifying "not found": the Run is closed as not filed.
     ClosedNotFiled,
+    /// An interrupted Run whose period was meanwhile filed manually: closed
+    /// without claiming the manual filing.
+    Superseded,
     /// Anything else. Nothing counts toward re-filing.
     Unresolved,
 }
@@ -226,7 +232,12 @@ impl ProcessEngine {
                     .is_some_and(|code| filing_outcome_may_be_accepted(&code)),
             }
         } else if vat_filed {
-            Route::FiscalLanded
+            // `complete-manual` may file the period while this Run is unresolved; that
+            // filing is not this Run's to claim.
+            match Ledger::open(&self.home)?.manual_vat_filing_evidence(&period)? {
+                Some(manual) => Route::FiledManually(manual),
+                None => Route::FiscalLanded,
+            }
         } else {
             match self.interrupted_dispatch(broker, &events, &period, &state)? {
                 Dispatch::Receipt(receipt) => Route::OutboxReceipt(receipt),
@@ -254,6 +265,27 @@ impl ProcessEngine {
                      interrupted; the Run now records it too. Nothing was sent."
                         .into(),
                 )?
+            }
+            Route::FiledManually(manual) => {
+                close_as_not_filed(
+                    &journal,
+                    &format!(
+                        "SUPERSEDED: period {period} was filed manually through {} (evidence \
+                         {}); this Run's filing is not recorded as filed",
+                        manual.channel, manual.evidence_ref
+                    ),
+                )?;
+                (
+                    FileVatReconcileOutcome::Superseded,
+                    None,
+                    None,
+                    format!(
+                        "{period} was filed manually through {} (evidence {}) while this Run \
+                         was interrupted. The Run is closed without claiming that filing; \
+                         nothing was sent.",
+                        manual.channel, manual.evidence_ref
+                    ),
+                )
             }
             // The authority's receipt is proof; no read is needed.
             Route::OutboxReceipt(receipt) => {
@@ -496,10 +528,13 @@ impl ProcessEngine {
             .iter()
             .filter(|attempt| parse_instant(&attempt.provenance.ts).map_or(true, |ts| ts >= began))
             .collect();
-        let arrived = ours
-            .iter()
-            .rev()
-            .find(|attempt| matches!(attempt.outcome, AttemptOutcome::Unknown { .. }));
+        let arrived = ours.iter().rev().find(|attempt| match &attempt.outcome {
+            AttemptOutcome::Unknown { .. } => true,
+            // The same rule as a journalled rejection: older binaries recorded a
+            // receiptless 2xx under these codes.
+            AttemptOutcome::Failed { code, .. } => filing_outcome_may_be_accepted(code),
+            _ => false,
+        });
         Ok(match arrived {
             Some(attempt) => Dispatch::MayHaveArrived {
                 attempted: parse_instant(&attempt.provenance.ts).unwrap_or(began),
@@ -546,6 +581,8 @@ enum Route {
     Parked { outcome_unknown: bool },
     /// Interrupted after the fiscal filing was written.
     FiscalLanded,
+    /// Interrupted, and the period has since been filed manually.
+    FiledManually(ManualVatFilingEvidence),
     /// Interrupted after the authority's receipt reached the outbox.
     OutboxReceipt(FileVatReceipt),
     /// Interrupted with nothing recorded locally.

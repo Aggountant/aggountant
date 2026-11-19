@@ -1617,6 +1617,81 @@ fn a_failed_read_about_an_interrupted_filing_changes_nothing() {
 }
 
 #[test]
+fn an_interrupted_request_is_judged_by_the_outbox_answer_it_left() {
+    for (answer, expected) in [
+        // A structured 400 is a refusal: nothing was accepted.
+        (
+            ok(
+                400,
+                json!({"ErrorCode": "INVALID", "ErrorText": "bad field"}),
+            ),
+            FileVatFilingStatus::InterruptedNotFiled,
+        ),
+        // A MALFORMED answer counts as possibly accepted, as in a journalled rejection.
+        (
+            ok(400, json!("not structured")),
+            FileVatFilingStatus::FilingInterrupted,
+        ),
+    ] {
+        let home = sealed_home();
+        let engine = ProcessEngine::open(home.path());
+        interrupted_run(
+            &engine,
+            home.path(),
+            Seam::CrashAfterFilingDispatch,
+            vec![answer],
+        );
+        let reported = status_with(&engine, home.path(), vec![not_found()]).unwrap();
+        assert_eq!(reported.status, expected, "{}", reported.message);
+    }
+}
+
+#[test]
+fn a_manual_filing_after_an_interruption_closes_the_run_without_claiming_it() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = interrupted_run(
+        &engine,
+        home.path(),
+        Seam::CrashBeforeFilingDispatch,
+        vec![],
+    );
+    engine
+        .complete_manual_vat(
+            &q1(),
+            "omavero",
+            "archive/vero/q1.pdf",
+            Some("omavero-status-q1"),
+        )
+        .unwrap();
+    let reported = status_with(&engine, home.path(), vec![]).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::FiledWithoutReceipt);
+    assert_eq!(
+        reported.next_command,
+        Some(format!("aggountant file-vat reconcile --run-id {run1}"))
+    );
+
+    let closed = engine
+        .reconcile_file_vat(
+            &run1,
+            &broker_with_filed(home.path(), vec![], vec![], vec![], vec![]),
+        )
+        .unwrap();
+    assert_eq!(closed.outcome, FileVatReconcileOutcome::Superseded);
+    assert_eq!(closed.run.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&closed.run, "submit-filing"),
+        EffectStatus::Skipped
+    );
+    assert!(closed
+        .run
+        .gates
+        .iter()
+        .all(|gate| gate.gate_id != "ApprovePayment"));
+    assert_eq!(filing_attempts(home.path()), 0);
+}
+
+#[test]
 fn an_interrupted_run_after_the_fiscal_commit_catches_up_through_reconcile() {
     let home = sealed_home();
     let engine = ProcessEngine::open(home.path());

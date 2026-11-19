@@ -185,10 +185,16 @@ impl ProcessEngine {
                      Do not file this period again.",
                     manual.channel, manual.evidence_ref
                 );
+                // A Run interrupted before the manual filing is closed by reconcile.
+                let interrupted = runs
+                    .iter()
+                    .find(|run| run.status == EffectStatus::Executing)
+                    .map(|run| run.run_id.clone());
+                let next_command = interrupted.as_deref().map(reconcile_command);
                 let mut status = local(
                     FileVatFilingStatus::FiledWithoutReceipt,
-                    None,
-                    None,
+                    interrupted,
+                    next_command,
                     message,
                 );
                 status.manual_filing = Some(manual);
