@@ -9,6 +9,10 @@ provenance_detail: observed while running the practice month
 source_ref: taskfleet:01m7t18mhrten3hbcn2y49fb94/observation:report-negative-zero
 originating_run: 01m7t18mhrten3hbcn2y49fb94
 originating_run_kind: spinoff
+lane: reports
+lane_seq: 0
+collision: [crates/ledger/src/reports.rs, crates/domain/src/statements.rs]
+preparation: ready
 ---
 
 # Monthly report prints a cleared liability account as −0,00
