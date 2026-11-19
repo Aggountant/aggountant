@@ -344,6 +344,22 @@ fn update_and_retire_take_the_id_positionally_or_in_stdin_json() {
     assert_eq!(code, 1);
     assert_eq!(error_code(&stderr), "INVALID_INPUT");
 
+    // Duplicate keys stay refused, including a duplicate id.
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update", "hosting-vat-treatment"],
+        r#"{"statement":"A","statement":"B","scope":"S","source":{"reference":"r","date":"2026-10-01"},"reason":"x"}"#,
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "INVALID_INPUT");
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "retire"],
+        r#"{"id":"other-fact","id":"hosting-vat-treatment","source":{"reference":"r","date":"2026-10-01"},"reason":"x"}"#,
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "INVALID_INPUT");
+
     // Positional and --id together are a usage error.
     let (code, _, _) = run(
         home.path(),

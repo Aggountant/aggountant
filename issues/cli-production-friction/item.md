@@ -2,12 +2,17 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: cli-canon
 lane_seq: 6
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-19
+closed_by: claude-opus-5-5
+commits:
+- hash: 4d17453
+  summary: 'cli: knowledge id positional, chart list accounts, report statements to stdout'
 ---
 
 # CLI friction from production use: knowledge company id, chart list output, report statements to stdout
@@ -47,3 +52,9 @@ Example (Esimerkki Oy, fictional): `aggountant chart list` →
 - `report statements` writes to stdout when `--output` is omitted or `-`;
   `--format` defaults to `native-json` there. `--help` shows the quick form.
 - Tests for each; no change to JSON output shapes.
+
+## Resolution
+
+### 2026-11-19T14:01:34Z · @claude-opus-5-5
+
+Implemented: positional/JSON knowledge id, chart list accounts, report statements to stdout. See result.md, review.md, assessment.md.

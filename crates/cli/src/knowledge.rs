@@ -1,11 +1,12 @@
 use std::path::Path;
 
 use clap::{Args, Subcommand};
-use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use aggountant_process::{
-    AddCompanyKnowledge, ProcessEngine, RetireCompanyKnowledge, UpdateCompanyKnowledge,
+    AddCompanyKnowledge, CompanyKnowledgeSource, ProcessEngine, RetireCompanyKnowledge,
+    UpdateCompanyKnowledge,
 };
 
 use crate::{read_stdin_json, CliError};
@@ -100,42 +101,44 @@ pub(crate) struct FactIdArg {
     flag: Option<String>,
 }
 
-/// Reads the stdin JSON of `update`/`retire` and resolves the fact id from the
-/// argument and an optional `"id"` field, which must agree when both are given.
-fn read_id_and_input<T: DeserializeOwned>(arg: &FactIdArg) -> Result<(String, T), CliError> {
-    let mut value: Value = read_stdin_json()?;
-    let json_id = match value.as_object_mut().and_then(|map| map.remove("id")) {
-        None => None,
-        Some(Value::String(id)) => Some(id),
-        Some(other) => {
-            return Err(CliError::user(
-                "INVALID_INPUT",
-                format!("stdin JSON field \"id\" must be a string, got {other}"),
-            ))
-        }
-    };
-    let arg_id = arg.positional.as_ref().or(arg.flag.as_ref());
-    let id = match (arg_id, json_id) {
-        (Some(arg_id), Some(json_id)) if *arg_id != json_id => {
-            return Err(CliError::user(
-                "FACT_ID_MISMATCH",
-                format!(
+/// stdin JSON of `update`: the engine's input plus an optional `id`. Parsed
+/// directly (not through `serde_json::Value`) so duplicate keys stay refused.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpdateInput {
+    id: Option<String>,
+    statement: String,
+    scope: String,
+    source: CompanyKnowledgeSource,
+    reason: String,
+}
+
+/// stdin JSON of `retire`: the engine's input plus an optional `id`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RetireInput {
+    id: Option<String>,
+    source: CompanyKnowledgeSource,
+    reason: String,
+}
+
+/// Resolves the fact id from the argument and the stdin JSON `id`, which must
+/// agree when both are given.
+fn resolve_id(arg: &FactIdArg, json_id: Option<String>) -> Result<String, CliError> {
+    match (arg.positional.as_ref().or(arg.flag.as_ref()), json_id) {
+        (Some(arg_id), Some(json_id)) if *arg_id != json_id => Err(CliError::user(
+            "FACT_ID_MISMATCH",
+            format!(
                 "fact id argument {arg_id:?} differs from stdin JSON id {json_id:?}; give one id"
             ),
-            ))
-        }
-        (Some(arg_id), _) => arg_id.clone(),
-        (None, Some(json_id)) => json_id,
-        (None, None) => {
-            return Err(CliError::user(
-                "FACT_ID_REQUIRED",
-                "give the fact id positionally, with --id, or as \"id\" in the stdin JSON",
-            ))
-        }
-    };
-    let input = serde_json::from_value(value)
-        .map_err(|e| CliError::user("INVALID_INPUT", format!("could not parse stdin JSON: {e}")))?;
-    Ok((id, input))
+        )),
+        (Some(arg_id), _) => Ok(arg_id.clone()),
+        (None, Some(json_id)) => Ok(json_id),
+        (None, None) => Err(CliError::user(
+            "FACT_ID_REQUIRED",
+            "give the fact id positionally, with --id, or as \"id\" in the stdin JSON",
+        )),
+    }
 }
 
 pub(crate) fn run(cmd: &KnowledgeCmd, home: &Path) -> Result<Value, CliError> {
@@ -172,14 +175,26 @@ pub(crate) fn run(cmd: &KnowledgeCmd, home: &Path) -> Result<Value, CliError> {
                 "items": engine.search_company_knowledge(query, *include_retired)?,
             })),
             CompanyKnowledgeCmd::Update { id } => {
-                let (id, input): (String, UpdateCompanyKnowledge) = read_id_and_input(id)?;
+                let input: UpdateInput = read_stdin_json()?;
+                let id = resolve_id(id, input.id)?;
+                let input = UpdateCompanyKnowledge {
+                    statement: input.statement,
+                    scope: input.scope,
+                    source: input.source,
+                    reason: input.reason,
+                };
                 Ok(json!({
                     "schema_version": 1,
                     "document": engine.update_company_knowledge(&id, &input)?,
                 }))
             }
             CompanyKnowledgeCmd::Retire { id } => {
-                let (id, input): (String, RetireCompanyKnowledge) = read_id_and_input(id)?;
+                let input: RetireInput = read_stdin_json()?;
+                let id = resolve_id(id, input.id)?;
+                let input = RetireCompanyKnowledge {
+                    source: input.source,
+                    reason: input.reason,
+                };
                 Ok(json!({
                     "schema_version": 1,
                     "document": engine.retire_company_knowledge(&id, &input)?,
