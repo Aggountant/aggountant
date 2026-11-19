@@ -35,3 +35,6 @@ groups:
         children:
           - { slug: adr-8-chart-adoption-kirjanpitajalle, title: · Kirjanpitäjälle }
           - { slug: adr-8-chart-adoption-arkkitehdille, title: · Arkkitehdille }
+      - slug: adr-9-date-time-library
+        title: ADR-9 · Päivämääräkirjasto (chrono → jiff)
+        desc: Ehdotus chronon korvaamisesta jiffillä niin, että tallennetut ja viranomaisille lähetetyt aikaleimat säilyvät tavu tavulta samoina.
