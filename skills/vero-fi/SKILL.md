@@ -536,9 +536,9 @@ ilmoittanut, etene tässä järjestyksessä:
    kuukauden asiointipalvelusta, ja olemassa olevan ilmoituksen viite
    kirjataan `complete-manual`-komennolla.
    `TRANSCRIPT_UNKNOWN_HEADER`: tiedosto ei ole suomenkielinen raportti 630
-   dokumentoiduin sarakkein; älä muokkaa tiedostoa sopivaksi vaan pyydä
-   tilaamaan se uudelleen suomeksi, tai jos se on oikea raportti, kerro
-   käyttäjälle, että muoto poikkeaa dokumentaatiosta.
+   asiointipalvelun tunnetuin sarakkein; älä muokkaa tiedostoa sopivaksi vaan
+   pyydä tilaamaan se uudelleen suomeksi, tai jos se on oikea raportti, kerro
+   käyttäjälle, että asiointipalvelun muoto on muuttunut.
 4. **`missing`**, ja sen jälkeen jokainen puuttuva kuukausi vanhimmasta
    alkaen: esikatselu, käyttäjän hyväksyntä, lähetys.
 

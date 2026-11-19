@@ -4,10 +4,15 @@
 //! The layout comes from *Raportit ja aineistot tulorekisteristä 2026*, version
 //! 1.3, §4.6.2 (the Finnish edition; the English edition omits the period,
 //! year, month, payment date and reporting-period start columns, and the
-//! Swedish one omits a column and the employer's separate report type). That
-//! section lists the transcript's data items in order; this parser takes them
-//! as the CSV header, word for word and in that order, and refuses any other
-//! header rather than guess which column means what. The document does not say
+//! Swedish one omits a column and the employer's separate report type), as
+//! corrected by files ordered from the e-service in November 2026: the
+//! e-service names columns 26–29 "… perusteettomaksi eduksi ilmoitetut tulot"
+//! where the document says "… perusteettomat edut", and writes the earnings
+//! report types in the plural ("Palkkatietoilmoitukset: …") where the document
+//! has the singular. The parser takes the e-service header word for word and
+//! in that order, and refuses any other header, including the document's
+//! wording that no file has been seen to use, rather than guess which column
+//! means what. The document does not say
 //! what the separator, the encoding, the quoting, or the date and amount
 //! formats are. The parser therefore accepts only what it can verify:
 //!
@@ -28,7 +33,8 @@ use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-/// §4.6.2, the transcript's data items in the documented order.
+/// The header the e-service writes: §4.6.2's data items in the documented
+/// order, with columns 26–29 named as in the real files.
 pub(crate) const HEADER_FI: [&str; 33] = [
     "Ilmoituksen tyyppi",
     "Ajanjakso",
@@ -55,10 +61,10 @@ pub(crate) const HEADER_FI: [&str; 33] = [
     "Työtapaturma- ja ammattitautivakuutusmaksun perusteena olevat takaisinperityt tulot",
     "Työttömyysvakuutusmaksun perusteena olevat takaisinperityt tulot",
     "Sairausvakuutusmaksun perusteena olevat takaisinperityt tulot",
-    "Työeläkevakuutusmaksun perusteena olevat perusteettomat edut",
-    "Työtapaturma- ja ammattitautivakuutusmaksun perusteena olevat perusteettomat edut",
-    "Työttömyysvakuutusmaksun perusteena olevat perusteettomat edut",
-    "Sairausvakuutusmaksun perusteena olevat perusteettomat edut",
+    "Työeläkevakuutusmaksun perusteena olevat perusteettomaksi eduksi ilmoitetut tulot",
+    "Työtapaturma- ja ammattitautivakuutusmaksun perusteena olevat perusteettomaksi eduksi ilmoitetut tulot",
+    "Työttömyysvakuutusmaksun perusteena olevat perusteettomaksi eduksi ilmoitetut tulot",
+    "Sairausvakuutusmaksun perusteena olevat perusteettomaksi eduksi ilmoitetut tulot",
     "Kohdekauden alkupäivä",
     "Työnantajan erillisilmoitusten lukumäärä",
     "Työnantajan sairausvakuutusmaksut",
@@ -74,12 +80,13 @@ const COL_COUNT: usize = 30;
 const COL_CONTRIBUTION: usize = 31;
 const COL_DEDUCTIONS: usize = 32;
 
-/// "Ilmoituksen tyyppi" values (§4.6.2).
+/// "Ilmoituksen tyyppi" values (§4.6.2), the earnings types in the plural as
+/// the e-service writes them.
 const TYPE_EMPLOYER: &str = "Työnantajan erillisilmoitus";
 const TYPES_EARNINGS: [&str; 3] = [
-    "Palkkatietoilmoitus: Maksajan omat suoritukset",
-    "Palkkatietoilmoitus: Sijaismaksajan maksamat suoritukset",
-    "Palkkatietoilmoitus: Sijaismaksajana maksetut suoritukset",
+    "Palkkatietoilmoitukset: Maksajan omat suoritukset",
+    "Palkkatietoilmoitukset: Sijaismaksajan maksamat suoritukset",
+    "Palkkatietoilmoitukset: Sijaismaksajana maksetut suoritukset",
 ];
 /// "Ajanjakso" values (§4.6.2).
 const PERIOD_RANGE_TOTAL: &str = "Aikaväli yhteensä";
@@ -282,7 +289,7 @@ fn unknown_header(header: &str) -> TranscriptError {
     err(
         "TRANSCRIPT_UNKNOWN_HEADER",
         format!(
-            "the first line is not the documented header of transcript 630 (Raportit ja aineistot tulorekisteristä 2026 §4.6.2: {} columns starting {:?}); found {shown:?}.{hint}",
+            "the first line is not the header of a Finnish transcript 630 from the Incomes Register e-service ({} columns starting {:?}); found {shown:?}.{hint}",
             HEADER_FI.len(),
             HEADER_FI[0]
         ),
@@ -628,6 +635,50 @@ mod tests {
         assert_eq!(
             parse(csv.as_bytes()).unwrap_err().code,
             "TRANSCRIPT_TOTAL_MISMATCH"
+        );
+    }
+
+    #[test]
+    fn real_e_service_file_parses() {
+        let bytes = include_bytes!("../tests/fixtures/employer_report/transcript-630-2025.csv");
+        let t = parse(bytes).unwrap();
+        assert_eq!(t.encoding, "utf-8");
+        assert_eq!(t.months.len(), 12);
+        // July: one report, the contribution cell left empty (only tax-free
+        // compensations were paid), read as zero.
+        let july = &t.months[6];
+        assert_eq!(july.month.to_string(), "2025-07");
+        assert_eq!(july.report_count, 1);
+        assert_eq!(july.health_insurance_contribution, Decimal::ZERO);
+        assert_eq!(july.deductions, Decimal::ZERO);
+    }
+
+    #[test]
+    fn the_documents_wording_is_not_the_e_service_header() {
+        // §4.6.2 names columns 26-29 "... perusteettomat edut" and the earnings
+        // type in the singular; the e-service writes neither, so both are refused.
+        let documented = header(";").replace(
+            "perusteettomaksi eduksi ilmoitetut tulot",
+            "perusteettomat edut",
+        );
+        let ok_row = employer(";", "1.2.2025", "1", "0,00");
+        let csv = format!("{documented}\n{ok_row}");
+        assert_eq!(
+            parse(csv.as_bytes()).unwrap_err().code,
+            "TRANSCRIPT_UNKNOWN_HEADER"
+        );
+        let singular = row(
+            ";",
+            &[
+                (COL_TYPE, "Palkkatietoilmoitus: Maksajan omat suoritukset"),
+                (COL_PERIOD, "Kuukausi yhteensä"),
+                (COL_RANGE, "1.1.2025 - 31.12.2025"),
+            ],
+        );
+        let csv = format!("{}\n{singular}\n{ok_row}", header(";"));
+        assert_eq!(
+            parse(csv.as_bytes()).unwrap_err().code,
+            "TRANSCRIPT_INVALID_ROW"
         );
     }
 

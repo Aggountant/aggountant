@@ -178,8 +178,8 @@ toisessa ei), aggountant ei arvaa, kumpi on uudempi. Kuukausi näkyy
 puuttuvien luettelossa ristiriitana, eikä sille lähetetä mitään ennen kuin
 tarkistat sen asiointipalvelusta ja agentti kirjaa ilmoituksen viitteen.
 
-aggountant lukee vain suomenkielisen raportin, jonka sarakkeet ovat
-Tulorekisterin dokumentaation mukaiset. Muunlainen tiedosto hylätään
+aggountant lukee vain suomenkielisen raportin, jonka sarakkeet ovat samat kuin
+asiointipalvelun tuottamassa tiedostossa. Muunlainen tiedosto hylätään
 (`TRANSCRIPT_UNKNOWN_HEADER`), eikä mitään tallenneta.
 
 <details>

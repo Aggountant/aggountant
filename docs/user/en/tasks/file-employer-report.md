@@ -184,7 +184,7 @@ among the missing months as a conflict, and nothing is sent for it until you
 check it in the e-service and the agent records the report reference.
 
 aggountant reads only a Finnish-language transcript whose columns are those
-of the Tulorekisteri documentation. Any other file is refused
+the Tulorekisteri e-service writes. Any other file is refused
 (`TRANSCRIPT_UNKNOWN_HEADER`) and nothing is stored.
 
 <details>
