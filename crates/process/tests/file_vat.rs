@@ -380,7 +380,11 @@ fn broker_with_filed(
 }
 
 fn input() -> FileVatInput {
-    serde_json::from_value(json!({
+    serde_json::from_value(input_json()).unwrap()
+}
+
+fn input_json() -> Value {
+    json!({
         "period": "2026-Q1",
         "sales_vat": {"amount": "2550.00", "currency": "EUR"},
         "purchase_vat": {"amount": "1020.00", "currency": "EUR"},
@@ -388,8 +392,7 @@ fn input() -> FileVatInput {
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
         "payee_iban": "FI2112345600000785",
-    }))
-    .unwrap()
+    })
 }
 
 // --- Offline/manual fallback ------------------------------------------------
@@ -2080,4 +2083,65 @@ fn monthly_filing_is_scoped_to_the_sealed_month() {
             .vat_filed
     );
     assert!(ledger.verify().unwrap().ok);
+}
+
+/// A Run that adopts on resume a filing another Run sent with different bytes
+/// does not show that Run's receipt as its own.
+#[test]
+fn a_receipt_is_not_attributed_to_a_run_whose_request_it_does_not_acknowledge() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker_a = broker_with(home.path(), verotili_ok(), vec![], vec![]);
+    let run_a = engine
+        .start_file_vat(&input(), &broker_a, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    engine
+        .answer_file_vat_seam(
+            &run_a,
+            "ApproveFiling",
+            "approve",
+            &broker_a,
+            Seam::CrashAfterGateAnswer,
+        )
+        .unwrap();
+
+    let mut other = input_json();
+    other["contact_name"] = json!("Bea Operator");
+    let other: FileVatInput = serde_json::from_value(other).unwrap();
+    let broker_b = broker_with(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-B"}))],
+        vec![],
+    );
+    let run_b = engine
+        .start_file_vat(&other, &broker_b, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let filed_b = engine
+        .answer_file_vat(&run_b, "ApproveFiling", "approve", &broker_b)
+        .unwrap();
+    assert!(matches!(
+        filing_outcome(&filed_b),
+        Some(AuthorityOutcome::Accepted {
+            receipt: Some(AuthorityReceipt::Vero { ref unique_identifier, .. }),
+            ..
+        }) if unique_identifier == "VERO-B"
+    ));
+
+    let resumed_a = engine.resume_file_vat(&run_a, &broker_a).unwrap();
+    assert_eq!(
+        effect_status(&resumed_a, "submit-filing"),
+        EffectStatus::Succeeded
+    );
+    assert_eq!(
+        filing_outcome(&resumed_a),
+        Some(AuthorityOutcome::Accepted {
+            receipt: None,
+            next_command: Some("aggountant file-vat status --period 2026-Q1".into()),
+        })
+    );
 }

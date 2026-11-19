@@ -10,7 +10,6 @@
 
 use serde::Serialize;
 
-use aggountant_ledger::Ledger;
 use aggountant_model::PeriodId;
 
 use crate::{
@@ -147,12 +146,12 @@ impl ProcessEngine {
         })
     }
 
-    /// A succeeded VAT filing: the receipt the Ledger recorded for the period. The
-    /// Ledger files a period once, so its receipt belongs to this filing.
+    /// A succeeded VAT filing: the receipt the Ledger recorded for the period, when
+    /// it acknowledges this Run's request.
     fn vat_accepted(&self, f: &Fold) -> Result<AuthorityOutcome, ProcessError> {
         let period = PeriodId::parse(&f.period)
             .map_err(|e| ProcessError::JournalCorrupt(format!("bad period {:?}: {e}", f.period)))?;
-        let receipt = Ledger::open(&self.home)?.vat_filing_receipt(&period)?;
+        let receipt = self.vat_receipt_of_run(&f.run_id, &period)?;
         Ok(match receipt {
             Some(r) => AuthorityOutcome::Accepted {
                 receipt: Some(AuthorityReceipt::Vero {
@@ -161,7 +160,8 @@ impl ProcessEngine {
                 }),
                 next_command: None,
             },
-            // `file-vat reconcile` adopted a processed return: there is no receipt.
+            // `file-vat reconcile` adopted a processed return (there is no receipt),
+            // or the receipt acknowledges another Run's request.
             None => AuthorityOutcome::Accepted {
                 receipt: None,
                 next_command: Some(format!("aggountant file-vat status --period {period}")),

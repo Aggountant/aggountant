@@ -268,6 +268,28 @@ impl ProcessEngine {
         })
     }
 
+    /// The period's VAT receipt, when it belongs to `run_id`'s approved request:
+    /// the Run is the one [`Self::filing_run_with_receipt`] picks, or bound the
+    /// same request bytes. `None` when the period has no receipt, or when a resume
+    /// adopted a filing another Run sent with different bytes, so that the receipt
+    /// is never shown on a Run whose request it does not acknowledge.
+    pub(crate) fn vat_receipt_of_run(
+        &self,
+        run_id: &str,
+        period: &PeriodId,
+    ) -> Result<Option<VatFilingReceipt>, ProcessError> {
+        let Some(receipt) = Ledger::open(&self.home)?.vat_filing_receipt(period)? else {
+            return Ok(None);
+        };
+        let runs = self.file_vat_filing_runs(period)?;
+        let Some((holder, state)) = self.filing_run_with_receipt(&runs)? else {
+            return Ok(None);
+        };
+        let ours = holder == run_id
+            || self.read_file_vat_state(run_id)?.filing_sent_hash == state.filing_sent_hash;
+        Ok(ours.then_some(receipt))
+    }
+
     /// The Run that holds the approved request of a receipted filing: one whose
     /// filing effect succeeded (a resume can also adopt a filing another Run made),
     /// or, after a crash between the fiscal record and the journal, the one still

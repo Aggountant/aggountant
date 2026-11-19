@@ -2,12 +2,14 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: vat-filing
 lane_seq: 5
 collision: [crates/process/src/lib.rs, crates/cli/src/wage.rs, skills/vero-fi/SKILL.md]
+closed: 2026-11-19
+closed_by: claude-opus-5-5
 ---
 
 # Authority receipt (VAT UniqueIdentifier, Incomes Register IRDeliveryId) missing from approve output and run show
@@ -53,3 +55,9 @@ for a travel-expense earnings payment report sent with `file-wage approve`.
   `reconcile`.
 - The skills (`vero-fi`) say where the receipt is read from, so agents stop
   reading journal files.
+
+## Resolution
+
+### 2026-11-19T09:57:59Z · @claude-opus-5-5
+
+Authority filing effects carry outcome/receipt in approve output and run show; run show is the offline read for file-wage. See result.md.
