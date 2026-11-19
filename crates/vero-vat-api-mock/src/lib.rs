@@ -437,25 +437,64 @@ fn handle<S: Read + Write>(
     }
 }
 
+/// The GetFiledVATReturn/v2 answer for an accepted request, shaped like the
+/// authority's: every amount of every group is present, zeros included, while
+/// the request carries only the fields that were reported. Keys the comparison
+/// does not read (the VAT-relief fields, the net tax) are left out.
 fn filed_response_for(request: &Value) -> Value {
-    let details = request.get("VATDetails").and_then(Value::as_object);
+    const GROUPS: [(&str, &str, &[&str]); 3] = [
+        (
+            "VATOnDomesticSalesByTaxRate",
+            "VATOnDomesticSales",
+            &["HighVATRate", "MediumVATRate", "LowVATRate"],
+        ),
+        (
+            "VATOnPurchasesAndImports",
+            "VATOnPurchasesAndImports",
+            &[
+                "GoodsFromEUMemberStates",
+                "ServicesFromEUMemberStates",
+                "ImportOfGoodsOutsideEU",
+                "ConstructionServicesAndScrapMetal",
+            ],
+        ),
+        (
+            "SalesPurchasesImports",
+            "SalesPurchasesImports",
+            &[
+                "ZeroVATRateTurnover",
+                "SalesOfGoodsToEUMemberStates",
+                "SalesOfServicesToEUMemberStates",
+                "PurchasesOfGoodsFromEUMemberStates",
+                "PurchasesOfServicesFromEUMemberStates",
+                "ImportsOfGoodsFromOutsideEU",
+                "SalesOfConstructionServicesAndScrapMetal",
+                "PurchasesOfConstructionServicesAndScrapMetal",
+            ],
+        ),
+    ];
+    let details = request.get("VATDetails");
+    let amount = |value: Option<&Value>| value.cloned().unwrap_or_else(|| json!(0.0));
     let mut response = serde_json::Map::new();
     response.insert("Status".into(), json!("Processed"));
     response.insert("SubmittedDate".into(), json!("2026-09-14"));
-    if let Some(details) = details {
-        if let Some(value) = details.get("VATOnDomesticSalesByTaxRate") {
-            response.insert("VATOnDomesticSales".into(), value.clone());
-        }
-        if let Some(value) = details.get("VATOnPurchasesAndImports") {
-            response.insert("VATOnPurchasesAndImports".into(), value.clone());
-        }
-        if let Some(value) = details.get("DeductibleVAT") {
-            response.insert("DeductibleTax".into(), json!({"DeductibleVAT":value}));
-        }
-        if let Some(value) = details.get("SalesPurchasesImports") {
-            response.insert("SalesPurchasesImports".into(), value.clone());
-        }
+    for (request_group, answer_group, names) in GROUPS {
+        let group = details.and_then(|details| details.get(request_group));
+        let values: serde_json::Map<String, Value> = names
+            .iter()
+            .map(|name| {
+                (
+                    (*name).to_owned(),
+                    amount(group.and_then(|group| group.get(name))),
+                )
+            })
+            .collect();
+        response.insert(answer_group.into(), Value::Object(values));
     }
+    response.insert(
+        "DeductibleTax".into(),
+        json!({"DeductibleVAT": amount(details.and_then(|d| d.get("DeductibleVAT")))}),
+    );
     Value::Object(response)
 }
 

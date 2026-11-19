@@ -1325,6 +1325,68 @@ fn a_failed_or_unreadable_read_records_nothing() {
     assert_eq!(filing_attempts(home.path()), 1);
 }
 
+/// A processed return whose amounts differ is not adopted, and reconcile names
+/// the amounts. The same answer with the approved amounts, shaped as the schema
+/// returns it (every amount present, zeros included), is adopted.
+#[test]
+fn reconcile_names_differing_amounts_and_adopts_a_schema_shaped_match() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let run1 = run_with_unknown_outcome(&engine, home.path());
+    let answer = |high: &str| {
+        json!({
+            "Status": "Processed",
+            "SubmittedDate": "2099-01-01",
+            "VATOnDomesticSales": {"HighVATRate": high, "MediumVATRate": 0.0, "LowVATRate": 0.0},
+            "VATOnPurchasesAndImports": {
+                "GoodsFromEUMemberStates": 0.0, "ServicesFromEUMemberStates": 0.0,
+                "ImportOfGoodsOutsideEU": 0.0, "ConstructionServicesAndScrapMetal": 0.0
+            },
+            "DeductibleTax": {"DeductibleVAT": 1020.0},
+            "TaxPayableOrNegativeTaxThatQualifiesForRefund": 1530.0,
+            "SalesPurchasesImports": {"ZeroVATRateTurnover": 0.0}
+        })
+    };
+    let differs = reconcile_at(
+        &engine,
+        home.path(),
+        &run1,
+        "2026-11-20 10:00",
+        ok(200, answer("2500.00")),
+    )
+    .unwrap();
+    assert_eq!(differs.outcome, FileVatReconcileOutcome::Unresolved);
+    assert_eq!(
+        serde_json::to_value(&differs.differences).unwrap(),
+        json!([{"field": "VATOnDomesticSalesByTaxRate.HighVATRate", "return_field": 301,
+                "approved": 2550, "authority": 2500}])
+    );
+    assert!(
+        differs
+            .message
+            .contains("301 VATOnDomesticSalesByTaxRate.HighVATRate: approved 2550, authority 2500"),
+        "{}",
+        differs.message
+    );
+
+    let adopted = reconcile_at(
+        &engine,
+        home.path(),
+        &run1,
+        "2026-11-20 14:00",
+        ok(200, answer("2550")),
+    )
+    .unwrap();
+    assert_eq!(
+        adopted.outcome,
+        FileVatReconcileOutcome::Adopted,
+        "{}",
+        adopted.message
+    );
+    assert!(adopted.differences.is_empty());
+    assert_eq!(filing_attempts(home.path()), 1);
+}
+
 // --- An interrupted filing: ask the authority, then adopt or start over -------
 
 /// Run 1 approves Q1 and stops at `seam` while sending, the FileVATReturn answering

@@ -109,7 +109,11 @@ tilan:
   näyttää vielä aiemman ilmoituksen.
 - `processed`: Verohallinto on käsitellyt ilmoituksen hyväksytyin luvuin.
 - `processed_values_differ`: Verohallinnossa on kuittauksen jälkeen käsitelty
-  ilmoitus, jonka luvut poikkeavat hyväksytyistä. Vertaa sitä OmaVerossa.
+  ilmoitus, jonka luvut poikkeavat hyväksytyistä. Vastaus luettelee jokaisen
+  poikkeavan kentän hyväksyttyine ja Verohallinnon lukuineen (`differences`,
+  myös viestissä). Kenttä, jonka Verohallinto näyttää nollana tai jättää pois,
+  ei ole poikkeama, kun hyväksytty luku on myös nolla. Vertaa lueteltuja
+  kenttiä OmaVerossa.
 
 Ilmoituksen todistaa kuittaus, ei se, näkyykö ilmoitus OmaVerossa. Jos tilan
 kysely epäonnistuu (`VAT_STATUS_UNKNOWN`), tila on vain tuntematon:

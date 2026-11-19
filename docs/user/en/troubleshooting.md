@@ -112,8 +112,11 @@ shows there and reports one status:
 - `processed`: the Tax Administration has processed the return with the
   approved figures.
 - `processed_values_differ`: the Tax Administration has processed a return
-  after the acknowledgement whose figures differ from the approved ones.
-  Compare it in OmaVero.
+  after the acknowledgement whose figures differ from the approved ones. The
+  answer lists each differing field with the approved and the Tax
+  Administration's amount (`differences`, also in the message). A field the
+  Tax Administration shows as zero or leaves out is not a difference when the
+  approved figure is zero too. Compare the listed fields in OmaVero.
 
 The acknowledgement proves the filing, not whether the return shows in
 OmaVero. If the status query fails (`VAT_STATUS_UNKNOWN`), the status is only

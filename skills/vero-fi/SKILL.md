@@ -243,8 +243,10 @@ ja Veron puolelle päätynyt kahdennus olisi korvaava ilmoitus, jota kukaan ei t
 Tilan voi kysyä lähettämättä mitään: `aggountant file-vat status --period 2026-03
 --json` lukee kuitatun ilmoituksen `GetFiledVATReturn/v2`-tilan ja kertoo `received`
 (kuitattu, ei vielä näkyvissä), `pending_authority_processing`, `processed` tai
-`processed_values_differ` (käsitelty kuittauksen jälkeen eri luvuin: pyydä käyttäjää
-vertaamaan OmaVerossa). Ilman kuittausta se vastaa paikallisista tiedoista
+`processed_values_differ` (käsitelty kuittauksen jälkeen eri luvuin: `differences`
+luettelee kentät `{field, return_field, approved, authority}`; pyydä käyttäjää vertaamaan
+juuri niitä OmaVerossa). `file-vat reconcile` palauttaa samat `differences`, kun
+Verohallinnon käsittelemä ilmoitus ei vastaa hyväksyttyä. Ilman kuittausta se vastaa paikallisista tiedoista
 (`not_filed`, `filed_without_receipt`, `outcome_unknown` ja `next_command`
 reconcileen). Keskeytyneestä lähetyksestä se kysyy Verohallinnolta (ks. alla).
 `VAT_STATUS_UNKNOWN` tarkoittaa vain, ettei tilaa saatu luettua; kuittaus todistaa

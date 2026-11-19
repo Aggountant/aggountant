@@ -267,10 +267,57 @@ fn a_processed_return_with_other_values_is_flagged() {
         MockVeroVatServer::start_mtls(scenario(GetFiledVatReturnFixture::Mismatch { body }))
             .unwrap();
     file_july(home.path(), &server);
+    let reported = status(home.path(), &server).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::ProcessedValuesDiffer);
+    let differences = serde_json::to_value(&reported.differences).unwrap();
     assert_eq!(
-        status(home.path(), &server).unwrap().status,
-        FileVatFilingStatus::ProcessedValuesDiffer
+        differences,
+        json!([
+            {"field": "VATOnDomesticSalesByTaxRate.HighVATRate", "return_field": 301,
+             "approved": 255, "authority": 999},
+            {"field": "DeductibleVAT", "return_field": 307, "approved": 102, "authority": 1},
+        ])
     );
+    assert!(
+        reported.message.contains(
+            "Differs: 301 VATOnDomesticSalesByTaxRate.HighVATRate: approved 255, authority \
+             999; 307 DeductibleVAT: approved 102, authority 1."
+        ),
+        "{}",
+        reported.message
+    );
+}
+
+/// GetFiledVATReturn/v2 answers with every amount of the schema, zeros included,
+/// numbers where the request had other scales, and keys the request never sends.
+/// None of that is a difference.
+#[test]
+fn a_schema_shaped_answer_with_the_approved_amounts_is_processed() {
+    let home = sealed_july();
+    let body = json!({
+        "Status": "Processed",
+        "SubmittedDate": "2026-09-15",
+        "VATOnCashBasis": false,
+        "VATOnDomesticSales": {"LowVATRate": 0, "MediumVATRate": "0.00", "HighVATRate": "255"},
+        "DeductibleTax": {
+            "DeductibleVAT": 102.0, "FileVATRelief": false, "TurnoverForVATRelief": 0,
+            "TaxForVATRelief": 0, "AmountOfVATRelief": 0
+        },
+        "TaxPayableOrNegativeTaxThatQualifiesForRefund": 153.0,
+        "SalesPurchasesImports": null,
+    });
+    let server =
+        MockVeroVatServer::start_mtls(scenario(GetFiledVatReturnFixture::Mismatch { body }))
+            .unwrap();
+    file_july(home.path(), &server);
+    let reported = status(home.path(), &server).unwrap();
+    assert_eq!(
+        reported.status,
+        FileVatFilingStatus::Processed,
+        "{}",
+        reported.message
+    );
+    assert!(reported.differences.is_empty());
 }
 
 #[test]

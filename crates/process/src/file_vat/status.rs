@@ -17,11 +17,13 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn};
+use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn, VatValueDifference};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
 use aggountant_model::PeriodId;
 
-use super::recovery::{filed_elsewhere, judge, Dispatch, Finding, Reach, Unresolved};
+use super::recovery::{
+    describe_differences, filed_elsewhere, judge, Dispatch, Finding, Reach, Unresolved,
+};
 use super::{
     approved_filing_request, filed_vat_return_envelope, FileVatState, EFFECT_SUBMIT_FILING,
 };
@@ -78,6 +80,9 @@ pub struct FileVatStatus {
     pub remote_status: Option<String>,
     pub submitted_date: Option<String>,
     pub manual_filing: Option<ManualVatFilingEvidence>,
+    /// Where a processed return's amounts differ from the approved request;
+    /// empty unless the authority shows one that differs.
+    pub differences: Vec<VatValueDifference>,
     pub next_command: Option<String>,
     pub message: String,
 }
@@ -151,6 +156,7 @@ impl ProcessEngine {
             remote_status: None,
             submitted_date: None,
             manual_filing: None,
+            differences: Vec::new(),
             next_command,
             message,
         };
@@ -283,7 +289,8 @@ impl ProcessEngine {
         };
         let filed = read_filed_return(query, broker).map_err(unknown)?;
         let submitted_date = submitted_date(&filed);
-        let (status, detail) = classify(&filed, submitted_date.as_deref(), query, receipt);
+        let (status, detail, differences) =
+            classify(&filed, submitted_date.as_deref(), query, receipt);
         let mut message = format!(
             "Accepted by the Tax Administration with receipt {} at {}. {detail} {NO_REFILE}",
             receipt.unique_identifier, receipt.accepted_timestamp
@@ -304,6 +311,7 @@ impl ProcessEngine {
             remote_status: filed.status.clone(),
             submitted_date,
             manual_filing: None,
+            differences,
             next_command,
             message,
         })
@@ -342,6 +350,7 @@ impl ProcessEngine {
                 remote_status: filed.and_then(|f| f.status.clone()),
                 submitted_date: filed.and_then(submitted_date),
                 manual_filing: None,
+                differences: Vec::new(),
                 next_command,
                 message,
             };
@@ -409,17 +418,22 @@ impl ProcessEngine {
                      filed again. Do not file before that."
                 ),
             ),
-            (Finding::Other, _) => status(
-                FileVatFilingStatus::FilingInterrupted,
-                Some(&filed),
-                None,
-                format!(
-                    "The Run was interrupted while sending the return, and the Tax \
-                     Administration answers with status {remote}, which neither matches the \
-                     approved return nor says it has none. Compare the return in OmaVero and \
-                     check again later; do not file again."
-                ),
-            ),
+            (Finding::Other { differences }, _) => {
+                let mut answered = status(
+                    FileVatFilingStatus::FilingInterrupted,
+                    Some(&filed),
+                    None,
+                    format!(
+                        "The Run was interrupted while sending the return, and the Tax \
+                         Administration answers with status {remote}, which neither matches \
+                         the approved return nor says it has none.{} Compare the return in \
+                         OmaVero and check again later; do not file again.",
+                        describe_differences(&differences)
+                    ),
+                );
+                answered.differences = differences;
+                answered
+            }
         })
     }
 
@@ -536,8 +550,8 @@ fn classify(
     submitted_date: Option<&str>,
     query: &FiledVatQuery,
     receipt: &VatFilingReceipt,
-) -> (FileVatFilingStatus, String) {
-    match filed.status.as_deref() {
+) -> (FileVatFilingStatus, String, Vec<VatValueDifference>) {
+    let (status, detail) = match filed.status.as_deref() {
         Some("Missing") => (
             FileVatFilingStatus::Received,
             "The return is not visible in GetFiledVATReturn yet; processing and OmaVero \
@@ -558,6 +572,7 @@ fn classify(
                     "The authority shows a processed return, but its submission date cannot be \
                      compared with the receipt, so it cannot be identified as this filing."
                         .into(),
+                    Vec::new(),
                 );
             };
             // The receipt timestamp is UTC (or carries its offset) and the authority's
@@ -571,23 +586,29 @@ fn classify(
                          filing is awaiting processing."
                     ),
                 )
-            } else if filed.semantically_matches(&query.expected) {
-                (
-                    FileVatFilingStatus::Processed,
-                    format!(
-                        "The Tax Administration has processed the return (submitted \
-                         {submitted}) with the approved values."
-                    ),
-                )
             } else {
-                (
-                    FileVatFilingStatus::ProcessedValuesDiffer,
-                    format!(
+                let differences = filed.value_differences(&query.expected);
+                if differences.is_empty() {
+                    (
+                        FileVatFilingStatus::Processed,
+                        format!(
+                            "The Tax Administration has processed the return (submitted \
+                             {submitted}) with the approved values."
+                        ),
+                    )
+                } else {
+                    let detail = format!(
                         "The authority shows a processed return submitted {submitted} whose \
-                         values differ from the approved request. Compare it in OmaVero; a \
-                         correction is a replacement return with its own approval."
-                    ),
-                )
+                         values differ from the approved request.{} Compare it in OmaVero; a \
+                         correction is a replacement return with its own approval.",
+                        describe_differences(&differences)
+                    );
+                    return (
+                        FileVatFilingStatus::ProcessedValuesDiffer,
+                        detail,
+                        differences,
+                    );
+                }
             }
         }
         other => (
@@ -597,7 +618,8 @@ fn classify(
                 other.unwrap_or("(none)")
             ),
         ),
-    }
+    };
+    (status, detail, Vec::new())
 }
 
 fn receipt_date(accepted_timestamp: &str) -> Option<&str> {

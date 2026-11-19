@@ -43,7 +43,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
 use aggountant_broker::{
-    AttemptOutcome, Broker, FileVatReceipt, FileVatReturn, FiledVatReturn, SVC_VERO_FILE_VAT_RETURN,
+    AttemptOutcome, Broker, FileVatReceipt, FileVatReturn, FiledVatReturn, VatValueDifference,
+    SVC_VERO_FILE_VAT_RETURN,
 };
 use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
 use aggountant_ledger::{Ledger, ManualVatFilingEvidence};
@@ -103,6 +104,9 @@ pub struct FileVatReconcile {
     pub authority_checks: Vec<AuthorityCheck>,
     /// After a "not found": the earliest instant a second one counts.
     pub next_check_from: Option<DateTime<Utc>>,
+    /// Where the processed return the authority shows differs from the approved
+    /// request; empty unless this read found one that differs.
+    pub differences: Vec<VatValueDifference>,
     pub message: String,
 }
 
@@ -252,6 +256,7 @@ impl ProcessEngine {
             self.finish_filing_postcondition(&journal, &f2, &state)?;
             Ok((FileVatReconcileOutcome::Adopted, None, None, message))
         };
+        let mut differences = Vec::new();
         let (outcome, remote_status, next_check_from, message) = match route {
             // The fiscal filing landed and the Run stopped before journalling it: the
             // books already hold the filing, so only the Run catches up.
@@ -310,11 +315,29 @@ impl ProcessEngine {
                     Reach::Refused { since: attempted }
                 };
                 self.reconcile_with_authority(
-                    &journal, &f, run_id, &state, &period, broker, clock, &reach, false,
+                    &journal,
+                    &f,
+                    run_id,
+                    &state,
+                    &period,
+                    broker,
+                    clock,
+                    &reach,
+                    false,
+                    &mut differences,
                 )?
             }
             Route::Interrupted(reach) => self.reconcile_with_authority(
-                &journal, &f, run_id, &state, &period, broker, clock, &reach, true,
+                &journal,
+                &f,
+                run_id,
+                &state,
+                &period,
+                broker,
+                clock,
+                &reach,
+                true,
+                &mut differences,
             )?,
         };
         let events = journal.read_all()?;
@@ -324,6 +347,7 @@ impl ProcessEngine {
             remote_status,
             authority_checks: authority_checks(&events)?,
             next_check_from,
+            differences,
             message,
         })
     }
@@ -331,7 +355,9 @@ impl ProcessEngine {
     /// Ask GetFiledVATReturn about the period and act on the answer (see the module
     /// docs). `interrupted` says the Run stopped mid-dispatch rather than parking on
     /// a rejection; such a Run whose request never reached the authority is closed
-    /// on one "not found", because nothing of it can surface later.
+    /// on one "not found", because nothing of it can surface later. A processed
+    /// return that differs from the approved request leaves its differences in
+    /// `differences` and names them in the message.
     #[allow(clippy::too_many_arguments)]
     fn reconcile_with_authority(
         &self,
@@ -344,6 +370,7 @@ impl ProcessEngine {
         clock: &dyn Clock,
         reach: &Reach,
         interrupted: bool,
+        differences: &mut Vec<VatValueDifference>,
     ) -> Result<ReconcileStep, ProcessError> {
         let expected = approved_filing_request(state)?;
         let envelope = filed_vat_return_envelope(&expected, format!("reconcile:{}", state.period))?;
@@ -355,7 +382,11 @@ impl ProcessEngine {
         let remote_status = filed.status.clone();
         let status = remote_status.as_deref().unwrap_or("(none)").to_string();
 
-        let step = match judge(&filed, &expected, reach) {
+        let finding = judge(&filed, &expected, reach);
+        if let Finding::Other { differences: found } = &finding {
+            differences.clone_from(found);
+        }
+        let step = match finding {
             // This Run's request provably did not reach the authority, so a processed
             // return is someone else's filing, never this Run's to record.
             Finding::Matches if interrupted && matches!(reach, Reach::Refused { .. }) => {
@@ -419,7 +450,7 @@ impl ProcessEngine {
                     None,
                 )
             }
-            Finding::Other if matches!(reach, Reach::Refused { .. }) => {
+            Finding::Other { .. } if matches!(reach, Reach::Refused { .. }) => {
                 record_authority_check(journal, f, &status, checked_at)?;
                 (
                     FileVatReconcileOutcome::Unresolved,
@@ -483,7 +514,8 @@ impl ProcessEngine {
                 }
             }
         };
-        let (outcome, message, next_check_from) = step;
+        let (outcome, mut message, next_check_from) = step;
+        message.push_str(&describe_differences(differences));
         Ok((outcome, remote_status, next_check_from, message))
     }
 
@@ -638,7 +670,11 @@ pub(super) enum Finding {
     Matches,
     /// No return for the period.
     NotFound,
-    Other,
+    /// Anything else. `differences` names the amounts of a processed return,
+    /// submitted on or after the attempt, that differ from the approved request.
+    Other {
+        differences: Vec<VatValueDifference>,
+    },
 }
 
 /// One rule for `file-vat status` and `file-vat reconcile`.
@@ -649,13 +685,27 @@ pub(super) fn judge(filed: &FiledVatReturn, expected: &FileVatReturn, reach: &Re
     };
     // SubmittedDate is a Finnish calendar date, compared with the attempt's.
     let earliest = finnish_date(*since).to_string();
-    if filed.semantically_matches_attempt(expected, Some(&earliest)) {
-        Finding::Matches
-    } else if filed.status.as_deref() == Some(NOT_FOUND) {
-        Finding::NotFound
-    } else {
-        Finding::Other
+    match filed.processed_differences(expected, Some(&earliest)) {
+        Some(differences) if differences.is_empty() => Finding::Matches,
+        Some(differences) => Finding::Other { differences },
+        None if filed.status.as_deref() == Some(NOT_FOUND) => Finding::NotFound,
+        None => Finding::Other {
+            differences: Vec::new(),
+        },
     }
+}
+
+/// ` Differs: 301 VATOnDomesticSalesByTaxRate.HighVATRate: approved 255, authority 0; …`
+/// for a message, or nothing when there is no difference to name.
+pub(super) fn describe_differences(differences: &[VatValueDifference]) -> String {
+    if differences.is_empty() {
+        return String::new();
+    }
+    let listed: Vec<String> = differences
+        .iter()
+        .map(VatValueDifference::describe)
+        .collect();
+    format!(" Differs: {}.", listed.join("; "))
 }
 
 fn parse_instant(value: &str) -> Result<DateTime<Utc>, ProcessError> {

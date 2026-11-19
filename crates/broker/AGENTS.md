@@ -42,6 +42,14 @@ the adapter passes one when configured, but nothing fetches it.
   return was lost, and a delay before OmaVero shows the return is not a reason
   to send again: the Run stays in `NeedsAttention` with the deadline and the
   manual options.
+- **The value comparison is by amount, not by JSON shape.** GetFiledVATReturn/v2
+  returns every amount of every group, zeros included, while the request
+  carries only the reported fields, so a missing or null amount is zero and
+  numbers and numeric strings compare as decimals. An amount the comparison
+  cannot read (an unknown key holding a non-zero value, a group that is not an
+  object) is a difference, never ignored: a false match would adopt someone
+  else's return. The mock answers in the schema's shape so that end-to-end
+  tests exercise this.
 - **After an accepted return, every later filing for the period is a
   replacement return** with all values and a reason, and needs a new explicit
   approval. A blind second "first" filing would silently become an unintended

@@ -330,115 +330,315 @@ impl<'de> Deserialize<'de> for FiledVatReturn {
     }
 }
 
+/// One amount where the authority's processed return differs from the approved
+/// request. `approved` and `authority` are JSON numbers; `authority` is the raw
+/// answer when it is not an amount at all. Amounts only, never personal data.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct VatValueDifference {
+    /// The FileVATReturn/v2 request path, such as
+    /// `VATOnDomesticSalesByTaxRate.HighVATRate`.
+    pub field: String,
+    /// The VAT return field number (301 to 318) when the path is one aggountant
+    /// sends.
+    pub return_field: Option<u16>,
+    pub approved: Value,
+    pub authority: Value,
+}
+
+impl VatValueDifference {
+    /// `301 VATOnDomesticSalesByTaxRate.HighVATRate: approved 255, authority 0`.
+    pub fn describe(&self) -> String {
+        let field = match self.return_field {
+            Some(number) => format!("{number} {}", self.field),
+            None => self.field.clone(),
+        };
+        format!(
+            "{field}: approved {}, authority {}",
+            self.approved, self.authority
+        )
+    }
+}
+
+/// The amount groups of the request and where GetFiledVATReturn/v2 reports them.
+/// `DeductibleVAT` is a top-level request amount that the answer nests in
+/// `DeductibleTax`, beside VAT-relief keys aggountant never sends.
+const AMOUNT_GROUPS: [(&str, &str); 3] = [
+    ("VATOnDomesticSalesByTaxRate", "VATOnDomesticSales"),
+    ("VATOnPurchasesAndImports", "VATOnPurchasesAndImports"),
+    ("SalesPurchasesImports", "SalesPurchasesImports"),
+];
+
+/// The top-level answer keys the comparison reads or deliberately leaves out;
+/// `Status` is held apart. The net tax is derived from the compared amounts.
+const ANSWER_KEYS_READ: [&str; 7] = [
+    "SubmittedDate",
+    "VATOnCashBasis",
+    "VATOnDomesticSales",
+    "VATOnPurchasesAndImports",
+    "DeductibleTax",
+    "SalesPurchasesImports",
+    "TaxPayableOrNegativeTaxThatQualifiesForRefund",
+];
+
 impl FiledVatReturn {
     pub fn semantically_matches(&self, expected: &FileVatReturn) -> bool {
         self.semantically_matches_attempt(expected, None)
     }
 
+    /// The approved return, processed on or after `earliest_submitted_date`, with
+    /// every amount equal to the approved request.
     pub fn semantically_matches_attempt(
         &self,
         expected: &FileVatReturn,
         earliest_submitted_date: Option<&str>,
     ) -> bool {
-        // Being Processed may still expose the previous return's values, so it is
-        // never sufficient evidence for recovery of the just-attempted filing. An
-        // answer without a status says nothing either: a no-activity return has no
-        // amounts to compare, so its date alone would otherwise count as proof.
+        self.processed_differences(expected, earliest_submitted_date)
+            .is_some_and(|differences| differences.is_empty())
+    }
+
+    /// How a processed return differs from the approved request: empty when the
+    /// amounts match. `None` when the answer is not a processed return submitted on
+    /// or after `earliest_submitted_date`, so its amounts say nothing about this
+    /// filing. Being Processed may still expose the previous return's values, and
+    /// an answer without a status proves nothing either.
+    pub fn processed_differences(
+        &self,
+        expected: &FileVatReturn,
+        earliest_submitted_date: Option<&str>,
+    ) -> Option<Vec<VatValueDifference>> {
         if self.status.as_deref() != Some("Processed") {
-            return false;
+            return None;
         }
         if let Some(earliest) = earliest_submitted_date {
-            let Some(submitted) = self.values.get("SubmittedDate").and_then(Value::as_str) else {
-                return false;
-            };
+            let submitted = self.values.get("SubmittedDate").and_then(Value::as_str)?;
             if submitted < earliest {
-                return false;
+                return None;
             }
         }
-        let expected_details = expected.vat_details.as_ref();
-        let no_activity = expected.no_activity == Some(true);
-        if no_activity && expected_details.is_some() {
-            return false;
-        }
-        // A no-activity return has no details; its remote amounts are checked below.
+        Some(self.value_differences(expected))
+    }
+
+    /// Compare the amounts of this answer with the approved request, field by
+    /// field. GetFiledVATReturn/v2 returns every amount of every group (zeros
+    /// included) while the request carries only the fields that were reported, so
+    /// a field missing or null on either side is zero, and numbers and numeric
+    /// strings compare as decimals. A value the request never carries (an unknown
+    /// key, VAT relief, payment-basis accounting) is ignored only while it holds
+    /// nothing: an amount the comparison does not know must never let a
+    /// different return pass as the approved one. The net tax is derived from the
+    /// compared amounts and is not compared itself.
+    pub fn value_differences(&self, expected: &FileVatReturn) -> Vec<VatValueDifference> {
+        let mut differences = Vec::new();
         let empty = Map::new();
-        let details = if no_activity {
-            &empty
-        } else {
-            match expected_details.and_then(Value::as_object) {
-                Some(details) => details,
-                None => return false,
+        let details = match (expected.no_activity == Some(true), &expected.vat_details) {
+            (true, None) => &empty,
+            (false, Some(Value::Object(details))) => details,
+            // An approved request that contradicts itself never matches anything.
+            (_, other) => {
+                differences.push(VatValueDifference {
+                    field: "VATDetails".into(),
+                    return_field: None,
+                    approved: other.clone().unwrap_or(Value::Null),
+                    authority: Value::Null,
+                });
+                return differences;
             }
         };
-        let mut expected_semantic = Map::new();
-        if let Some(value) = details.get("VATOnDomesticSalesByTaxRate") {
-            expected_semantic.insert("VATOnDomesticSales".into(), value.clone());
-        }
-        if let Some(value) = details.get("VATOnPurchasesAndImports") {
-            expected_semantic.insert("VATOnPurchasesAndImports".into(), value.clone());
-        }
-        if let Some(value) = details.get("DeductibleVAT") {
-            expected_semantic.insert("DeductibleVAT".into(), value.clone());
-        }
-        if let Some(value) = details.get("SalesPurchasesImports") {
-            expected_semantic.insert("SalesPurchasesImports".into(), value.clone());
-        }
 
-        let mut actual_semantic = Map::new();
-        for key in [
-            "VATOnDomesticSales",
-            "VATOnPurchasesAndImports",
-            "SalesPurchasesImports",
-        ] {
-            if let Some(value) = self.values.get(key).filter(|value| !value.is_null()) {
-                actual_semantic.insert(key.into(), value.clone());
+        for (request_group, answer_group) in AMOUNT_GROUPS {
+            let approved = details.get(request_group);
+            let authority = self.values.get(answer_group);
+            let (Some(approved), Some(authority)) = (
+                group_object(approved, &empty),
+                group_object(authority, &empty),
+            ) else {
+                differences.push(VatValueDifference {
+                    field: request_group.into(),
+                    return_field: None,
+                    approved: approved.cloned().unwrap_or(Value::Null),
+                    authority: authority.cloned().unwrap_or(Value::Null),
+                });
+                continue;
+            };
+            for (name, value) in approved {
+                compare_amount(
+                    &mut differences,
+                    format!("{request_group}.{name}"),
+                    return_field_number(request_group, name),
+                    Some(value),
+                    authority.get(name),
+                );
+            }
+            for (name, value) in authority {
+                if !approved.contains_key(name) {
+                    unapproved_value(
+                        &mut differences,
+                        format!("{request_group}.{name}"),
+                        return_field_number(request_group, name),
+                        value,
+                    );
+                }
             }
         }
-        if let Some(value) = self
-            .values
-            .get("DeductibleTax")
-            .and_then(Value::as_object)
-            .and_then(|value| value.get("DeductibleVAT"))
-            .filter(|value| !value.is_null())
-        {
-            actual_semantic.insert("DeductibleVAT".into(), value.clone());
+
+        // The answer nests DeductibleVAT beside the VAT-relief fields of periods
+        // before 2025, which aggountant never sends: relief there is another return.
+        match group_object(self.values.get("DeductibleTax"), &empty) {
+            Some(tax) => {
+                compare_amount(
+                    &mut differences,
+                    "DeductibleVAT".into(),
+                    return_field_number("", "DeductibleVAT"),
+                    details.get("DeductibleVAT"),
+                    tax.get("DeductibleVAT"),
+                );
+                for (name, value) in tax.iter().filter(|(name, _)| *name != "DeductibleVAT") {
+                    unapproved_value(
+                        &mut differences,
+                        format!("DeductibleTax.{name}"),
+                        None,
+                        value,
+                    );
+                }
+            }
+            None => differences.push(VatValueDifference {
+                field: "DeductibleVAT".into(),
+                return_field: return_field_number("", "DeductibleVAT"),
+                approved: details.get("DeductibleVAT").cloned().unwrap_or(Value::Null),
+                authority: self.values["DeductibleTax"].clone(),
+            }),
         }
-        let mut expected = Value::Object(expected_semantic);
-        let mut actual = Value::Object(actual_semantic);
-        if no_activity {
-            // A no-activity return carries no amounts. A remote return reporting a
-            // non-zero amount is some other return, however the zeros are shown.
-            return !has_nonzero_amount(&actual);
+        // Payment-basis accounting is never sent, so it can only be off.
+        if let Some(value) = self.values.get("VATOnCashBasis") {
+            unapproved_value(&mut differences, "VATOnCashBasis".into(), None, value);
         }
-        normalize_numbers(&mut expected);
-        normalize_numbers(&mut actual);
-        expected == actual
+        // An amount anywhere else in the answer (a renamed or new group) is one
+        // the comparison cannot place, so it is a difference rather than unseen.
+        for (name, value) in &self.values {
+            if !ANSWER_KEYS_READ.contains(&name.as_str()) && holds_amount(value) {
+                differences.push(VatValueDifference {
+                    field: name.clone(),
+                    return_field: None,
+                    approved: Value::Null,
+                    authority: value.clone(),
+                });
+            }
+        }
+
+        // Anything else in the approved details is outside what aggountant sends;
+        // it can only match when it carries nothing.
+        for (name, value) in details {
+            let known =
+                name == "DeductibleVAT" || AMOUNT_GROUPS.iter().any(|(group, _)| group == name);
+            if !known && carries_value(value) {
+                differences.push(VatValueDifference {
+                    field: name.clone(),
+                    return_field: None,
+                    approved: value.clone(),
+                    authority: Value::Null,
+                });
+            }
+        }
+        differences
     }
 }
 
-fn has_nonzero_amount(value: &Value) -> bool {
+/// A group as an object; a missing or null group has no amounts. Anything else
+/// is not a shape the schema allows.
+fn group_object<'a>(
+    value: Option<&'a Value>,
+    empty: &'a Map<String, Value>,
+) -> Option<&'a Map<String, Value>> {
     match value {
-        Value::Number(number) => {
-            Decimal::from_str(&number.to_string()).map_or(true, |amount| !amount.is_zero())
+        None | Some(Value::Null) => Some(empty),
+        Some(Value::Object(object)) => Some(object),
+        Some(_) => None,
+    }
+}
+
+fn compare_amount(
+    differences: &mut Vec<VatValueDifference>,
+    field: String,
+    return_field: Option<u16>,
+    approved: Option<&Value>,
+    authority: Option<&Value>,
+) {
+    let shown = |value: Option<&Value>, parsed: &Result<Decimal, ()>| match parsed {
+        Ok(amount) => amount_json(*amount),
+        Err(()) => value.cloned().unwrap_or(Value::Null),
+    };
+    let (left, right) = (amount(approved), amount(authority));
+    if matches!((&left, &right), (Ok(a), Ok(b)) if a == b) {
+        return;
+    }
+    differences.push(VatValueDifference {
+        field,
+        return_field,
+        approved: shown(approved, &left),
+        authority: shown(authority, &right),
+    });
+}
+
+/// A value the authority shows where the approved request has none: a
+/// difference unless it carries nothing (null, false or a zero amount).
+fn unapproved_value(
+    differences: &mut Vec<VatValueDifference>,
+    field: String,
+    return_field: Option<u16>,
+    value: &Value,
+) {
+    if carries_value(value) {
+        compare_amount(differences, field, return_field, None, Some(value));
+    }
+}
+
+/// A non-zero number or numeric string anywhere inside `value`. Text such as an
+/// identifier or a date is not an amount.
+fn holds_amount(value: &Value) -> bool {
+    match value {
+        Value::Object(values) => values.values().any(holds_amount),
+        Value::Array(values) => values.iter().any(holds_amount),
+        Value::Number(_) | Value::String(_) => {
+            matches!(amount(Some(value)), Ok(found) if !found.is_zero())
         }
-        Value::String(text) => Decimal::from_str(text).is_ok_and(|amount| !amount.is_zero()),
-        Value::Array(values) => values.iter().any(has_nonzero_amount),
-        Value::Object(values) => values.values().any(has_nonzero_amount),
         _ => false,
     }
 }
 
-fn normalize_numbers(value: &mut Value) {
+fn carries_value(value: &Value) -> bool {
     match value {
-        Value::Number(number) => {
-            if let Ok(decimal) = Decimal::from_str(&number.to_string()) {
-                *value = Value::String(decimal.normalize().to_string());
-            }
-        }
-        Value::Array(values) => values.iter_mut().for_each(normalize_numbers),
-        Value::Object(values) => values.values_mut().for_each(normalize_numbers),
-        _ => {}
+        Value::Null | Value::Bool(false) => false,
+        other => !matches!(amount(Some(other)), Ok(zero) if zero.is_zero()),
     }
+}
+
+/// An amount as a decimal: missing and null are zero, a JSON number or a numeric
+/// string is its value, anything else is not an amount.
+fn amount(value: Option<&Value>) -> Result<Decimal, ()> {
+    let text = match value {
+        None | Some(Value::Null) => return Ok(Decimal::ZERO),
+        Some(Value::Number(number)) => number.to_string(),
+        Some(Value::String(text)) => text.trim().to_owned(),
+        Some(_) => return Err(()),
+    };
+    Decimal::from_str(&text)
+        .or_else(|_| Decimal::from_scientific(&text))
+        .map_err(|_| ())
+}
+
+fn amount_json(amount: Decimal) -> Value {
+    let text = amount.normalize().to_string();
+    Number::from_str(&text).map_or(Value::String(text), Value::Number)
+}
+
+/// The VAT return field number of a request path aggountant sends.
+fn return_field_number(group: &str, name: &str) -> Option<u16> {
+    VatReturnField::ALL
+        .iter()
+        .copied()
+        .filter(|field| *field != VatReturnField::Field308)
+        .find(|field| api_field(*field) == (group, name))
+        .map(VatReturnField::number)
 }
 
 #[derive(Clone)]
@@ -1144,5 +1344,246 @@ mod tests {
             &FilingContactPhone::parse("04012345").unwrap(),
         )
         .is_ok());
+    }
+
+    /// Esimerkki Oy's October: 25.5 % domestic sales with 255,00 VAT and one
+    /// purchase deduction of 102,00, as `file-vat` projects and approves it.
+    fn october_request() -> FileVatReturn {
+        let mut fields = VatReturnFields::new();
+        fields
+            .try_insert(VatReturnField::Field301, eur("255.00"))
+            .unwrap();
+        fields
+            .try_insert(VatReturnField::Field307, eur("102.00"))
+            .unwrap();
+        fields
+            .try_insert(VatReturnField::Field308, eur("153.00"))
+            .unwrap();
+        project_file_vat_return(
+            &PeriodId::parse("2026-10").unwrap(),
+            &fields,
+            &BusinessId::parse("1234567-1").unwrap(),
+            &FilingContactName::parse("Esimerkki Oy").unwrap(),
+            &FilingContactPhone::parse("+358401234567").unwrap(),
+        )
+        .unwrap()
+    }
+
+    /// A GetFiledVATReturn/v2 answer for October as the schema shapes it: every
+    /// required amount present, zeros included, plus keys the request never has.
+    fn october_answer() -> Value {
+        json!({
+            "Status": "Processed",
+            "SubmittedDate": "2026-11-12",
+            "VATOnCashBasis": false,
+            "VATOnDomesticSales": {"HighVATRate": 255.0, "MediumVATRate": 0.0, "LowVATRate": 0.0},
+            "VATOnPurchasesAndImports": {
+                "GoodsFromEUMemberStates": 0.0,
+                "ServicesFromEUMemberStates": 0.0,
+                "ImportOfGoodsOutsideEU": 0.0,
+                "ConstructionServicesAndScrapMetal": 0.0
+            },
+            "DeductibleTax": {
+                "DeductibleVAT": 102.0,
+                "FileVATRelief": false,
+                "TurnoverForVATRelief": 0.0,
+                "TaxForVATRelief": 0.0,
+                "AmountOfVATRelief": 0.0
+            },
+            "TaxPayableOrNegativeTaxThatQualifiesForRefund": 153.0,
+            "SalesPurchasesImports": {
+                "ZeroVATRateTurnover": 0.0,
+                "SalesOfGoodsToEUMemberStates": 0.0,
+                "SalesOfServicesToEUMemberStates": 0.0,
+                "PurchasesOfGoodsFromEUMemberStates": 0.0,
+                "PurchasesOfServicesFromEUMemberStates": 0.0,
+                "ImportsOfGoodsFromOutsideEU": 0.0,
+                "SalesOfConstructionServicesAndScrapMetal": 0.0,
+                "PurchasesOfConstructionServicesAndScrapMetal": 0.0
+            }
+        })
+    }
+
+    fn differences(answer: Value) -> Vec<VatValueDifference> {
+        let filed: FiledVatReturn = serde_json::from_value(answer).unwrap();
+        filed.value_differences(&october_request())
+    }
+
+    #[test]
+    fn the_schema_shaped_answer_matches_the_request_it_processed() {
+        // The request carries two amounts; the answer carries every amount of
+        // every group as zero plus the net tax and VAT-relief keys.
+        assert_eq!(differences(october_answer()), vec![]);
+        let filed: FiledVatReturn = serde_json::from_value(october_answer()).unwrap();
+        assert!(filed.semantically_matches_attempt(&october_request(), Some("2026-11-01")));
+    }
+
+    #[test]
+    fn structural_variants_of_the_same_amounts_match() {
+        let mut variants = Vec::new();
+        // A zero-valued group or key omitted by the authority, or null.
+        let mut omitted = october_answer();
+        let answer = omitted.as_object_mut().unwrap();
+        answer.remove("VATOnPurchasesAndImports");
+        answer["SalesPurchasesImports"] = Value::Null;
+        answer["VATOnDomesticSales"]
+            .as_object_mut()
+            .unwrap()
+            .remove("LowVATRate");
+        variants.push(omitted);
+        // Numeric strings instead of numbers, with other scales.
+        let mut strings = october_answer();
+        strings["VATOnDomesticSales"]["HighVATRate"] = json!("255");
+        strings["VATOnDomesticSales"]["MediumVATRate"] = json!("0.00");
+        strings["DeductibleTax"]["DeductibleVAT"] = json!(" 102.000 ");
+        variants.push(strings);
+        // An extra zero-valued key in a group, in another key order.
+        let mut extra = october_answer();
+        extra["VATOnDomesticSales"] = json!({
+            "LowVATRate": 0, "ReducedVATRate135": 0.0, "MediumVATRate": 0, "HighVATRate": 255
+        });
+        variants.push(extra);
+        // Exponent notation for a number.
+        let mut exponent = october_answer();
+        exponent["DeductibleTax"]["DeductibleVAT"] = serde_json::from_str("1.02e2").unwrap();
+        variants.push(exponent);
+        for variant in variants {
+            assert_eq!(differences(variant.clone()), vec![], "{variant}");
+        }
+
+        // A key present with zero in the request but omitted from the answer.
+        let mut request = october_request();
+        request.vat_details.as_mut().unwrap()["VATOnPurchasesAndImports"] =
+            json!({"GoodsFromEUMemberStates": 0.00});
+        let mut answer = october_answer();
+        answer
+            .as_object_mut()
+            .unwrap()
+            .remove("VATOnPurchasesAndImports");
+        let filed: FiledVatReturn = serde_json::from_value(answer).unwrap();
+        assert_eq!(filed.value_differences(&request), vec![]);
+    }
+
+    #[test]
+    fn a_genuine_amount_difference_is_named_with_both_values() {
+        let mut answer = october_answer();
+        answer["VATOnDomesticSales"]["HighVATRate"] = json!(250.0);
+        answer["VATOnPurchasesAndImports"]["GoodsFromEUMemberStates"] = json!("12.50");
+        let found = differences(answer.clone());
+        assert_eq!(
+            found,
+            vec![
+                VatValueDifference {
+                    field: "VATOnDomesticSalesByTaxRate.HighVATRate".into(),
+                    return_field: Some(301),
+                    approved: json!(255),
+                    authority: json!(250),
+                },
+                VatValueDifference {
+                    field: "VATOnPurchasesAndImports.GoodsFromEUMemberStates".into(),
+                    return_field: Some(305),
+                    approved: json!(0),
+                    authority: json!(12.5),
+                },
+            ]
+        );
+        assert_eq!(
+            found[0].describe(),
+            "301 VATOnDomesticSalesByTaxRate.HighVATRate: approved 255, authority 250"
+        );
+        let filed: FiledVatReturn = serde_json::from_value(answer).unwrap();
+        assert!(!filed.semantically_matches(&october_request()));
+        assert_eq!(
+            filed.processed_differences(&october_request(), None),
+            Some(found)
+        );
+
+        let mut deduction = october_answer();
+        deduction["DeductibleTax"]["DeductibleVAT"] = json!(0.0);
+        assert_eq!(
+            differences(deduction),
+            vec![VatValueDifference {
+                field: "DeductibleVAT".into(),
+                return_field: Some(307),
+                approved: json!(102),
+                authority: json!(0),
+            }]
+        );
+    }
+
+    #[test]
+    fn an_amount_the_comparison_cannot_read_never_matches() {
+        // An unknown key holding an amount: some other return, not this one.
+        let mut extra = october_answer();
+        extra["SalesPurchasesImports"]["SalesOfSomethingNew"] = json!(40.0);
+        assert_eq!(
+            differences(extra),
+            vec![VatValueDifference {
+                field: "SalesPurchasesImports.SalesOfSomethingNew".into(),
+                return_field: None,
+                approved: json!(0),
+                authority: json!(40),
+            }]
+        );
+        // VAT relief or payment-basis accounting, which aggountant never sends.
+        let mut relief = october_answer();
+        relief["VATOnCashBasis"] = json!(true);
+        relief["DeductibleTax"]["FileVATRelief"] = json!(true);
+        relief["DeductibleTax"]["TaxForVATRelief"] = json!(153.0);
+        let fields: Vec<String> = differences(relief)
+            .into_iter()
+            .map(|difference| difference.field)
+            .collect();
+        assert_eq!(
+            fields,
+            [
+                "DeductibleTax.FileVATRelief",
+                "DeductibleTax.TaxForVATRelief",
+                "VATOnCashBasis"
+            ]
+        );
+        // An amount outside the groups the comparison reads, as with a renamed
+        // group; text that is not an amount is not one.
+        let mut renamed = october_answer();
+        let answer = renamed.as_object_mut().unwrap();
+        let sales = answer.remove("VATOnDomesticSales").unwrap();
+        answer.insert("VATOnDomesticSalesByTaxRate".into(), sales);
+        answer.insert("BusinessId".into(), json!("1234567-1"));
+        let found = differences(renamed);
+        assert_eq!(
+            found.iter().map(|d| d.field.as_str()).collect::<Vec<_>>(),
+            [
+                "VATOnDomesticSalesByTaxRate.HighVATRate",
+                "VATOnDomesticSalesByTaxRate"
+            ]
+        );
+        // A known amount that is not a number, and a group that is not an object.
+        let mut text = october_answer();
+        text["DeductibleTax"]["DeductibleVAT"] = json!("n/a");
+        let found = differences(text);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].authority, json!("n/a"));
+        let mut rows = october_answer();
+        rows["VATOnDomesticSales"] = json!([{"TaxRate": 25.5, "VAT": 255.0}]);
+        let found = differences(rows);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].field, "VATOnDomesticSalesByTaxRate");
+        assert_eq!(
+            found[0].approved,
+            october_request().vat_details.unwrap()["VATOnDomesticSalesByTaxRate"]
+        );
+        // Statuses other than Processed, and an earlier submission, prove nothing.
+        let mut pending = october_answer();
+        pending["Status"] = json!("Being Processed");
+        let pending: FiledVatReturn = serde_json::from_value(pending).unwrap();
+        assert_eq!(
+            pending.processed_differences(&october_request(), None),
+            None
+        );
+        let earlier: FiledVatReturn = serde_json::from_value(october_answer()).unwrap();
+        assert_eq!(
+            earlier.processed_differences(&october_request(), Some("2026-11-13")),
+            None
+        );
     }
 }

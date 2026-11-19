@@ -132,7 +132,7 @@ fn get_filed_return_matching_reflects_latest_accepted_semantic_values() {
     assert_eq!(body["SubmittedDate"], "2026-09-14");
     assert_eq!(
         body["VATOnDomesticSales"],
-        filed["VATDetails"]["VATOnDomesticSalesByTaxRate"]
+        json!({"HighVATRate": 255.0, "MediumVATRate": 0.0, "LowVATRate": 0.0})
     );
 }
 

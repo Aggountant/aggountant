@@ -125,7 +125,7 @@ fn trusted_client_serves_all_scenarios_and_records_exact_requests() {
     assert_eq!(returned["Status"], "Processed");
     assert_eq!(
         returned["VATOnDomesticSales"],
-        filed["VATDetails"]["VATOnDomesticSalesByTaxRate"]
+        json!({"HighVATRate": 255.0, "MediumVATRate": 0.0, "LowVATRate": 0.0})
     );
 
     let requests = server.requests();

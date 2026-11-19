@@ -2,12 +2,14 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: bug
-status: open
+status: fixed
 priority: high
 preparation: ready
 lane: vat-filing
 lane_seq: 1
 collision: [crates/broker/src/vero_vat_api.rs, crates/process/src/file_vat/status.rs]
+closed: 2026-11-19
+closed_by: claude-opus-5-5
 ---
 
 # file-vat status reports processed_values_differ without saying which values, and the comparison is structural
@@ -50,3 +52,9 @@ and one purchase deduction is filed and accepted; `status` reports
    still reports `processed_values_differ`.
 3. Tests with recorded synthetic authority answers covering each structural
    variant above, plus one genuine amount difference.
+
+## Resolution
+
+### 2026-11-19T12:59:46Z · @claude-opus-5-5
+
+Comparison is now by amount against the GetFiledVATReturn/v2 schema, with differences listed in status and reconcile; see result.md.
