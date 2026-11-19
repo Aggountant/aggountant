@@ -64,6 +64,12 @@ lopuksi `ApprovePayment`. Hylkäys on `--answer reject`. Kuittaus näkyy
 `outcome.receipt.unique_identifier` ja `outcome.receipt.accepted_timestamp`. Jos
 `outcome.state` on `outcome_unknown`, `outcome.next_command` kertoo komennon,
 jolla tilanne selvitetään.
+
+Ennen hyväksyntää `file-vat start` lukee kauden Verohallinnolta. Jos luku
+epäonnistuu tai kausi ei ole ilmoitettavissa, komento päättyy virheeseen, joka
+kertoo syyn ja nimeää ajon. Mitään ei lähetetä, ja `run show` näyttää ajon tilassa
+`needs_attention` ja `reconcile`-efektin hylättynä. Mitään ei yritetä uudelleen;
+kun syy on korjattu, aloita uusi ajo.
 </details>
 
 ## Valmis, kun

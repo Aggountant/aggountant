@@ -193,8 +193,12 @@ Verohallinnon tiliä); suora reitti ei maksa mitään.
 Ajo tarkistaa valmiuden, lukee Veron kausilistan (`GetVATPeriods`) ja pysähtyy
 `ApproveFiling`-portille. Kauden pitää olla Verossa `Unfiled` tai `Missing`; muu tila
 antaa `VERO_VAT_PERIOD_NOT_FILEABLE`, ja paikallisesti jo ilmoitettu kausi
-`PERIOD_TRANSITION_CONFLICT`. Vastaus sisältää `run_id`-tunnisteen (`fv-…`), ja
-`aggountant run show --run-id` näyttää ajon portit ja efektit milloin tahansa.
+`PERIOD_TRANSITION_CONFLICT`. Jos kausilistan luku epäonnistuu tai kausi ei kelpaa,
+ajo jää tilaan `needs_attention` (`reconcile`-efekti hylätty), virhe kertoo syykoodin
+ja nimeää ajon, eikä mitään lähetetty: kerro syy käyttäjälle ja aloita korjauksen
+jälkeen uusi ajo, älä yritä samaa ajoa uudelleen. Vastaus sisältää
+`run_id`-tunnisteen (`fv-…`), ja `aggountant run show --run-id` näyttää ajon portit
+ja efektit milloin tahansa.
 
 Portti on sidottu lähetettävän pyynnön täsmällisiin tavuihin ja Veron kausitietoon.
 Esitä käyttäjälle se, minkä hän hyväksyy: yritys, kausi ja eräpäivä, numeroidut kentät

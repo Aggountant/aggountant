@@ -1346,6 +1346,85 @@ fn failed_remote_period_preflight_does_not_claim_local_filing_authority() {
     assert_eq!(start.run.status, RunStatus::AwaitingGate);
 }
 
+/// The single Run a failed `start_file_vat` left behind, and its reconcile
+/// effect's journalled rejection code.
+fn only_run_and_reconcile_rejection(engine: &ProcessEngine) -> (String, Option<String>) {
+    let runs = engine.list().unwrap();
+    assert_eq!(runs.len(), 1, "exactly one Run was created: {runs:?}");
+    let run_id = runs[0].clone();
+    let code = engine
+        .journal(&run_id)
+        .unwrap()
+        .into_iter()
+        .rev()
+        .find_map(|event| match event.payload {
+            aggountant_process::EventPayload::EffectRejected {
+                effect_key,
+                error_code,
+            } if effect_key == "reconcile" => Some(error_code),
+            _ => None,
+        });
+    (run_id, code)
+}
+
+#[test]
+fn a_failed_period_read_parks_the_run_needs_attention() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let unavailable = broker_with(
+        home.path(),
+        vec![Err(TransportError::Timeout)],
+        vec![],
+        vec![],
+    );
+    let err = engine
+        .start_file_vat(&input(), &unavailable, &PolicySet::default())
+        .unwrap_err();
+
+    let (run_id, code) = only_run_and_reconcile_rejection(&engine);
+    assert!(
+        err.to_string().contains(&run_id),
+        "error names the Run: {err}"
+    );
+    let view = engine.show(&run_id).unwrap();
+    assert_eq!(view.status, RunStatus::NeedsAttention);
+    assert_eq!(effect_status(&view, "reconcile"), EffectStatus::Rejected);
+    assert_eq!(effect_status(&view, "submit-filing"), EffectStatus::Planned);
+    assert_eq!(code.as_deref(), Some("FETCH_FAILED"));
+    assert_no_filing_attempt(&unavailable);
+}
+
+#[test]
+fn a_period_the_authority_will_not_accept_parks_the_run_needs_attention() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let filed = vec![ok(
+        200,
+        json!({"FilingPeriod":[{
+            "Period":"2026-03-31", "Frequency":"VATQTR",
+            "StartDate":"2026-01-01", "EndDate":"2026-03-31",
+            "Status":"Filed", "CustomsComparisonDataOnImportsOfGoods":0,
+            "DueDate":"2026-05-12"
+        }]}),
+    )];
+    let broker = broker_with(home.path(), filed, vec![], vec![]);
+    let err = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("VERO_VAT_PERIOD_NOT_FILEABLE"),
+        "{err}"
+    );
+
+    let (run_id, code) = only_run_and_reconcile_rejection(&engine);
+    assert_eq!(
+        engine.show(&run_id).unwrap().status,
+        RunStatus::NeedsAttention
+    );
+    assert_eq!(code.as_deref(), Some("VERO_VAT_PERIOD_NOT_FILEABLE"));
+    assert_no_filing_attempt(&broker);
+}
+
 // --- M3: preview-gate binds approval to the sent bytes ----------------------
 
 #[test]

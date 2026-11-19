@@ -67,6 +67,12 @@ and for a return with tax to pay finally at `ApprovePayment`. Rejecting is
 and `run show`, on the `submit-filing` effect: `outcome.receipt.unique_identifier`
 and `outcome.receipt.accepted_timestamp`. If `outcome.state` is
 `outcome_unknown`, `outcome.next_command` names the command that settles it.
+
+Before the approval, `file-vat start` reads the period from the Tax
+Administration. If that read fails or the period is not open for filing, the
+command fails with the reason, nothing is sent, and the error names the run,
+which `run show` shows as `needs_attention` with the `reconcile` effect
+rejected. Nothing retries it; once the cause is fixed, start a new run.
 </details>
 
 ## Done when

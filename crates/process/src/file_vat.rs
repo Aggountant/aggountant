@@ -376,55 +376,54 @@ impl ProcessEngine {
         }
 
         // ADR-9 preflight: read the authority's exact period before opening approval.
-        let periods_request = serde_json::to_string(&json!({
-            "BusinessId": input.business_id.as_str(),
-            "FilingYear": input.period.year(),
-        }))
-        .map_err(|e| ProcessError::Store(e.to_string()))?;
-        let periods_env = Envelope::new(
-            SVC_VERO_VAT_PERIODS,
-            "GetVATPeriods/v1",
-            format!("periods:{}", input.period),
-            json!({ "request_bytes": periods_request }),
-        );
-        let periods_body = broker.fetch(&periods_env).map_err(map_broker)?;
-        let periods: GetVatPeriodsResponse = serde_json::from_value(periods_body)
-            .map_err(|e| ProcessError::Store(format!("GetVATPeriods response malformed: {e}")))?;
-        let (period_start, period_end) = period_dates(&input.period)?;
-        let vero_period = periods
-            .vat_periods
-            .into_iter()
-            .find(|period| period.start_date == period_start && period.end_date == period_end)
-            .ok_or_else(|| {
-                ProcessError::Store(format!(
-                    "VERO_VAT_PERIOD_MISSING: authority did not offer period {period_start}..{period_end}"
-                ))
-            })?;
-        if !matches!(vero_period.status.as_str(), "Unfiled" | "Missing") {
-            return Err(ProcessError::Store(format!(
-                "VERO_VAT_PERIOD_NOT_FILEABLE: period {} has remote status {}",
-                vero_period.period, vero_period.status
-            )));
-        }
-        let vero_period =
-            serde_json::to_value(vero_period).map_err(|e| ProcessError::Store(e.to_string()))?;
+        // A failed or refused read ends the reconcile effect terminally (the Run
+        // shows NeedsAttention in `run show`); nothing retries it automatically.
+        let vero_period = match read_fileable_vero_period(input, broker) {
+            Ok(vero_period) => vero_period,
+            Err(PreflightFailure { code, detail }) => {
+                journal.append(EventPayload::EffectRejected {
+                    effect_key: EFFECT_RECONCILE.to_string(),
+                    error_code: code.to_string(),
+                })?;
+                return Err(ProcessError::Store(format!(
+                    "{code}: {detail}; Run {run_id} needs attention, nothing was sent \
+                     — start a new file-vat Run when the cause is fixed"
+                )));
+            }
+        };
 
         // The sole projection builds the final API request. Persist its exact bytes;
-        // approval and dispatch both bind to this same string.
-        let request = project_file_vat_return(
-            &input.period,
-            &filing.fields,
-            &input.business_id,
-            &input.contact_name,
-            &input.contact_phone,
-        )
-        .map_err(map_adapter)?;
-        let request_bytes = request.bytes().map_err(map_adapter)?;
-        let request_string = String::from_utf8(request_bytes)
-            .map_err(|e| ProcessError::Store(format!("FileVATReturn bytes are not UTF-8: {e}")))?;
-        let filing_sent_hash = request.sent_hash().map_err(map_adapter)?;
-        let filing_body = json!({ "request_bytes": request_string });
-        let filing_approval_hash = filing_approval_hash(&filing_body, &vero_period)?;
+        // approval and dispatch both bind to this same string. A projection the
+        // adapter refuses (e.g. `VERO_VAT_CROSS_FIELD`) ends the reconcile effect
+        // like a failed preflight, so the Run does not stay `executing`.
+        let projection = (|| {
+            let request = project_file_vat_return(
+                &input.period,
+                &filing.fields,
+                &input.business_id,
+                &input.contact_name,
+                &input.contact_phone,
+            )
+            .map_err(map_adapter)?;
+            let request_bytes = request.bytes().map_err(map_adapter)?;
+            let request_string = String::from_utf8(request_bytes).map_err(|e| {
+                ProcessError::Store(format!("FileVATReturn bytes are not UTF-8: {e}"))
+            })?;
+            let filing_sent_hash = request.sent_hash().map_err(map_adapter)?;
+            let filing_body = json!({ "request_bytes": request_string });
+            let filing_approval_hash = filing_approval_hash(&filing_body, &vero_period)?;
+            Ok::<_, ProcessError>((filing_body, filing_sent_hash, filing_approval_hash))
+        })();
+        let (filing_body, filing_sent_hash, filing_approval_hash) = match projection {
+            Ok(projection) => projection,
+            Err(error) => {
+                journal.append(EventPayload::EffectRejected {
+                    effect_key: EFFECT_RECONCILE.to_string(),
+                    error_code: error.error_code().to_string(),
+                })?;
+                return Err(error);
+            }
+        };
 
         // Payment remains a separate approval/effect. GetVATPeriods does not expose
         // tax-account credit, so this slice displays the filing net without pretending
@@ -1286,6 +1285,65 @@ fn rebuild_filing_env(period: &PeriodId, body: &serde_json::Value) -> Envelope {
         format!("file:{period}"),
         body.clone(),
     )
+}
+
+/// Why the ADR-9 preflight could not offer the period for filing. `code` is
+/// journalled on the rejected reconcile effect; `detail` goes to the caller.
+struct PreflightFailure {
+    code: &'static str,
+    detail: String,
+}
+
+/// Read the authority's period list and return the exact period of `input`, only
+/// if the Tax Administration still treats it as fileable (`Unfiled`/`Missing`).
+fn read_fileable_vero_period(
+    input: &FileVatInput,
+    broker: &Broker,
+) -> Result<serde_json::Value, PreflightFailure> {
+    let local = |detail: String| PreflightFailure {
+        code: "PROCESS_STORE",
+        detail,
+    };
+    let periods_request = serde_json::to_string(&json!({
+        "BusinessId": input.business_id.as_str(),
+        "FilingYear": input.period.year(),
+    }))
+    .map_err(|e| local(e.to_string()))?;
+    let periods_env = Envelope::new(
+        SVC_VERO_VAT_PERIODS,
+        "GetVATPeriods/v1",
+        format!("periods:{}", input.period),
+        json!({ "request_bytes": periods_request }),
+    );
+    let periods_body = broker.fetch(&periods_env).map_err(|e| PreflightFailure {
+        code: e.error_code(),
+        detail: format!("GetVATPeriods read failed: {e}"),
+    })?;
+    let periods: GetVatPeriodsResponse =
+        serde_json::from_value(periods_body).map_err(|e| PreflightFailure {
+            code: "VERO_VAT_PERIODS_MALFORMED",
+            detail: format!("GetVATPeriods response malformed: {e}"),
+        })?;
+    let (period_start, period_end) =
+        period_dates(&input.period).map_err(|e| local(e.to_string()))?;
+    let vero_period = periods
+        .vat_periods
+        .into_iter()
+        .find(|period| period.start_date == period_start && period.end_date == period_end)
+        .ok_or_else(|| PreflightFailure {
+            code: "VERO_VAT_PERIOD_MISSING",
+            detail: format!("authority did not offer period {period_start}..{period_end}"),
+        })?;
+    if !matches!(vero_period.status.as_str(), "Unfiled" | "Missing") {
+        return Err(PreflightFailure {
+            code: "VERO_VAT_PERIOD_NOT_FILEABLE",
+            detail: format!(
+                "period {} has remote status {}",
+                vero_period.period, vero_period.status
+            ),
+        });
+    }
+    serde_json::to_value(vero_period).map_err(|e| local(e.to_string()))
 }
 
 fn period_dates(period: &PeriodId) -> Result<(String, String), ProcessError> {
