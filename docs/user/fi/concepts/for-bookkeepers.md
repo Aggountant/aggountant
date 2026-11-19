@@ -30,6 +30,10 @@ aineistoa siitä saa ja missä sen rajat ovat.
   Sama tiedosto tunnistetaan, jos se yritetään kirjata uudelleen.
 - Alkuperäinen tiliotetiedosto arkistoidaan kerran ja liitetään jokaiseen sen
   tapahtumista syntyvään tositteeseen.
+- Yrityksen tililtä maksettu kuitti tai ostolasku kirjataan omana
+  tositteenaan ostovelkaa 2700 vastaan liitteineen, ja tiliotteen maksurivi
+  kirjataan samaa ostovelkaa vastaan. Tiliotteelta kirjatun tositteen
+  liitteenä on tiliote.
 - Liitevarasto ja tositetietokanta eivät ole gitissä, vaan omistaja
   varmuuskopioi ne erikseen
   ([Yrityskoti](company-home.md#git-ja-varmuuskopio)).
@@ -63,7 +67,6 @@ Pyydä omistajaa tai agenttia kokoamaan aineisto:
 - **Palkat** lasketaan, maksetaan ja ilmoitetaan muualla. aggountantiin
   kirjataan palkkatosite. Tulorekisteriin aggountant ilmoittaa vain
   verovapaat matkakorvaukset.
-- **Tiliotteelta kirjatun oston liitteenä on tiliote**, ei ostolaskua.
 - **Toisen yrityksen puolesta ilmoittamista ei tueta.** Yksi koti on yhden
   yrityksen kirjanpito, ja ilmoitukset lähtevät yrityksen omilla tunnuksilla.
 

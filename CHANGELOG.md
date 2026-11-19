@@ -19,6 +19,13 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 - `report statements` prints the report to stdout when `--output` is omitted
   or `-`, defaulting to `--format native-json`; with `--json` the summary
   object carries the document in `content`.
+- A receipt or purchase invoice that is also paid from the bank account is
+  now recorded against 2700 Ostovelat (2740 when the owner paid), and the
+  bank statement row is assigned to the same account to clear it, so the
+  purchase is booked once. The `capture-receipt` skill, the user guide and the
+  practice month follow this one convention; previously the skill recorded
+  receipts against the bank account and the guide left the statement row
+  undefined.
 
 <!-- oss-changelog:unreleased-end -->
 

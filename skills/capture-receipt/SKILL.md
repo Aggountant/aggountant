@@ -89,13 +89,14 @@ esikatselun tiiviste lasketaan niistä erikseen.
   "proposal": {
     "posting_date": "2026-07-16",
     "net_account": "7690",
-    "contra_account": "1910",
+    "contra_account": "2700",
     "vat": {"type": "domestic-input", "rate_class": "domestic-standard"}
   }
 }
 ```
 
-Tuntemattomat kentät hylätään. `source.document_date` on kuitin tai laskun päivä, ei
+Tuntemattomat kentät hylätään. `proposal.contra_account` kertoo, miten osto
+maksettiin; katso seuraava osio. `source.document_date` on kuitin tai laskun päivä, ei
 pankin kirjauspäivä: verokanta valitaan tästä päivästä, ja Suomen kannat ovat muuttuneet
 (yleinen kanta 25,5 % 1.9.2024 alkaen, alennettu kanta 2026 alussa). `natural_key` on
 lähteestä johdettu pysyvä tunniste. `actor` kertoo kuka valmisteli kirjauksen.
@@ -121,6 +122,48 @@ rahaa. Vaihtoehdot:
 Kaksi viimeistä ovat dataa, ei epäonnistumista: ne tuottavat ohjeellisen virheen ja
 kertovat käyttäjälle täsmälleen, mikä pitää selvittää. Tuntemattoman ALV:n merkitseminen
 `no-vat`iksi olisi hiljaa väärää kirjanpitoa, jota kukaan ei huomaa ennen ilmoitusta.
+
+### Vastatili: kun osto näkyy myös tiliotteella
+
+Yrityksen tililtä tai kortilla maksettu osto näkyy kahdessa lähteessä, kuitissa
+ja tiliotteella, ja `import camt053 seal` vaatii kirjauksen jokaiselle
+tiliotteen vahvistetulle riville (`MISSING_ASSIGNMENT`). Siksi kumpikin kirjataan
+kerran ja kumpikin kirjaa eri asian: kuitti kirjaa kulun ja ALV:n, tiliotteen
+rivi kirjaa maksun. Ne kohtaavat velkatilillä:
+
+| Miten osto maksettiin | Kuitin `contra_account` | Tiliotteen rivi |
+|---|---|---|
+| yrityksen tililtä tai kortilla | `2700` Ostovelat | `2700`, ei ALV:tä |
+| omistajan omalla rahalla | `2740` Muut lyhytaikaiset velat | takaisinmaksu `2740`, ei ALV:tä |
+| käteisellä yrityksen kassasta, eikä tiliotteella | `1900` Käteisvarat | ei riviä |
+
+Pankkitili ei ole kuitin vastatili: jos kuitti kirjataan `1910`:tä vastaan ja
+rivi tuonnissa kuluksi, sama osto on kirjanpidossa kahdesti. Tiliotteen
+maksurivi kuittaa velan näin (ei `vat_treatment`- eikä `document_date`-kenttää,
+koska ALV on jo kuitin tositteella):
+
+```json
+{"bank_ref": "<rivin bank_ref>", "bank_account": "1910",
+ "contra_postings": [{"account": "2700", "amount": {"amount": "124.00", "currency": "EUR"}}]}
+```
+
+Järjestys on vapaa: jos tiliote tuodaan ennen kuin kuitti löytyy, rivi
+kirjataan silti `2700`:aa vastaan ja myöhempi kuitti kuittaa sen. Ennen kuin
+kirjaat kuitin, tarkista, onko sen maksurivi jo sinetöity suoraan kuluksi:
+`voucher list --posting-from … --posting-to …` maksupäivän ympäriltä antaa
+ehdokkaat (ei vientejä; kavenna väliä, jos `truncated` on tosi), ja
+`voucher show <numero>` näyttää niiden viennit. Jos rivi on jo kulua, kuittia
+ei kirjata uudelleen, vaan kerro käyttäjälle, että kulu on jo kirjanpidossa
+ilman kuittia liitteenä. Rivi, jolla ei ole
+erillistä tositetta (esimerkiksi pankin palvelumaksu), kirjataan tuonnissa
+suoraan kulutilille.
+
+Kuun lopussa pankkitilin saldon pitää vastata tiliotteen loppusaldoa ja
+`2700`:n saldon vielä maksamattomien laskujen summaa. Ylimääräinen
+`2700`-saldo, kun pankki täsmää, on merkki ostosta, joka on kirjattu kuitista ja
+lisäksi tiliotteen riviltä kuluksi. Debet-saldo `2700`:lla taas on maksu,
+jonka kuittia ei ole vielä kirjattu, eli avoin kohta. Nosta kumpikin
+käyttäjälle ennen sulkua.
 
 ### Esikatselu, hyväksyntä, sinetöinti
 
@@ -174,6 +217,7 @@ kiertämiseksi tuottaisi kahdennetun tositteen.
   kertoo, ettei tilikartalla ole maksutilien rooleja, ehdota `home upgrade` -ajoa
   äläkä lisää koodia.
 - Pankin tiliotteet (CAMT.053/.052) käsittelee `aggountant import camt053`.
+  Kuitin maksurivi kirjataan velkatiliä vastaan, ks. "Vastatili" edellä.
 - Kuukauden kirjattu tilanne: `aggountant report statements`.
 - Kun toimeksianto jatkuu ALV-ilmoitukseen, vaihda `vero-fi`-skilliin. Ilmoitus saa
   oman hyväksyntänsä ja veron maksu on käyttäjän erillinen tehtävä.

@@ -26,17 +26,24 @@ approval the whole statement is sealed into vouchers at once.
 
 3. **The agent prepares a proposal.** The program does not decide accounts or
    VAT treatment. For every transaction the agent looks for a receipt or
-   invoice, looks at how similar transactions were recorded before, and
-   proposes the counter-account and, for purchases, the VAT treatment and the
-   invoice date. What it cannot work out, it asks you all together.
+   invoice and looks at how similar transactions were recorded before. When a
+   row pays a purchase that has a receipt or invoice, the receipt is recorded
+   as a voucher of its own against trade payables, and the row is recorded
+   against trade payables 2700 without VAT
+   ([When the purchase is also on the bank statement](record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
+   For other rows, such as bank service charges, the agent proposes the
+   counter-account and, for purchases, the VAT treatment. What it cannot work
+   out, it asks you all together.
 
 4. **Check and approve.** Ask to see the list row by row if the agent does not
    show it. Look at each row's date, counterparty, amount, account and VAT
    treatment. Check in particular:
    - The VAT rate was chosen from **the invoice date**, not the payment date.
-   - **No transaction ends up recorded twice.** If a row pays a receipt that
-     is already recorded as a voucher of its own, ask the agent which account
-     the row is recorded to. See "Limitations" below.
+   - **No purchase ends up recorded twice.** A row that pays a receipt or
+     invoice is recorded to 2700 Ostovelat (trade payables), or to 2740 when
+     the company pays you back for a purchase you paid with your own money,
+     not to an expense account or VAT. The expense and VAT are already on the
+     receipt's voucher.
 
    The bank statement import has no separate preview hash as receipt
    recording does. Your approval is that you look at the list before it is
@@ -77,14 +84,12 @@ same `sealed` line.
 
 - **Every confirmed transaction needs an entry.** If even one is missing or
   refers to an account that is not in the chart of accounts, the whole
-  statement is rejected and nothing is sealed. This also applies to a row that
-  pays a receipt already recorded, and there is a **risk of double booking**:
-  if the receipt was recorded directly against the bank account and the row is
-  also recorded as an expense, the same purchase is in the books twice.
-  Comparing the bank account balance with the statement reveals this before
-  the close.
+  statement is rejected and nothing is sealed. The payment row of a receipt
+  already recorded is recorded too: it clears the receipt's payable.
 - A purchase invoice cannot be attached to a voucher recorded from the bank
-  statement. The attachment is the statement.
+  statement. The attachment is the statement. That is why the invoice is
+  recorded as a voucher of its own, and the statement row records only the
+  payment.
 - VAT is split out from the statement only for purchases. A sale that
   includes VAT is recorded separately:
   [Record a sales invoice, payroll or another manual entry](record-other-entries.md).

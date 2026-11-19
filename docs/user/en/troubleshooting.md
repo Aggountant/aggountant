@@ -77,11 +77,13 @@ home, but in the wrong place it sets up new, empty books.
 
 **What probably happened.** A transaction on the statement is missing from the
 books, or the same transaction has been recorded twice. The most common cause
-of double booking is a purchase recorded first from the receipt against the
-bank account and then again from the statement row as an expense. The bank
-statement import requires an entry for every row, including the payment of a
-receipt already recorded
-([What is ready and what is not](reference/status.md#bank-statement)).
+of double booking is a receipt recorded against the bank account even though
+its payment is also recorded from the statement. A receipt's counter-account
+is trade payables 2700 (or 2740), and the statement row clears it
+([When the purchase is also on the bank statement](tasks/record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
+If the bank balance matches but trade payables hold an amount no supplier is
+owed, the same purchase was probably recorded as a payable from the receipt
+and again as an expense from the statement row.
 
 **Check.** Ask the agent to compare the month's bank account postings with the
 statement rows and find the transactions that are missing or appear twice.

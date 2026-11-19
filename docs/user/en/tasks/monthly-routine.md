@@ -21,13 +21,15 @@ ordinary month is recorded, closed and filed in one session.
    sources are enough for, and brings you the questions and the vouchers to
    approve all together, not one receipt at a time.
 
-2. **Bank statement.** The agent reads the statement, looks for the receipts
-   and proposes an entry for every transaction. You approve the list:
-   [Import the bank statement](import-bank-statement.md).
-
-3. **Receipts and invoices** that are not recorded from the statement, such as
-   purchases paid with your own card:
+2. **Receipts and invoices.** Every receipt and purchase invoice is recorded
+   as a voucher of its own. One paid from the company's account is recorded
+   as a trade payable, one paid with your own money as a debt to you:
    [Record receipts and purchase invoices](record-receipts.md).
+
+3. **Bank statement.** The agent reads the statement, looks for the receipts
+   and proposes an entry for every transaction. A receipt's payment row clears
+   the receipt's payable. You approve the list:
+   [Import the bank statement](import-bank-statement.md).
 
 4. **Other entries**, such as sales invoices, payroll vouchers and
    corrections:
@@ -41,7 +43,8 @@ ordinary month is recorded, closed and filed in one session.
    ([The company home](../concepts/company-home.md#the-homes-todomd)).
 
 6. **Check.** Check in the monthly report that the bank account balance
-   matches the statement's closing balance:
+   matches the statement's closing balance and that trade payables are only
+   the invoices not yet paid:
    [See how the month went](monthly-report.md).
 
 7. **Close**, when the month is finished: [Close the month](close-month.md).

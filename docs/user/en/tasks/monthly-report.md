@@ -24,6 +24,10 @@ check before closing the month.
 3. **Check in the report:**
    - **Pankkitili** (bank account) equals the statement's closing balance. If
      it differs, a transaction is missing or recorded twice.
+   - **Ostovelat** (trade payables) are only the sum of invoices not yet paid.
+     If an amount already paid stays there, the same purchase was probably
+     recorded both from the receipt and as an expense from the statement row
+     ([When the purchase is also on the bank statement](record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
    - **The balance sheet totals** are the same on both sides.
    - **The month's result** looks reasonable. If an expense or income item is
      unexpectedly large, ask the agent to show its vouchers.

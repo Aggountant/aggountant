@@ -197,6 +197,10 @@ example `capture-receipt` for handling receipts.
 portal that identifies registered software. Every aggountant user registers
 their own software and gets their own key. The key is secret.
 
+**Trade payables (ostovelat).** Purchases not yet paid, on account 2700
+Ostovelat. A receipt paid from the company's account is recorded as a trade
+payable, and the statement's payment row clears it.
+
 **Tulorekisteri.** The Finnish Incomes Register, a national register to which
 wages, fees and allowances are reported.
 

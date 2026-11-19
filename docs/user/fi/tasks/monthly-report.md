@@ -22,6 +22,10 @@ on paras tarkistus ennen kuukauden sulkua.
 3. **Tarkista raportista:**
    - **Pankkitili** on sama kuin tiliotteen loppusaldo. Jos se poikkeaa, jokin
      tapahtuma puuttuu tai on kirjattu kahdesti.
+   - **Ostovelat** ovat vain vielä maksamattomien laskujen summa. Jos niihin
+     jää jo maksettu summa, sama osto on todennäköisesti kirjattu sekä
+     kuitista että tiliotteen riviltä kuluksi
+     ([Kun osto näkyy myös tiliotteella](record-receipts.md#kun-osto-näkyy-myös-tiliotteella)).
    - **Taseen loppusummat** ovat samat kummallakin puolella.
    - **Kuukauden tulos** näyttää järkevältä. Jos jokin kulu tai tuotto on
      odottamattoman suuri, pyydä agenttia näyttämään sen tositteet.

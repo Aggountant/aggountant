@@ -24,18 +24,23 @@ koko tiliote sinetöidään kerralla tositteiksi.
    kirjataan siltä tiliotteelta, jolla ne ovat toteutuneet.
 
 3. **Agentti valmistelee ehdotuksen.** Ohjelma ei päätä tilejä eikä
-   ALV-käsittelyä. Agentti etsii jokaiselle tapahtumalle kuitin tai laskun,
-   katsoo, miten vastaavat tapahtumat on kirjattu aiemmin, ja ehdottaa
-   vastatilin ja ostoissa ALV-käsittelyn ja laskun päivän. Sen, mitä se ei voi
-   päätellä, se kysyy koottuna.
+   ALV-käsittelyä. Agentti etsii jokaiselle tapahtumalle kuitin tai laskun ja
+   katsoo, miten vastaavat tapahtumat on kirjattu aiemmin. Kun rivi maksaa
+   ostoa, jolla on kuitti tai lasku, kuitti kirjataan omana tositteenaan
+   ostovelkaa vastaan, ja rivi kirjataan ostovelkaa 2700 vastaan ilman ALV:tä
+   ([Kun osto näkyy myös tiliotteella](record-receipts.md#kun-osto-näkyy-myös-tiliotteella)).
+   Muille riveille, kuten pankin palvelumaksuille, agentti ehdottaa vastatilin
+   ja ostoissa ALV-käsittelyn. Sen, mitä se ei voi päätellä, se kysyy
+   koottuna.
 
 4. **Tarkista ja hyväksy.** Pyydä lista nähtäväksi riveittäin, jos agentti ei
    näytä sitä. Katso jokaiselta riviltä päivä, vastapuoli, summa, tili ja
    ALV-käsittely. Tarkista erityisesti:
    - ALV-kanta on valittu **laskun päivästä**, ei maksupäivästä.
-   - **Mikään tapahtuma ei tule kirjatuksi kahdesti.** Jos rivi maksaa kuitin,
-     joka on jo kirjattu omana tositteenaan, kysy agentilta, mille tilille rivi
-     kirjataan. Katso alta kohta "Rajoitukset".
+   - **Mikään osto ei tule kirjatuksi kahdesti.** Rivi, joka maksaa kuitin tai
+     laskun, kirjataan tilille 2700 Ostovelat (tai 2740, kun yritys maksaa
+     sinulle takaisin omalla rahallasi maksetun oston), ei kuluksi eikä
+     ALV:lle. Kulu ja ALV ovat jo kuitin tositteella.
 
    Tiliotteen tuonnissa ei ole erillistä esikatselun tunnistetta kuten kuittien
    kirjauksessa. Hyväksyntäsi on se, että katsot listan ennen sinetöintiä.
@@ -72,13 +77,11 @@ eikä niitä kirjata toista kertaa, vaikka ohjelma tulostaa saman
 
 - **Jokaiselle vahvistetulle tapahtumalle tarvitaan kirjaus.** Jos yksikin
   puuttuu tai viittaa tiliin, jota tilikartassa ei ole, koko tiliote hylätään
-  eikä mitään sinetöidä. Tämä koskee myös riviä, joka maksaa jo kirjatun
-  kuitin, ja siinä on **kahdenkertaisen kirjauksen vaara**: jos kuitti on
-  kirjattu suoraan pankkitiliä vastaan ja rivi kirjataan vielä kuluksi, sama
-  osto on kirjanpidossa kahdesti. Pankkitilin saldon vertaaminen tiliotteeseen
-  paljastaa tämän ennen sulkua.
+  eikä mitään sinetöidä. Myös jo kirjatun kuitin maksurivi kirjataan: se
+  kuittaa kuitin ostovelan.
 - Ostolaskua ei voi liittää tiliotteelta kirjattuun tositteeseen. Liitteenä on
-  tiliote.
+  tiliote. Siksi lasku kirjataan omana tositteenaan, ja tiliotteen rivi
+  kirjaa vain maksun.
 - ALV puretaan tiliotteelta vain ostoista. Myynti, johon sisältyy ALV,
   kirjataan erikseen: [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](record-other-entries.md).
 

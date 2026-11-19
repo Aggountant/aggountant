@@ -42,8 +42,9 @@ lähdekoodista Rust-työkaluilla. Tee näin:
 
 - **Jokaiselle vahvistetulle tapahtumalle tarvitaan kirjaus.** Jos yksikin
   puuttuu (`MISSING_ASSIGNMENT`) tai viittaa tiliin, jota tilikartassa ei ole
-  (`ACCOUNT_NOT_FOUND`), koko tiliote hylätään eikä mitään sinetöidä. Tämä
-  koskee myös riviä, joka maksaa jo kirjatun kuitin; katso alta.
+  (`ACCOUNT_NOT_FOUND`), koko tiliote hylätään eikä mitään sinetöidä. Myös jo
+  kirjatun kuitin maksurivi kirjataan: se kirjataan kuitin ostovelkaa
+  vastaan ([Kun osto näkyy myös tiliotteella](../tasks/record-receipts.md#kun-osto-näkyy-myös-tiliotteella)).
 - **Vain Holvin tiliote on koeteltu.** Muiden pankkien camt-tiedostot voivat
   toimia, mutta niitä ei ole koeteltu. Tarkista ensimmäisen tuonnin jälkeen,
   että pankkitilin saldo vastaa tiliotetta.
@@ -56,26 +57,11 @@ lähdekoodista Rust-työkaluilla. Tee näin:
 - **Tyhjä tiliote tuodaan onnistuneena ilman tapahtumia** eikä ohjelma kerro
   siitä erikseen. Jos tuonti antaa nolla tapahtumaa, tarkista, että tiedosto
   on oikean kuukauden ja oikean tilin tiliote (`camt-empty-report-and-rename`).
-
-### Pankkitililtä maksettu ostolasku
-
-Kun ostolasku tai kuitti on maksettu yrityksen tililtä, sama osto näkyy sekä
-kuitissa että tiliotteella. Tässä versiossa kumpikaan reitti ei ole täydellinen:
-
-- **Kirjattuna tiliotteelta** tositteen liitteenä on tiliote, ei laskua.
-  Laskua ei voi liittää tiliotteelta kirjattuun tositteeseen.
-- **Kirjattuna kuittina** lasku on liitteenä, mutta tiliotteen tuonti vaatii
-  silti kirjauksen samalle maksuriville. Jos kuitti on kirjattu pankkitiliä
-  vastaan ja maksurivi kirjataan vielä kuluksi, **sama osto on kirjanpidossa
-  kahdesti**.
-
-Ohjelma ei vielä tarjoa tapaa merkitä tiliotteen riviä jo kirjatun kuitin
-maksuksi, eikä ohje vielä kerro yhtä vakiintunutta tapaa kirjata sitä.
-Tee näin: kun hyväksyt tiliotteen kirjaukset, kysy jokaisesta rivistä, jonka
-kuitti on jo kirjattu, mille tilille agentti sen kirjaa, ja varmista, ettei
-kulu tule kahdesti. Kuukausiraportin pankkitilin saldon vertaaminen
-tiliotteeseen paljastaa kahdenkertaisen kirjauksen ennen sulkua
-(`bank-row-for-recorded-receipt`).
+- **Ohjelma ei yhdistä kuittia ja sen maksuriviä.** Kuitti ja tiliotteen rivi
+  kohtaavat ostovelkatilillä 2700 (tai 2740), mutta ohjelma ei tarkista, että
+  jokainen kuitti tulee maksetuksi tai ettei samaa ostoa ole kirjattu myös
+  tiliotteen riviltä kuluksi. Tarkista kuun lopussa, että ostovelkojen saldo
+  on vain maksamattomien laskujen summa.
 
 ## Kuitit ja kirjaukset
 

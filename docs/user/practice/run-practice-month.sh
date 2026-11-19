@@ -18,20 +18,43 @@ fail() { echo "practice-month: $*" >&2; exit 1; }
 expect() { [[ "$2" == "$3" ]] || fail "$1: expected '$3', got '$2'"; }
 
 statement="$here/tiliote-2026-03.xml"
+invoice="$here/lasku-pilvipalvelu-2026-03.txt"
 receipt="$here/kuitti-toimistotarvike-2026-03.txt"
+
+# record_receipt <json>: preview, approve the previewed hash, check the replay.
+record_receipt() {
+  local hash replayed
+  hash="$(agj capture-receipt record --dry-run <<<"$1" | jq -er '.preparation_hash')"
+  ag capture-receipt record --approved-preparation-hash "$hash" <<<"$1"
+  replayed="$(agj capture-receipt record --approved-preparation-hash "$hash" <<<"$1" | jq '.replayed')"
+  expect "receipt replay" "$replayed" true
+}
 
 # 1. Practice home.
 ag init
 
-# 2. Bank statement: two booked rows, the pending row is skipped.
+# 2. Purchase invoice paid from the company's account: recorded against
+#    trade payables 2700, which the statement row clears in step 3.
+ref="$(agj artifact attach --file "$invoice" | jq -er '.artifact_ref')"
+invoice_json="$(jq -n --arg ref "$ref" '{
+  natural_key: "receipt:pilvipalvelu-2026-0311",
+  actor: "agent",
+  source: {amount: {amount: "124.00", currency: "EUR"}, document_date: "2026-03-11",
+           description: "Pilvipalvelu Oy, palvelinvuokra maaliskuu 2026", attachment_ref: $ref},
+  proposal: {posting_date: "2026-03-11", net_account: "7690", contra_account: "2700",
+             vat: {type: "domestic-input", rate_class: "domestic-standard"}}
+}')"
+record_receipt "$invoice_json"
+
+# 3. Bank statement: two booked rows, the pending row is skipped. The invoice
+#    payment clears 2700 without VAT; the expense is already on voucher 1.
 rows="$(agj import camt053 parse --file "$statement" | jq '.transactions | length')"
 expect "parsed rows" "$rows" 2
 assignments='{
   "actor": "agent",
   "assignments": [
-    {"bank_ref": "ESIM-2026-0314-001", "bank_account": "1910", "document_date": "2026-03-11",
-     "contra_postings": [{"account": "7690", "amount": {"amount": "124.00", "currency": "EUR"}}],
-     "vat_treatment": {"type": "domestic-input", "rate_class": "domestic-standard"}},
+    {"bank_ref": "ESIM-2026-0314-001", "bank_account": "1910",
+     "contra_postings": [{"account": "2700", "amount": {"amount": "124.00", "currency": "EUR"}}]},
     {"bank_ref": "ESIM-2026-0320-002", "bank_account": "1910",
      "contra_postings": [{"account": "2000", "amount": {"amount": "2500.00", "currency": "EUR"}}]}
   ]
@@ -39,9 +62,9 @@ assignments='{
 ag import camt053 seal --file "$statement" <<<"$assignments"
 ag import camt053 seal --file "$statement" <<<"$assignments" >/dev/null
 count="$(agj voucher verify | jq '.voucher_count')"
-expect "vouchers after re-import" "$count" 2
+expect "vouchers after re-import" "$count" 3
 
-# 3. Receipt paid with the owner's own card.
+# 4. Receipt paid with the owner's own card: not on the statement.
 ref="$(agj artifact attach --file "$receipt" | jq -er '.artifact_ref')"
 receipt_json="$(jq -n --arg ref "$ref" '{
   natural_key: "receipt:toimistotarvike-2026-03-22",
@@ -51,13 +74,10 @@ receipt_json="$(jq -n --arg ref "$ref" '{
   proposal: {posting_date: "2026-03-22", net_account: "7700", contra_account: "2740",
              vat: {type: "domestic-input", rate_class: "domestic-standard"}}
 }')"
-hash="$(agj capture-receipt record --dry-run <<<"$receipt_json" | jq -er '.preparation_hash')"
-ag capture-receipt record --approved-preparation-hash "$hash" <<<"$receipt_json"
-replayed="$(agj capture-receipt record --approved-preparation-hash "$hash" <<<"$receipt_json" | jq '.replayed')"
-expect "receipt replay" "$replayed" true
+record_receipt "$receipt_json"
 ag voucher verify
 
-# 4. Monthly report.
+# 5. Monthly report.
 ag report statements --period 2026-03 --company "Esimerkki Oy" --format html \
   --output "$work/esimerkki-2026-03.html"
 ag report statements --period 2026-03 --company "Esimerkki Oy" --format native-json \
@@ -67,8 +87,10 @@ expect "month result" "$(jq -r '.sections.month_income.result' "$report")" "-123
 expect "assets total" "$(jq -r '.sections.balance.assets_total' "$report")" "2407.50"
 expect "equity and liabilities total" "$(jq -r '.sections.balance.equity_liabilities_total' "$report")" "2407.50"
 expect "bank account" "$(jq -r '[.. | objects | select(.account == "1910") | .amount][0]' "$report")" "2376.00"
+# The statement row cleared the invoice: trade payables are back to zero.
+expect "trade payables cleared" "$(jq -r '[.. | objects | select(.account == "2700") | .amount | tonumber][0] == 0' "$report")" "true"
 
-# 5. Close the month.
+# 6. Close the month.
 ag obligation list
 run_id="$(agj run start close-period --period 2026-03 | jq -er '.run_id')"
 echo "run $run_id started"
@@ -82,7 +104,7 @@ if out="$(ag capture-receipt record --approved-preparation-hash "$late_hash" <<<
 fi
 echo "$out"
 
-# 6. VAT figures.
+# 7. VAT figures.
 vat="$(agj file-vat preview --period 2026-03)"
 expect "field 307" "$(jq -r '.filing_fields["307"].amount' <<<"$vat")" "31.50"
 expect "field 308" "$(jq -r '.filing_fields["308"].amount' <<<"$vat")" "-31.50"

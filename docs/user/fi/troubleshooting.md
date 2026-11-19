@@ -78,10 +78,13 @@ kirjanpidon.
 
 **Mitä todennäköisesti tapahtui.** Jokin tiliotteen tapahtuma puuttuu
 kirjanpidosta, tai sama tapahtuma on kirjattu kahdesti. Tavallisin syy
-kahdenkertaiseen kirjaukseen on osto, joka on kirjattu ensin kuitista
-pankkitiliä vastaan ja sitten uudelleen tiliotteen rivistä kuluksi. Tiliotteen
-tuonti vaatii kirjauksen jokaiselle riville, myös jo kirjatun kuitin
-maksulle ([Mitä on valmista ja mitä ei](reference/status.md#pankin-tiliote)).
+kahdenkertaiseen kirjaukseen on kuitti, joka on kirjattu pankkitiliä vastaan,
+vaikka sen maksu kirjataan myös tiliotteelta. Kuitin vastatili on ostovelka
+2700 (tai 2740), ja tiliotteen rivi kuittaa sen
+([Kun osto näkyy myös tiliotteella](tasks/record-receipts.md#kun-osto-näkyy-myös-tiliotteella)).
+Jos pankkitilin saldo täsmää mutta ostovelkoihin jää summa, jota yritys ei
+ole kenellekään velkaa, sama osto on todennäköisesti kirjattu kuitista ostovelaksi
+ja tiliotteen riviltä vielä kuluksi.
 
 **Tarkista.** Pyydä agenttia vertaamaan kuukauden pankkitilin vientejä
 tiliotteen riveihin ja etsimään tapahtumat, jotka puuttuvat tai esiintyvät

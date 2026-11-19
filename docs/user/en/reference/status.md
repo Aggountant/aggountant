@@ -41,8 +41,8 @@ from source with the Rust toolchain. Do this:
 - **Every confirmed transaction needs an entry.** If even one is missing
   (`MISSING_ASSIGNMENT`) or refers to an account that is not in the chart of
   accounts (`ACCOUNT_NOT_FOUND`), the whole statement is rejected and nothing
-  is sealed. This also applies to a row that pays a receipt already recorded;
-  see below.
+  is sealed. The payment row of a receipt already recorded is recorded too,
+  against the receipt's payable ([When the purchase is also on the bank statement](../tasks/record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
 - **Only Holvi's statement has been tried.** Other banks' camt files may
   work, but they have not been tried. After the first import, check that the
   bank account balance matches the statement.
@@ -56,28 +56,12 @@ from source with the Rust toolchain. Do this:
   program does not mention it separately. If an import gives zero
   transactions, check that the file is the statement for the right month and
   the right account (`camt-empty-report-and-rename`).
-
-### Purchase invoice paid from the bank account
-
-When a purchase invoice or receipt has been paid from the company's account,
-the same purchase shows both in the receipt and on the bank statement. In this
-version neither route is complete:
-
-- **Recorded from the bank statement**, the voucher has the statement
-  attached, not the invoice. The invoice cannot be attached to a voucher
-  recorded from the statement.
-- **Recorded as a receipt**, the invoice is attached, but the bank statement
-  import still requires an entry for the same payment row. If the receipt was
-  recorded against the bank account and the payment row is also recorded as
-  an expense, **the same purchase is in the books twice**.
-
-The program does not yet offer a way to mark a statement row as the payment of
-a receipt already recorded, and the guidance does not yet give one settled way
-to record it. Do this: when you approve the statement's entries, ask about
-every row whose receipt has already been recorded which account the agent
-records it to, and make sure the expense does not appear twice. Comparing the
-bank account balance in the monthly report with the statement reveals double
-booking before the close (`bank-row-for-recorded-receipt`).
+- **The program does not link a receipt to its payment row.** The receipt and
+  the statement row meet on the trade payables account 2700 (or 2740), but the
+  program does not check that every receipt gets paid or that the same
+  purchase has not also been recorded as an expense from the statement row.
+  At the end of the month, check that the trade payables balance is only the
+  sum of unpaid invoices.
 
 ## Receipts and entries
 

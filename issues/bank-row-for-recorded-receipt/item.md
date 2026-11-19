@@ -2,7 +2,7 @@
 created: 2026-11-12
 updated: 2026-11-19
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: other
 provenance_detail: agent observation while verifying the user-docs design against the binary
@@ -13,6 +13,7 @@ lane: bank-import
 lane_seq: 0
 collision: [crates/import, skills/capture-receipt/SKILL.md]
 preparation: ready
+closed: 2026-11-19
 ---
 
 # Guide says a bank row for an already recorded receipt is not recorded again, but the import requires every row
@@ -59,3 +60,9 @@ clear it. Each event is recorded once: the receipt records the cost, the bank
 row records the payment. No new import mechanism. The guide (fi, en) and the
 `capture-receipt` skill state this one convention and their examples follow
 it; a receipt paid in cash or with no bank row keeps its direct contra.
+
+## Resolution
+
+### 2026-11-19T14:05:45Z · @issuectl
+
+Decision (a) implemented: receipt against 2700/2740, bank row clears it; guide (fi, en), capture-receipt skill and practice month follow it. See result.md.

@@ -1,9 +1,11 @@
 # Record receipts and purchase invoices
 
 An ordinary purchase receipt or invoice is recorded as a voucher of its own,
-and the original file is attached to it. This route is used especially for
-purchases that do not show on the company's bank statement, such as those
-paid with your own card.
+and the original file is attached to it. The receipt records the expense and
+its VAT. If the same purchase is paid from the company's account, the payment
+is recorded later from the bank statement, so the receipt is recorded as a
+liability that the statement row clears: [When the purchase is also on the
+bank statement](#when-the-purchase-is-also-on-the-bank-statement).
 
 ## Before you start
 
@@ -31,19 +33,27 @@ paid with your own card.
 
 4. **Check and approve.** The agent shows the source details, the proposal and
    the resulting postings. For example, a software licence of €124.00
-   (including VAT 25.5 %) paid from the company's account:
+   (including VAT 25.5 %) that is paid from the company's account:
 
    | Account | Debit | Credit |
    |---|---|---|
    | 7690 Atk-laite- ja ohjelmistokulut (IT hardware and software) | €98.80 | |
    | 1763 Arvonlisäverosaaminen (VAT receivable) | €25.20 | |
-   | 1910 Pankkitili (bank account) | | €124.00 |
+   | 2700 Ostovelat (trade payables) | | €124.00 |
 
    Check that the amount and date match the receipt, the expense belongs to
-   the company, the account and VAT treatment are right, and the payment
-   account matches how the purchase was paid. A purchase paid with your own
-   money is recorded as a debt from the company to you (2740 Muut
-   lyhytaikaiset velat, other short-term liabilities).
+   the company, the account and VAT treatment are right, and the
+   counter-account matches how the purchase was paid:
+
+   | How the purchase was paid | Counter-account |
+   |---|---|
+   | from the company's account or with the company's card | 2700 Ostovelat (trade payables) |
+   | with your own money | 2740 Muut lyhytaikaiset velat (other short-term liabilities; the company's debt to you) |
+   | in cash from the company's till | 1900 Käteisvarat (cash) |
+
+   The bank account 1910 is never the counter-account of a receipt. Only the
+   statement rows are recorded to the bank account, so that its balance
+   matches the statement.
 
 5. **The agent seals the voucher** exactly as you saw it. If something changed
    in between, the program refuses and the agent shows a new preview.
@@ -65,6 +75,49 @@ aggountant capture-receipt record --approved-preparation-hash <hash> < receipt.j
 - Recording the same receipt again returns the same voucher
   (`replayed=true`) and does not create a new one.
 
+## When the purchase is also on the bank statement
+
+A purchase paid from the company's account or with the company's card shows
+in two sources: the receipt and the bank statement. Each is recorded once,
+and each records something different:
+
+- **The receipt records the expense.** It is recorded to the expense account
+  and VAT against trade payables 2700, with the receipt attached to the
+  voucher.
+- **The statement row records the payment.** In the bank statement import the
+  row is recorded against trade payables 2700 without VAT. It clears the
+  receipt's liability.
+
+If you paid with your own money and the company pays you back, the same goes
+for account 2740: the receipt is recorded as a debt to you, and the
+repayment row on the statement clears it.
+
+For example, the €124.00 software licence recorded above is paid from the
+account three days later. The statement row is recorded like this:
+
+| Account | Debit | Credit |
+|---|---|---|
+| 2700 Ostovelat (trade payables) | €124.00 | |
+| 1910 Pankkitili (bank account) | | €124.00 |
+
+After the two vouchers the expense and the VAT receivable are in the books
+once, the bank account has gone down by the payment, and the trade payables
+balance is back to zero. The order does not matter: if the statement is
+imported before the receipt has been found, the row is still recorded to
+2700, and the receipt recorded later clears it.
+
+At the end of the month, check two things
+([See how the month went](monthly-report.md)):
+
+- the bank account balance matches the statement's closing balance, and
+- the trade payables balance is only the sum of invoices not yet paid. If the
+  same purchase was recorded as an expense from the statement row and also
+  as a payable from the receipt, the bank balance matches, but the receipt's
+  amount stays in trade payables.
+
+The practice month goes through this with the real program:
+[Practise your first month](../start/practice-month.md).
+
 ## When a receipt cannot be found
 
 When the bank statement has a payment for which no receipt can be found, the
@@ -82,10 +135,9 @@ given it access.
   imports.
 - Outside consultation for an unusual receipt is not in use. The agent asks
   you or your bookkeeper.
-- If the receipt was paid from the company's account, the same payment is
-  also on the bank statement, and the statement row must be recorded in the
-  import. Watch out for double booking:
-  [Import the bank statement](import-bank-statement.md#limitations).
+- The program does not link a receipt to its statement row. They meet on
+  account 2700 or 2740, and the account's balance tells whether something
+  was left uncleared.
 
 More detail: [What is ready and what is not](../reference/status.md#receipts-and-entries).
 

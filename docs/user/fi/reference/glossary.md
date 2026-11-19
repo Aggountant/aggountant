@@ -101,6 +101,9 @@ ohjelmistonsa ja saa oman avaimensa. Avain on salainen.
 **OmaVero.** Verohallinnon verkkoasiointipalvelu. Siellä näet ilmoitukset ja
 maksat veron.
 
+**Ostovelka.** Maksamaton osto, tilillä 2700 Ostovelat. Yrityksen tililtä
+maksettu kuitti kirjataan ostovelaksi, ja tiliotteen maksurivi kuittaa sen.
+
 **Poisto.** Pitkävaikutteisen hankinnan, kuten koneen tai laitteen, hankintamenon
 jakaminen kuluksi usealle vuodelle.
 

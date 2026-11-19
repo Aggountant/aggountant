@@ -22,12 +22,14 @@ koossa.
    riittävät, ja tuo sinulle kysymykset ja hyväksyttävät tositteet koottuina,
    ei kuitti kerrallaan.
 
-2. **Tiliote.** Agentti lukee tiliotteen, etsii kuitit ja ehdottaa jokaiselle
-   tapahtumalle kirjauksen. Sinä hyväksyt listan:
-   [Tuo pankin tiliote](import-bank-statement.md).
+2. **Kuitit ja laskut.** Jokainen kuitti ja ostolasku kirjataan omana
+   tositteenaan. Yrityksen tililtä maksettu kirjataan ostovelaksi, omalla
+   rahalla maksettu velaksi sinulle:
+   [Kirjaa kuitit ja ostolaskut](record-receipts.md).
 
-3. **Kuitit ja laskut**, joita ei kirjata tiliotteelta, kuten omalla kortilla
-   maksetut ostot: [Kirjaa kuitit ja ostolaskut](record-receipts.md).
+3. **Tiliote.** Agentti lukee tiliotteen, etsii kuitit ja ehdottaa jokaiselle
+   tapahtumalle kirjauksen. Kuitin maksurivi kuittaa kuitin ostovelan. Sinä
+   hyväksyt listan: [Tuo pankin tiliote](import-bank-statement.md).
 
 4. **Muut kirjaukset**, kuten myyntilaskut, palkkatositteet ja korjaukset:
    [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](record-other-entries.md).
@@ -40,7 +42,8 @@ koossa.
    siitä ([Yrityskoti](../concepts/company-home.md#kodin-todomd)).
 
 6. **Tarkistus.** Katso kuukausiraportista, että pankkitilin saldo vastaa
-   tiliotteen loppusaldoa: [Katso, miten kuukausi meni](monthly-report.md).
+   tiliotteen loppusaldoa ja ostovelat ovat vain maksamattomat laskut:
+   [Katso, miten kuukausi meni](monthly-report.md).
 
 7. **Sulku**, kun kuukausi on valmis: [Sulje kuukausi](close-month.md).
 

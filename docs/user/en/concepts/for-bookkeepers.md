@@ -32,6 +32,10 @@ it and where its limits are.
   to it. The same file is recognised if someone tries to record it again.
 - The original bank statement file is archived once and attached to every
   voucher created from its transactions.
+- A receipt or purchase invoice paid from the company's account is recorded
+  as a voucher of its own, with its attachment, against trade payables 2700,
+  and the statement's payment row is recorded against the same payable. A
+  voucher recorded from the statement has the statement attached.
 - The attachment store and the voucher database are not in git; the owner
   backs them up separately
   ([The company home](company-home.md#git-and-backups)).
@@ -67,8 +71,6 @@ Ask the owner or the agent to gather the material:
 - **Payroll** is calculated, paid and reported elsewhere. A payroll voucher is
   recorded in aggountant. To Tulorekisteri, aggountant reports only tax-free
   travel allowances.
-- **A purchase recorded from the bank statement has the statement attached**,
-  not the purchase invoice.
 - **Filing on behalf of another company is not supported.** One home is one
   company's books, and returns are sent with the company's own credentials.
 

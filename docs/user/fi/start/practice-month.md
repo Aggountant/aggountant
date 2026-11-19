@@ -1,10 +1,10 @@
 # Harjoittele ensimmäinen kuukausi
 
 Tällä sivulla kirjaat kuvitteellisen Esimerkki Oy:n maaliskuun 2026 alusta
-loppuun: tuot pankin tiliotteen, kirjaat kuitin, katsot kuukauden raportin,
-suljet kuukauden ja katsot ALV-ilmoituksen luvut. Samalla näet, mitä agentti
-tekee itse, mitä se kysyy sinulta ja mitä sinä hyväksyt. Harjoitus kestää noin
-puoli tuntia.
+loppuun: kirjaat ostolaskun, tuot pankin tiliotteen, kirjaat kuitin, katsot
+kuukauden raportin, suljet kuukauden ja katsot ALV-ilmoituksen luvut. Samalla
+näet, mitä agentti tekee itse, mitä se kysyy sinulta ja mitä sinä hyväksyt.
+Harjoitus kestää noin puoli tuntia.
 
 Harjoittelet erillisessä **harjoituskodissa**, joka ei liity yrityksesi oikeaan
 kirjanpitoon. Se on tarpeen, koska kaksi asiaa, jotka tällä sivulla opit,
@@ -54,12 +54,48 @@ kaiken muun edelle, joten harjoitus ei voi vahingossa osua oikeaan
 kirjanpitoon. Jos epäilet, pyydä agenttia ajamaan `aggountant config show`.
 Se kertoo, mitä kotia käytetään ja mistä tieto tuli.
 
-## 2. Tuo pankin tiliote
+## 2. Kirjaa ostolasku
+
+Pilvipalvelu Oy laskutti 11.3. maaliskuun palvelinvuokran, 124,00 €, ja
+yritys maksoi laskun tililtään 14.3. Sama osto näkyy siis kahdessa lähteessä:
+laskussa ja tiliotteella. Kumpikin kirjataan kerran. Lasku kirjaa kulun ja
+ALV:n, ja tiliotteen rivi kirjaa maksun. Sano agentille:
+
+> Kirjaa harjoitusaineiston lasku lasku-pilvipalvelu-2026-03.txt. Se on
+> maksettu yrityksen tililtä.
+
+Agentti arkistoi laskun ja näyttää ohjelman esikatselun:
+
+| Tili | Debet | Kredit |
+|---|---|---|
+| 7690 Atk-laite- ja ohjelmistokulut | 98,80 € | |
+| 1763 Arvonlisäverosaaminen | 25,20 € | |
+| 2700 Ostovelat | | 124,00 € |
+
+Vastatili on ostovelka eikä pankkitili, koska maksu kirjataan seuraavassa
+vaiheessa tiliotteelta. Esikatselu ei tallenna mitään. Ohjelma muodosti
+ALV-rivin itse verokantataulukosta laskun päivän mukaan. Tarkista, että summa
+ja päivä vastaavat laskua ja tili ja ALV-käsittely ovat oikeat. Kun
+hyväksyt, agentti sinetöi tositteen juuri tällaisena:
+
+```
+sealed receipt voucher #1 (replayed=false)
+```
+
+Hyväksyntä on sidottu siihen, mitä sinulle näytettiin. Jos laskun tiedot,
+ehdotus tai tilikartta olisivat muuttuneet esikatselun ja sinetöinnin välillä,
+ohjelma olisi kieltäytynyt ja agentin olisi pitänyt näyttää uusi esikatselu.
+Lue lisää: [Sinetöinti ja hyväksyntä](../concepts/sealing-and-approval.md).
+
+Pyydä agenttia kirjaamaan sama lasku uudelleen. Ohjelma palauttaa saman
+tositteen numero 1 (`replayed=true`) eikä tee uutta. Saman laskun
+kahdentuminen ei siis ole mahdollista vahingossa.
+
+## 3. Tuo pankin tiliote
 
 Sano agentille:
 
 > Tuo harjoitusaineiston tiliote tiliote-2026-03.xml ja ehdota kirjaukset.
-> Pilvipalvelu Oy:n lasku on samassa kansiossa.
 
 Agentti lukee tiliotteen. Lukeminen ei vielä kirjaa mitään:
 
@@ -71,7 +107,8 @@ Tiliotteella on kolme riviä, mutta ohjelma ottaa niistä vain kaksi: 31.3.
 oleva 50 euron varaus on pankissa vielä vahvistamatta, eikä sitä kirjata ennen
 kuin se on toteutunut.
 
-Toisesta rivistä agentti ei voi tietää kaikkea, joten se kysyy, esimerkiksi:
+Agentti tunnistaa 14.3. rivin juuri kirjaamasi laskun maksuksi. Toisesta
+rivistä se ei voi tietää kaikkea, joten se kysyy, esimerkiksi:
 
 > 20.3. tilille on tullut 2 500,00 € Maija Meikäläiseltä viestillä
 > "Osakepääoma". Onko tämä osakepääoman maksu?
@@ -85,12 +122,14 @@ hyväksyntäpyyntö näyttää jokaisen rivin:
 
 | Päivä | Vastapuoli | Summa | Kirjaus | ALV |
 |---|---|---|---|---|
-| 14.3. | Pilvipalvelu Oy | −124,00 € | 7690 Atk-laite- ja ohjelmistokulut | kotimainen osto 25,5 %, laskun päivä 11.3. |
+| 14.3. | Pilvipalvelu Oy | −124,00 € | 2700 Ostovelat (tositteen 1 maksu) | ei ALV:tä |
 | 20.3. | Maija Meikäläinen | +2 500,00 € | 2000 Osake- tai osuuspääoma | ei ALV:tä |
 
-Tarkista kaksi asiaa ennen kuin hyväksyt. Onko tili oikea? Ja onko ALV-kanta
-valittu laskun päivästä eikä maksupäivästä? Kanta riippuu siitä, milloin
-kauppa tehtiin. Kun kaikki on kunnossa, sano:
+Tarkista ennen kuin hyväksyt, että tilit ovat oikeat ja ettei mikään osto tule
+kirjatuksi kahdesti. Laskun maksurivi kirjataan ostovelkaa vastaan ilman
+ALV:tä, koska kulu ja ALV ovat jo tositteella 1. Jos rivi kirjattaisiin
+kuluksi, palvelinvuokra olisi kirjanpidossa kahdesti. Kun kaikki on kunnossa,
+sano:
 
 > Hyväksyn, kirjaa.
 
@@ -100,22 +139,20 @@ Agentti sinetöi koko tiliotteen kerralla, ja ohjelma vastaa:
 sealed 2 vouchers from "FI2112345600000785" (attachment "…")
 ```
 
-Kirjanpidossa on nyt kaksi tositetta. Alkuperäinen tiliotetiedosto on
-arkistoitu ja liitetty kumpaankin. Ohjelma laski palvelinvuokrasta ALV:n itse:
-98,80 € kuluksi ja 25,20 € arvonlisäverosaamiseksi. Agentti käytti laskua
-laskun päivän ja ALV:n lähteenä. Tiliotteelta kirjatun tositteen liitteenä on
-tässä versiossa tiliote, ei laskua
-([Mitä on valmista ja mitä ei](../reference/status.md#pankkitililtä-maksettu-ostolasku)).
+Kirjanpidossa on nyt kolme tositetta. Alkuperäinen tiliotetiedosto on
+arkistoitu ja liitetty kumpaankin tiliotteen tositteeseen, ja lasku on
+tositteen 1 liitteenä. Maksu kuittasi laskun ostovelan, joten ostovelkojen
+saldo on taas nolla.
 
 Kokeile vielä, mitä tapahtuu, jos sama tiliote tuodaan uudelleen:
 
 > Tuo sama tiliote vielä kerran samoilla kirjauksilla.
 
 Ohjelma tunnistaa jo sinetöidyt tapahtumat eikä kirjaa niitä toista kertaa.
-Se tulostaa saman rivin kuin äsken, mutta tositteita on edelleen kaksi. Sen
+Se tulostaa saman rivin kuin äsken, mutta tositteita on edelleen kolme. Sen
 näet ketjun tarkistuksesta (`aggountant voucher verify`).
 
-## 3. Kirjaa kuitti
+## 4. Kirjaa kuitti
 
 Maija osti 22.3. tulostinpaperia ja kirjekuoria 31,00 eurolla ja maksoi omalla
 kortillaan. Siksi ostoa ei ole yrityksen tiliotteella. Sano agentille:
@@ -136,24 +173,17 @@ ohjelman esikatselun:
 | 1763 Arvonlisäverosaaminen | 6,30 € | |
 | 2740 Muut lyhytaikaiset velat | | 31,00 € |
 
-Esikatselu ei tallenna mitään. Ohjelma muodosti ALV-rivin itse
-verokantataulukosta kuitin päivän mukaan. Kun hyväksyt, agentti sinetöi
-tositteen juuri tällaisena:
+Kun hyväksyt, agentti sinetöi tositteen:
 
 ```
-sealed receipt voucher #3 (replayed=false)
+sealed receipt voucher #4 (replayed=false)
 ```
 
-Hyväksyntä on sidottu siihen, mitä sinulle näytettiin. Jos kuitin tiedot,
-ehdotus tai tilikartta olisivat muuttuneet esikatselun ja sinetöinnin välillä,
-ohjelma olisi kieltäytynyt ja agentin olisi pitänyt näyttää uusi esikatselu.
-Lue lisää: [Sinetöinti ja hyväksyntä](../concepts/sealing-and-approval.md).
+Velka sinulle jää kirjanpitoon, kunnes yritys maksaa sen takaisin. Silloin
+takaisinmaksu näkyy tiliotteella ja kirjataan tiliä 2740 vastaan samalla
+tavalla kuin laskun maksu kirjattiin ostovelkaa vastaan.
 
-Pyydä agenttia kirjaamaan sama kuitti uudelleen. Ohjelma palauttaa saman
-tositteen numero 3 (`replayed=true`) eikä tee uutta. Saman kuitin
-kahdentuminen ei siis ole mahdollista vahingossa.
-
-## 4. Katso, miten kuukausi meni
+## 5. Katso, miten kuukausi meni
 
 Sano agentille:
 
@@ -164,24 +194,29 @@ Raportissa näkyy:
 
 - **kuukauden tulos** −123,50 € (palvelinvuokra 98,80 € ja toimistokulut 24,70 €)
 - **Pankkitili** 2 376,00 €
+- **Ostovelat** nolla
 - **taseen loppusummat** 2 407,50 € kummallakin puolella.
 
 Vertaa pankkitilin saldoa tiliotteen loppusaldoon. Kumpikin on 2 376,00 €, joten
 jokainen tiliotteen tapahtuma on kirjattu. Tämä on tärkein yksittäinen tarkistus
-ennen kuukauden sulkua.
+ennen kuukauden sulkua. Ostovelkojen nolla kertoo, että tiliotteen maksu
+kuittasi laskun eikä palvelinvuokra ole kirjattu kahdesti. Jos maksurivi olisi
+kirjattu kuluksi, pankkitilin saldo täsmäisi silti, mutta ostovelkoihin jäisi
+124,00 €.
 
 Raportin alussa lukee "Kattavuus: varmistamaton". Ohjelma ei voi tietää, onko
 kaikki aineisto kirjattu. Sen arvioit sinä ja agentti lähteitä vasten, kuten
 juuri teit.
 
-## 5. Sulje kuukausi
+## 6. Sulje kuukausi
 
 Sano agentille:
 
 > Sulje maaliskuu.
 
-Agentti tarkistaa ensin, että jokainen tiliotteen tapahtuma on kirjattu, kuitti
-on liitetty, pankkitilin saldo täsmää ja avoimia velvoitteita ei ole. Sitten se
+Agentti tarkistaa ensin, että jokainen tiliotteen tapahtuma on kirjattu, lasku
+ja kuitti on liitetty, pankkitilin saldo täsmää ja avoimia velvoitteita ei
+ole. Sitten se
 aloittaa sulun:
 
 ```
@@ -216,7 +251,7 @@ kirjataan avoimelle kaudelle. Jos huomaat puutteen jo ennen kuin hyväksyt
 sulun, hylkää se: kuukausi palaa avoimeksi
 ([Kaudet, sulku ja tilikausi](../concepts/periods.md)).
 
-## 6. Katso ALV-ilmoituksen luvut
+## 7. Katso ALV-ilmoituksen luvut
 
 Sano agentille:
 
@@ -246,8 +281,10 @@ ilmoittaminen on käytössä.
   sinulle näytettiin.
 - Sinetöity tosite ja suljettu kuukausi ovat pysyviä. Virhe korjataan uudella
   tositteella seuraavalla kaudella.
+- Kun osto näkyy sekä laskussa että tiliotteella, lasku kirjaa kulun
+  ostovelkaa vastaan ja tiliotteen rivi kirjaa maksun samaa velkaa vastaan.
 - Pankkitilin saldon vertaaminen tiliotteeseen kertoo, onko kuukausi kirjattu
-  kokonaan.
+  kokonaan, ja ostovelkojen saldo, onko jokin osto kirjattu kahdesti.
 - ALV lasketaan suljetun kuukauden kirjauksista, ja kanta valitaan laskun tai
   kuitin päivästä.
 

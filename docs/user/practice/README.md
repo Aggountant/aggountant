@@ -19,10 +19,11 @@ tarkistaa, ettei niissä ole oikeita tietoja.
 ## Aineiston tarkistus
 
 `run-practice-month.sh` tekee harjoituksen niin kuin agentti sen tekisi:
-perustaa kertakäyttöisen kodin, tuo tiliotteen, kirjaa kuitin, tekee raportin,
+perustaa kertakäyttöisen kodin, kirjaa laskun ostovelkaa vastaan, tuo
+tiliotteen, jonka maksurivi kuittaa ostovelan, kirjaa kuitin, tekee raportin,
 sulkee kuukauden ja esikatselee ALV-ilmoituksen. Se tarkistaa samalla luvut,
-jotka opas mainitsee (kuukauden tulos −123,50 €, pankkitili 2 376,00 €, taseen
-loppusummat 2 407,50 €, kentät 307 ja 308). Skripti tarvitsee `jq`:n.
+jotka opas mainitsee (kuukauden tulos −123,50 €, pankkitili 2 376,00 €,
+ostovelat nolla, taseen loppusummat 2 407,50 €, kentät 307 ja 308). Skripti tarvitsee `jq`:n.
 
 ```sh
 docs/user/practice/run-practice-month.sh path/to/aggountant
