@@ -10,6 +10,8 @@ source_ref: taskfleet:01m7t1vrfab4fw9pz3qf99zwf0/decision:eservice-knowledge
 originating_run: 01m7t1vrfab4fw9pz3qf99zwf0
 originating_run_kind: technical-decision
 preparation: reviewing
+lane: skills-contract
+lane_seq: 1
 ---
 
 # Decide how e-service operating knowledge accumulates and reaches agents
