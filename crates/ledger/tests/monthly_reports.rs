@@ -303,3 +303,70 @@ fn empty_report_keeps_zero_rows_and_html_escapes_long_content() {
         report.sections.month_income.result
     );
 }
+
+#[test]
+fn cleared_credit_normal_accounts_print_zero_without_a_sign() {
+    // A purchase invoice booked to trade payables and cleared by the bank row, plus
+    // a sale reversed in the same month: both credit-normal accounts net to exactly
+    // zero, and the sign flip must not turn that into "-0.00" / "−0,00".
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    seal(&ledger, "2026-07-01", "1910", "2000", "1000.00", "capital");
+    seal(&ledger, "2026-07-05", "7690", "2700", "124.00", "invoice");
+    seal(&ledger, "2026-07-20", "2700", "1910", "124.00", "payment");
+    seal(&ledger, "2026-07-10", "1910", "3000", "50.00", "sale");
+    seal(
+        &ledger,
+        "2026-07-11",
+        "3000",
+        "1910",
+        "50.00",
+        "sale-reversal",
+    );
+
+    let report = ledger
+        .monthly_statements_report(
+            &PeriodId::parse("2026-07").unwrap(),
+            "Esimerkki Oy",
+            MonthlyReportOptions::default(),
+        )
+        .unwrap();
+
+    let balance_accounts: Vec<_> = report
+        .sections
+        .balance
+        .rows
+        .iter()
+        .flat_map(|row| row.accounts.iter().map(move |account| (row, account)))
+        .collect();
+    let payables = balance_accounts
+        .iter()
+        .find(|(_, account)| account.account == "2700")
+        .expect("cleared payables account is listed");
+    assert_eq!(payables.1.amount, "0.00");
+    assert_eq!(payables.0.amount, "0.00", "its row total is zero too");
+    let sales_in_result = balance_accounts
+        .iter()
+        .find(|(row, account)| row.row_id == "BS-TILIKAUDEN-TULOS" && account.account == "3000")
+        .expect("reversed sale is traced into the result row");
+    assert_eq!(sales_in_result.1.amount, "0.00");
+    for income in [
+        &report.sections.month_income,
+        &report.sections.year_to_date_income,
+    ] {
+        assert_eq!(row_amount(income, "IS-LIIKEVAIHTO"), "0.00");
+        let sales = income
+            .rows
+            .iter()
+            .flat_map(|row| row.accounts.iter())
+            .find(|account| account.account == "3000")
+            .unwrap();
+        assert_eq!(sales.amount, "0.00");
+    }
+
+    let native = serde_json::to_string(&report).unwrap();
+    assert!(!native.contains("\"-0.00\""), "{native}");
+    let html = render_monthly_report_html(&report);
+    assert!(html.contains("2700 Ostovelat</span> <span class=\"amount\">0,00 EUR"));
+    assert!(!html.contains("−0,00"));
+}

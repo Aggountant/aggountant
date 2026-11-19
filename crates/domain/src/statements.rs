@@ -308,9 +308,16 @@ fn validate_opening_context(
     Ok(())
 }
 
-fn eur_str(d: Decimal) -> String {
-    let mut d = d;
+/// A statement or report amount as its canonical two-decimal EUR string.
+///
+/// A zero always prints as `0.00`. `rust_decimal` keeps the sign of a negated zero,
+/// so a cleared credit-normal account (`-Σ signed` of an exact zero) would otherwise
+/// print as `-0.00`, which a reader takes for a small debit balance.
+pub fn statement_amount_str(mut d: Decimal) -> String {
     d.rescale(2);
+    if d.is_zero() {
+        d.set_sign_positive(true);
+    }
     Money::new(d, eur()).amount_str()
 }
 
@@ -459,7 +466,7 @@ pub fn compute_statements(
                         row_id: row.row_id.clone(),
                         label: row.label.clone(),
                         nature: row.nature,
-                        amount: eur_str(amt),
+                        amount: statement_amount_str(amt),
                     });
                 }
             }
@@ -475,7 +482,7 @@ pub fn compute_statements(
                         row_id: row.row_id.clone(),
                         label: row.label.clone(),
                         nature: row.nature,
-                        amount: eur_str(amt),
+                        amount: statement_amount_str(amt),
                     });
                 }
             }
@@ -492,7 +499,7 @@ pub fn compute_statements(
         row_id: "BS-TILIKAUDEN-TULOS".to_string(),
         label: "Tilikauden tulos".to_string(),
         nature: RowNature::EquityLiabilities,
-        amount: eur_str(result),
+        amount: statement_amount_str(result),
     });
     eq_liab_total += result;
 
@@ -505,9 +512,9 @@ pub fn compute_statements(
         period: StatementPeriod::of(fiscal_year),
         income,
         balance,
-        result: eur_str(result),
-        assets_total: eur_str(assets_total),
-        equity_liabilities_total: eur_str(eq_liab_total),
+        result: statement_amount_str(result),
+        assets_total: statement_amount_str(assets_total),
+        equity_liabilities_total: statement_amount_str(eq_liab_total),
         balanced,
         opening_balance_source: opening_balance.map(|o| o.source().clone()),
         provenance,
@@ -648,7 +655,7 @@ pub fn tase_erittelyt(
         lines.push(TaseErittelyLine {
             account: account.clone(),
             account_name: name.to_string(),
-            closing_balance: eur_str(bal),
+            closing_balance: statement_amount_str(bal),
             source_refs: touched
                 .get(account)
                 .map(|s| s.iter().cloned().collect())
@@ -867,7 +874,7 @@ mod tests {
 
     #[test]
     fn a_net_loss_produces_a_negative_result_without_panicking() {
-        // Rebuts the "eur_str panics on negative Money" claim: expenses > revenue →
+        // Rebuts the "statement_amount_str panics on negative Money" claim: expenses > revenue →
         // negative result, and the balance sheet still balances (result folded in).
         let vouchers = vec![
             voucher(
@@ -1242,6 +1249,83 @@ mod tests {
         );
         // 3000 is an income account → not in tase-erittelyt.
         assert!(te.lines.iter().all(|l| l.account != "3000"));
+    }
+
+    #[test]
+    fn a_cleared_credit_normal_account_closes_at_unsigned_zero() {
+        // Close-year statements and tase-erittelyt: trade payables booked and paid,
+        // and a sale reversed, net to exactly zero. Flipping the sign of a
+        // credit-normal zero must still print "0.00", never "-0.00".
+        let mut chart = test_chart();
+        chart.push(Account {
+            id: AccountId::new("2700").unwrap(),
+            name: "Ostovelat".into(),
+            kind: AccountKind::Liability,
+        });
+        let vouchers = vec![
+            voucher(
+                1,
+                "2026-01-05",
+                &[
+                    ("1910", "1000.00", Side::Debit),
+                    ("2000", "1000.00", Side::Credit),
+                ],
+            ),
+            voucher(
+                2,
+                "2026-02-01",
+                &[
+                    ("7690", "124.00", Side::Debit),
+                    ("2700", "124.00", Side::Credit),
+                ],
+            ),
+            voucher(
+                3,
+                "2026-02-20",
+                &[
+                    ("2700", "124.00", Side::Debit),
+                    ("1910", "124.00", Side::Credit),
+                ],
+            ),
+            voucher(
+                4,
+                "2026-03-01",
+                &[
+                    ("1910", "50.00", Side::Debit),
+                    ("3000", "50.00", Side::Credit),
+                ],
+            ),
+            voucher(
+                5,
+                "2026-03-02",
+                &[
+                    ("3000", "50.00", Side::Debit),
+                    ("1910", "50.00", Side::Credit),
+                ],
+            ),
+        ];
+        let s =
+            compute_statements(&y2026(), None, &vouchers, &chart, kpa_policy(), prov()).unwrap();
+        let liikevaihto = s
+            .income
+            .iter()
+            .find(|r| r.row_id == "IS-LIIKEVAIHTO")
+            .unwrap();
+        assert_eq!(liikevaihto.amount, "0.00");
+        let te = tase_erittelyt(&y2026(), None, &vouchers, &chart, prov()).unwrap();
+        assert!(
+            te.lines.iter().all(|l| l.account != "2700"),
+            "a zero balance is not specified at all"
+        );
+        for json in [
+            serde_json::to_string(&s).unwrap(),
+            serde_json::to_string(&te).unwrap(),
+        ] {
+            assert!(!json.contains("-0.00"), "{json}");
+        }
+        assert_eq!(statement_amount_str(-Decimal::ZERO), "0.00");
+        assert_eq!(statement_amount_str(Decimal::new(-4, 3)), "0.00");
+        assert_eq!(statement_amount_str(Decimal::new(-124, 2)), "-1.24");
     }
 
     #[test]

@@ -6,8 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use aggountant_domain::{
-    compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, RowNature, StatementKind,
-    StatementProvenance, Statements,
+    compute_statements, kpa_policy, kpa_policy_version, statement_amount_str, tase_erittelyt,
+    RowNature, StatementKind, StatementProvenance, Statements,
 };
 use aggountant_model::{
     Account, AccountKind, Date, OpeningBalance, OpeningBalanceSource, PeriodId, VoucherBody,
@@ -162,11 +162,6 @@ pub struct MonthlyReportOptions {
     pub limitation: Option<String>,
 }
 
-fn decimal_string(mut value: Decimal) -> String {
-    value.rescale(2);
-    value.to_string()
-}
-
 fn account_normal(kind: AccountKind, signed: Decimal) -> Decimal {
     match kind {
         AccountKind::Asset | AccountKind::Expense => signed,
@@ -302,7 +297,7 @@ fn traced_rows(
                     .push(ReportAccount {
                         account: account.clone(),
                         account_name: name.to_string(),
-                        amount: decimal_string(contribution),
+                        amount: statement_amount_str(contribution),
                         sources: refs
                             .remove(&account)
                             .unwrap_or_default()
@@ -319,7 +314,7 @@ fn traced_rows(
             .push(ReportAccount {
                 account: account.clone(),
                 account_name: name.to_string(),
-                amount: decimal_string(account_normal(kind, sum)),
+                amount: statement_amount_str(account_normal(kind, sum)),
                 sources: refs
                     .remove(&account)
                     .unwrap_or_default()

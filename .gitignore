@@ -11,3 +11,6 @@ Cargo.lock.bak
 site/node_modules/
 site/dist/
 site/.astro/
+
+# Python bytecode
+__pycache__/

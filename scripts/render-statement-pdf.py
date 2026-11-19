@@ -66,6 +66,8 @@ def fi_amount(value: object) -> str:
     negative = raw.startswith("-")
     if negative:
         raw = raw[1:]
+    # A report saved before negative zeros were normalised may carry "-0.00".
+    negative = negative and raw.strip("0.") != ""
     whole, dot, fraction = raw.partition(".")
     groups = []
     while whole:

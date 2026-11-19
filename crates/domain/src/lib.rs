@@ -45,9 +45,9 @@ pub use payroll::{
     TulorekisteriReport,
 };
 pub use statements::{
-    compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, KpaPolicy, KpaRow,
-    Liitetiedot, RowNature, StatementKind, StatementPeriod, StatementProvenance, StatementRow,
-    StatementSourceRef, Statements, TaseErittelyLine, TaseErittelyt,
+    compute_statements, kpa_policy, kpa_policy_version, statement_amount_str, tase_erittelyt,
+    KpaPolicy, KpaRow, Liitetiedot, RowNature, StatementKind, StatementPeriod, StatementProvenance,
+    StatementRow, StatementSourceRef, Statements, TaseErittelyLine, TaseErittelyt,
 };
 pub use vat::{
     check_eu_sale_buyer_vat_id, check_no_eu_acquisition_code, check_vat_rate_class_mistag,
