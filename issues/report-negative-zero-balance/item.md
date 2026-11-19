@@ -2,7 +2,7 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: bug
-status: untriaged
+status: fixed
 priority: normal
 provenance: other
 provenance_detail: observed while running the practice month
@@ -13,6 +13,11 @@ lane: reports
 lane_seq: 0
 collision: [crates/ledger/src/reports.rs, crates/domain/src/statements.rs]
 preparation: ready
+closed: 2026-11-19
+closed_by: claude-opus-5-5
+commits:
+- hash: 3bccc6b
+  summary: Print a cleared statement balance as 0.00, not -0.00
 ---
 
 # Monthly report prints a cleared liability account as −0,00
@@ -44,3 +49,9 @@ A zero balance prints as `0,00` / `"0.00"` regardless of the side the
 liability sign flip comes from.
 
 Observed while implementing `bank-row-for-recorded-receipt` (2026-11-19).
+
+## Resolution
+
+### 2026-11-19T15:34:07Z · @claude-opus-5-5
+
+Fixed: one statement amount formatter clears the sign of zero; see result.md.
