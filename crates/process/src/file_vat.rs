@@ -857,9 +857,15 @@ impl ProcessEngine {
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_SUBMIT_FILING.to_string(),
         })?;
+        if seam == Seam::CrashBeforeFilingDispatch {
+            return Ok(());
+        }
         let outcome = broker
             .submit(ACTOR, &outbox_key, &env)
             .map_err(map_broker)?;
+        if seam == Seam::CrashAfterFilingDispatch {
+            return Ok(());
+        }
         match outcome {
             RemoteOutcome::Delivered { receipt } => {
                 // Crash seam: the authority accepted the return (the outbox holds a
@@ -876,18 +882,7 @@ impl ProcessEngine {
                 // sent_hash — but we must not re-`acquire_filing_authority` (which
                 // refuses an already-filed period), so guard on `vat_filed`.
                 let receipt = FileVatReceipt::decode(&receipt).map_err(map_adapter)?;
-                let ledger = Ledger::open(&self.home)?;
-                if !ledger.period_view(period)?.vat_filed {
-                    let auth = ledger.acquire_filing_authority(period, run_id)?;
-                    ledger.file_vat_with_receipt(
-                        period,
-                        &auth,
-                        &state.filing_sent_hash,
-                        &receipt.unique_identifier,
-                        &receipt.accepted_timestamp,
-                        ACTOR,
-                    )?;
-                }
+                self.record_vat_receipt(period, run_id, state, &receipt)?;
                 // Crash seam: the fiscal COMMIT landed (`vat_filed` is now set) but we
                 // die before journalling `EffectSucceeded`. Fiscal is authoritative;
                 // `resume_file_vat` adopts it without re-hitting the authority.
@@ -896,10 +891,7 @@ impl ProcessEngine {
                 }
                 journal.append(EventPayload::EffectSucceeded {
                     effect_key: EFFECT_SUBMIT_FILING.to_string(),
-                    note: format!(
-                        "filed (UniqueIdentifier {}, AcceptedTimestamp {}); period audited-filed",
-                        receipt.unique_identifier, receipt.accepted_timestamp
-                    ),
+                    note: receipt_note(&receipt),
                 })?;
                 // Crash seam: the filing success is journalled but we die before the
                 // payment-phase postcondition runs — the Run wedges `Running` with no
@@ -932,6 +924,32 @@ impl ProcessEngine {
                 Ok(())
             }
         }
+    }
+
+    /// Record an accepted filing's receipt as the audited, irreversible Ledger event
+    /// bound to the approved bytes. Idempotent: a period already filed (by a crashed
+    /// earlier attempt of this Run) is left as it is, because `acquire_filing_authority`
+    /// refuses a filed period.
+    fn record_vat_receipt(
+        &self,
+        period: &PeriodId,
+        run_id: &str,
+        state: &FileVatState,
+        receipt: &FileVatReceipt,
+    ) -> Result<(), ProcessError> {
+        let ledger = Ledger::open(&self.home)?;
+        if !ledger.period_view(period)?.vat_filed {
+            let auth = ledger.acquire_filing_authority(period, run_id)?;
+            ledger.file_vat_with_receipt(
+                period,
+                &auth,
+                &state.filing_sent_hash,
+                &receipt.unique_identifier,
+                &receipt.accepted_timestamp,
+                ACTOR,
+            )?;
+        }
+        Ok(())
     }
 
     fn assert_current_filing_proposal(
@@ -1161,6 +1179,14 @@ fn validate_evidence_ref(reference: &str) -> Result<(), ProcessError> {
         ));
     }
     Ok(())
+}
+
+/// The journal note of a filing accepted with a receipt.
+fn receipt_note(receipt: &FileVatReceipt) -> String {
+    format!(
+        "filed (UniqueIdentifier {}, AcceptedTimestamp {}); period audited-filed",
+        receipt.unique_identifier, receipt.accepted_timestamp
+    )
 }
 
 /// A canonical EUR zero (`amount_str` rescales to 2 dp, so zero is exactly "0.00").

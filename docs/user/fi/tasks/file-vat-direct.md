@@ -121,6 +121,9 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
   aikaisintaan samaan kellonaikaan seuraavana pankkipäivänä; toinen "ei löydy" sulkee aiemman
   ajon, ja kuukauden voi ilmoittaa uudella ajolla. Tähän voi mennä muutama
   päivä ([Epävarma lopputulos](../concepts/filings.md#epävarma-lopputulos)).
+  Jos aiempi ajo keskeytyi kesken lähetyksen, agentti kysyy ensin komennolla
+  `file-vat status`
+  ([ALV-ilmoitus keskeytyi lähetettäessä](../troubleshooting.md#alv-ilmoitus-keskeytyi-lähetettäessä)).
 
 ## Katso myös
 

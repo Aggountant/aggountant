@@ -26,6 +26,7 @@ ennen kaatumista, ajo huomaa sen eikä tee mitään toiseen kertaan.
 |---|---|
 | kuukauden sulku (`cp-…`) | `aggountant run resume --run-id cp-…` |
 | ALV-ilmoitus (`fv-…`), epävarma lähetys | `aggountant file-vat reconcile --run-id fv-…` |
+| ALV-ilmoitus (`fv-…`), keskeytyi lähetettäessä | `aggountant file-vat status --period VVVV-KK` ja sen nimeämä komento ([alla](#alv-ilmoitus-keskeytyi-lähetettäessä)) |
 | Tulorekisteri-ilmoitus (`wr-…`), epävarma lähetys | `aggountant file-wage reconcile wr-…` |
 | työnantajan erillisilmoitus (`er-…`), epävarma lähetys | `aggountant file-wage employer-report status --month VVVV-KK` |
 | tilinpäätös (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
@@ -114,7 +115,9 @@ Ilmoituksen todistaa kuittaus, ei se, näkyykö ilmoitus OmaVerossa. Jos tilan
 kysely epäonnistuu (`VAT_STATUS_UNKNOWN`), tila on vain tuntematon:
 ilmoitus on silti tehty. Jos lähetyksen lopputulos on epävarma, komento ohjaa
 `file-vat reconcile`-komentoon
-([alla](#ilmoituksen-lopputulos-on-epävarma)).
+([alla](#ilmoituksen-lopputulos-on-epävarma)). Jos ajo keskeytyi kesken
+lähetyksen, komento kysyy Verohallinnolta tuon ajon ilmoituksesta
+([alla](#alv-ilmoitus-keskeytyi-lähetettäessä)).
 
 **Tee näin.** Odota seuraavaan arkipäivään. Jos ilmoitus ei sittenkään näy tai
 eräpäivä on lähellä, soita Verohallinnon ALV-palveluun. Agentti kokoaa sinulle
@@ -154,6 +157,50 @@ ilmoitusta.
 Hyväksynnän toisto ei lähetä uudelleen, ja aggountant kieltäytyy uudesta
 saman kauden ALV-ilmoitusajosta (`VAT_FILING_UNRESOLVED`), koska se voisi
 tuottaa kaksoisilmoituksen.
+
+## ALV-ilmoitus keskeytyi lähetettäessä
+
+**Mitä todennäköisesti tapahtui.** Kone kaatui tai istunto päättyi, kun
+ALV-ilmoitusta lähetettiin, ennen kuin lopputulos ehti kirjanpitoon. Ilmoitus
+on voinut mennä perille tai jäädä menemättä. Ajo näyttää ilmoituksen yhä
+kesken olevana, ja aggountant kieltäytyy uudesta saman kauden ilmoitusajosta
+(`VAT_FILING_UNRESOLVED`).
+
+**Tarkista.** Pyydä agenttia kysymään tila
+(`aggountant file-vat status --period 2026-03`). Keskeytyneen ajon kohdalla
+komento katsoo, mitä ajo jätti jälkeensä, ja kysyy Verohallinnolta
+(`GetFiledVATReturn`). Se vain lukee; mitään ei lähetetä eikä kirjata. Se
+kertoo:
+
+- `interrupted_filed`: Verohallinto otti ilmoituksen vastaan; sen kuittaus
+  ehti tallentua ennen keskeytystä, tai Verohallinto näyttää hyväksytyn
+  ilmoituksen käsiteltynä.
+- `interrupted_not_filed`: ilmoitus ei koskaan päässyt Verohallintoon (tai se
+  hylkäsi sen suoraan), eikä Verohallinnolla ole kaudelta ilmoitusta.
+- `filing_interrupted`: asia ei ole vielä selvä. Ilmoitus on voinut päätyä
+  Verohallintoon, joka ei vielä näytä sitä, tai Verohallinto näyttää kaudelta
+  jotain muuta.
+
+**Tee näin.** Pyydä agenttia ajamaan tilan nimeämä komento
+(`aggountant file-vat reconcile --run-id fv-…`). Se kirjaa vastauksen:
+
+- Jos ilmoitus otettiin vastaan, ilmoitus ja sen kuittaus, jos sellainen on,
+  kirjataan, ja ajo jatkuu maksuvaiheeseen. Mitään ei lähetetä.
+- Jos ilmoitus ei koskaan päässyt Verohallintoon, ajo suljetaan
+  ilmoittamattomana ja Verohallinnon vastaus tallennetaan ajoon. Aloita
+  kaudelle uusi ilmoitusajo; se lähettää ilmoituksen kerran.
+- Jos ilmoitus on voinut päätyä Verohallintoon mutta ei näy, sitä käsitellään
+  kuten [epävarmaa lopputulosta](#ilmoituksen-lopputulos-on-epävarma):
+  ilmoituksen näkyminen voi kestää päiviä, joten ajo suljetaan vasta kahden
+  "ei löydy" -vastauksen jälkeen, jotka ovat vähintään yhden pankkipäivän
+  välein.
+
+Jos kysely epäonnistuu (`VAT_STATUS_UNKNOWN`), mikään ei muutu; kysy
+myöhemmin uudelleen.
+
+**Älä** aloita uutta ilmoitusajoa tai ilmoita käsin ennen kuin tila on
+kertonut, mitä tapahtui. Tuntematon vastaus ei koskaan ole syy ilmoittaa
+uudelleen.
 `file-vat retry` koskee vain maksuvaihetta, ei ilmoitusta.
 
 ## Tulorekisteri hylkäsi ilmoituksen

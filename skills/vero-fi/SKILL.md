@@ -246,8 +246,9 @@ Tilan voi kysyä lähettämättä mitään: `aggountant file-vat status --period
 `processed_values_differ` (käsitelty kuittauksen jälkeen eri luvuin: pyydä käyttäjää
 vertaamaan OmaVerossa). Ilman kuittausta se vastaa paikallisista tiedoista
 (`not_filed`, `filed_without_receipt`, `outcome_unknown` ja `next_command`
-reconcileen, `filing_interrupted`). `VAT_STATUS_UNKNOWN` tarkoittaa vain, ettei tilaa
-saatu luettua; kuittaus todistaa ilmoituksen silti. Kerro käyttäjälle sopiva odotusaika huomioiden viikonloput, ja jos ilmoitus ei näy
+reconcileen). Keskeytyneestä lähetyksestä se kysyy Verohallinnolta (ks. alla).
+`VAT_STATUS_UNKNOWN` tarkoittaa vain, ettei tilaa saatu luettua; kuittaus todistaa
+ilmoituksen silti. Kerro käyttäjälle sopiva odotusaika huomioiden viikonloput, ja jos ilmoitus ei näy
 vuorokauden jälkeen tai eräpäivä painaa, kokoa hänelle Verohallinnon ALV-palvelulle
 soittoa varten kauden tiedot, `UniqueIdentifier`, `AcceptedTimestamp`, Y-tunnus ja
 lähetetyt kentät. Uusi lähetys vain Veron nimenomaisella ohjeella.
@@ -273,6 +274,30 @@ kysytään uudelleen, tai pyydä häntä katsomaan OmaVero. Jos uusi ajo muodost
 pyynnön kuin aiempi yritys, se kieltäytyy; silloin ilmoitus tehdään käsin
 (`complete-manual` ja "ei löydy" -vastaukset näyttönä). `file-vat retry` koskee vain
 maksuefektiä; ilmoitusta ei koskaan lähetetä uudelleen sokkona.
+
+## Keskeytynyt lähetys
+
+Jos ajo keskeytyi lähetyksen ja kirjauksen välissä, ilmoitusefekti jää
+`executing`-tilaan, ajon `outcome.next_command` on `file-vat status`, ja uusi ajo
+kieltäytyy (`VAT_FILING_UNRESOLVED`). Jatkamiskomentoa ei ole. `aggountant
+file-vat status --period … --json` katsoo outboxin ja kysyy `GetFiledVATReturn/v2`:n
+kirjaamatta mitään:
+
+- `interrupted_filed`: kuittaus on outboxissa tai Vero näyttää hyväksytyn
+  ilmoituksen käsiteltynä. `next_command` (`file-vat reconcile --run-id …`) kirjaa
+  ilmoituksen (ja kuittauksen, jos sellainen on) lähettämättä mitään.
+- `interrupted_not_filed`: pyyntö ei lähtenyt tai Vero hylkäsi sen suoraan, eikä
+  kaudelta ole ilmoitusta. `reconcile` kirjaa vastauksen ja sulkee ajon
+  (`closed_not_filed`); sen jälkeen uusi `file-vat start` lähettää kauden kerran.
+- `filing_interrupted`: pyyntö on voinut päätyä Veroon (`Missing` ei todista
+  katoamista), tai Vero näyttää muuta. `Missing`-vastauksella `reconcile` toimii
+  kuten epävarmassa lopputuloksessa: kaksi "ei löydy" -vastausta pankkipäivän
+  välein sulkee ajon. Muulla vastauksella `next_command` puuttuu: vertaa OmaVerossa
+  ja kysy myöhemmin.
+
+Kuitatun ilmoituksen tila voi myös kertoa `next_command`-kentässä `reconcile`n, jos
+ajo keskeytyi kirjauksen jälkeen; se vain päivittää ajon. `VAT_STATUS_UNKNOWN` ei
+muuta mitään eikä koskaan oikeuta uuteen lähetykseen.
 
 ## Manuaalinen reitti
 

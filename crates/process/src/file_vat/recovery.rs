@@ -20,22 +20,38 @@
 //! evidence sits in the Run's hash-chained journal with the attempt it resolves.
 //! Closing the Run skips its filing and payment effects.
 //!
-//! The recording and closing helpers do not care why the filing is unresolved, so
-//! an interrupted dispatch can be checked the same way.
+//! An interrupted Run (the filing effect left executing, `vat_filed` not set) is
+//! reconciled the same way, after what the Run left locally is used first:
+//! - the fiscal filing already landed: the Run records it, nothing is read;
+//! - the outbox holds the authority's receipt: the receipt is recorded, nothing
+//!   is read;
+//! - a request may have reached the authority (an `Unknown` attempt, including a
+//!   crash between the outbox intent and its answer): exactly as an unknown
+//!   outcome above, because `Missing` right after sending does not prove the
+//!   return was lost;
+//! - no request of the Run left, or the authority refused each outright: one
+//!   `Missing` closes the Run as not filed, because no return of it can surface.
+//!
+//! `file-vat status` reads the same evidence without recording it and names
+//! `file-vat reconcile`; there is no resume command.
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
-use aggountant_broker::{Broker, FiledVatReturn, SVC_VERO_FILE_VAT_RETURN};
+use aggountant_broker::{
+    Attempt, AttemptOutcome, Broker, FileVatReceipt, FileVatReturn, FiledVatReturn,
+    SVC_VERO_FILE_VAT_RETURN,
+};
 use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
 use aggountant_ledger::Ledger;
 use aggountant_model::PeriodId;
 
 use super::{
     approved_filing_request, assert_filing_gate_approved_and_bound, filed_vat_return_envelope,
-    filing_outcome_may_be_accepted, map_broker, ACTOR, EFFECT_SUBMIT_FILING, EFFECT_SUBMIT_PAYMENT,
+    filing_outcome_may_be_accepted, map_adapter, map_broker, rebuild_filing_env, FileVatState,
+    ACTOR, EFFECT_SUBMIT_FILING, EFFECT_SUBMIT_PAYMENT,
 };
-use crate::journal::{EventPayload, Journal};
+use crate::journal::{EventPayload, Journal, JournalEvent};
 use crate::{fold, Clock, EffectStatus, Fold, ProcessEngine, ProcessError, RunView, SystemClock};
 
 const CHECK_EFFECT_PREFIX: &str = "authority-check:";
@@ -113,7 +129,9 @@ impl ProcessEngine {
             ),
             Unresolved::Interrupted => format!(
                 "Run {run_id} was interrupted while sending a VAT return for {period}; it may \
-                 have been accepted. Do not file the period again until that Run is resolved"
+                 have been accepted. Run `aggountant file-vat status --period {period}`: it asks \
+                 the Tax Administration what happened and names the command that records the \
+                 answer. Do not file the period again until that Run is resolved"
             ),
         };
         Err(ProcessError::VatFilingUnresolved(message))
@@ -157,8 +175,8 @@ impl ProcessEngine {
         Ok(self.unresolved_filing(period, None)?.is_some())
     }
 
-    /// Ask the Tax Administration about a Vero filing parked after a rejection,
-    /// with the read-only GetFiledVATReturn/v2. A processed return matching the
+    /// Ask the Tax Administration about a Vero filing parked after a rejection or
+    /// interrupted mid-dispatch, with the read-only GetFiledVATReturn/v2. A processed return matching the
     /// approved request is adopted without a re-submit. For a filing whose outcome
     /// is unknown the answer is recorded on the Run, and two "not found" answers at
     /// least one bank day apart close it as not filed (see the module docs).
@@ -182,15 +200,15 @@ impl ProcessEngine {
         let events = journal.read_all()?;
         let f = fold(run_id, &events)?;
         self.check_version(&f)?;
-        if f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status)
-            != Some(EffectStatus::Rejected)
-        {
+        let filing = f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status);
+        if !matches!(
+            filing,
+            Some(EffectStatus::Rejected | EffectStatus::Executing)
+        ) {
             return Err(ProcessError::InvalidAnswer(
-                "submit-filing is not parked for reconciliation".into(),
+                "submit-filing is neither parked for reconciliation nor interrupted".into(),
             ));
         }
-        let outcome_unknown = latest_filing_rejection(&events)
-            .is_some_and(|code| filing_outcome_may_be_accepted(&code));
         let state = self.read_file_vat_state(run_id)?;
         assert_filing_gate_approved_and_bound(
             &f,
@@ -198,103 +216,74 @@ impl ProcessEngine {
             &state.vero_period,
             &state.filing_sent_hash,
         )?;
-        let expected = approved_filing_request(&state)?;
-        let envelope = filed_vat_return_envelope(&expected, format!("reconcile:{}", state.period))?;
-        // A failed or unreadable read returns here, before anything is recorded.
-        let body = broker.fetch(&envelope).map_err(map_broker)?;
-        let filed: FiledVatReturn = serde_json::from_value(body)
-            .map_err(|e| ProcessError::Store(format!("GetFiledVATReturn malformed: {e}")))?;
-        let checked_at = clock_now(clock)?;
-        let effect_key = format!("{EFFECT_SUBMIT_FILING}:{}", state.period);
-        let outbox = broker
-            .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &effect_key)
-            .map_err(map_broker)?
-            .ok_or_else(|| ProcessError::Store("Vero filing outbox entry is missing".into()))?;
-        let attempted_date = outbox
-            .attempts
-            .last()
-            .and_then(|attempt| attempt.provenance.ts.get(..10))
-            .ok_or_else(|| {
-                ProcessError::Store("Vero filing attempt timestamp is missing".into())
-            })?;
         let period = PeriodId::parse(&state.period)
             .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
-        let remote_status = filed.status.clone();
+        let vat_filed = Ledger::open(&self.home)?.period_view(&period)?.vat_filed;
 
-        let (outcome, next_check_from, message) = if filed
-            .semantically_matches_attempt(&expected, Some(attempted_date))
-        {
-            let ledger = Ledger::open(&self.home)?;
-            if !ledger.period_view(&period)?.vat_filed {
-                let auth = ledger.acquire_filing_authority(&period, run_id)?;
-                // A reconciliation response carries no FileVATReturn receipt fields;
-                // never invent them. The approved payload hash is still audited.
-                ledger.file_vat(&period, &auth, &state.filing_sent_hash, ACTOR)?;
+        let route = if filing == Some(EffectStatus::Rejected) {
+            Route::Parked {
+                outcome_unknown: latest_filing_rejection(&events)
+                    .is_some_and(|code| filing_outcome_may_be_accepted(&code)),
             }
-            journal.append(EventPayload::EffectReconciled {
-                effect_key: EFFECT_SUBMIT_FILING.into(),
-                note: "GetFiledVATReturn semantically matches approved FileVATReturn bytes".into(),
-            })?;
+        } else if vat_filed {
+            Route::FiscalLanded
+        } else {
+            match self.interrupted_dispatch(broker, &events, &period, &state)? {
+                Dispatch::Receipt(receipt) => Route::OutboxReceipt(receipt),
+                Dispatch::MayHaveArrived { attempted } => {
+                    Route::Interrupted(Reach::MayHaveArrived { attempted })
+                }
+                Dispatch::NotAccepted { since } => Route::Interrupted(Reach::Refused { since }),
+            }
+        };
+        let adopted = |message: String| -> Result<_, ProcessError> {
             let f2 = fold(run_id, &journal.read_all()?)?;
             self.finish_filing_postcondition(&journal, &f2, &state)?;
-            (
-                FileVatReconcileOutcome::Adopted,
-                None,
-                "The Tax Administration has processed the approved return; the filing is \
-                 recorded and nothing was sent."
-                    .to_string(),
-            )
-        } else if outcome_unknown {
-            let status = remote_status.as_deref().unwrap_or("(none)");
-            record_authority_check(&journal, &f, status, checked_at)?;
-            let checks = authority_checks(&journal.read_all()?)?;
-            match not_found_streak(&checks) {
-                NotFoundStreak::Conclusive { first, last } => {
-                    let (first, last) = (finnish_minute(first), finnish_minute(last));
-                    close_as_not_filed(&journal, &first, &last)?;
-                    (
-                        FileVatReconcileOutcome::ClosedNotFiled,
-                        None,
-                        format!(
-                            "The Tax Administration answered on {first} and again on {last} \
-                             (Finnish time) that it has no return for {period}. This Run is \
-                             closed as not filed; start a new file-vat Run to file the period."
-                        ),
-                    )
-                }
-                NotFoundStreak::Waiting { first } => {
-                    let next = one_bank_day_after(first);
-                    (
-                        FileVatReconcileOutcome::NotFound,
-                        Some(next),
-                        format!(
-                            "The Tax Administration has no return for {period} yet; a return can \
-                             take days to show. Ask again at {} (Finnish time) or later: a \
-                             second \"not found\" then closes this Run so the period can be \
-                             filed again. Do not file before that.",
-                            finnish_minute(next)
-                        ),
-                    )
-                }
-                NotFoundStreak::None => (
-                    FileVatReconcileOutcome::Unresolved,
-                    None,
-                    format!(
-                        "The Tax Administration answered with status {status}, which neither \
-                         matches the approved return nor says it has none. The answer is \
-                         recorded and the \"not found\" count starts over. Compare the return \
-                         in OmaVero; do not file again."
-                    ),
-                ),
+            Ok((FileVatReconcileOutcome::Adopted, None, None, message))
+        };
+        let (outcome, remote_status, next_check_from, message) = match route {
+            // The fiscal filing landed and the Run stopped before journalling it: the
+            // books already hold the filing, so only the Run catches up.
+            Route::FiscalLanded => {
+                journal.append(EventPayload::EffectReconciled {
+                    effect_key: EFFECT_SUBMIT_FILING.into(),
+                    note: format!("fiscal shows period {period} vat_filed (fiscal wins)"),
+                })?;
+                adopted(
+                    "The filing had already been recorded in the books before the Run was \
+                     interrupted; the Run now records it too. Nothing was sent."
+                        .into(),
+                )?
             }
-        } else {
-            (
-                FileVatReconcileOutcome::Unresolved,
-                None,
-                "The Tax Administration does not show the approved return. This filing was \
-                 rejected, so nothing is outstanding."
-                    .to_string(),
-            )
+            // The authority's receipt is proof; no read is needed.
+            Route::OutboxReceipt(receipt) => {
+                self.record_vat_receipt(&period, run_id, &state, &receipt)?;
+                journal.append(EventPayload::EffectSucceeded {
+                    effect_key: EFFECT_SUBMIT_FILING.into(),
+                    note: super::receipt_note(&receipt),
+                })?;
+                adopted(format!(
+                    "The Tax Administration accepted the return with receipt {} at {} before \
+                     the Run was interrupted. The receipt is recorded and nothing was sent.",
+                    receipt.unique_identifier, receipt.accepted_timestamp
+                ))?
+            }
+            Route::Parked { outcome_unknown } => {
+                let attempted = self.last_attempt_date(broker, &period)?.ok_or_else(|| {
+                    ProcessError::Store("Vero filing attempt timestamp is missing".into())
+                })?;
+                let reach = if outcome_unknown {
+                    Reach::MayHaveArrived { attempted }
+                } else {
+                    Reach::Refused { since: attempted }
+                };
+                self.reconcile_with_authority(
+                    &journal, &f, run_id, &state, &period, broker, clock, &reach, false,
+                )?
+            }
+            Route::Interrupted(reach) => self.reconcile_with_authority(
+                &journal, &f, run_id, &state, &period, broker, clock, &reach, true,
+            )?,
         };
         let events = journal.read_all()?;
         Ok(FileVatReconcile {
@@ -306,6 +295,312 @@ impl ProcessEngine {
             message,
         })
     }
+
+    /// Ask GetFiledVATReturn about the period and act on the answer (see the module
+    /// docs). `interrupted` says the Run stopped mid-dispatch rather than parking on
+    /// a rejection; such a Run whose request never reached the authority is closed
+    /// on one "not found", because nothing of it can surface later.
+    #[allow(clippy::too_many_arguments)]
+    fn reconcile_with_authority(
+        &self,
+        journal: &Journal,
+        f: &Fold,
+        run_id: &str,
+        state: &FileVatState,
+        period: &PeriodId,
+        broker: &Broker,
+        clock: &dyn Clock,
+        reach: &Reach,
+        interrupted: bool,
+    ) -> Result<ReconcileStep, ProcessError> {
+        let expected = approved_filing_request(state)?;
+        let envelope = filed_vat_return_envelope(&expected, format!("reconcile:{}", state.period))?;
+        // A failed or unreadable read returns here, before anything is recorded.
+        let body = broker.fetch(&envelope).map_err(map_broker)?;
+        let filed: FiledVatReturn = serde_json::from_value(body)
+            .map_err(|e| ProcessError::Store(format!("GetFiledVATReturn malformed: {e}")))?;
+        let checked_at = clock_now(clock)?;
+        let remote_status = filed.status.clone();
+        let status = remote_status.as_deref().unwrap_or("(none)").to_string();
+
+        let step = match judge(&filed, &expected, reach) {
+            Finding::Matches => {
+                let ledger = Ledger::open(&self.home)?;
+                if !ledger.period_view(period)?.vat_filed {
+                    let auth = ledger.acquire_filing_authority(period, run_id)?;
+                    // A reconciliation response carries no FileVATReturn receipt fields;
+                    // never invent them. The approved payload hash is still audited.
+                    ledger.file_vat(period, &auth, &state.filing_sent_hash, ACTOR)?;
+                }
+                journal.append(EventPayload::EffectReconciled {
+                    effect_key: EFFECT_SUBMIT_FILING.into(),
+                    note: "GetFiledVATReturn semantically matches approved FileVATReturn bytes"
+                        .into(),
+                })?;
+                let f2 = fold(run_id, &journal.read_all()?)?;
+                self.finish_filing_postcondition(journal, &f2, state)?;
+                (
+                    FileVatReconcileOutcome::Adopted,
+                    "The Tax Administration has processed the approved return; the filing is \
+                     recorded and nothing was sent."
+                        .to_string(),
+                    None,
+                )
+            }
+            // A rejected filing has nothing outstanding to record answers for.
+            _ if !interrupted && matches!(reach, Reach::Refused { .. }) => (
+                FileVatReconcileOutcome::Unresolved,
+                "The Tax Administration does not show the approved return. This filing was \
+                 rejected, so nothing is outstanding."
+                    .to_string(),
+                None,
+            ),
+            Finding::NotFound if matches!(reach, Reach::Refused { .. }) => {
+                record_authority_check(journal, f, &status, checked_at)?;
+                let at = finnish_minute(checked_at);
+                close_as_not_filed(
+                    journal,
+                    &format!(
+                        "NOT_FILED: the Run was interrupted before the Tax Administration \
+                         accepted a FileVATReturn request, and GetFiledVATReturn answered \
+                         {NOT_FOUND} on {at} (Finnish time)"
+                    ),
+                )?;
+                (
+                    FileVatReconcileOutcome::ClosedNotFiled,
+                    format!(
+                        "The Run was interrupted before the Tax Administration accepted its \
+                         request, and on {at} (Finnish time) it answered that it has no return \
+                         for {period}. This Run is closed as not filed; start a new file-vat \
+                         Run to file the period."
+                    ),
+                    None,
+                )
+            }
+            Finding::Other if matches!(reach, Reach::Refused { .. }) => {
+                record_authority_check(journal, f, &status, checked_at)?;
+                (
+                    FileVatReconcileOutcome::Unresolved,
+                    format!(
+                        "The Tax Administration answered with status {status} for {period}, \
+                         which neither matches the approved return nor says it has none, \
+                         although this Run's request was not accepted. The answer is recorded. \
+                         Compare the return in OmaVero; do not file again."
+                    ),
+                    None,
+                )
+            }
+            _ => {
+                record_authority_check(journal, f, &status, checked_at)?;
+                let checks = authority_checks(&journal.read_all()?)?;
+                match not_found_streak(&checks) {
+                    NotFoundStreak::Conclusive { first, last } => {
+                        let (first, last) = (finnish_minute(first), finnish_minute(last));
+                        close_as_not_filed(
+                            journal,
+                            &format!(
+                                "NOT_FILED: GetFiledVATReturn answered {NOT_FOUND} on {first} \
+                                 and on {last} (Finnish time)"
+                            ),
+                        )?;
+                        (
+                            FileVatReconcileOutcome::ClosedNotFiled,
+                            format!(
+                                "The Tax Administration answered on {first} and again on {last} \
+                                 (Finnish time) that it has no return for {period}. This Run is \
+                                 closed as not filed; start a new file-vat Run to file the \
+                                 period."
+                            ),
+                            None,
+                        )
+                    }
+                    NotFoundStreak::Waiting { first } => {
+                        let next = one_bank_day_after(first);
+                        (
+                            FileVatReconcileOutcome::NotFound,
+                            format!(
+                                "The Tax Administration has no return for {period} yet; a return \
+                                 can take days to show. Ask again at {} (Finnish time) or later: \
+                                 a second \"not found\" then closes this Run so the period can \
+                                 be filed again. Do not file before that.",
+                                finnish_minute(next)
+                            ),
+                            Some(next),
+                        )
+                    }
+                    NotFoundStreak::None => (
+                        FileVatReconcileOutcome::Unresolved,
+                        format!(
+                            "The Tax Administration answered with status {status}, which \
+                             neither matches the approved return nor says it has none. The \
+                             answer is recorded and the \"not found\" count starts over. \
+                             Compare the return in OmaVero; do not file again."
+                        ),
+                        None,
+                    ),
+                }
+            }
+        };
+        let (outcome, message, next_check_from) = step;
+        Ok((outcome, remote_status, next_check_from, message))
+    }
+
+    /// What the outbox says about the dispatch of an interrupted Run: the requests
+    /// made under the period's key since the Run first began dispatching.
+    pub(super) fn interrupted_dispatch(
+        &self,
+        broker: &Broker,
+        events: &[JournalEvent],
+        period: &PeriodId,
+        state: &FileVatState,
+    ) -> Result<Dispatch, ProcessError> {
+        let began = events
+            .iter()
+            .find(|event| {
+                matches!(&event.payload, EventPayload::EffectExecuting { effect_key }
+                    if effect_key == EFFECT_SUBMIT_FILING)
+            })
+            .map(|event| parse_instant(&event.ts))
+            .ok_or_else(|| {
+                ProcessError::JournalCorrupt("submit-filing never began executing".into())
+            })??;
+        let entry = broker
+            .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &filing_outbox_key(period))
+            .map_err(map_broker)?;
+        let Some(entry) = entry else {
+            return Ok(Dispatch::NotAccepted { since: began });
+        };
+        // A receipt under the period's key is the period's filing whichever attempt
+        // earned it: the Broker replays it instead of sending again.
+        if let Some(success) = entry.terminal_success() {
+            let sent_hash = rebuild_filing_env(period, &state.filing_body)
+                .sent_hash()
+                .map_err(map_broker)?;
+            if success.sent_hash != sent_hash {
+                return Err(ProcessError::JournalCorrupt(format!(
+                    "the outbox receipt for {period} acknowledges a different FileVATReturn \
+                     request than this Run approved; compare the filing in OmaVero"
+                )));
+            }
+            let (AttemptOutcome::Delivered { receipt }
+            | AttemptOutcome::RecoveredAlreadyProcessed { receipt }) = &success.outcome
+            else {
+                unreachable!("terminal_success returns a delivered attempt");
+            };
+            let receipt = FileVatReceipt::decode(receipt).map_err(map_adapter)?;
+            return Ok(Dispatch::Receipt(receipt));
+        }
+        // An attempt whose time cannot be read is counted as this Run's.
+        let ours: Vec<&Attempt> = entry
+            .attempts
+            .iter()
+            .filter(|attempt| parse_instant(&attempt.provenance.ts).map_or(true, |ts| ts >= began))
+            .collect();
+        let arrived = ours
+            .iter()
+            .rev()
+            .find(|attempt| matches!(attempt.outcome, AttemptOutcome::Unknown { .. }));
+        Ok(match arrived {
+            Some(attempt) => Dispatch::MayHaveArrived {
+                attempted: parse_instant(&attempt.provenance.ts).unwrap_or(began),
+            },
+            None => Dispatch::NotAccepted { since: began },
+        })
+    }
+
+    /// When the period's latest filing attempt was made.
+    fn last_attempt_date(
+        &self,
+        broker: &Broker,
+        period: &PeriodId,
+    ) -> Result<Option<DateTime<Utc>>, ProcessError> {
+        let entry = broker
+            .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &filing_outbox_key(period))
+            .map_err(map_broker)?
+            .ok_or_else(|| ProcessError::Store("Vero filing outbox entry is missing".into()))?;
+        entry
+            .attempts
+            .last()
+            .map(|attempt| parse_instant(&attempt.provenance.ts))
+            .transpose()
+    }
+}
+
+/// The period's FileVATReturn outbox key.
+fn filing_outbox_key(period: &PeriodId) -> String {
+    format!("{EFFECT_SUBMIT_FILING}:{period}")
+}
+
+/// What one reconciliation concluded: outcome, the status read, when to ask
+/// again, and the message.
+type ReconcileStep = (
+    FileVatReconcileOutcome,
+    Option<String>,
+    Option<DateTime<Utc>>,
+    String,
+);
+
+enum Route {
+    /// The filing effect was rejected; `outcome_unknown` when it may still have
+    /// been accepted.
+    Parked { outcome_unknown: bool },
+    /// Interrupted after the fiscal filing was written.
+    FiscalLanded,
+    /// Interrupted after the authority's receipt reached the outbox.
+    OutboxReceipt(FileVatReceipt),
+    /// Interrupted with nothing recorded locally.
+    Interrupted(Reach),
+}
+
+/// What the outbox shows about an interrupted Run's FileVATReturn request.
+#[derive(Debug)]
+pub(super) enum Dispatch {
+    /// The authority accepted the request; the outbox holds its receipt.
+    Receipt(FileVatReceipt),
+    /// A request may have reached the authority without an answer recorded.
+    MayHaveArrived { attempted: DateTime<Utc> },
+    /// No request of the Run left, or every one was refused outright, so no
+    /// return of the Run can surface later. `since` is when the Run began.
+    NotAccepted { since: DateTime<Utc> },
+}
+
+/// Whether the authority may hold a return from this filing.
+pub(super) enum Reach {
+    MayHaveArrived { attempted: DateTime<Utc> },
+    Refused { since: DateTime<Utc> },
+}
+
+/// What GetFiledVATReturn says about the approved return.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Finding {
+    /// The approved return, processed on or after the attempt.
+    Matches,
+    /// No return for the period.
+    NotFound,
+    Other,
+}
+
+/// One rule for `file-vat status` and `file-vat reconcile`.
+pub(super) fn judge(filed: &FiledVatReturn, expected: &FileVatReturn, reach: &Reach) -> Finding {
+    let since = match reach {
+        Reach::MayHaveArrived { attempted } => attempted,
+        Reach::Refused { since } => since,
+    };
+    // SubmittedDate is a Finnish calendar date, compared with the attempt's.
+    let earliest = finnish_date(*since).to_string();
+    if filed.semantically_matches_attempt(expected, Some(&earliest)) {
+        Finding::Matches
+    } else if filed.status.as_deref() == Some(NOT_FOUND) {
+        Finding::NotFound
+    } else {
+        Finding::Other
+    }
+}
+
+fn parse_instant(value: &str) -> Result<DateTime<Utc>, ProcessError> {
+    DateTime::parse_from_rfc3339(value)
+        .map(|instant| instant.to_utc())
+        .map_err(|_| ProcessError::JournalCorrupt(format!("bad timestamp {value:?}")))
 }
 
 fn clock_now(clock: &dyn Clock) -> Result<DateTime<Utc>, ProcessError> {
@@ -422,15 +717,12 @@ fn not_found_streak(checks: &[AuthorityCheck]) -> NotFoundStreak {
     }
 }
 
-/// Close a Run whose filing the authority has twice said it does not have: the
-/// filing and the payment will never run.
-fn close_as_not_filed(journal: &Journal, first: &str, last: &str) -> Result<(), ProcessError> {
+/// Close a Run as not filed: its filing and payment will never run. `reason`
+/// cites the authority's answers.
+fn close_as_not_filed(journal: &Journal, reason: &str) -> Result<(), ProcessError> {
     journal.append(EventPayload::EffectSkipped {
         effect_key: EFFECT_SUBMIT_FILING.into(),
-        reason: format!(
-            "NOT_FILED: GetFiledVATReturn answered {NOT_FOUND} on {first} and on {last} \
-             (Finnish time)"
-        ),
+        reason: reason.to_string(),
     })?;
     journal.append(EventPayload::EffectSkipped {
         effect_key: EFFECT_SUBMIT_PAYMENT.into(),

@@ -26,6 +26,7 @@ time.
 |---|---|
 | month's close (`cp-…`) | `aggountant run resume --run-id cp-…` |
 | VAT return (`fv-…`), uncertain submission | `aggountant file-vat reconcile --run-id fv-…` |
+| VAT return (`fv-…`), interrupted while sending | `aggountant file-vat status --period YYYY-MM`, then the command it names ([below](#a-vat-filing-was-interrupted-while-sending)) |
 | Tulorekisteri report (`wr-…`), uncertain submission | `aggountant file-wage reconcile wr-…` |
 | employer's separate report (`er-…`), uncertain submission | `aggountant file-wage employer-report status --month YYYY-MM` |
 | year-end (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
@@ -118,7 +119,9 @@ The acknowledgement proves the filing, not whether the return shows in
 OmaVero. If the status query fails (`VAT_STATUS_UNKNOWN`), the status is only
 unknown: the return has still been filed. If the outcome of the submission is
 uncertain, the command points to `file-vat reconcile`
-([below](#the-outcome-of-a-filing-is-uncertain)).
+([below](#the-outcome-of-a-filing-is-uncertain)). If the run was interrupted
+while sending, the command asks the Tax Administration about that run
+([below](#a-vat-filing-was-interrupted-while-sending)).
 
 **Do this.** Wait until the next working day. If the return still does not
 show, or the due date is close, call the Tax Administration's VAT service.
@@ -158,6 +161,48 @@ does not send the return.
 Repeating the approval does not send again, and aggountant refuses a new VAT
 filing run for the same period (`VAT_FILING_UNRESOLVED`), because it could
 produce a duplicate return.
+
+## A VAT filing was interrupted while sending
+
+**What probably happened.** The computer crashed or the session ended while
+the VAT return was being sent, before its outcome reached the books. The return
+may or may not have got through. The run shows the filing as still in
+progress, and aggountant refuses a new filing run for the period
+(`VAT_FILING_UNRESOLVED`).
+
+**Check.** Ask the agent to query the status
+(`aggountant file-vat status --period 2026-03`). For an interrupted run the
+command looks at what the run left behind and asks the Tax Administration
+(`GetFiledVATReturn`). It only reads; nothing is sent or recorded. It reports:
+
+- `interrupted_filed`: the Tax Administration accepted the return; its
+  acknowledgement was saved before the interruption, or the Tax
+  Administration shows the approved return processed.
+- `interrupted_not_filed`: the return never reached the Tax Administration
+  (or it refused it outright), and the Tax Administration has no return for
+  the period.
+- `filing_interrupted`: not settled yet. Either the return may have reached
+  the Tax Administration, which does not show it yet, or the Tax
+  Administration shows something else for the period.
+
+**Do this.** Ask the agent to run the command the status names
+(`aggountant file-vat reconcile --run-id fv-…`). It records the answer:
+
+- If the return was accepted, the filing and its acknowledgement, when there
+  is one, are recorded, and the run continues to the payment step. Nothing is
+  sent.
+- If the return never reached the Tax Administration, the run is closed as
+  not filed, with the Tax Administration's answer stored in the run. Start a
+  new filing run for the period; it sends the return once.
+- If the return may have reached the Tax Administration but does not show,
+  it is treated like an [uncertain outcome](#the-outcome-of-a-filing-is-uncertain):
+  a return can take days to show, so two "not found" answers at least one
+  bank day apart are needed before the run is closed.
+
+If the query fails (`VAT_STATUS_UNKNOWN`), nothing changes; ask again later.
+
+**Do not** start a new filing run or file by hand before the status has said
+what happened. An unknown answer is never a reason to file again.
 `file-vat retry` applies only to the payment step, not to the return.
 
 ## Tulorekisteri rejected the report

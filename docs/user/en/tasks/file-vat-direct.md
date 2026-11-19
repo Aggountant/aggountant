@@ -127,7 +127,10 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
   of day on the next bank day or later; the second "not found" closes the
   earlier run, and the month can
   be filed with a new run. This can take a few days
-  ([Uncertain outcome](../concepts/filings.md#uncertain-outcome)).
+  ([Uncertain outcome](../concepts/filings.md#uncertain-outcome)). If the
+  earlier run was interrupted while sending, the agent first asks with
+  `file-vat status`
+  ([A VAT filing was interrupted while sending](../troubleshooting.md#a-vat-filing-was-interrupted-while-sending)).
 
 ## See also
 

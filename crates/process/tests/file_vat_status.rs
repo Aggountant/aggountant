@@ -16,8 +16,8 @@ use aggountant_domain::PolicySet;
 use aggountant_ledger::{Ledger, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{
-    FileVatFilingStatus, FileVatInput, FileVatStatus, FileVatStatusPlan, ProcessEngine,
-    ProcessError,
+    FileVatFilingStatus, FileVatInput, FileVatReconcileOutcome, FileVatStatus, FileVatStatusPlan,
+    ProcessEngine, ProcessError, Seam,
 };
 use aggountant_vero_vat_api_mock::{
     FileVatReturnFixture, GetFiledVatReturnFixture, MockVeroVatServer, MtlsTestCredentials,
@@ -426,5 +426,50 @@ fn a_success_status_without_a_readable_receipt_is_not_reported_as_not_filed() {
     assert_eq!(
         reported.next_command.as_deref(),
         Some(format!("aggountant file-vat reconcile --run-id {run_id}").as_str())
+    );
+}
+
+#[test]
+fn an_interrupted_accepted_filing_is_recorded_by_reconcile_without_a_second_request() {
+    let home = sealed_july();
+    let server =
+        MockVeroVatServer::start_mtls(scenario(GetFiledVatReturnFixture::Matching)).unwrap();
+    let engine = ProcessEngine::open(home.path());
+    let broker = broker(home.path(), &server);
+    let run_id = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    engine
+        .answer_file_vat_seam(
+            &run_id,
+            "ApproveFiling",
+            "approve",
+            &broker,
+            Seam::CrashAfterFilingBrokerSuccess,
+        )
+        .unwrap();
+    assert_eq!(count(&server, FILE_VAT_RETURN_PATH), 1);
+
+    let reported = status(home.path(), &server).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::InterruptedFiled);
+    assert_eq!(
+        reported.next_command,
+        Some(format!("aggountant file-vat reconcile --run-id {run_id}"))
+    );
+
+    let adopted = engine.reconcile_file_vat(&run_id, &broker).unwrap();
+    assert_eq!(adopted.outcome, FileVatReconcileOutcome::Adopted);
+    assert_eq!(
+        count(&server, FILE_VAT_RETURN_PATH),
+        1,
+        "no second FileVATReturn"
+    );
+    let reported = status(home.path(), &server).unwrap();
+    assert_eq!(reported.status, FileVatFilingStatus::Processed);
+    assert_eq!(
+        reported.receipt.unwrap().unique_identifier,
+        "mock-vat-return-0001"
     );
 }

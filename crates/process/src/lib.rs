@@ -150,6 +150,13 @@ pub enum Seam {
     /// `SealPeriod` effect runs — the approve-then-crash window `resume` must
     /// recover (otherwise the Run wedges: gate answered but never sealed).
     CrashAfterGateAnswer,
+    /// (`file-vat`) Return after journalling the filing's `EffectExecuting`, before the
+    /// broker records an attempt: nothing has left the machine.
+    CrashBeforeFilingDispatch,
+    /// (`file-vat`) Return as soon as the filing submit returns, whatever its outcome,
+    /// before the Run records it. With a timeout the outbox holds an `Unknown`
+    /// attempt: the request may have reached the Tax Administration.
+    CrashAfterFilingDispatch,
     /// (`file-vat`) Return immediately after the filing submit's **broker success**,
     /// before the fiscal `file_vat` COMMIT — the exact window the S3 spike-notes
     /// flag: the authority accepted the return (outbox has a terminal-success

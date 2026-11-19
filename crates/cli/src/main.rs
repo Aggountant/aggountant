@@ -1841,17 +1841,19 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     let status = match engine.file_vat_status_plan(period)? {
                         FileVatStatusPlan::Answered(status) => status,
                         FileVatStatusPlan::Query(query) => {
-                            // Only a receipted filing needs credentials. A broker that
-                            // cannot be built leaves the status unknown, not "not filed".
+                            // Only a receipted or interrupted filing needs credentials. A
+                            // broker that cannot be built leaves the status unknown, not
+                            // "not filed".
                             let operation = build_file_vat_broker(&home, broker_script.as_deref())
                                 .map_err(|e| CliError {
                                     code: "VAT_STATUS_UNKNOWN".into(),
                                     class: e.class,
                                     message: format!(
                                         "cannot read the Tax Administration's view of {period} \
-                                         ({}: {}); the stored receipt still proves the filing, \
-                                         do not file again",
-                                        e.code, e.message
+                                         ({}: {}); {}, do not file again",
+                                        e.code,
+                                        e.message,
+                                        query.unread_meaning()
                                     ),
                                 })?;
                             engine.query_file_vat_status(&query, &operation.broker)?
