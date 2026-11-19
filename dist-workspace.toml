@@ -17,3 +17,10 @@ targets = [
 hosting = "github"
 github-attestations = true
 pr-run-mode = "skip"
+
+# GitHub retired the macos-14 image that cargo-dist 0.33 picks by default for
+# aarch64-apple-darwin ("configuration 'macos-14-arm64-us-default' is not
+# supported", release v0.1.0 attempt 2026-11-19). Keep this override if the
+# file is regenerated with `shipshape dist generate --force`.
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
