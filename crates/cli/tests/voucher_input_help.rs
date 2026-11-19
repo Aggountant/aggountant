@@ -137,7 +137,7 @@ fn help_is_read_only_and_short_and_long_text_forms_include_the_example() {
     let data_home = tempfile::tempdir().unwrap();
     let home = data_home.path().to_str().unwrap();
 
-    for action in ["draft", "seal"] {
+    for action in ["draft", "validate", "seal"] {
         for flag in ["-h", "--help"] {
             let output = success_stdout(run(
                 config_home.path(),
@@ -202,4 +202,152 @@ fn printed_examples_do_not_default_required_evidence_fields() {
             &missing.to_string(),
         ));
     }
+}
+
+fn error_code(output: Output) -> (Option<i32>, Value) {
+    assert!(output.stdout.is_empty());
+    let error: Value = serde_json::from_slice(&output.stderr).expect("JSON error on stderr");
+    (output.status.code(), error["error_code"].clone())
+}
+
+#[test]
+fn validate_accepts_the_seal_envelope_it_documents_and_checks_its_natural_key() {
+    let config_home = tempfile::tempdir().unwrap();
+    let data_home = tempfile::tempdir().unwrap();
+    let home = data_home.path().to_str().unwrap();
+    let validate_help = help(config_home.path(), "validate", "--help");
+    let seal_help = help(config_home.path(), "seal", "--help");
+    assert!(validate_help.contains("Validate the same file you seal."));
+    assert!(validate_help.contains("voucher validate < seal.json"));
+    assert!(seal_help.contains("voucher validate < seal.json"));
+    let envelope = printed_json(&validate_help);
+    // One example, one shape: the file shown for validate is the file shown for seal.
+    assert_eq!(envelope, printed_json(&seal_help));
+
+    json_stdout(run(
+        config_home.path(),
+        &["--home", home, "--json", "init"],
+        "",
+    ));
+    let validate = |stdin: &str| {
+        run(
+            config_home.path(),
+            &["--home", home, "--json", "voucher", "validate"],
+            stdin,
+        )
+    };
+
+    let fresh = json_stdout(validate(&envelope));
+    assert_eq!(fresh["ok"], true);
+    assert_eq!(fresh["posting_count"], 2);
+    assert_eq!(fresh["warnings"], serde_json::json!([]));
+
+    let sealed = json_stdout(run(
+        config_home.path(),
+        &["--home", home, "--json", "voucher", "seal"],
+        &envelope,
+    ));
+    assert_eq!(sealed["number"], 1);
+
+    // The same file again: seal would replay, so validate warns and passes.
+    let replay = json_stdout(validate(&envelope));
+    assert_eq!(replay["ok"], true);
+    let warnings = replay["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1);
+    assert_eq!(warnings[0]["code"], "NATURAL_KEY_ALREADY_SEALED");
+    assert_eq!(warnings[0]["voucher_number"], 1);
+    assert!(warnings[0].get("posting_index").is_none());
+
+    // The actor is provenance, not request content: a different actor still replays.
+    let mut other_actor: Value = serde_json::from_str(&envelope).unwrap();
+    other_actor["actor"] = "another-agent".into();
+    let report = json_stdout(validate(&other_actor.to_string()));
+    assert_eq!(report["warnings"][0]["code"], "NATURAL_KEY_ALREADY_SEALED");
+
+    // The key bound to different content: seal would refuse, so validate refuses
+    // with the same code and writes nothing.
+    let mut changed: Value = serde_json::from_str(&envelope).unwrap();
+    changed["draft"]["description"] = "Changed fictional description".into();
+    let (code, error) = error_code(validate(&changed.to_string()));
+    assert_eq!(code, Some(1));
+    assert_eq!(error, "IDEMPOTENCY_KEY_REUSE");
+    let (_, seal_error) = error_code(run(
+        config_home.path(),
+        &["--home", home, "--json", "voucher", "seal"],
+        &changed.to_string(),
+    ));
+    assert_eq!(seal_error, "IDEMPOTENCY_KEY_REUSE");
+
+    // A new key for the changed content is fine.
+    changed["natural_key"] = "fictional-service-2026-01-15-b".into();
+    assert_eq!(json_stdout(validate(&changed.to_string()))["ok"], true);
+
+    // The bare draft under "draft" keeps validating as before.
+    let bare: Value = serde_json::from_str(&envelope).unwrap();
+    assert_eq!(
+        json_stdout(validate(&bare["draft"].to_string()))["ok"],
+        true
+    );
+
+    let verification = json_stdout(run(
+        config_home.path(),
+        &["--home", home, "--json", "voucher", "verify"],
+        "",
+    ));
+    assert_eq!(verification["voucher_count"], 1);
+}
+
+#[test]
+fn validate_reads_a_broken_envelope_as_seal_does() {
+    let config_home = tempfile::tempdir().unwrap();
+    let data_home = tempfile::tempdir().unwrap();
+    let home = data_home.path().to_str().unwrap();
+    json_stdout(run(
+        config_home.path(),
+        &["--home", home, "--json", "init"],
+        "",
+    ));
+    let envelope: Value =
+        serde_json::from_str(&printed_json(&help(config_home.path(), "seal", "--help"))).unwrap();
+
+    let mut broken = Vec::new();
+    for required in ["draft", "natural_key"] {
+        let mut missing = envelope.clone();
+        missing.as_object_mut().unwrap().remove(required);
+        broken.push(missing);
+    }
+    let mut unknown = envelope.clone();
+    unknown["policy_set"] = "x".into();
+    broken.push(unknown);
+    for input in broken {
+        for action in ["validate", "seal"] {
+            let (code, error) = error_code(run(
+                config_home.path(),
+                &["--home", home, "--json", "voucher", action],
+                &input.to_string(),
+            ));
+            assert_eq!(
+                (code, error),
+                (Some(1), Value::from("INVALID_INPUT")),
+                "{action}"
+            );
+        }
+    }
+
+    // The envelope's draft goes through the same domain gates as seal: an EU sale
+    // without a buyer VAT-ID is refused before any ledger check.
+    let mut eu_sale = envelope.clone();
+    eu_sale["draft"]["postings"][0]["vat_code"] = "sales-eu-services".into();
+    let (_, validate_error) = error_code(run(
+        config_home.path(),
+        &["--home", home, "--json", "voucher", "validate"],
+        &eu_sale.to_string(),
+    ));
+    let (_, seal_error) = error_code(run(
+        config_home.path(),
+        &["--home", home, "--json", "voucher", "seal"],
+        &eu_sale.to_string(),
+    ));
+    assert_eq!(validate_error, seal_error);
+    assert_ne!(validate_error, "INVALID_INPUT");
 }

@@ -752,3 +752,44 @@ fn concurrent_seal_is_atomic_gapless_and_chained() {
     assert_eq!(report.head_number, total);
     assert_eq!(ledger.rejection_count().unwrap(), 0);
 }
+
+#[test]
+fn validate_seal_predicts_replay_and_conflict_without_writing() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+
+    let fresh = ledger.validate_seal(&draft("100.00"), "co:key").unwrap();
+    assert!(fresh.warnings.is_empty());
+
+    ledger.seal(&draft("100.00"), &req("co:key")).unwrap();
+    let replay = ledger.validate_seal(&draft("100.00"), "co:key").unwrap();
+    assert_eq!(replay.warnings.len(), 1);
+    assert_eq!(replay.warnings[0].code, "NATURAL_KEY_ALREADY_SEALED");
+    assert_eq!(replay.warnings[0].voucher_number, Some(1));
+
+    let err = ledger
+        .validate_seal(&draft("999.00"), "co:key")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "IDEMPOTENCY_KEY_REUSE");
+
+    // A key the importer bound to a source event conflicts with a plain seal of the
+    // same content, exactly as `seal` does.
+    ledger
+        .seal_with_source_fingerprint(&draft("50.00"), &req("bank:event-1"), "sha256:v1:a")
+        .unwrap();
+    let err = ledger
+        .validate_seal(&draft("50.00"), "bank:event-1")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "IDEMPOTENCY_KEY_REUSE");
+    assert_eq!(
+        ledger
+            .seal(&draft("50.00"), &req("bank:event-1"))
+            .unwrap_err()
+            .error_code(),
+        "IDEMPOTENCY_KEY_REUSE"
+    );
+
+    // Only the real seal above left a rejection record; the dry-runs wrote nothing.
+    assert_eq!(ledger.rejection_count().unwrap(), 1);
+    assert_eq!(ledger.verify().unwrap().voucher_count, 2);
+}

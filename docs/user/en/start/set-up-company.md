@@ -110,7 +110,7 @@ aggountant chart list
 aggountant knowledge company add < fact.json
 aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
 aggountant voucher draft < opening-balances.json
-aggountant voucher validate < opening-balances.json
+aggountant voucher validate < opening-balances-seal.json
 aggountant voucher seal < opening-balances-seal.json
 aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-03.html \

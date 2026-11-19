@@ -40,9 +40,9 @@ fn validate_warns_about_an_untagged_vat_leg_but_accepts_the_draft() {
     assert_eq!(
         (
             report.warnings[0].posting_index,
-            report.warnings[0].account.as_str()
+            report.warnings[0].account.as_deref()
         ),
-        (2, "2939")
+        (Some(2), Some("2939"))
     );
 
     let tagged = ledger
@@ -114,8 +114,8 @@ fn validate_warns_about_untagged_reductions_that_are_not_vat_payments() {
         assert_eq!(report.warnings.len(), 1, "{name}");
         let warning = &report.warnings[0];
         assert_eq!(
-            (warning.code, warning.account.as_str()),
-            ("VAT_POSTING_UNTAGGED", account),
+            (warning.code, warning.account.as_deref()),
+            ("VAT_POSTING_UNTAGGED", Some(account)),
             "{name}"
         );
         assert!(warning.message.contains("VAT base"), "{name}");

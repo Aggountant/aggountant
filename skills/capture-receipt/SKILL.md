@@ -141,6 +141,9 @@ kiertämiseksi tuottaisi kahdennetun tositteen.
   (`ApproveConsultDisclosure`); raakalähde ei mene ulos.
 - Erikoiskirjaukset, joita record-polku ei tue, valmistellaan komennoilla
   `aggountant voucher draft`, `validate` ja `seal`. Sama hyväksyntäperiaate koskee niitä.
+  Tarkista sama tiedosto, jonka sinetöit: `voucher validate` hyväksyy `voucher seal`
+  -kuoren (`draft`, `natural_key`, `actor`) sellaisenaan. Varoitus
+  `NATURAL_KEY_ALREADY_SEALED` tarkoittaa, että avain on jo sinetöinyt saman tositteen.
   Kun tällaisessa tositteessa on ALV:tä, ALV-ilmoitus näkee sen vain `vat_code`-
   merkinnästä: merkitse veron perusteen rivi (myynnissä myyntitili `sales-…`, ostossa
   kulutili `purchase-…`), jolloin ohjelma laskee veron perusteesta. ALV-tilin rivi itse

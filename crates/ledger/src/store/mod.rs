@@ -407,6 +407,14 @@ pub(crate) trait FiscalStore {
     /// binding an effective year to it.
     fn read_voucher(&self, number: u64) -> Result<Option<StoredVoucher>, LedgerError>;
 
+    /// The voucher a `natural_key` has already sealed, or `None` if the key is
+    /// unused. Read-only; `commit` performs the authoritative check in its own
+    /// transaction, this serves the `validate` dry-run.
+    fn read_voucher_by_natural_key(
+        &self,
+        natural_key: &str,
+    ) -> Result<Option<StoredVoucher>, LedgerError>;
+
     /// Bind a voucher to a statement year (issue `closeyear-adjustment-attribution`)
     /// as one immutable, hash-chained event, inside the `BEGIN IMMEDIATE` writer
     /// lock so the "no affected year Sealed" guard and the append are atomic against a

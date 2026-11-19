@@ -104,7 +104,7 @@ aggountant chart list
 aggountant knowledge company add < tieto.json
 aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
 aggountant voucher draft < avaavat-saldot.json
-aggountant voucher validate < avaavat-saldot.json
+aggountant voucher validate < avaavat-saldot-sinetointi.json
 aggountant voucher seal < avaavat-saldot-sinetointi.json
 aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-03.html \

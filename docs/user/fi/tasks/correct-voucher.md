@@ -40,7 +40,7 @@ kirjanpitoon. Kirjanpitolaki edellyttää juuri tätä.
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
 aggountant voucher show 12
 aggountant voucher draft < korjaus.json
-aggountant voucher validate < korjaus.json
+aggountant voucher validate < korjaus-sinetointi.json
 aggountant voucher seal < korjaus-sinetointi.json
 ```
 

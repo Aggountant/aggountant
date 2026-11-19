@@ -42,7 +42,7 @@ This is exactly what the Accounting Act requires.
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
 aggountant voucher show 12
 aggountant voucher draft < correction.json
-aggountant voucher validate < correction.json
+aggountant voucher validate < correction-seal.json
 aggountant voucher seal < correction-seal.json
 ```
 

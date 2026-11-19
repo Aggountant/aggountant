@@ -1263,6 +1263,24 @@ impl FiscalStore for SqliteFiscalStore {
         raw.transpose()
     }
 
+    fn read_voucher_by_natural_key(
+        &self,
+        natural_key: &str,
+    ) -> Result<Option<StoredVoucher>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        let Some(number) = guard
+            .query_row(
+                "SELECT number FROM idempotency WHERE natural_key = ?1",
+                params![natural_key],
+                |r| r.get::<_, u64>(0),
+            )
+            .optional()?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(load_voucher(&guard, number)?))
+    }
+
     fn attribute_adjustment(
         &self,
         req: &AttributionRequest,

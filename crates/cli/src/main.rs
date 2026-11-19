@@ -702,6 +702,28 @@ Example JSON (input-shape demonstration only, not VAT or classification advice):
 Run the printed example after selecting account IDs from the active chart:
   aggountant --home ./accounting --json voucher draft < draft.json"#;
 
+const VOUCHER_VALIDATE_INPUT_HELP: &str = r#"INPUT (JSON on stdin), one of two shapes
+  1. The `voucher seal` envelope: {"draft":{...},"natural_key":"...","actor":"..."}.
+     Validate the same file you seal. It is read exactly as `voucher seal` reads
+     it (see `voucher seal --help`), so a file that validates here is refused by
+     seal only for a reason a dry-run cannot see (for example a closed period).
+     A natural_key that already sealed this same content gives the warning
+     NATURAL_KEY_ALREADY_SEALED (seal will replay that voucher); a natural_key
+     bound to different content is refused with IDEMPOTENCY_KEY_REUSE, as seal
+     would refuse it.
+  2. A bare draft, the object under "draft" above (see `voucher draft --help`).
+  Checks: every posting account exists in the active chart, VAT rate-class
+  mistags, and that a referenced attachment is stored. Warnings do not stop a
+  seal; each carries a code and a message.
+
+Example JSON (input-shape demonstration only, not VAT or classification advice):
+```json
+{"draft":{"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]},"natural_key":"fictional-service-2026-01-15","actor":"example-agent"}
+```
+Run it after `aggountant --home ./accounting --json init`, then seal the same file:
+  aggountant --home ./accounting --json voucher validate < seal.json
+  aggountant --home ./accounting --json voucher seal < seal.json"#;
+
 const VOUCHER_SHOW_HELP: &str = r#"EXAMPLE
   aggountant --home ./accounting --json voucher show 1
 
@@ -741,7 +763,9 @@ Example JSON (input-shape demonstration only, not VAT or classification advice):
 {"draft":{"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]},"natural_key":"fictional-service-2026-01-15","actor":"example-agent"}
 ```
 Run the printed example after `aggountant --home ./accounting --json init` and
-after selecting account IDs from the active chart:
+after selecting account IDs from the active chart. Dry-run the same file with
+`voucher validate` first; it accepts this envelope unchanged:
+  aggountant --home ./accounting --json voucher validate < seal.json
   aggountant --home ./accounting --json voucher seal < seal.json"#;
 
 #[derive(Subcommand, Debug)]
@@ -749,7 +773,8 @@ enum VoucherCmd {
     /// Build + locally validate a draft from stdin JSON (Σ=0, ≥2 postings).
     #[command(after_help = VOUCHER_DRAFT_INPUT_HELP)]
     Draft,
-    /// Ledger dry-run: account existence, attachment presence. No write.
+    /// Ledger dry-run of a bare draft or the `voucher seal` envelope. No write.
+    #[command(after_help = VOUCHER_VALIDATE_INPUT_HELP)]
     Validate,
     /// Commit: atomic gapless numbering, hash-chain advance, provenance, idempotency.
     #[command(after_help = VOUCHER_SEAL_INPUT_HELP)]
@@ -976,6 +1001,15 @@ fn parse_period(s: &str) -> Result<PeriodId, CliError> {
 }
 
 fn read_stdin_json<T: for<'de> Deserialize<'de>>() -> Result<T, CliError> {
+    parse_stdin_json(&read_stdin_text()?)
+}
+
+fn parse_stdin_json<T: for<'de> Deserialize<'de>>(input: &str) -> Result<T, CliError> {
+    serde_json::from_str(input)
+        .map_err(|e| CliError::user("INVALID_INPUT", format!("could not parse stdin JSON: {e}")))
+}
+
+fn read_stdin_text() -> Result<String, CliError> {
     let mut bytes = Vec::new();
     std::io::stdin()
         .read_to_end(&mut bytes)
@@ -992,8 +1026,7 @@ fn read_stdin_json<T: for<'de> Deserialize<'de>>() -> Result<T, CliError> {
             "expected JSON on stdin, got nothing",
         ));
     }
-    serde_json::from_str(&input)
-        .map_err(|e| CliError::user("INVALID_INPUT", format!("could not parse stdin JSON: {e}")))
+    Ok(input)
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -1598,9 +1631,27 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 Ok(draft_to_json(&draft))
             }
             VoucherCmd::Validate => {
-                let draft: VoucherDraft = read_stdin_json()?;
-                let ledger = Ledger::open(&home_path(cli)?)?;
-                let report = ledger.validate(&draft)?;
+                let input = read_stdin_text()?;
+                // A seal envelope has a top-level `draft`, `natural_key` or `actor`;
+                // a bare draft never does (its fields are closed). The envelope is
+                // read exactly as `seal` reads it, so "validate this file, then seal
+                // this file" holds and a broken envelope gets seal's error.
+                let is_envelope =
+                    serde_json::from_str::<serde_json::Value>(&input).is_ok_and(|v| {
+                        ["draft", "natural_key", "actor"]
+                            .iter()
+                            .any(|field| v.get(field).is_some())
+                    });
+                let report = if is_envelope {
+                    let input: SealInput = parse_stdin_json(&input)?;
+                    let draft = build_draft(input.draft)?;
+                    let ledger = Ledger::open(&home_path(cli)?)?;
+                    ledger.validate_seal(&draft, &input.natural_key)?
+                } else {
+                    let draft: VoucherDraft = parse_stdin_json(&input)?;
+                    let ledger = Ledger::open(&home_path(cli)?)?;
+                    ledger.validate(&draft)?
+                };
                 Ok(serde_json::to_value(report).expect("report serializes"))
             }
             VoucherCmd::Seal => {

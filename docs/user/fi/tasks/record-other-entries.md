@@ -50,9 +50,14 @@ tositeluonnoksena, jonka sinä hyväksyt ennen sinetöintiä.
 ```sh
 aggountant artifact attach --file myyntilasku-2026-0042.pdf
 aggountant voucher draft < luonnos.json
-aggountant voucher validate < luonnos.json
+aggountant voucher validate < sinetointi.json
 aggountant voucher seal < sinetointi.json
 ```
+
+Agentti tarkistaa saman tiedoston, jonka se sinetöi. `voucher validate` kertoo
+myös, onko tiedoston `natural_key` jo sinetöinyt tositteen: sama sisältö on
+varoitus (uusi sinetöinti palauttaa olemassa olevan tositteen), eri sisältö
+hylätään.
 </details>
 
 ## Valmis, kun

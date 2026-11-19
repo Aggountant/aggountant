@@ -276,19 +276,29 @@ pub struct ValidationReport {
     pub posting_count: usize,
     pub currency: String,
     pub attachment_present: bool,
-    /// Postings the VAT return would leave out (see [`UntaggedVatWarning`]). A
-    /// warning, not a refusal: existing books and imports contain such postings.
-    pub warnings: Vec<UntaggedVatWarning>,
+    /// Things worth knowing that do not stop a seal (see [`ValidationWarning`]).
+    pub warnings: Vec<ValidationWarning>,
 }
 
-/// A posting on a VAT-role account that neither a `vat_code` nor a generated VAT
-/// leg covers and that does not look like a VAT payment or clearing. `file-vat`
-/// refuses a period that still contains one.
+/// A non-refusing finding of the `validate` dry-run, told apart by `code`:
+///
+/// - `VAT_POSTING_UNTAGGED`: a posting on a VAT-role account that neither a
+///   `vat_code` nor a generated VAT leg covers and that does not look like a VAT
+///   payment or clearing. `file-vat` refuses a period that still contains one, but
+///   existing books and imports contain such postings, so sealing is allowed.
+///   Carries `posting_index` and `account`.
+/// - `NATURAL_KEY_ALREADY_SEALED`: the seal envelope's `natural_key` already
+///   sealed this same content, so `seal` will replay that voucher and write
+///   nothing new. Carries `voucher_number`.
 #[derive(Debug, Clone, Serialize)]
-pub struct UntaggedVatWarning {
+pub struct ValidationWarning {
     pub code: &'static str,
-    pub posting_index: usize,
-    pub account: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub posting_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voucher_number: Option<u64>,
     pub message: String,
 }
 
@@ -612,11 +622,55 @@ impl Ledger {
         })
     }
 
+    /// Dry-run of `seal(draft, natural_key)` as the `voucher seal` command issues
+    /// it (no source fingerprint): [`Self::validate`], then the idempotency check
+    /// `commit` would make. A key that already sealed the same request is a
+    /// `NATURAL_KEY_ALREADY_SEALED` warning, because the seal replays harmlessly; a
+    /// key bound to different content is refused with `IDEMPOTENCY_KEY_REUSE`,
+    /// because the seal would refuse it too. Nothing is written, not even a
+    /// rejection record: a dry-run is not a refused write.
+    pub fn validate_seal(
+        &self,
+        draft: &VoucherDraft,
+        natural_key: &str,
+    ) -> Result<ValidationReport, LedgerError> {
+        let mut report = self.validate(draft)?;
+        let Some(existing) = self.fiscal.read_voucher_by_natural_key(natural_key)? else {
+            return Ok(report);
+        };
+        let request_hash = self.draft_request_hash(draft)?;
+        let number = existing.number;
+        // Mirrors `commit`: a source-bound key conflicts with a fingerprint-less seal.
+        if existing.provenance.request_hash != request_hash
+            || existing.provenance.source_fingerprint.is_some()
+        {
+            return Err(LedgerError::IdempotencyKeyReuse(format!(
+                "natural_key {natural_key:?} already sealed voucher #{number} with different \
+                 content (existing request_hash {}, incoming {request_hash}); `voucher seal` \
+                 would refuse this input. Use a new natural_key for a new voucher, or correct \
+                 #{number} with a new voucher that refers to it",
+                existing.provenance.request_hash
+            )));
+        }
+        report.warnings.push(ValidationWarning {
+            code: "NATURAL_KEY_ALREADY_SEALED",
+            posting_index: None,
+            account: None,
+            voucher_number: Some(number),
+            message: format!(
+                "natural_key {natural_key:?} already sealed voucher #{number} with this same \
+                 content; `voucher seal` will return that voucher with replayed=true and \
+                 write nothing new"
+            ),
+        });
+        Ok(report)
+    }
+
     fn untagged_vat_warnings(
         &self,
         draft: &VoucherDraft,
         chart_version: &str,
-    ) -> Result<Vec<UntaggedVatWarning>, LedgerError> {
+    ) -> Result<Vec<ValidationWarning>, LedgerError> {
         // A chart without VAT roles has no VAT accounts to warn about.
         let Ok(roles) = self.masterdata.vat_roles().resolve(chart_version) else {
             return Ok(Vec::new());
@@ -660,14 +714,15 @@ impl Ledger {
                 } else {
                     "Put the VAT code on the line whose amount is the VAT base.".to_string()
                 };
-                UntaggedVatWarning {
+                ValidationWarning {
                     code: "VAT_POSTING_UNTAGGED",
-                    posting_index: index,
+                    posting_index: Some(index),
                     message: format!(
                         "posting {index} on VAT account {account} has no VAT code on this \
                          voucher; the VAT return will leave it out. {advice}"
                     ),
-                    account,
+                    account: Some(account),
+                    voucher_number: None,
                 }
             })
             .collect())
