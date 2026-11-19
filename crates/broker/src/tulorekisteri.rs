@@ -56,10 +56,88 @@ pub struct EmployerReportProfile {
     /// owners); stated explicitly so an omission is a decision, not an accident.
     pub pension_insurances: Vec<PensionInsurance>,
 }
+impl EmployerReportProfile {
+    /// What the separate report needs from the settings beyond their types
+    /// (`ReportMonth` already refuses a month before 2019-01): every pension
+    /// insurance has the shape the report schema requires.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.pension_insurances.len() > 20 {
+            return Err("at most 20 pension insurances".into());
+        }
+        for p in &self.pension_insurances {
+            p.validate().map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+pub fn wage_profile_path(home: &Path) -> std::path::PathBuf {
+    home.join(".aggountant/tulorekisteri.json")
+}
 pub fn read_wage_profile(home: &Path) -> Result<WageProfile, String> {
-    let raw = std::fs::read(home.join(".aggountant/tulorekisteri.json"))
+    let raw = std::fs::read(wage_profile_path(home))
         .map_err(|_| "configure .aggountant/tulorekisteri.json first")?;
-    serde_json::from_slice(&raw).map_err(|_| "invalid Tulorekisteri profile".into())
+    parse_wage_profile(&raw)
+}
+fn parse_wage_profile(raw: &[u8]) -> Result<WageProfile, String> {
+    serde_json::from_slice(raw).map_err(|_| "invalid Tulorekisteri profile".into())
+}
+
+/// The profile text with its `employer_report` block replaced by `settings`, or
+/// added as the last member when absent. Every other byte stays as it was, so
+/// a hand-kept layout, key order and the other settings are untouched.
+pub fn with_employer_report(raw: &str, settings: &EmployerReportProfile) -> Result<String, String> {
+    parse_wage_profile(raw.as_bytes())?;
+    let members: std::collections::BTreeMap<String, &serde_json::value::RawValue> =
+        serde_json::from_str(raw).map_err(|_| "invalid Tulorekisteri profile")?;
+    let block = serde_json::to_string_pretty(settings)
+        .map_err(|_| "employer_report serialization failed")?
+        .replace('\n', "\n  ");
+    let spliced = match members.get("employer_report") {
+        Some(value) => {
+            // The value borrows from `raw`, so its offset is the pointer distance.
+            let start = value.get().as_ptr() as usize - raw.as_ptr() as usize;
+            let end = start + value.get().len();
+            if raw.get(start..end) != Some(value.get()) {
+                return Err("employer_report could not be located in the profile".into());
+            }
+            format!("{}{block}{}", &raw[..start], &raw[end..])
+        }
+        None => {
+            let close = raw
+                .trim_end()
+                .len()
+                .checked_sub(1)
+                .filter(|&i| raw[i..].starts_with('}'))
+                .ok_or("invalid Tulorekisteri profile")?;
+            let last = raw[..close].trim_end().len();
+            format!(
+                "{},\n  \"employer_report\": {block}{}",
+                &raw[..last],
+                &raw[last..]
+            )
+        }
+    };
+    let check = parse_wage_profile(spliced.as_bytes())?;
+    let value = |v: Option<&EmployerReportProfile>| serde_json::to_value(v).ok();
+    if value(check.employer_report.as_ref()) != value(Some(settings)) {
+        return Err("employer_report did not round-trip through the profile".into());
+    }
+    Ok(spliced)
+}
+
+/// Replace the profile file atomically with `bytes` (already validated).
+pub fn write_wage_profile(home: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let path = wage_profile_path(home);
+    let temporary = path.with_extension("json.tmp");
+    let fail = |what: &str| format!("Tulorekisteri profile could not be {what}");
+    {
+        let mut file = std::fs::File::create(&temporary).map_err(|_| fail("created"))?;
+        file.write_all(bytes).map_err(|_| fail("written"))?;
+        file.sync_all().map_err(|_| fail("synced"))?;
+    }
+    std::fs::rename(&temporary, &path).map_err(|_| fail("replaced"))
 }
 pub fn check_readiness(
     profile: &WageProfile,
@@ -510,6 +588,66 @@ mod tests {
     use aggountant_vero_vat_api_mock::{
         MockVeroVatServer, Scenario, SoapScenario, WageTestCredentials as Pki,
     };
+    fn settings(from: &str) -> EmployerReportProfile {
+        serde_json::from_value(json!({"registered_from":from,"contact_name":"Fictional Contact",
+            "contact_phone":"+358 40 1234567","pension_insurances":[{"provider_code":46,"policy_number":"12-3456789"}]}))
+        .unwrap()
+    }
+
+    #[test]
+    fn employer_report_is_added_and_replaced_keeping_every_other_byte() {
+        // Odd but valid layout: tabs, a trailing newline, keys in a custom order.
+        let without = "{\n\t\"mode\": \"production\",\n\t\"schema_version\": 1,\n\t\"business_id\": \"1234567-1\",\n\t\"reporting_permission_active\": true,\n\t\"credentials_file\": null\n}\n";
+        let added = with_employer_report(without, &settings("2020-02")).unwrap();
+        let tail = "\n}\n";
+        let head = &without[..without.len() - tail.len()];
+        assert!(
+            added.starts_with(&format!("{head},\n  \"employer_report\": {{")),
+            "{added}"
+        );
+        assert!(added.ends_with(tail));
+        assert_eq!(
+            parse_wage_profile(added.as_bytes())
+                .unwrap()
+                .employer_report
+                .unwrap()
+                .registered_from,
+            ReportMonth::parse("2020-02").unwrap()
+        );
+
+        let replaced = with_employer_report(&added, &settings("2021-03")).unwrap();
+        let block = |s: &str| {
+            let start = s.find("\"employer_report\"").unwrap();
+            (
+                s[..start].to_string(),
+                s[s.rfind('}').unwrap()..].to_string(),
+            )
+        };
+        assert_eq!(block(&added).0, block(&replaced).0);
+        assert!(replaced.contains("\"registered_from\": \"2021-03\""));
+        assert!(!replaced.contains("2020-02"));
+
+        // Compact one-line JSON with the block first.
+        let compact = r#"{"employer_report":{"registered_from":"2025-01","contact_name":"Old","contact_phone":"0401234567","pension_insurances":[]},"schema_version":1,"mode":"production","business_id":"1234567-1","reporting_permission_active":true,"credentials_file":null}"#;
+        let out = with_employer_report(compact, &settings("2020-02")).unwrap();
+        assert!(out.starts_with("{\"employer_report\":{\n"));
+        assert!(out.ends_with(r#","schema_version":1,"mode":"production","business_id":"1234567-1","reporting_permission_active":true,"credentials_file":null}"#));
+        assert!(with_employer_report("not json", &settings("2020-02")).is_err());
+    }
+
+    #[test]
+    fn employer_report_settings_validate_month_and_pension_insurances() {
+        assert!(settings("2020-02").validate().is_ok());
+        let mut s = settings("2020-02");
+        s.pension_insurances[0].policy_number = "123456789012".into();
+        assert!(s.validate().is_err());
+        s.pension_insurances[0] = PensionInsurance {
+            provider_code: 0,
+            policy_number: "1".into(),
+        };
+        assert!(s.validate().is_err());
+    }
+
     pub fn report() -> WageReport {
         serde_json::from_value(json!({"business_id":"1234567-1","employee_id":"fictional-employee","source_reference":"fictional-expense-2026-09","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":true,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[{"income_type":"311","amount":"120.00","kilometers":218},{"income_type":"331","amount":"54.00","allowance_code":3}]})).unwrap()
     }

@@ -657,6 +657,26 @@ pub struct PensionInsurance {
     pub policy_number: String,
 }
 
+impl PensionInsurance {
+    /// The shape the Incomes Register schema takes: `PensionProvIdCode` an
+    /// integer code (1..99999 in practice) and `PensionPolicyNo` 1..11
+    /// printable characters without surrounding whitespace.
+    pub fn validate(&self) -> Result<(), DomainError> {
+        let n = &self.policy_number;
+        if n.is_empty()
+            || n.chars().count() > 11
+            || n.trim() != n
+            || n.chars()
+                .any(|c| c.is_control() || (c.is_whitespace() && c != ' '))
+            || self.provider_code == 0
+            || self.provider_code > 99_999
+        {
+            return Err(DomainError::Payroll("pension insurance needs a provider code 1..99999 and a policy number of 1..11 printable characters".into()));
+        }
+        Ok(())
+    }
+}
+
 /// New report or replacement of the month's accepted report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -693,17 +713,7 @@ impl EmployerSeparateReport {
             return Err(bad("at most 20 pension insurances"));
         }
         for p in &self.pension_insurances {
-            let n = &p.policy_number;
-            if n.is_empty()
-                || n.chars().count() > 11
-                || n.trim() != n
-                || n.chars()
-                    .any(|c| c.is_control() || (c.is_whitespace() && c != ' '))
-                || p.provider_code == 0
-                || p.provider_code > 99_999
-            {
-                return Err(bad("pension insurance needs a provider code 1..99999 and a policy number of 1..11 printable characters"));
-            }
+            p.validate()?;
         }
         if let EmployerReportAction::Replacement {
             ir_report_id,

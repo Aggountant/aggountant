@@ -386,8 +386,9 @@ Kirjanpitokodin `.aggountant/tulorekisteri.json` sisältää ei-salaisen profiil
 }
 ```
 
-`employer_report` puuttuu, kunnes yritys on työnantajarekisterissä; katso
-erillisilmoituksen osio alla.
+`employer_report` puuttuu, kunnes yritys on työnantajarekisterissä. Sen
+kirjoittaa `file-wage employer-report configure` (erillisilmoituksen osio
+alla); älä muokkaa lohkoa käsin.
 
 `credentials_file: null` käyttää nykyistä Vero-credentialin polkua
 (`AGGOUNTANT_VERO_CREDENTIALS_FILE` > alustakonfiguraation
@@ -526,6 +527,36 @@ on oikea vain, jos yrityksellä ei ole vakuuttamisvelvollisuutta (esimerkiksi va
 YEL-vakuutettu omistaja); kysy käyttäjältä, älä arvaa. Yhteyshenkilön ja
 eläkevakuutuksen tiedot ovat käyttäjän antamia, eivät keksittyjä.
 
+Lohkon kirjoittaa `configure`, ei käsin tehty JSON-muokkaus. Se tarkistaa
+puhelinnumeron, eläkelaitostunnuksen ja vakuutusnumeron muodon, vertaa
+`registered_from`-arvoa YTJ:n työnantajarekisteriin (sama vertailu kuin
+`registration`), kirjoittaa vain `employer_report`-lohkon (profiilin muut tavut
+pysyvät) ja näyttää `before`/`after`. Aja ensin `--dry-run`, näytä tulos
+käyttäjälle ja aja sitten ilman sitä. Eläkevakuutukset annetaan
+`--pension-insurance KOODI:NUMERO` (toistettava) tai `--no-pension-insurance`;
+kumpaakaan ei oleteta. Samat kentät voi antaa myös JSONina vakiosyötteessä
+ilman kenttävalitsimia.
+
+- `EMPLOYER_REGISTER_MISMATCH`: YTJ on eri mieltä alkukuukaudesta (viesti
+  kertoo vertailun ja rekisterin mukaisen kuukauden). Ehdota rekisterin
+  kuukautta; `--accept-register-mismatch` vain, kun käyttäjä vahvistaa oman
+  kuukautensa. Tulos näyttää silloin `registration_verdict:
+  mismatch_accepted` ja vertailun.
+- `YTJ_UNAVAILABLE`: mitään ei kirjoitettu. Kokeile myöhemmin; `--offline`
+  (kirjoitus ilman tarkistusta, `registration_verdict: not_checked`) vain
+  käyttäjän luvalla, ja aja `registration` myöhemmin.
+- `EMPLOYER_REPORT_INVALID_SETTINGS` tai `INVALID_INPUT`: korjaa arvo
+  käyttäjän kanssa, älä muotoile sitä itse sopivaksi.
+
+```sh
+aggountant --json file-wage employer-report configure --registered-from 2020-02 \
+  --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" \
+  --pension-insurance 46:12-3456789 --dry-run
+aggountant --json file-wage employer-report configure --registered-from 2020-02 \
+  --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" \
+  --no-pension-insurance
+```
+
 Sisällön ratkaisee se, mitä kuukaudella maksettiin. Kysy tai selvitä se
 kirjanpidosta ja tiliotteelta; ohjelma ei päättele sitä tileistä:
 
@@ -567,7 +598,8 @@ ilmoittanut, etene tässä järjestyksessä:
    `profile_later_than_register` = kuukausia piilossa `missing`-listalta,
    `profile_earlier_than_register`, `register_ended`, `not_in_register`,
    `profile_not_set`). Komento ei kirjoita mitään. Näytä tulos ja
-   `implied_registered_from`; muuta profiilia vasta käyttäjän luvalla.
+   `implied_registered_from`; muuta profiilia vasta käyttäjän luvalla,
+   `configure --registered-from <implied_registered_from>` -komennolla.
    `YTJ_UNAVAILABLE` tarkoittaa "ei tiedossa", ei koskaan "ei rekisterissä".
 2. **Raportti 630 asiointipalvelusta.** Kerro käyttäjälle suoraan, että tämä
    on ainoa vaihe, joka vaatii Tulorekisterin asiointipalvelua: Uusi tilaus →

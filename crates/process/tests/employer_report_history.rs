@@ -7,7 +7,7 @@ use aggountant_ledger::Ledger;
 use aggountant_model::BusinessId;
 use aggountant_process::{
     EmployerMonthState, EmployerReportInput, EmployerReportReceipt, ProcessEngine,
-    RegistrationComparison, TranscriptConflictKind,
+    RegistrationCheck, RegistrationComparison, RegistrationVerdict, TranscriptConflictKind,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use serde_json::json;
@@ -367,4 +367,132 @@ fn an_unknown_header_is_refused_and_nothing_is_written() {
     assert!(err.to_string().contains("Finnish"));
     assert_eq!(files(&h.path().join("artifacts")), artifacts);
     assert!(!h.path().join("process").exists());
+}
+
+fn profile_settings(
+    registered_from: &str,
+) -> aggountant_broker::tulorekisteri::EmployerReportProfile {
+    serde_json::from_value(settings(registered_from)).unwrap()
+}
+fn profile_bytes(h: &tempfile::TempDir) -> String {
+    std::fs::read_to_string(h.path().join(".aggountant/tulorekisteri.json")).unwrap()
+}
+
+#[test]
+fn configure_refuses_a_registered_from_the_register_disagrees_with() {
+    let h = home(None);
+    let before = profile_bytes(&h);
+    let e = ProcessEngine::open(h.path());
+    let ytj = Recorded::Body("ytj-several-employer-entries.json");
+    let online = || RegistrationCheck::Online {
+        lookup: &ytj,
+        today: day("2026-11-18"),
+    };
+
+    let err = e
+        .configure_employer_report(profile_settings("2026-07"), online(), false, false)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "EMPLOYER_REGISTER_MISMATCH");
+    assert!(err.to_string().contains("77 months"), "{err}");
+    assert!(err.to_string().contains("2020-02"), "{err}");
+    assert_eq!(profile_bytes(&h), before, "a refusal writes nothing");
+
+    // The register's month is accepted; a dry run still writes nothing.
+    let dry = e
+        .configure_employer_report(profile_settings("2020-02"), online(), false, true)
+        .unwrap();
+    assert!(dry.dry_run && dry.changed && !dry.written);
+    assert_eq!(dry.registration_verdict, RegistrationVerdict::Match);
+    assert!(dry.before.is_none());
+    assert_eq!(profile_bytes(&h), before);
+
+    let done = e
+        .configure_employer_report(profile_settings("2020-02"), online(), false, false)
+        .unwrap();
+    assert!(done.written);
+    let after = profile_bytes(&h);
+    assert!(
+        after.starts_with(before.trim_end_matches('}')),
+        "other bytes are kept"
+    );
+    let r = e.employer_registration(&ytj, day("2026-11-18")).unwrap();
+    assert_eq!(r.comparison, RegistrationComparison::Match);
+
+    // The same settings again change nothing.
+    let again = e
+        .configure_employer_report(profile_settings("2020-02"), online(), false, false)
+        .unwrap();
+    assert!(!again.changed && !again.written);
+    assert_eq!(again.before.unwrap().registered_from, month("2020-02"));
+
+    // A disagreement on the user's say-so is written, with the comparison.
+    let accepted = e
+        .configure_employer_report(profile_settings("2026-07"), online(), true, false)
+        .unwrap();
+    assert_eq!(
+        accepted.registration_verdict,
+        RegistrationVerdict::MismatchAccepted
+    );
+    assert_eq!(
+        accepted.registration.unwrap().comparison,
+        RegistrationComparison::ProfileLaterThanRegister
+    );
+    assert_eq!(
+        e.missing_employer_reports(day("2026-11-18"))
+            .unwrap()
+            .registered_from,
+        month("2026-07")
+    );
+}
+
+#[test]
+fn configure_needs_offline_explicitly_when_ytj_fails_and_validates_settings() {
+    let h = home(None);
+    let before = profile_bytes(&h);
+    let e = ProcessEngine::open(h.path());
+    let down = RegistrationCheck::Online {
+        lookup: &Recorded::Down,
+        today: day("2026-11-18"),
+    };
+    let err = e
+        .configure_employer_report(profile_settings("2026-07"), down, false, false)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "YTJ_UNAVAILABLE");
+    assert!(err.to_string().contains("--offline"), "{err}");
+    assert_eq!(profile_bytes(&h), before);
+
+    // Not in the register at all is a disagreement too.
+    let none = RegistrationCheck::Online {
+        lookup: &Recorded::Body("ytj-not-in-employer-register.json"),
+        today: day("2026-11-18"),
+    };
+    let err = e
+        .configure_employer_report(profile_settings("2026-07"), none, false, false)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "EMPLOYER_REGISTER_MISMATCH");
+
+    let mut bad = profile_settings("2026-07");
+    bad.pension_insurances
+        .push(aggountant_domain::payroll::PensionInsurance {
+            provider_code: 46,
+            policy_number: "far too long policy".into(),
+        });
+    let err = e
+        .configure_employer_report(bad, RegistrationCheck::Offline, false, false)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "EMPLOYER_REPORT_INVALID_SETTINGS");
+
+    let offline = e
+        .configure_employer_report(
+            profile_settings("2026-07"),
+            RegistrationCheck::Offline,
+            false,
+            false,
+        )
+        .unwrap();
+    assert_eq!(
+        offline.registration_verdict,
+        RegistrationVerdict::NotChecked
+    );
+    assert!(offline.registration.is_none() && offline.written);
 }

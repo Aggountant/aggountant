@@ -32,9 +32,33 @@ Matkakorvausilmoitus ei korvaa sitä.
    > puhelin 040 123 4567. Työeläkevakuutusta ei ole, omistajalla on YEL.
 
 2. **Agentti lisää** Tulorekisteri-profiiliin rekisteröinnin alkukuukauden,
-   yhteyshenkilön ja työeläkevakuutukset. Tarkista ne: ne lähtevät
-   ilmoituksen mukana, ja alkukuukaudesta lähtien jokaiselta kuukaudelta
-   odotetaan ilmoitusta.
+   yhteyshenkilön ja työeläkevakuutukset. Ennen tallennusta aggountant
+   vertaa alkukuukautta YTJ:n työnantajarekisteriin (ks. alla) ja kieltäytyy
+   kuukaudesta, josta rekisteri on eri mieltä; agentti näyttää silloin
+   vertailun ja tallentaa sinun kuukautesi vain, jos vahvistat sen. Jos YTJ ei
+   vastaa, mitään ei tallenneta, ellei sovita tallentamisesta ilman
+   tarkistusta. Puhelinnumero, eläkelaitosten tunnukset ja vakuutusnumerot
+   tarkistetaan ilmoituksen hyväksymää muotoa vasten. Profiilista muuttuu
+   vain erillisilmoituksen osa. Tarkista asetukset, jotka agentti näyttää:
+   ne lähtevät ilmoituksen mukana, ja alkukuukaudesta lähtien jokaiselta
+   kuukaudelta odotetaan ilmoitusta.
+
+<details>
+<summary>Komento, jonka agentti ajaa</summary>
+
+```sh
+aggountant file-wage employer-report configure --registered-from 2026-08 \
+  --contact-name "Maija Meikäläinen" --contact-phone "040 123 4567" \
+  --no-pension-insurance --dry-run
+```
+
+Työeläkevakuutus annetaan muodossa
+`--pension-insurance ELÄKELAITOSTUNNUS:VAKUUTUSNUMERO` (voi toistaa); jos
+vakuutuksia ei ole, se sanotaan erikseen `--no-pension-insurance`. Samat
+asetukset voi antaa JSONina vakiosyötteessä. `--accept-register-mismatch`
+tallentaa kuukauden, josta YTJ on eri mieltä, ja `--offline` tallentaa ilman
+YTJ-tarkistusta. Tulos näyttää osan ennen ja jälkeen.
+</details>
 
 ### Tarkista rekisteröinnin alku YTJ:stä
 
@@ -49,7 +73,8 @@ vertaa niitä profiilin alkukuukauteen. Tulos kertoo, täsmääkö alkukuukausi,
 alkaako profiili liian myöhään (jolloin vanhoja kuukausia jää puuttuvien
 luettelosta pois) tai liian aikaisin, onko merkintä päättynyt vai eikö yritystä
 ole rekisterissä lainkaan. Myös aiemmat rekisterijaksot näkyvät. Komento ei
-muuta profiilia: agentti muuttaa alkukuukauden vain, kun sinä hyväksyt sen.
+muuta profiilia: agentti muuttaa alkukuukauden (yllä olevalla
+käyttöönottokomennolla) vain, kun sinä hyväksyt sen.
 Erillisilmoituksia on annettu tammikuusta 2019 alkaen, joten sitä vanhempi
 rekisteröinti tarkoittaa alkukuukautta 2019-01.
 

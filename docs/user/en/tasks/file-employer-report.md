@@ -34,9 +34,32 @@ travel allowances. A travel allowance report does not replace it.
    > has YEL.
 
 2. **The agent adds** the first registration month, the contact person and the
-   pension insurances to the Tulorekisteri profile. Check them: they go into
-   the report, and from the first month on a report is expected for every
-   month.
+   pension insurances to the Tulorekisteri profile. Before writing, aggountant
+   checks the first month against the employer register in YTJ (see below)
+   and refuses a month the register disagrees with; the agent then shows you
+   the comparison, and writes your month only if you confirm it. If YTJ does
+   not answer, nothing is written unless you agree to save the settings
+   without the check. The phone number, the pension company codes and the
+   policy numbers are checked against what the report accepts. Only the
+   separate report section of the profile changes. Check the settings the
+   agent shows you: they go into the report, and from the first month on a
+   report is expected for every month.
+
+<details>
+<summary>The command the agent runs</summary>
+
+```sh
+aggountant file-wage employer-report configure --registered-from 2026-08 \
+  --contact-name "Maija Meikäläinen" --contact-phone "040 123 4567" \
+  --no-pension-insurance --dry-run
+```
+
+A pension insurance is given as `--pension-insurance PROVIDER_CODE:POLICY_NUMBER`
+(repeatable); with none, `--no-pension-insurance` must be stated. The same
+settings can come as JSON on standard input. `--accept-register-mismatch`
+writes a month YTJ disagrees with, and `--offline` writes without the YTJ
+check. The output shows the section before and after.
+</details>
 
 ### Check the registration start in YTJ
 
@@ -52,7 +75,7 @@ month matches, whether the profile starts too late (so old months are left
 out of the missing list) or too early, whether the entry has ended, or whether
 the company is not in the register at all. Earlier register periods are shown
 too. The command does not change the profile: the agent changes the first
-month only when you approve it. Employer's separate reports exist from
+month (with the setup command above) only when you approve it. Employer's separate reports exist from
 January 2019, so an older registration means a first month of 2019-01.
 
 If YTJ does not answer, the result is "unknown", not "not registered"; try
@@ -115,7 +138,7 @@ aggountant file-wage employer-report status --month 2026-10
 preview and the submit get the same options and the same timestamp. The
 timestamp also becomes the report's reporting date. The profile section is
 `employer_report` (`registered_from`, `contact_name`, `contact_phone`,
-`pension_insurances`).
+`pension_insurances`), written with `file-wage employer-report configure`.
 </details>
 
 ## Missing months

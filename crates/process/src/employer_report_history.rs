@@ -18,6 +18,7 @@ use aggountant_broker::{
 };
 use aggountant_domain::payroll::ReportMonth;
 use aggountant_ledger::Ledger;
+use aggountant_model::BusinessId;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::PathBuf};
@@ -273,6 +274,23 @@ pub(crate) fn compare_registration(
     })
 }
 
+/// The company's YTJ register entries. A network failure means the
+/// registration is unknown, never absent.
+pub(crate) fn register_entries(
+    lookup: &dyn YtjLookup,
+    id: &BusinessId,
+) -> Result<Option<Vec<RegisterEntry>>, ProcessError> {
+    lookup.register_entries(id).map_err(|e| match e {
+        YtjError::Unavailable(m) => refused(
+            "YTJ_UNAVAILABLE",
+            format!(
+                "{m}; the registration is unknown, not absent. Try again later or check ytj.fi"
+            ),
+        ),
+        YtjError::InvalidResponse(m) => refused("YTJ_RESPONSE_INVALID", m),
+    })
+}
+
 impl ProcessEngine {
     /// Read-only: the employer-register entries YTJ holds for the profile's
     /// Business ID, compared with `registered_from`. Writes nothing.
@@ -283,18 +301,9 @@ impl ProcessEngine {
     ) -> Result<EmployerRegistration, ProcessError> {
         let profile = read_wage_profile(&self.home)
             .map_err(|e| refused("EMPLOYER_REPORT_NOT_CONFIGURED", e))?;
-        let entries = lookup
-            .register_entries(&profile.business_id)
-            .map_err(|e| match e {
-                YtjError::Unavailable(m) => refused(
-                    "YTJ_UNAVAILABLE",
-                    format!("{m}; the registration is unknown, not absent. Try again later or check ytj.fi"),
-                ),
-                YtjError::InvalidResponse(m) => refused("YTJ_RESPONSE_INVALID", m),
-            })?;
         compare_registration(
             profile.business_id.as_str().to_string(),
-            entries,
+            register_entries(lookup, &profile.business_id)?,
             profile.employer_report.map(|e| e.registered_from),
             today,
         )

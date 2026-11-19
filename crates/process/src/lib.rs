@@ -1170,9 +1170,10 @@ mod file_wage;
 pub use file_wage::WagePreview;
 mod file_employer_report;
 pub use file_employer_report::{
-    EmployerMonthState, EmployerMonthStatus, EmployerReportInput, EmployerReportPreview,
-    EmployerReportReceipt, EmployerReportRun, EmployerRunOutcome, FiledOutsideMonth,
-    MissingEmployerMonth, MissingEmployerReports,
+    EmployerMonthState, EmployerMonthStatus, EmployerReportConfigured, EmployerReportInput,
+    EmployerReportPreview, EmployerReportReceipt, EmployerReportRun, EmployerRunOutcome,
+    FiledOutsideMonth, MissingEmployerMonth, MissingEmployerReports, RegistrationCheck,
+    RegistrationVerdict,
 };
 mod employer_report_history;
 mod transcript_630;

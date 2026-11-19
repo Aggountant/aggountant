@@ -13,17 +13,22 @@
 //! fences the month: the only further send is an explicit replacement of the
 //! accepted report.
 use crate::{
-    employer_report_history::{TranscriptEvidence, TranscriptImports},
+    employer_report_history::{
+        compare_registration, register_entries, EmployerRegistration, RegistrationComparison,
+        TranscriptEvidence, TranscriptImports,
+    },
     fold,
     journal::{EventPayload, Journal},
     ProcessEngine, ProcessError, RunStatus,
 };
 use aggountant_broker::{
     tulorekisteri::{
-        employer_envelope, ir_reference, read_wage_profile, EmployerReportProfile,
-        EmployerReportRequest, SVC_EMPLOYER,
+        employer_envelope, ir_reference, read_wage_profile, wage_profile_path,
+        with_employer_report, write_wage_profile, EmployerReportProfile, EmployerReportRequest,
+        SVC_EMPLOYER,
     },
     tulorekisteri_xml::{payer_summary_record, record_hash},
+    ytj::YtjLookup,
     AttemptOutcome, Broker, BrokerError, RemoteOutcome,
 };
 use aggountant_domain::payroll::{
@@ -32,7 +37,7 @@ use aggountant_domain::payroll::{
 use aggountant_model::BusinessId;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Write};
+use std::{fs, io::Write, path::PathBuf};
 
 const WORKFLOW: &str = "file-employer-report/v1: Preview(bind unsigned PayerSummaryReportRequestToIR) -> ApproveEmployerReport -> SendPayerSummaryReport(at-most-once) -> signed GetDeliveryDataStatus";
 pub(crate) const WORKFLOW_NAME: &str = "file-employer-report";
@@ -991,6 +996,123 @@ fn record_outcome(
         },
     })?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// configure: the employer_report block of the Tulorekisteri profile
+// ---------------------------------------------------------------------------
+
+/// Where the registration check of `configure` gets its answer.
+pub enum RegistrationCheck<'a> {
+    /// Ask YTJ and judge its entries on `today`.
+    Online {
+        lookup: &'a dyn YtjLookup,
+        today: NaiveDate,
+    },
+    /// The caller chose to write without the check.
+    Offline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RegistrationVerdict {
+    /// `registered_from` is the current employer-register entry's first month.
+    Match,
+    /// The register disagrees and the caller accepted it explicitly.
+    MismatchAccepted,
+    /// The check was not made (`--offline`).
+    NotChecked,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EmployerReportConfigured {
+    pub path: PathBuf,
+    pub dry_run: bool,
+    /// The file was replaced. False on a dry run and when nothing changed.
+    pub written: bool,
+    pub changed: bool,
+    pub before: Option<EmployerReportProfile>,
+    pub after: EmployerReportProfile,
+    pub registration_verdict: RegistrationVerdict,
+    /// The YTJ comparison for the new `registered_from`; absent offline.
+    pub registration: Option<EmployerRegistration>,
+}
+
+impl ProcessEngine {
+    /// Validate `settings`, check `registered_from` against the employer
+    /// register and write the profile's `employer_report` block, keeping every
+    /// other byte of the profile. A register disagreement is refused unless
+    /// `accept_register_mismatch`; the YTJ check is skipped only on
+    /// [`RegistrationCheck::Offline`].
+    pub fn configure_employer_report(
+        &self,
+        settings: EmployerReportProfile,
+        check: RegistrationCheck<'_>,
+        accept_register_mismatch: bool,
+        dry_run: bool,
+    ) -> Result<EmployerReportConfigured, ProcessError> {
+        settings
+            .validate()
+            .map_err(|m| refused("EMPLOYER_REPORT_INVALID_SETTINGS", m))?;
+        let path = wage_profile_path(&self.home);
+        let raw = fs::read_to_string(&path).map_err(|_| {
+            refused(
+                "TULOREKISTERI_NOT_READY",
+                "configure .aggountant/tulorekisteri.json (business_id, mode, reporting_permission_active) first",
+            )
+        })?;
+        let profile =
+            read_wage_profile(&self.home).map_err(|m| refused("TULOREKISTERI_NOT_READY", m))?;
+        let (registration, registration_verdict) = match check {
+            RegistrationCheck::Offline => (None, RegistrationVerdict::NotChecked),
+            RegistrationCheck::Online { lookup, today } => {
+                let registration = compare_registration(
+                    profile.business_id.as_str().to_string(),
+                    register_entries(lookup, &profile.business_id).map_err(|e| match e {
+                        ProcessError::EmployerReport { code, message } => {
+                            ProcessError::EmployerReport {
+                                code,
+                                message: format!("{message}; nothing was written (pass --offline to write without the check)"),
+                            }
+                        }
+                        other => other,
+                    })?,
+                    Some(settings.registered_from),
+                    today,
+                )?;
+                let verdict = if registration.comparison == RegistrationComparison::Match {
+                    RegistrationVerdict::Match
+                } else if accept_register_mismatch {
+                    RegistrationVerdict::MismatchAccepted
+                } else {
+                    return Err(refused(
+                        "EMPLOYER_REGISTER_MISMATCH",
+                        format!(
+                            "registered_from {} disagrees with the employer register in YTJ: {}. Nothing was written; use the register's month, or pass --accept-register-mismatch on the user's say-so (file-wage employer-report registration shows the entries)",
+                            settings.registered_from, registration.message
+                        ),
+                    ));
+                };
+                (Some(registration), verdict)
+            }
+        };
+        let spliced = with_employer_report(&raw, &settings)
+            .map_err(|m| refused("TULOREKISTERI_NOT_READY", m))?;
+        let changed = spliced != raw;
+        if changed && !dry_run {
+            write_wage_profile(&self.home, spliced.as_bytes()).map_err(store)?;
+        }
+        Ok(EmployerReportConfigured {
+            path,
+            dry_run,
+            written: changed && !dry_run,
+            changed,
+            before: profile.employer_report,
+            after: settings,
+            registration_verdict,
+            registration,
+        })
+    }
 }
 
 #[cfg(test)]

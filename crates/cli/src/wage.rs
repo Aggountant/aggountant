@@ -1,11 +1,14 @@
 use super::*;
-use aggountant_broker::tulorekisteri::{production_broker, read_wage_profile};
+use aggountant_broker::tulorekisteri::{
+    production_broker, read_wage_profile, EmployerReportProfile,
+};
 use aggountant_broker::ytj::HttpYtj;
 use aggountant_domain::{
-    payroll::{MonthPayments, ReportMonth},
+    payroll::{MonthPayments, PensionInsurance, ReportMonth},
     WageReport,
 };
-use aggountant_process::{EmployerReportInput, EmployerReportReceipt};
+use aggountant_model::{FilingContactName, FilingContactPhone};
+use aggountant_process::{EmployerReportInput, EmployerReportReceipt, RegistrationCheck};
 use chrono::{DateTime, NaiveDate, Utc};
 
 #[derive(Subcommand, Debug)]
@@ -123,6 +126,33 @@ pub enum EmployerReportCmd {
         #[arg(long)]
         as_of: Option<NaiveDate>,
     },
+    /// Write the employer_report block of .aggountant/tulorekisteri.json (registered_from, contact_name, contact_phone, pension_insurances), keeping every other byte of the profile, and print the block before and after. Give all four with flags, or none and the block as stdin JSON ({"registered_from":"2020-02","contact_name":"...","contact_phone":"...","pension_insurances":[{"provider_code":46,"policy_number":"..."}]}). registered_from is checked against the employer register in PRH/YTJ open data: a disagreement is refused (EMPLOYER_REGISTER_MISMATCH, with the comparison) unless --accept-register-mismatch, and a YTJ failure (YTJ_UNAVAILABLE) writes nothing unless --offline skips the check. Examples: file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --pension-insurance 46:12-3456789 --dry-run; file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --no-pension-insurance; file-wage employer-report configure --offline < employer-report.json
+    Configure {
+        /// First month of the employer-register entry, YYYY-MM (2019-01 or later).
+        #[arg(long, value_parser = parse_month)]
+        registered_from: Option<ReportMonth>,
+        /// Contact person named in the report, 1..70 characters.
+        #[arg(long)]
+        contact_name: Option<String>,
+        /// Contact phone, 5..15 digits with phone punctuation (+, space, -, parentheses).
+        #[arg(long)]
+        contact_phone: Option<String>,
+        /// An earnings-related pension insurance as PROVIDER_CODE:POLICY_NUMBER (Incomes Register PensionProvIdCode, policy number 1..11 characters). Repeatable, at most 20.
+        #[arg(long, value_name = "PROVIDER_CODE:POLICY_NUMBER", value_parser = parse_pension_insurance, conflicts_with = "no_pension_insurance")]
+        pension_insurance: Vec<PensionInsurance>,
+        /// The company has no obligation to take out earnings-related pension insurance (for example only YEL-insured owners): pension_insurances is empty. Stated explicitly, so an empty list is never a default.
+        #[arg(long)]
+        no_pension_insurance: bool,
+        /// Write even though registered_from disagrees with the employer register (on the user's say-so).
+        #[arg(long)]
+        accept_register_mismatch: bool,
+        /// Skip the YTJ registration check and write without it.
+        #[arg(long)]
+        offline: bool,
+        /// Validate, check and report before/after; write nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Import Incomes Register transcript 630 "Maksajan palkkatietojen yhteenveto" (CSV, ordered in Finnish in the e-service without a reception time range): stores the file as an artifact and records each month with at least one employer's separate report as filed outside aggountant. Months aggountant holds are not overwritten; conflicts are reported, and a month two transcripts disagree on becomes transcript_conflict and refuses every send; the same file again is a no-op; an unknown header is refused (TRANSCRIPT_UNKNOWN_HEADER). Such months have no report reference, so --replace for them is refused. Example: file-wage employer-report import-transcript raportti-630.csv
     ImportTranscript {
         /// The CSV file downloaded from the e-service (unzip a ZIP download first).
@@ -135,6 +165,70 @@ pub enum EmployerReportCmd {
 
 fn parse_month(s: &str) -> Result<ReportMonth, String> {
     ReportMonth::parse(s).map_err(|e| e.to_string())
+}
+
+fn parse_pension_insurance(s: &str) -> Result<PensionInsurance, String> {
+    let (code, policy) = s
+        .split_once(':')
+        .ok_or("expected PROVIDER_CODE:POLICY_NUMBER, for example 46:12-3456789")?;
+    let insurance = PensionInsurance {
+        provider_code: code
+            .parse()
+            .map_err(|_| format!("provider code {code:?} is not a number"))?,
+        policy_number: policy.to_string(),
+    };
+    insurance.validate().map_err(|e| e.to_string())?;
+    Ok(insurance)
+}
+
+/// The employer_report block from flags, or from stdin JSON when no field flag
+/// is given. A partial set of flags is refused rather than mixed with stdin.
+fn configure_settings(
+    registered_from: Option<ReportMonth>,
+    contact_name: &Option<String>,
+    contact_phone: &Option<String>,
+    pension_insurance: &[PensionInsurance],
+    no_pension_insurance: bool,
+) -> Result<EmployerReportProfile, CliError> {
+    let pensions_given = !pension_insurance.is_empty() || no_pension_insurance;
+    if registered_from.is_none()
+        && contact_name.is_none()
+        && contact_phone.is_none()
+        && !pensions_given
+    {
+        return read_stdin_json();
+    }
+    let mut missing = Vec::new();
+    if registered_from.is_none() {
+        missing.push("--registered-from");
+    }
+    if contact_name.is_none() {
+        missing.push("--contact-name");
+    }
+    if contact_phone.is_none() {
+        missing.push("--contact-phone");
+    }
+    if !pensions_given {
+        missing.push("--pension-insurance or --no-pension-insurance");
+    }
+    if !missing.is_empty() {
+        return Err(CliError::user(
+            "INVALID_INPUT",
+            format!(
+                "configure needs all of the employer_report fields as flags, or none and the block as stdin JSON; missing {}",
+                missing.join(", ")
+            ),
+        ));
+    }
+    let invalid = |e: aggountant_model::ModelError| CliError::user("INVALID_INPUT", e.to_string());
+    Ok(EmployerReportProfile {
+        registered_from: registered_from.expect("checked"),
+        contact_name: FilingContactName::parse(contact_name.clone().expect("checked"))
+            .map_err(invalid)?,
+        contact_phone: FilingContactPhone::parse(contact_phone.clone().expect("checked"))
+            .map_err(invalid)?,
+        pension_insurances: pension_insurance.to_vec(),
+    })
 }
 
 impl EmployerReportArgs {
@@ -218,6 +312,53 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                     as_of.unwrap_or_else(|| Utc::now().date_naive()),
                 )?,
             )
+        }
+        EmployerReportCmd::Configure {
+            registered_from,
+            contact_name,
+            contact_phone,
+            pension_insurance,
+            no_pension_insurance,
+            accept_register_mismatch,
+            offline,
+            dry_run,
+        } => {
+            let settings = configure_settings(
+                *registered_from,
+                contact_name,
+                contact_phone,
+                pension_insurance,
+                *no_pension_insurance,
+            )?;
+            let lookup;
+            let check = if *offline {
+                RegistrationCheck::Offline
+            } else {
+                lookup = HttpYtj::new().map_err(|e| {
+                    CliError::system(
+                        "YTJ_UNAVAILABLE",
+                        format!(
+                            "{e}; nothing was written (pass --offline to write without the check)"
+                        ),
+                    )
+                })?;
+                RegistrationCheck::Online {
+                    lookup: &lookup,
+                    today: Utc::now().date_naive(),
+                }
+            };
+            let done = engine.configure_employer_report(
+                settings,
+                check,
+                *accept_register_mismatch,
+                *dry_run,
+            )?;
+            let mut value = serde_json::to_value(&done)
+                .map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))?;
+            if *dry_run && done.changed {
+                value["would"] = json!([{"action":"update","resource":"tulorekisteri_profile","path":done.path,"field":"employer_report"}]);
+            }
+            return Ok(value);
         }
         EmployerReportCmd::ImportTranscript { file, dry_run } => {
             let bytes = std::fs::read(file).map_err(|e| {

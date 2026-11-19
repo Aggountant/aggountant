@@ -2846,6 +2846,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                 .or_else(|| value.get("record_hash"))
                 .or_else(|| value.get("state"))
                 .or_else(|| value.get("comparison"))
+                .or_else(|| value.get("registration_verdict"))
                 .or_else(|| value.get("artifact"))
                 .and_then(Value::as_str)
                 .unwrap_or("dry-run")
