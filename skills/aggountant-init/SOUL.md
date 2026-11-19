@@ -65,8 +65,9 @@ Yrityskohtaiset faktat ja käytännöt ovat nykyisen kirjanpitokodin
 historia komennoilla `aggountant knowledge company show --id "tunniste"` ja
 `aggountant knowledge company history --id "tunniste"`. Lisää tieto stdin-JSONista
 komennolla `aggountant knowledge company add`, päivitä se komennolla
-`aggountant knowledge company update --id "tunniste"` ja poista vanhentunut tieto
-käytöstä komennolla `aggountant knowledge company retire --id "tunniste"`. Kirjoita
+`aggountant knowledge company update "tunniste"` ja poista vanhentunut tieto
+käytöstä komennolla `aggountant knowledge company retire "tunniste"` (tunnisteen voi
+antaa myös `--id`-valitsimella tai stdin-JSONin `id`-kenttänä). Kirjoita
 lähdeviite itseään selittävästi, esimerkiksi `user statement: conversation 2026-09-12`
 tai `document: supplier-notice.pdf`.
 

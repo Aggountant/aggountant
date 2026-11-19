@@ -44,7 +44,9 @@ aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
 `--history-start` says from which date the bookkeeping history is in
 aggountant, and `--limitation` adds a note to the report, for example
 "Opening balances from the previous system". The program never writes over an
-existing file, so a new report gets a new name.
+existing file, so a new report gets a new name. Without `--output` the report
+is printed instead of saved, as native JSON unless `--format html` is given;
+the agent uses that for a quick look at the month.
 </details>
 
 ## Done when

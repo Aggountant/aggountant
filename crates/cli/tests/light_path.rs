@@ -230,3 +230,35 @@ fn commands_before_init_fail_clearly() {
     let err: Value = serde_json::from_str(&stderr).unwrap();
     assert_eq!(err["error_code"], "MASTERDATA_NOT_INITIALIZED");
 }
+
+#[test]
+fn chart_list_text_output_lists_the_accounts() {
+    let home = tempfile::tempdir().unwrap();
+    assert_eq!(run(home.path(), &["init"], "").0, 0);
+    let output = bin()
+        .arg("--home")
+        .arg(home.path())
+        .args(["chart", "list"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    let mut lines = text.lines();
+    let header = lines.next().unwrap();
+    assert!(
+        header.starts_with("chart_version fi-general-2026@"),
+        "{header}"
+    );
+    let rows: Vec<Vec<&str>> = lines.map(|line| line.split('\t').collect()).collect();
+    let (_, json, _) = run(home.path(), &["chart", "list"], "");
+    let chart: Value = serde_json::from_str(&json).unwrap();
+    let accounts = chart["accounts"].as_array().unwrap();
+    assert_eq!(rows.len(), accounts.len());
+    assert!(header.ends_with(&format!("{} accounts", accounts.len())));
+    for (row, account) in rows.iter().zip(accounts) {
+        assert_eq!(row.len(), 3, "{row:?}");
+        assert_eq!(row[0], account["id"]);
+        assert_eq!(row[1], account["name"]);
+        assert_eq!(row[2], account["kind"]);
+    }
+}

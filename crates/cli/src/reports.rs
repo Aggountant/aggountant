@@ -13,6 +13,7 @@ use crate::CliError;
 #[derive(Subcommand, Debug)]
 pub(crate) enum ReportCmd {
     /// Produce month/YTD income and month-end balance from sealed ledger data.
+    #[command(after_help = STATEMENTS_HELP)]
     Statements {
         /// Calendar month in strict YYYY-MM form.
         #[arg(long)]
@@ -20,12 +21,14 @@ pub(crate) enum ReportCmd {
         /// Company display name printed in the report.
         #[arg(long)]
         company: String,
-        /// Explicit output representation.
+        /// Output representation. Required with an output file; defaults to
+        /// native-json when the report goes to stdout.
         #[arg(long, value_enum)]
-        format: ReportFormat,
-        /// New output file. Existing files are never overwritten.
+        format: Option<ReportFormat>,
+        /// New output file, or `-` for stdout (the default). Existing files are
+        /// never overwritten.
         #[arg(long)]
-        output: PathBuf,
+        output: Option<PathBuf>,
         /// Optional date from which the caller states history is available; not a calculation cutoff or verification.
         #[arg(long)]
         history_start: Option<String>,
@@ -34,6 +37,20 @@ pub(crate) enum ReportCmd {
         limitation: Option<String>,
     },
 }
+
+const STATEMENTS_HELP: &str = r#"OUTPUT
+  Without --output (or with --output -) the report goes to stdout, native-json
+  unless --format says otherwise. In text mode stdout is the report document
+  itself; with --json it is the usual summary object with the document's exact
+  text in "content" and "output":"-". With --output FILE, --format is
+  required, the file must not exist, and stdout carries only the summary.
+
+EXAMPLES
+  Quick look at a month:
+    aggountant report statements --period 2026-03 --company "Esimerkki Oy"
+  Write an HTML file:
+    aggountant --json report statements --period 2026-03 --company "Esimerkki Oy" \
+      --format html --output 2026-03.html"#;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(crate) enum ReportFormat {
@@ -114,6 +131,20 @@ pub(crate) fn run(cmd: &ReportCmd, home: &Path) -> Result<Value, CliError> {
                 .map(Date::parse)
                 .transpose()
                 .map_err(|error| CliError::user(error.error_code(), error.to_string()))?;
+            let output = output.as_deref().filter(|path| *path != Path::new("-"));
+            let format = match (format, output) {
+                (Some(format), _) => *format,
+                (None, None) => ReportFormat::NativeJson,
+                (None, Some(path)) => {
+                    return Err(CliError::user(
+                        "FORMAT_REQUIRED",
+                        format!(
+                            "--format is required with --output {}; omit --output to print native-json to stdout",
+                            path.display()
+                        ),
+                    ))
+                }
+            };
             let ledger = Ledger::open(home)?;
             let report = ledger.monthly_statements_report(
                 &period,
@@ -133,19 +164,40 @@ pub(crate) fn run(cmd: &ReportCmd, home: &Path) -> Result<Value, CliError> {
                 }
                 ReportFormat::Html => render_monthly_report_html(&report).into_bytes(),
             };
-            write_new(output, &bytes)?;
-            Ok(json!({
+            let output_json = match output {
+                Some(path) => {
+                    write_new(path, &bytes)?;
+                    json!(path.display().to_string())
+                }
+                None => json!("-"),
+            };
+            let mut summary = json!({
                 "schema_version": 1,
                 "report_schema_version": report.schema_version,
                 "format": format.as_str(),
-                "output": output.display().to_string(),
+                "output": output_json,
                 "bytes": bytes.len(),
                 "period": report.period,
                 "source_set_hash": report.provenance.source_set_hash,
                 "completeness": report.completeness.state,
-            }))
+            });
+            if output.is_none() {
+                // Bytes from serde_json and the HTML renderer are UTF-8.
+                let content = String::from_utf8(bytes).map_err(|error| {
+                    CliError::system("REPORT_SERIALIZE_ERROR", error.to_string())
+                })?;
+                summary["content"] = json!(content);
+            }
+            Ok(summary)
         }
     }
+}
+
+/// The report document a stdout-mode `report statements` prints verbatim in
+/// text mode, instead of the summary line. `--json` keeps the envelope, which
+/// carries the same bytes in `content`.
+pub(crate) fn stdout_content(value: &Value) -> Option<&str> {
+    value["content"].as_str()
 }
 
 pub(crate) fn human_line(value: &Value) -> String {

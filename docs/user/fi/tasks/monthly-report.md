@@ -41,7 +41,9 @@ aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
 kertoo, mistä päivästä kirjanpitohistoria on aggountantissa, ja `--limitation`
 lisää raporttiin huomautuksen, esimerkiksi "Avaavat saldot vanhasta
 järjestelmästä". Ohjelma ei koskaan kirjoita olemassa olevan tiedoston päälle,
-joten uusi raportti saa uuden nimen.
+joten uusi raportti saa uuden nimen. Ilman `--output`-valitsinta raportti
+tulostetaan tiedoston sijaan, JSON-muodossa ellei `--format html` ole annettu;
+agentti käyttää tätä, kun se haluaa nopeasti katsoa kuukauden tilanteen.
 </details>
 
 ## Valmis, kun

@@ -245,3 +245,164 @@ fn consult_knowledge_list_and_show_remain_available() {
         1
     );
 }
+
+fn update_input(reason: &str) -> Value {
+    json!({
+        "statement": "Hosting invoices are Finnish domestic purchases.",
+        "scope": "Invoices dated on or after 2026-10-01.",
+        "source": {"reference": "supplier establishment notice", "date": "2026-10-01"},
+        "reason": reason
+    })
+}
+
+fn error_code(stderr: &str) -> String {
+    serde_json::from_str::<Value>(stderr).unwrap()["error_code"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+#[test]
+fn update_and_retire_take_the_id_positionally_or_in_stdin_json() {
+    let home = tempfile::tempdir().unwrap();
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "add"],
+        &add_input().to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    // Positional id.
+    let (code, stdout, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update", "hosting-vat-treatment"],
+        &update_input("positional").to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let doc: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(doc["document"]["revisions"].as_array().unwrap().len(), 2);
+
+    // Id only in the stdin JSON.
+    let mut with_id = update_input("json id");
+    with_id["id"] = json!("hosting-vat-treatment");
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update"],
+        &with_id.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    // Argument and JSON id agree.
+    let (code, _, stderr) = run(
+        home.path(),
+        &[
+            "knowledge",
+            "company",
+            "update",
+            "--id",
+            "hosting-vat-treatment",
+        ],
+        &with_id.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    // Disagreement is refused before anything is written.
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update", "other-fact"],
+        &with_id.to_string(),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "FACT_ID_MISMATCH");
+
+    // No id anywhere.
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update"],
+        &update_input("none").to_string(),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "FACT_ID_REQUIRED");
+
+    // A non-string JSON id and an unknown field stay input errors.
+    let mut bad = update_input("bad");
+    bad["id"] = json!(7);
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update"],
+        &bad.to_string(),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "INVALID_INPUT");
+    let mut unknown = update_input("unknown");
+    unknown["extra"] = json!(true);
+    let (code, _, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "update", "hosting-vat-treatment"],
+        &unknown.to_string(),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(error_code(&stderr), "INVALID_INPUT");
+
+    // Positional and --id together are a usage error.
+    let (code, _, _) = run(
+        home.path(),
+        &[
+            "knowledge",
+            "company",
+            "update",
+            "hosting-vat-treatment",
+            "--id",
+            "hosting-vat-treatment",
+        ],
+        &update_input("both").to_string(),
+    );
+    assert_eq!(code, 1);
+
+    let (_, stdout, _) = run(
+        home.path(),
+        &[
+            "knowledge",
+            "company",
+            "history",
+            "--id",
+            "hosting-vat-treatment",
+        ],
+        "",
+    );
+    let history: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        history["document"]["revisions"].as_array().unwrap().len(),
+        4
+    );
+
+    // Retire positionally with a matching JSON id.
+    let retire = json!({
+        "id": "hosting-vat-treatment",
+        "source": {"reference": "contract termination", "date": "2026-12-31"},
+        "reason": "The contract ended."
+    });
+    let (code, stdout, stderr) = run(
+        home.path(),
+        &["knowledge", "company", "retire", "hosting-vat-treatment"],
+        &retire.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let doc: Value = serde_json::from_str(&stdout).unwrap();
+    let revisions = doc["document"]["revisions"].as_array().unwrap();
+    assert_eq!(revisions.last().unwrap()["status"], "retired");
+}
+
+#[test]
+fn update_and_retire_help_show_examples() {
+    for sub in ["add", "update", "retire"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+            .args(["knowledge", "company", sub, "--help"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let help = String::from_utf8(output.stdout).unwrap();
+        assert!(help.contains("EXAMPLE"), "{sub}: {help}");
+        assert!(help.contains("bank-fees-practice"), "{sub}: {help}");
+    }
+}

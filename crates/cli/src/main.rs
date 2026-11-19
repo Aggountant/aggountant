@@ -2749,11 +2749,26 @@ fn human_line(command: &Command, value: &Value) -> String {
             value["chart_version"].as_str().unwrap_or("?"),
             value["account_count"]
         ),
-        Command::Chart { .. } => format!(
-            "chart_version {} — {} accounts",
-            value["chart_version"].as_str().unwrap_or("?"),
-            value["accounts"].as_array().map(|a| a.len()).unwrap_or(0)
-        ),
+        Command::Chart { .. } => {
+            let accounts = value["accounts"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let mut out = format!(
+                "chart_version {} — {} accounts",
+                value["chart_version"].as_str().unwrap_or("?"),
+                accounts.len()
+            );
+            for account in accounts {
+                out.push_str(&format!(
+                    "\n{}\t{}\t{}",
+                    account["id"].as_str().unwrap_or("?"),
+                    account["name"].as_str().unwrap_or("?"),
+                    account["kind"].as_str().unwrap_or("?")
+                ));
+            }
+            out
+        }
         Command::Voucher { cmd } => match cmd {
             VoucherCmd::Seal => format!(
                 "sealed voucher #{} hash {} (replayed={})",
@@ -3022,8 +3037,14 @@ fn main() -> ExitCode {
                         cmd: SkillCmd::Print { .. }
                     }
                 );
+            let report_document = match &cli.command {
+                Command::Report { .. } if !cli.json => reports::stdout_content(&value),
+                _ => None,
+            };
             let write_result = if raw_skill {
                 write_stdout_bytes(value["content"].as_str().unwrap_or("").as_bytes())
+            } else if let Some(document) = report_document {
+                write_stdout_bytes(document.as_bytes())
             } else {
                 let output = if cli.json {
                     serde_json::to_string(&value).expect("output value serializes")

@@ -9,6 +9,17 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 <!-- oss-changelog:unreleased-start -->
 ## [Unreleased]
 
+### Changed
+
+- `knowledge company update` and `retire` take the fact id positionally as
+  well as with `--id`, or as `id` in the stdin JSON (which must agree with an
+  argument given alongside it).
+- `chart list` text output lists the accounts (number, name, kind), one per
+  line.
+- `report statements` prints the report to stdout when `--output` is omitted
+  or `-`, defaulting to `--format native-json`; with `--json` the summary
+  object carries the document in `content`.
+
 <!-- oss-changelog:unreleased-end -->
 
 ## [0.1.0] - 2026-11-19
