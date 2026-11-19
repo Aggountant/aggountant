@@ -54,10 +54,10 @@ aggountant voucher validate < sinetointi.json
 aggountant voucher seal < sinetointi.json
 ```
 
-Agentti tarkistaa saman tiedoston, jonka se sinetöi. `voucher validate` kertoo
-myös, onko tiedoston `natural_key` jo sinetöinyt tositteen: sama sisältö on
-varoitus (uusi sinetöinti palauttaa olemassa olevan tositteen), eri sisältö
-hylätään.
+Agentti tarkistaa saman tiedoston, jonka se sinetöi. Silloin `voucher validate`
+hylkää myös suljetulle kuukaudelle päivätyn tositteen ja kertoo, onko
+tiedoston `natural_key` jo sinetöinyt tositteen: sama sisältö on varoitus (uusi
+sinetöinti palauttaa olemassa olevan tositteen), eri sisältö hylätään.
 </details>
 
 ## Valmis, kun

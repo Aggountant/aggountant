@@ -407,6 +407,13 @@ pub(crate) trait FiscalStore {
     /// binding an effective year to it.
     fn read_voucher(&self, number: u64) -> Result<Option<StoredVoucher>, LedgerError>;
 
+    /// The refusal `commit` would give a voucher at `gate` for its fiscal calendar
+    /// or period state, without logging it. Serves the `validate` dry-run.
+    fn posting_gate_refusal(
+        &self,
+        gate: &PeriodGate<'_>,
+    ) -> Result<Option<LedgerError>, LedgerError>;
+
     /// The voucher a `natural_key` has already sealed, or `None` if the key is
     /// unused. Read-only; `commit` performs the authoritative check in its own
     /// transaction, this serves the `validate` dry-run.

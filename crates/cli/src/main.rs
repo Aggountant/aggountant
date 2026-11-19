@@ -705,16 +705,17 @@ Run the printed example after selecting account IDs from the active chart:
 const VOUCHER_VALIDATE_INPUT_HELP: &str = r#"INPUT (JSON on stdin), one of two shapes
   1. The `voucher seal` envelope: {"draft":{...},"natural_key":"...","actor":"..."}.
      Validate the same file you seal. It is read exactly as `voucher seal` reads
-     it (see `voucher seal --help`), so a file that validates here is refused by
-     seal only for a reason a dry-run cannot see (for example a closed period).
-     A natural_key that already sealed this same content gives the warning
+     it (see `voucher seal --help`) and checked as seal checks it, including the
+     fiscal calendar and period state (PERIOD_CLOSING, PERIOD_SEALED). A
+     natural_key that already sealed this same content gives the warning
      NATURAL_KEY_ALREADY_SEALED (seal will replay that voucher); a natural_key
      bound to different content is refused with IDEMPOTENCY_KEY_REUSE, as seal
      would refuse it.
   2. A bare draft, the object under "draft" above (see `voucher draft --help`).
-  Checks: every posting account exists in the active chart, VAT rate-class
-  mistags, and that a referenced attachment is stored. Warnings do not stop a
-  seal; each carries a code and a message.
+     Checked against the chart and artifacts only, not period state.
+  Both shapes check that every posting account exists in the active chart, VAT
+  rate-class mistags, and that a referenced attachment is stored. Warnings do
+  not stop a seal; each carries a code and a message.
 
 Example JSON (input-shape demonstration only, not VAT or classification advice):
 ```json

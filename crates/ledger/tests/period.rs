@@ -609,3 +609,32 @@ fn monthly_reopen_to_closing_keeps_the_existing_correction_route() {
     ledger.seal_period(&july, &authority, "closer").unwrap();
     assert!(ledger.verify().unwrap().ok);
 }
+
+#[test]
+fn validate_seal_sees_the_period_gate_and_replays_like_seal() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let early = draft_on("2026-02-01", "10.00");
+    ledger.seal(&early, &req("k:early")).unwrap();
+    let auth = ledger.begin_close(&q1(), "run-1", "closer").unwrap();
+
+    let late = draft_on("2026-03-10", "5.00");
+    let err = ledger.validate_seal(&late, "k:late").unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_CLOSING");
+
+    ledger.seal_period(&q1(), &auth, "closer").unwrap();
+    let err = ledger.validate_seal(&late, "k:late").unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_SEALED");
+    // Bare-draft validation keeps its scope: no period state.
+    assert!(ledger.validate(&late).unwrap().ok);
+
+    // An already-sealed key replays before the gate, in the dry-run as in seal.
+    let replay = ledger.validate_seal(&early, "k:early").unwrap();
+    assert_eq!(replay.warnings[0].code, "NATURAL_KEY_ALREADY_SEALED");
+    assert!(ledger.seal(&early, &req("k:early")).unwrap().replayed);
+
+    assert!(ledger
+        .validate_seal(&draft_on("2026-04-02", "5.00"), "k:q2")
+        .is_ok());
+    assert_eq!(ledger.rejection_count().unwrap(), 0, "dry-runs log nothing");
+}

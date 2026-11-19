@@ -56,10 +56,10 @@ aggountant voucher validate < seal.json
 aggountant voucher seal < seal.json
 ```
 
-The agent validates the same file it seals. `voucher validate` also tells
-whether the file's `natural_key` has already sealed a voucher: the same
-content is a warning (sealing again returns the existing voucher), different
-content is refused.
+The agent validates the same file it seals. `voucher validate` then also
+refuses a voucher dated in a closed month, and tells whether the file's
+`natural_key` has already sealed a voucher: the same content is a warning
+(sealing again returns the existing voucher), different content is refused.
 </details>
 
 ## Done when

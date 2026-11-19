@@ -374,67 +374,21 @@ impl FiscalStore for SqliteFiscalStore {
         // behind us (it will see our voucher committed into a still-`Open`
         // period). There is no window where a voucher seals into a period a
         // close-run believes is `Closing`.
-        // A posting date can be governed by either a new calendar-month row or its
-        // retained legacy-quarter row. At most those two canonical ids can contain
-        // the date, so use indexed lookups rather than scanning period history.
-        // Every voucher must belong to a fiscal year, or no statement projection could
-        // place it. Read in the writer lock, so a concurrent definition cannot slip in.
-        // A Sealed fiscal year has carried its closing position forward, and the next
-        // year's opening folds every earlier voucher. A voucher dated in or before a
-        // Sealed year would change that position after the fact, so it is refused even
-        // when the earlier year's own periods were never closed here (a year kept in the
-        // old system, whose opening voucher is dated its last day).
-        let refusal = match load_calendar(&tx)?.year_of(gate.posting_date) {
-            Err(error) => Some(LedgerError::Model(error)),
-            Ok(posting_year) => {
-                first_sealed_year_in(&tx, posting_year.year(), i32::MAX)?.map(|sealed| {
-                    LedgerError::PeriodSealed(format!(
-                        "fiscal year {sealed} is Sealed and carried forward the closing \
-                         position of every earlier year; a voucher dated {} (fiscal year {}) \
-                         would change it, so corrections go to the next open period",
-                        gate.posting_date,
-                        posting_year.year()
-                    ))
-                })
-            }
-        };
-        if let Some(refusal) = refusal {
+        // The calendar is read in the writer lock too, so a concurrent fiscal-year
+        // definition cannot slip in.
+        if let Some((refusal, target)) = posting_gate_refusal(&tx, gate)? {
             insert_rejection(
                 &tx,
                 &RejectionRecord {
                     reason_code: refusal.error_code().to_string(),
                     request_hash: provenance.request_hash.clone(),
                     actor: provenance.actor.clone(),
-                    target: format!("fiscal:date:{}", gate.posting_date),
+                    target,
                     note: refusal.to_string(),
                 },
             )?;
             tx.commit()?;
             return Ok(CommitResult::Refused(refusal));
-        }
-
-        let containing = [
-            PeriodId::month_containing(gate.posting_date),
-            PeriodId::containing(gate.posting_date),
-        ];
-        for period in containing {
-            let Some(prow) = read_period_row_opt(&tx, &period.to_string())? else {
-                continue;
-            };
-            if let Some(refusal) = evaluate_period_gate(&prow, gate) {
-                insert_rejection(
-                    &tx,
-                    &RejectionRecord {
-                        reason_code: refusal.error_code().to_string(),
-                        request_hash: provenance.request_hash.clone(),
-                        actor: provenance.actor.clone(),
-                        target: format!("fiscal:period:{}", prow.period_id),
-                        note: refusal.to_string(),
-                    },
-                )?;
-                tx.commit()?;
-                return Ok(CommitResult::Refused(refusal));
-            }
         }
 
         let next_number: u64 = tx.query_row(
@@ -1281,6 +1235,14 @@ impl FiscalStore for SqliteFiscalStore {
         Ok(Some(load_voucher(&guard, number)?))
     }
 
+    fn posting_gate_refusal(
+        &self,
+        gate: &PeriodGate<'_>,
+    ) -> Result<Option<LedgerError>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        Ok(posting_gate_refusal(&guard, gate)?.map(|(refusal, _)| refusal))
+    }
+
     fn attribute_adjustment(
         &self,
         req: &AttributionRequest,
@@ -2018,6 +1980,59 @@ fn implicit_open(period_id: &str) -> PeriodRow {
 
 /// The F5 per-voucher period check (ADR-6 §2), evaluated inside the seal txn.
 /// `None` = the write may proceed; `Some(err)` = a refusal to be logged.
+/// The fiscal-calendar and period gate a voucher dated `gate.posting_date` must
+/// pass, with the rejection-log target of a refusal. `commit` evaluates it inside
+/// its writer lock and logs the refusal; the `validate` dry-run only reads it.
+///
+/// Every voucher must belong to a fiscal year, or no statement projection could
+/// place it. A Sealed fiscal year has carried its closing position forward, and the
+/// next year's opening folds every earlier voucher. A voucher dated in or before a
+/// Sealed year would change that position after the fact, so it is refused even
+/// when the earlier year's own periods were never closed here (a year kept in the
+/// old system, whose opening voucher is dated its last day).
+///
+/// A posting date can be governed by either a new calendar-month row or its
+/// retained legacy-quarter row. At most those two canonical ids can contain the
+/// date, so indexed lookups replace a scan of period history.
+fn posting_gate_refusal(
+    conn: &Connection,
+    gate: &PeriodGate<'_>,
+) -> Result<Option<(LedgerError, String)>, LedgerError> {
+    let refusal = match load_calendar(conn)?.year_of(gate.posting_date) {
+        Err(error) => Some(LedgerError::Model(error)),
+        Ok(posting_year) => {
+            first_sealed_year_in(conn, posting_year.year(), i32::MAX)?.map(|sealed| {
+                LedgerError::PeriodSealed(format!(
+                    "fiscal year {sealed} is Sealed and carried forward the closing \
+                     position of every earlier year; a voucher dated {} (fiscal year {}) \
+                     would change it, so corrections go to the next open period",
+                    gate.posting_date,
+                    posting_year.year()
+                ))
+            })
+        }
+    };
+    if let Some(refusal) = refusal {
+        return Ok(Some((
+            refusal,
+            format!("fiscal:date:{}", gate.posting_date),
+        )));
+    }
+    let containing = [
+        PeriodId::month_containing(gate.posting_date),
+        PeriodId::containing(gate.posting_date),
+    ];
+    for period in containing {
+        let Some(prow) = read_period_row_opt(conn, &period.to_string())? else {
+            continue;
+        };
+        if let Some(refusal) = evaluate_period_gate(&prow, gate) {
+            return Ok(Some((refusal, format!("fiscal:period:{}", prow.period_id))));
+        }
+    }
+    Ok(None)
+}
+
 fn evaluate_period_gate(prow: &PeriodRow, gate: &PeriodGate<'_>) -> Option<LedgerError> {
     match prow.state {
         PeriodState::Open => None,

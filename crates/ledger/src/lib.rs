@@ -623,11 +623,12 @@ impl Ledger {
     }
 
     /// Dry-run of `seal(draft, natural_key)` as the `voucher seal` command issues
-    /// it (no source fingerprint): [`Self::validate`], then the idempotency check
-    /// `commit` would make. A key that already sealed the same request is a
-    /// `NATURAL_KEY_ALREADY_SEALED` warning, because the seal replays harmlessly; a
-    /// key bound to different content is refused with `IDEMPOTENCY_KEY_REUSE`,
-    /// because the seal would refuse it too. Nothing is written, not even a
+    /// it (no source fingerprint, no closing authority): [`Self::validate`], then
+    /// the checks `commit` makes, in its order. A key that already sealed the same
+    /// request is a `NATURAL_KEY_ALREADY_SEALED` warning, because the seal replays
+    /// harmlessly (even into a period closed since); a key bound to different
+    /// content is refused with `IDEMPOTENCY_KEY_REUSE`. An unused key is checked
+    /// against the fiscal calendar and period state. Nothing is written, not even a
     /// rejection record: a dry-run is not a refused write.
     pub fn validate_seal(
         &self,
@@ -636,7 +637,14 @@ impl Ledger {
     ) -> Result<ValidationReport, LedgerError> {
         let mut report = self.validate(draft)?;
         let Some(existing) = self.fiscal.read_voucher_by_natural_key(natural_key)? else {
-            return Ok(report);
+            let gate = PeriodGate {
+                posting_date: draft.posting_date(),
+                authority: None,
+            };
+            return match self.fiscal.posting_gate_refusal(&gate)? {
+                Some(refusal) => Err(refusal),
+                None => Ok(report),
+            };
         };
         let request_hash = self.draft_request_hash(draft)?;
         let number = existing.number;
