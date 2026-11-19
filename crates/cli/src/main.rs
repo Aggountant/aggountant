@@ -2839,6 +2839,21 @@ fn human_line(command: &Command, value: &Value) -> String {
             EmployeeCmd::Add => format!("stored employee {}", value["employee_id"]),
             EmployeeCmd::Show { .. } => format!("employee {}", value["employee_id"]),
         },
+        Command::FileWage {
+            cmd: wage::WageCmd::EmployerReport(wage::EmployerReportCmd::Configure { .. }),
+        } => format!(
+            "employer_report {} (registration check: {})\nbefore: {}\nafter:  {}",
+            if value["written"] == true {
+                "written"
+            } else if value["changed"] == false {
+                "unchanged, nothing written"
+            } else {
+                "dry run, nothing written"
+            },
+            value["registration_verdict"].as_str().unwrap_or("?"),
+            value["before"],
+            value["after"]
+        ),
         Command::FileWage { .. } => format!(
             "file-wage {}",
             value
@@ -2846,7 +2861,6 @@ fn human_line(command: &Command, value: &Value) -> String {
                 .or_else(|| value.get("record_hash"))
                 .or_else(|| value.get("state"))
                 .or_else(|| value.get("comparison"))
-                .or_else(|| value.get("registration_verdict"))
                 .or_else(|| value.get("artifact"))
                 .and_then(Value::as_str)
                 .unwrap_or("dry-run")

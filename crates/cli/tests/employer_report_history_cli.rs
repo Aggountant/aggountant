@@ -260,6 +260,18 @@ fn configure_writes_only_the_employer_report_block_from_flags_or_stdin() {
     assert_eq!(dry["would"][0]["field"], "employer_report");
     assert_eq!(dry["registration_verdict"], "not_checked");
     assert_eq!(std::fs::read_to_string(&profile).unwrap(), original);
+    // Without --json the before/after and the dry run are still visible.
+    let human = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .arg("--home")
+        .arg(h)
+        .args([&configure[..], &flags[..], &pension[..], &["--dry-run"]].concat())
+        .env("XDG_CONFIG_HOME", h.join("config"))
+        .output()
+        .unwrap();
+    let human = String::from_utf8(human.stdout).unwrap();
+    assert!(human.contains("dry run, nothing written"), "{human}");
+    assert!(human.contains("before: null"), "{human}");
+    assert!(human.contains("12-3456789"), "{human}");
 
     let (code, done) = run(h, &[&configure[..], &flags[..], &pension[..]].concat());
     assert_eq!(code, 0, "{done}");

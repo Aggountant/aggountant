@@ -83,17 +83,32 @@ fn parse_wage_profile(raw: &[u8]) -> Result<WageProfile, String> {
     serde_json::from_slice(raw).map_err(|_| "invalid Tulorekisteri profile".into())
 }
 
+/// The profile with its `employer_report` block replaced.
+pub struct SplicedProfile {
+    /// The new file text.
+    pub text: String,
+    /// The new profile, parsed back from `text`.
+    pub profile: WageProfile,
+    /// The block that was there, as written (it need not have been valid).
+    pub before: Option<serde_json::Value>,
+}
+
 /// The profile text with its `employer_report` block replaced by `settings`, or
 /// added as the last member when absent. Every other byte stays as it was, so
-/// a hand-kept layout, key order and the other settings are untouched.
-pub fn with_employer_report(raw: &str, settings: &EmployerReportProfile) -> Result<String, String> {
-    parse_wage_profile(raw.as_bytes())?;
+/// a hand-kept layout, key order and the other settings are untouched. An
+/// existing block that no longer parses is replaced too, so a bad hand edit
+/// can be repaired; the rest of the profile must be valid.
+pub fn with_employer_report(
+    raw: &str,
+    settings: &EmployerReportProfile,
+) -> Result<SplicedProfile, String> {
     let members: std::collections::BTreeMap<String, &serde_json::value::RawValue> =
         serde_json::from_str(raw).map_err(|_| "invalid Tulorekisteri profile")?;
     let block = serde_json::to_string_pretty(settings)
         .map_err(|_| "employer_report serialization failed")?
         .replace('\n', "\n  ");
-    let spliced = match members.get("employer_report") {
+    let existing = members.get("employer_report");
+    let text = match existing {
         Some(value) => {
             // The value borrows from `raw`, so its offset is the pointer distance.
             let start = value.get().as_ptr() as usize - raw.as_ptr() as usize;
@@ -118,12 +133,21 @@ pub fn with_employer_report(raw: &str, settings: &EmployerReportProfile) -> Resu
             )
         }
     };
-    let check = parse_wage_profile(spliced.as_bytes())?;
+    // Also refuses a duplicated key, which the map above would hide.
+    let profile = parse_wage_profile(text.as_bytes())?;
     let value = |v: Option<&EmployerReportProfile>| serde_json::to_value(v).ok();
-    if value(check.employer_report.as_ref()) != value(Some(settings)) {
+    if value(profile.employer_report.as_ref()) != value(Some(settings)) {
         return Err("employer_report did not round-trip through the profile".into());
     }
-    Ok(spliced)
+    let before = existing
+        .map(|v| serde_json::from_str(v.get()))
+        .transpose()
+        .map_err(|_| "invalid Tulorekisteri profile")?;
+    Ok(SplicedProfile {
+        text,
+        profile,
+        before,
+    })
 }
 
 /// Replace the profile file atomically with `bytes` (already validated).
@@ -598,7 +622,9 @@ mod tests {
     fn employer_report_is_added_and_replaced_keeping_every_other_byte() {
         // Odd but valid layout: tabs, a trailing newline, keys in a custom order.
         let without = "{\n\t\"mode\": \"production\",\n\t\"schema_version\": 1,\n\t\"business_id\": \"1234567-1\",\n\t\"reporting_permission_active\": true,\n\t\"credentials_file\": null\n}\n";
-        let added = with_employer_report(without, &settings("2020-02")).unwrap();
+        let added = with_employer_report(without, &settings("2020-02"))
+            .unwrap()
+            .text;
         let tail = "\n}\n";
         let head = &without[..without.len() - tail.len()];
         assert!(
@@ -616,6 +642,8 @@ mod tests {
         );
 
         let replaced = with_employer_report(&added, &settings("2021-03")).unwrap();
+        assert_eq!(replaced.before.unwrap()["registered_from"], "2020-02");
+        let replaced = replaced.text;
         let block = |s: &str| {
             let start = s.find("\"employer_report\"").unwrap();
             (
@@ -629,10 +657,21 @@ mod tests {
 
         // Compact one-line JSON with the block first.
         let compact = r#"{"employer_report":{"registered_from":"2025-01","contact_name":"Old","contact_phone":"0401234567","pension_insurances":[]},"schema_version":1,"mode":"production","business_id":"1234567-1","reporting_permission_active":true,"credentials_file":null}"#;
-        let out = with_employer_report(compact, &settings("2020-02")).unwrap();
+        let out = with_employer_report(compact, &settings("2020-02"))
+            .unwrap()
+            .text;
         assert!(out.starts_with("{\"employer_report\":{\n"));
         assert!(out.ends_with(r#","schema_version":1,"mode":"production","business_id":"1234567-1","reporting_permission_active":true,"credentials_file":null}"#));
         assert!(with_employer_report("not json", &settings("2020-02")).is_err());
+        // A bad hand-written block is repaired; a bad rest of the profile is not.
+        let bad_block = compact.replace("\"Old\"", "\" Old \"");
+        assert!(parse_wage_profile(bad_block.as_bytes()).is_err());
+        let repaired = with_employer_report(&bad_block, &settings("2020-02")).unwrap();
+        assert_eq!(repaired.before.unwrap()["contact_name"], " Old ");
+        let bad_rest = compact.replace("\"1234567-1\"", "\"1234567-2\"");
+        assert!(with_employer_report(&bad_rest, &settings("2020-02")).is_err());
+        let duplicate = compact.replacen('{', "{\"employer_report\":null,", 1);
+        assert!(with_employer_report(&duplicate, &settings("2020-02")).is_err());
     }
 
     #[test]

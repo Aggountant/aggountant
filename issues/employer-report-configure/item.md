@@ -2,12 +2,13 @@
 created: 2026-11-19
 updated: 2026-11-19
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: wage-reporting
 lane_seq: 0
 collision: [crates/cli/src/wage.rs, crates/process/src/file_employer_report.rs]
+closed: 2026-11-19
 ---
 
 # employer-report: a configure command for the employer_report profile, with the YTJ registration check
@@ -47,3 +48,9 @@ nothing):
   byte-for-byte, and prints the before/after;
 - `--help` with examples; the `vero-fi` skill and the guide use the command
   instead of telling the agent to edit JSON.
+
+## Resolution
+
+### 2026-11-19T14:16:35Z · @issuectl
+
+file-wage employer-report configure landed; see result.md

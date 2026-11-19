@@ -423,7 +423,7 @@ fn configure_refuses_a_registered_from_the_register_disagrees_with() {
         .configure_employer_report(profile_settings("2020-02"), online(), false, false)
         .unwrap();
     assert!(!again.changed && !again.written);
-    assert_eq!(again.before.unwrap().registered_from, month("2020-02"));
+    assert_eq!(again.before.unwrap()["registered_from"], "2020-02");
 
     // A disagreement on the user's say-so is written, with the comparison.
     let accepted = e

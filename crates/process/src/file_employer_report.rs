@@ -1031,7 +1031,8 @@ pub struct EmployerReportConfigured {
     /// The file was replaced. False on a dry run and when nothing changed.
     pub written: bool,
     pub changed: bool,
-    pub before: Option<EmployerReportProfile>,
+    /// The block as it was written before, valid or not.
+    pub before: Option<serde_json::Value>,
     pub after: EmployerReportProfile,
     pub registration_verdict: RegistrationVerdict,
     /// The YTJ comparison for the new `registered_from`; absent offline.
@@ -1061,14 +1062,15 @@ impl ProcessEngine {
                 "configure .aggountant/tulorekisteri.json (business_id, mode, reporting_permission_active) first",
             )
         })?;
-        let profile =
-            read_wage_profile(&self.home).map_err(|m| refused("TULOREKISTERI_NOT_READY", m))?;
+        let spliced = with_employer_report(&raw, &settings)
+            .map_err(|m| refused("TULOREKISTERI_NOT_READY", m))?;
+        let business_id = &spliced.profile.business_id;
         let (registration, registration_verdict) = match check {
             RegistrationCheck::Offline => (None, RegistrationVerdict::NotChecked),
             RegistrationCheck::Online { lookup, today } => {
                 let registration = compare_registration(
-                    profile.business_id.as_str().to_string(),
-                    register_entries(lookup, &profile.business_id).map_err(|e| match e {
+                    business_id.as_str().to_string(),
+                    register_entries(lookup, business_id).map_err(|e| match e {
                         ProcessError::EmployerReport { code, message } => {
                             ProcessError::EmployerReport {
                                 code,
@@ -1096,18 +1098,16 @@ impl ProcessEngine {
                 (Some(registration), verdict)
             }
         };
-        let spliced = with_employer_report(&raw, &settings)
-            .map_err(|m| refused("TULOREKISTERI_NOT_READY", m))?;
-        let changed = spliced != raw;
+        let changed = spliced.text != raw;
         if changed && !dry_run {
-            write_wage_profile(&self.home, spliced.as_bytes()).map_err(store)?;
+            write_wage_profile(&self.home, spliced.text.as_bytes()).map_err(store)?;
         }
         Ok(EmployerReportConfigured {
             path,
             dry_run,
             written: changed && !dry_run,
             changed,
-            before: profile.employer_report,
+            before: spliced.before,
             after: settings,
             registration_verdict,
             registration,

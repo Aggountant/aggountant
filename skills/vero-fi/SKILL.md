@@ -531,7 +531,7 @@ Lohkon kirjoittaa `configure`, ei käsin tehty JSON-muokkaus. Se tarkistaa
 puhelinnumeron, eläkelaitostunnuksen ja vakuutusnumeron muodon, vertaa
 `registered_from`-arvoa YTJ:n työnantajarekisteriin (sama vertailu kuin
 `registration`), kirjoittaa vain `employer_report`-lohkon (profiilin muut tavut
-pysyvät) ja näyttää `before`/`after`. Aja ensin `--dry-run`, näytä tulos
+pysyvät) ja näyttää `before`/`after`. Se korvaa myös käsin rikotun lohkon. Aja ensin `--dry-run`, näytä tulos
 käyttäjälle ja aja sitten ilman sitä. Eläkevakuutukset annetaan
 `--pension-insurance KOODI:NUMERO` (toistettava) tai `--no-pension-insurance`;
 kumpaakaan ei oleteta. Samat kentät voi antaa myös JSONina vakiosyötteessä
