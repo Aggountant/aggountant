@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yfttmj4acrkhe2exge2c7b/review-finding:masterdata-corrupt-names-no-remedy
@@ -13,6 +13,9 @@ related: ['@skill-init-rebuild']
 assessment_classification: CONFIRMED
 assessment_outcome: SPIN_OFF
 review_target: skills/aggountant-init/SKILL.md (worker fact-check against the built binary, not a model finding)
+lane: agent-surface
+lane_seq: 5
+preparation: ready
 ---
 
 # MASTERDATA_CORRUPT for a missing bundled file does not name home upgrade

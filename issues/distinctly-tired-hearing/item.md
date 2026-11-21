@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yfttmj4acrkhe2exge2c7b/review-finding:chart-retention-no-path
@@ -15,6 +15,8 @@ related: ['@skill-init-rebuild']
 assessment_classification: CONFIRMED
 assessment_outcome: SPIN_OFF
 review_target: skills/aggountant-init/SKILL.md
+lane: chart-decisions
+lane_seq: 0
 ---
 
 # Set-up offers keeping the previous chart of accounts, but no path installs one
