@@ -35,7 +35,7 @@ kerran ja uudelleen aina, kun päivität ohjelman.
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
-   | `capture-receipt` | kuittien, tositteiden ja kuukauden tapahtumien käsittely |
+   | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | suoran ALV-ilmoittamisen käyttöönotto, ALV-ilmoitus ja Tulorekisterin matkakorvaukset |
    | `e-services` | OmaVeron ja Tulorekisterin asiointipalvelun käyttö selaimessasi: miten sivut toimivat, päivättyinä havaintoina |
 

@@ -35,7 +35,7 @@ them once, and again every time you upgrade the program.
    | Skill | What the agent uses it for |
    |---|---|
    | `aggountant-init` | setting up a company home, or continuing an unfinished setup |
-   | `capture-receipt` | handling receipts, vouchers and the month's transactions |
+   | `capture-receipt` | the month's books: receipts, the bank statement, special entries, reconciliation and the month close |
    | `vero-fi` | setting up direct VAT filing, the VAT return and Tulorekisteri travel allowances |
    | `e-services` | working OmaVero and the Incomes Register e-service in your browser: how their pages behave, as dated observations |
 
