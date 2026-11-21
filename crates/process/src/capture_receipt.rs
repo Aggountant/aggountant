@@ -320,7 +320,8 @@ pub fn record_structured_receipt(
 
 /// A proposal's rate class, refused with its own code when the dated rate table
 /// does not know it. A known class without an edition for the date still fails
-/// later, with `VAT_CODE`, because that is missing rate data rather than a typo.
+/// later as `INVALID_ANSWER` naming `VAT_CODE`, because that is missing rate data
+/// rather than a wrong class.
 fn known_rate_class(rate_class: &str) -> Result<String, ProcessError> {
     let rate_class = required_trimmed(Some(rate_class), "proposal.vat.rate_class")?;
     let known = aggountant_domain::vat::vat_rate_classes();
@@ -328,7 +329,7 @@ fn known_rate_class(rate_class: &str) -> Result<String, ProcessError> {
         Ok(rate_class)
     } else {
         Err(ProcessError::CaptureVatClassUnknown(format!(
-            "proposal.vat.rate_class {rate_class:?} is not a known VAT rate class; use one of: {}",
+            "proposal.vat.rate_class {rate_class:?} is not a known VAT rate class (known classes: {})",
             known.join(", ")
         )))
     }
@@ -1060,8 +1061,9 @@ fn assert_bound(env: &Envelope, state_hash: &str, gate_hash: &str) -> Result<(),
     Ok(())
 }
 
+/// A Domain refusal's text already starts with its own code.
 fn map_domain(e: aggountant_domain::DomainError) -> ProcessError {
-    ProcessError::InvalidAnswer(format!("{}: {e}", e.error_code()))
+    ProcessError::InvalidAnswer(e.to_string())
 }
 
 fn map_broker(e: aggountant_broker::BrokerError) -> ProcessError {

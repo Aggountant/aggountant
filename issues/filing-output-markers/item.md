@@ -2,12 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: agent-surface
 lane_seq: 3
 collision: [crates/cli/src/wage.rs, crates/process/src/file_vat.rs]
+closed: 2026-11-21
 ---
 
 # Outputs mark sensitive record_hash and the active test seam; specific code for an unknown VAT class
@@ -28,3 +29,9 @@ Some facts the skills carry belong in the output itself:
 The preview output marks `record_hash` as sensitive (a field or note), the
 filing commands say visibly when the test seam is active, and the unknown VAT
 class gets a specific code and a clean message. Tests for each.
+
+## Resolution
+
+### 2026-11-21T08:00:21Z · @issuectl
+
+Implemented: sensitive.record_hash in wage previews, test_seam marker on seam-built commands, CAPTURE_VAT_CLASS_UNKNOWN. See result.md.

@@ -39,7 +39,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `ACCOUNT_NOT_FOUND` | kirjaus viittaa tiliin, jota tilikartassa ei ole | agentti valitsee tilin tilikartasta |
 | `ALREADY_INITIALIZED` | kodin perustaminen ajettiin olemassa olevaan kotiin | ei mitään; koti on jo olemassa eikä siihen koskettu |
 | `APPROVAL_REQUIRED` | kirjausta yritettiin ilman hyväksyttyä esikatselua | esikatselu ja hyväksyntä ensin |
-| `CAPTURE_VAT_CLASS_UNKNOWN` | kuittiehdotus nimeää ALV-verokantaluokan, jota aggountant ei tunne; mitään ei kirjattu | agentti valitsee luokan viestin luettelosta, esimerkiksi `domestic-standard` |
+| `CAPTURE_VAT_CLASS_UNKNOWN` | kuittiehdotus nimeää ALV-verokantaluokan, jota aggountant ei tunne; mitään ei kirjattu | agentti valitsee kuitin ALV-käsittelyä vastaavan luokan; viesti luettelee tunnetut luokat |
 | `CAPTURE_PREPARATION_CHANGED` | kuitin tiedot, ehdotus tai tilikartta muuttuivat hyväksynnän jälkeen | uusi esikatselu ja uusi hyväksyntä ([Sinetöinti ja hyväksyntä](../concepts/sealing-and-approval.md)) |
 | `EMPLOYER_REGISTER_MISMATCH` | erillisilmoituksen alkukuukausi on eri kuin YTJ:n työnantajarekisterissä; mitään ei tallennettu | tarkista vertailu; käytä rekisterin kuukautta tai vahvista oma kuukautesi agentille ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#ota-erillisilmoitus-käyttöön-kerran)) |
 | `EMPLOYER_REPORT_ALREADY_FILED` | kuukaudella on jo Tulorekisterin vastaanottama työnantajan erillisilmoitus | ei uutta ilmoitusta; korjaus on korvaava ilmoitus ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md#jos-jokin-menee-pieleen)) |

@@ -152,6 +152,18 @@ fn missing_date_unsupported_treatment_and_unknown_field_are_deterministic_refusa
     assert!(message.contains("\"domestic-bogus\""), "{message}");
     assert!(message.contains("domestic-standard"), "{message}");
 
+    // A known class with no edition for the date is missing rate data, not a
+    // wrong class: the Domain code is named once.
+    let mut undated = receipt();
+    undated["source"]["document_date"] = json!("2012-07-15");
+    let error = failure(
+        home.path(),
+        &["capture-receipt", "record", "--dry-run"],
+        &undated,
+    );
+    let message = error["message"].as_str().unwrap();
+    assert_eq!(message.matches("VAT_CODE").count(), 1, "{message}");
+
     let mut unknown = receipt();
     unknown["source"]["guessed_vat"] = json!(true);
     let error = failure(

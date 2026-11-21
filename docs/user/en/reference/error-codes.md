@@ -39,7 +39,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `ACCOUNT_NOT_FOUND` | an entry refers to an account that is not in the chart of accounts | the agent picks an account from the chart |
 | `ALREADY_INITIALIZED` | setting up a home was run on an existing home | nothing; the home already exists and was not touched |
 | `APPROVAL_REQUIRED` | an entry was attempted without an approved preview | preview and approval first |
-| `CAPTURE_VAT_CLASS_UNKNOWN` | the receipt proposal names a VAT rate class that aggountant does not know; nothing was recorded | the agent picks a class from the list in the message, for example `domestic-standard` |
+| `CAPTURE_VAT_CLASS_UNKNOWN` | the receipt proposal names a VAT rate class that aggountant does not know; nothing was recorded | the agent chooses the class that matches the receipt's VAT treatment; the message lists the known classes |
 | `CAPTURE_PREPARATION_CHANGED` | the receipt details, the proposal or the chart of accounts changed after approval | a new preview and a new approval ([Sealing and approval](../concepts/sealing-and-approval.md)) |
 | `EMPLOYER_REGISTER_MISMATCH` | the first month given for the separate report disagrees with the employer register in YTJ; nothing was written | check the comparison; use the register's month, or confirm your own month to the agent ([File the employer's separate report](../tasks/file-employer-report.md#set-up-the-separate-report-once)) |
 | `EMPLOYER_REPORT_ALREADY_FILED` | the month already has an employer's separate report that Tulorekisteri accepted | no new report; a correction is a replacement report ([File the employer's separate report](../tasks/file-employer-report.md#if-something-goes-wrong)) |
