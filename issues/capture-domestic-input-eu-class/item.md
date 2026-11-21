@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yh5d4b1ky22txvkc6jakbk/review-finding:F1-domestic-input-eu-class
@@ -20,6 +20,7 @@ lane: vat-roles
 lane_seq: 1
 collision: [crates/domain/src/vat/expand.rs]
 preparation: ready
+closed: 2026-11-21
 ---
 
 # capture-receipt accepts domestic-input with an EU or zero-rated class and seals it at 0 % VAT
@@ -65,3 +66,9 @@ filtering in `process`.
 Found while reviewing `filing-output-markers`, whose new
 `CAPTURE_VAT_CLASS_UNKNOWN` message lists the known classes; that list now
 says "known classes" and does not instruct the agent to pick from it.
+
+## Resolution
+
+### 2026-11-21T15:16:42Z · @issuectl
+
+Fixed: purchase treatments refuse zero-rated sale classes with VAT_TREATMENT_CLASS_MISMATCH; see result.md, review.md, assessment.md.
