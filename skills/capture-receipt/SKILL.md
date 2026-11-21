@@ -156,6 +156,12 @@ Ohjelma ei tarkista kumpaakaan eikä yhdistä kuittia sen maksuriviin, ja kaksi
 vastakkaista virhettä kumoaa toisensa saldossa. Selitä siksi `2700`:n saldo
 laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua.
 
+Uuden tilikauden kuukaudelle `report statements` torjuu koodilla
+`PERIOD_NOT_SEALED`, kunnes edellinen tilikausi on sinetöity `close-year`-ajolla,
+koska tase alkaa sen loppusaldoista. Se ei ole kirjausvirhe: kirjaa, täsmäytä
+pankki tiliotteeseen tositteista ja sulje kuukaudet silti, ja kerro
+käyttäjälle, että raportti odottaa tilinpäätöstä.
+
 ALV-tilit täsmäytetään ilmoitukseen ennen sulkua komennolla
 `aggountant file-vat preview --period <kausi>`. Avoimelle kaudelle se on luonnos
 (`fileable: false`, huomiokohta `VAT_PERIOD_NOT_SEALED`), mutta täsmäytys on sama

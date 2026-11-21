@@ -8,6 +8,8 @@ on paras tarkistus ennen kuukauden sulkua.
 
 - Kuukauden tapahtumat on kirjattu. Raportin voi tehdä myös kesken kuukauden,
   jolloin se näyttää siihen mennessä kirjatun tilanteen.
+- Uuden tilikauden kuukaudelle edellinen tilikausi on sinetöity
+  tilinpäätösajolla. Siihen asti raportti torjutaan, katso alta.
 
 ## Näin teet sen
 
@@ -58,6 +60,16 @@ agentti käyttää tätä, kun se haluaa nopeasti katsoa kuukauden tilanteen.
 ## Jos jokin menee pieleen
 
 - **`OUTPUT_EXISTS`.** Samanniminen tiedosto on jo olemassa. Anna uusi nimi.
+- **`PERIOD_NOT_SEALED` uuden tilikauden kuukaudelle.** Tase alkaa
+  edellisen tilikauden loppusaldoista, ja ne ovat lopulliset vasta, kun se
+  tilikausi on sinetöity. Raportti odottaa siksi, kunnes edellisen vuoden
+  tilinpäätösajo on sinetöinyt sen ([Valmistele tilinpäätös](year-end.md)).
+  Kirjanpidossa ei ole vikaa: sillä välin kirjaat, suljet ja ilmoitat ALV:n
+  uuden vuoden kuukausille tavalliseen tapaan; kuukauden sulku näyttää vain
+  tämän vuoden tapahtumat ja sanoo sen. Kalenterivuoden yrityksessä tämä
+  tulee vastaan joka tammikuu, kunnes tilinpäätösajo on tehty. Se ei koske
+  ensimmäistä aggountantissa pidettävää vuotta, joka avattiin avaavilla
+  saldoilla ([Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md)).
 - **Pankkitilin saldo ei täsmää.** [Kun jokin menee vikaan](../troubleshooting.md#pankkitilin-saldo-ei-täsmää-tiliotteeseen)
 
 ## Katso myös

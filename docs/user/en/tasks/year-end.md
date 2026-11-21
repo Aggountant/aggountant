@@ -62,6 +62,12 @@ hand it over and record the year-end entries.
    you cannot approve it; reject the step and start the run again. The last
    approval seals the fiscal year, and it cannot be undone.
 
+   Until the year is sealed, the monthly report of the next fiscal year's
+   months is refused with `PERIOD_NOT_SEALED`, because its balance sheet
+   starts from this year's closing balances. Recording, closing months and
+   filing VAT in the new year do not wait
+   ([See how the month went](monthly-report.md#if-something-goes-wrong)).
+
    If an earlier, unfinished year-end run already recorded some entries,
    a new run must include the same assets, accruals and corrections with
    the same figures. That way what you approve covers every year-end entry

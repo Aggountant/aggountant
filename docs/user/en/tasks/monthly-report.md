@@ -9,6 +9,8 @@ check before closing the month.
 
 - The month's transactions are recorded. You can also make the report in the
   middle of the month, when it shows what has been recorded so far.
+- For a month of a new fiscal year, the previous fiscal year is sealed with
+  the year-end close. Until then the report is refused, see below.
 
 ## How to do it
 
@@ -62,6 +64,17 @@ the agent uses that for a quick look at the month.
 
 - **`OUTPUT_EXISTS`.** A file with the same name already exists. Give a new
   name.
+- **`PERIOD_NOT_SEALED` for a month of the new fiscal year.** The balance
+  sheet starts from the previous fiscal year's closing balances, and they are
+  final only once that year is sealed. The report therefore waits until the
+  year-end close of the previous year has sealed it
+  ([Prepare the financial statements](year-end.md)). Nothing is wrong with the
+  books: meanwhile you record, close and file VAT for the new year's months as
+  usual; the month close shows only this year's movements and says so. In a
+  calendar-year company this meets you every January until the year-end
+  close is done. It does not apply to the first year you keep in aggountant
+  when it was opened with opening balances
+  ([Set up your company's books](../start/set-up-company.md)).
 - **The bank account balance does not match.**
   [When something goes wrong](../troubleshooting.md#the-bank-balance-does-not-match-the-statement)
 

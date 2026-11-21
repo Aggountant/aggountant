@@ -57,6 +57,12 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
    voi hyväksyä sitä; hylkää vaihe ja aloita ajo alusta. Viimeinen hyväksyntä
    sinetöi tilikauden, eikä sitä voi perua.
 
+   Ennen kuin vuosi on sinetöity, seuraavan tilikauden kuukausien
+   kuukausiraportti torjutaan koodilla `PERIOD_NOT_SEALED`, koska sen tase
+   alkaa tämän vuoden loppusaldoista. Kirjaaminen, kuukausien sulku ja
+   ALV-ilmoitukset uudella vuodella eivät odota
+   ([Katso, miten kuukausi meni](monthly-report.md#jos-jokin-menee-pieleen)).
+
    Jos aiempi, kesken jäänyt tilinpäätösajo on jo kirjannut osan
    kirjauksista, uuteen ajoon on otettava samat hyödykkeet, jaksotukset ja
    oikaisut samoin summin. Näin hyväksymäsi sisältö kattaa jokaisen

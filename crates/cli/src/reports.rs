@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use clap::{Subcommand, ValueEnum};
 use serde_json::{json, Value};
 
-use aggountant_ledger::{render_monthly_report_html, Ledger, MonthlyReportOptions};
+use aggountant_ledger::{render_monthly_report_html, Ledger, LedgerError, MonthlyReportOptions};
 use aggountant_model::{Date, PeriodId};
 
 use crate::CliError;
@@ -44,6 +44,15 @@ const STATEMENTS_HELP: &str = r#"OUTPUT
   itself; with --json it is the usual summary object with the document's exact
   text in "content" and "output":"-". With --output FILE, --format is
   required, the file must not exist, and stdout carries only the summary.
+
+NEW FISCAL YEAR
+  A month of a fiscal year is refused with PERIOD_NOT_SEALED until the
+  previous fiscal year is sealed by its year-end close (`close-year`): the
+  balance sheet needs that year's closing balances as its opening position.
+  The new year's months can be recorded, closed and VAT-filed meanwhile.
+  A year with no earlier activity in aggountant does not wait, nor does one
+  whose previous year holds only opening-balance vouchers (balance-sheet
+  accounts, dated that year's last day) and no period ever operated here.
 
 EXAMPLES
   Quick look at a month:
@@ -91,6 +100,25 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
             format!("could not write output {}: {error}", path.display()),
         )
     })
+}
+
+/// The report's only `PERIOD_NOT_SEALED` is the ledger's opening-balance gate:
+/// a month of a fiscal year whose predecessor is not sealed yet. Users meet it
+/// every January, so the refusal says why and what lifts it, in front of the
+/// ledger's own reason.
+fn opening_not_sealed(period: &PeriodId, reason: &str) -> CliError {
+    CliError::user(
+        "PERIOD_NOT_SEALED",
+        format!(
+            "PERIOD_NOT_SEALED: report statements for {period} needs its fiscal year's opening \
+             balances, and they exist only once the previous fiscal year is sealed by its \
+             year-end close ({reason}). Way out: finish the previous year's `close-year` run \
+             (its last approval, ApproveStatements, seals the year and cannot be undone), then \
+             make the report again. Nothing is wrong with the books meanwhile: the new year's \
+             months can still be recorded, closed with `close-period` and their VAT filed; \
+             only this report waits."
+        ),
+    )
 }
 
 pub(crate) fn run(cmd: &ReportCmd, home: &Path) -> Result<Value, CliError> {
@@ -146,14 +174,19 @@ pub(crate) fn run(cmd: &ReportCmd, home: &Path) -> Result<Value, CliError> {
                 }
             };
             let ledger = Ledger::open(home)?;
-            let report = ledger.monthly_statements_report(
-                &period,
-                company,
-                MonthlyReportOptions {
-                    history_start,
-                    limitation: limitation.clone(),
-                },
-            )?;
+            let report = ledger
+                .monthly_statements_report(
+                    &period,
+                    company,
+                    MonthlyReportOptions {
+                        history_start,
+                        limitation: limitation.clone(),
+                    },
+                )
+                .map_err(|error| match error {
+                    LedgerError::PeriodNotSealed(reason) => opening_not_sealed(&period, &reason),
+                    other => other.into(),
+                })?;
             let bytes = match format {
                 ReportFormat::NativeJson => {
                     let mut bytes = serde_json::to_vec_pretty(&report).map_err(|error| {

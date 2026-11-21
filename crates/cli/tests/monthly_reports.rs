@@ -245,3 +245,60 @@ fn report_statements_defaults_to_native_json_on_stdout() {
     assert_eq!(code, 0);
     assert!(help.contains("Quick look"));
 }
+
+/// A month of the new fiscal year waits for the previous year's seal; the
+/// refusal names that cause and the year-end close as the way out, and the
+/// error code and exit code stay `PERIOD_NOT_SEALED` / 1.
+#[test]
+fn report_statements_new_year_refusal_names_cause_and_way_out() {
+    let home = tempfile::tempdir().unwrap();
+    assert_eq!(run(home.path(), &["init"], "").0, 0);
+    for (date, key) in [("2026-11-10", "autumn"), ("2027-01-10", "january")] {
+        let (code, _, error) = run(
+            home.path(),
+            &["voucher", "seal"],
+            &seal_input(date, key, "100.00"),
+        );
+        assert_eq!(code, 0, "{error}");
+    }
+    let args = [
+        "report",
+        "statements",
+        "--period",
+        "2027-01",
+        "--company",
+        "Esimerkki Oy",
+    ];
+    let (code, stdout, error) = run(home.path(), &args, "");
+    assert_eq!(code, 1, "{error}");
+    assert!(stdout.is_empty());
+    let error: Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(error["error_code"], "PERIOD_NOT_SEALED");
+    assert_eq!(error["error_kind"], "user");
+    let message = error["message"].as_str().unwrap();
+    for needle in [
+        "report statements for 2027-01",
+        "previous fiscal year is sealed",
+        "fiscal year 2026 is Open",
+        "close-year",
+        "cannot be undone",
+        "close-period",
+    ] {
+        assert!(message.contains(needle), "{needle:?} missing in {message}");
+    }
+
+    // The previous year's own months are unaffected.
+    let (code, _, error) = run(
+        home.path(),
+        &[
+            "report",
+            "statements",
+            "--period",
+            "2026-11",
+            "--company",
+            "Esimerkki Oy",
+        ],
+        "",
+    );
+    assert_eq!(code, 0, "{error}");
+}
