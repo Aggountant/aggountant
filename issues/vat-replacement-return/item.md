@@ -2,13 +2,16 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: feature
-status: untriaged
+status: open
 priority: high
 provenance: other
 provenance_detail: follow-up filed by the taskfleet worker implementing filing-correction-unrecordable
 source_ref: taskfleet:01m7ysp1v4571vxqbtzzgxj77x/follow-up:vat-replacement-return
 originating_run: 01m7ysp1v4571vxqbtzzgxj77x
 originating_run_kind: spinoff
+lane: vat-filing
+lane_seq: 1
+preparation: ready
 ---
 
 # Replacement VAT return through file-vat for an already filed period
