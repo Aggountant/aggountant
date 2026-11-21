@@ -9,11 +9,11 @@
 //!
 //! Only the helpers above `Row` know which library produces the strings.
 
-use aggountant_model::Date;
+use aggountant_model::{Date, Instant};
 
 /// Format 1, `+00:00` offset with 0, 3, 6 or 9 fractional digits.
 fn format1(secs: i64, nanos: u32) -> String {
-    instant(secs, nanos).to_rfc3339()
+    instant(secs, nanos).to_string()
 }
 
 /// Format 2, the serde form: as format 1 but with `Z`.
@@ -24,23 +24,28 @@ fn format2(secs: i64, nanos: u32) -> String {
 
 /// Format 3, whole seconds with `Z`.
 fn format3(secs: i64, nanos: u32) -> String {
-    instant(secs, nanos).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+    instant(secs, nanos).to_whole_seconds_z()
 }
 
 /// Read an RFC 3339 string back as (epoch seconds, non-negative nanoseconds).
 fn parse(text: &str) -> (i64, u32) {
-    let t = chrono::DateTime::parse_from_rfc3339(text).unwrap().to_utc();
-    (t.timestamp(), t.timestamp_subsec_nanos())
+    split(Instant::parse(text).unwrap())
 }
 
-fn instant(secs: i64, nanos: u32) -> chrono::DateTime<chrono::Utc> {
-    chrono::DateTime::from_timestamp(secs, nanos).unwrap()
+fn instant(secs: i64, nanos: u32) -> Instant {
+    Instant::from_unix(secs, nanos).unwrap()
 }
 
 /// Read back through serde, the path stored records take.
 fn parse_serde(text: &str) -> (i64, u32) {
-    let t: chrono::DateTime<chrono::Utc> = serde_json::from_value(text.into()).unwrap();
-    (t.timestamp(), t.timestamp_subsec_nanos())
+    split(serde_json::from_value(text.into()).unwrap())
+}
+
+fn split(t: Instant) -> (i64, u32) {
+    let secs = t.unix_seconds();
+    let back = Instant::from_unix(secs, 0).unwrap();
+    let nanos = t.duration_since(back).as_nanos();
+    (secs, u32::try_from(nanos).unwrap())
 }
 
 struct Row {

@@ -7,8 +7,7 @@
 //! network. A failed or unreadable answer is an error, never an empty register:
 //! "the company is not in the employer register" must only come from a response
 //! that says so.
-use aggountant_model::BusinessId;
-use chrono::NaiveDate;
+use aggountant_model::{BusinessId, Date};
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -26,8 +25,8 @@ pub struct RegisterEntry {
     pub entry_type: String,
     #[serde(default)]
     pub descriptions: Vec<EntryDescription>,
-    pub registration_date: Option<NaiveDate>,
-    pub end_date: Option<NaiveDate>,
+    pub registration_date: Option<Date>,
+    pub end_date: Option<Date>,
     pub register: String,
     pub authority: String,
 }

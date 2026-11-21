@@ -7,8 +7,9 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use aggountant_model::Instant;
 use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone};
-use chrono::{DateTime, Duration, Utc};
+use jiff::SignedDuration;
 use reqwest::{Certificate, Identity};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -64,7 +65,7 @@ pub struct VeroAttestations {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TestVerificationEvidence {
-    pub observed_at: DateTime<Utc>,
+    pub observed_at: Instant,
     pub certificate_fingerprint_sha256: String,
 }
 
@@ -73,7 +74,7 @@ pub struct TestVerificationEvidence {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PortalVerificationEvidence {
-    pub observed_at: DateTime<Utc>,
+    pub observed_at: Instant,
     pub certificate_fingerprint_sha256: String,
     pub operations: Vec<String>,
     pub file_vat_return_receipt: String,
@@ -175,8 +176,8 @@ pub fn write_vero_profile(
 #[derive(Debug, Clone, Serialize)]
 pub struct VeroCertificateMetadata {
     pub fingerprint_sha256: String,
-    pub not_before: DateTime<Utc>,
-    pub not_after: DateTime<Utc>,
+    pub not_before: Instant,
+    pub not_after: Instant,
 }
 
 /// Secret JSON held behind `CredentialHandle`. Serialization is deliberately
@@ -230,13 +231,18 @@ impl VeroCredentials {
     }
 }
 
+/// An instant as messages have always shown it: `2026-09-13 12:00:00 UTC`.
+fn utc_text(instant: Instant) -> String {
+    instant.utc().strftime("%Y-%m-%d %H:%M:%S UTC").to_string()
+}
+
 fn certificate_metadata(pem: &[u8]) -> Result<VeroCertificateMetadata, String> {
     let (_, pem) = parse_x509_pem(pem).map_err(|_| "Vero client certificate is invalid")?;
     let (_, certificate) = X509Certificate::from_der(&pem.contents)
         .map_err(|_| "Vero client certificate is invalid")?;
-    let not_before = DateTime::from_timestamp(certificate.validity().not_before.timestamp(), 0)
+    let not_before = Instant::from_unix(certificate.validity().not_before.timestamp(), 0)
         .ok_or("Vero client certificate has an invalid not-before time")?;
-    let not_after = DateTime::from_timestamp(certificate.validity().not_after.timestamp(), 0)
+    let not_after = Instant::from_unix(certificate.validity().not_after.timestamp(), 0)
         .ok_or("Vero client certificate has an invalid not-after time")?;
     Ok(VeroCertificateMetadata {
         fingerprint_sha256: hex::encode(Sha256::digest(&pem.contents)),
@@ -315,7 +321,7 @@ pub fn evaluate_vero_readiness(
     profile: Result<VeroFilingProfile, String>,
     credential_path: Option<&Path>,
     purpose: VeroReadinessPurpose,
-    now: DateTime<Utc>,
+    now: Instant,
 ) -> VeroReadinessReport {
     let target = match purpose {
         VeroReadinessPurpose::ProductionFiling | VeroReadinessPurpose::PortalVerification => {
@@ -498,7 +504,10 @@ pub fn evaluate_vero_readiness(
             &mut report,
             "VERO_CERTIFICATE_NOT_YET_VALID",
             "human",
-            format!("certificate is valid from {}", certificate.not_before),
+            format!(
+                "certificate is valid from {}",
+                utc_text(certificate.not_before)
+            ),
         );
     }
     if now >= certificate.not_after {
@@ -506,19 +515,19 @@ pub fn evaluate_vero_readiness(
             &mut report,
             "VERO_CERTIFICATE_EXPIRED",
             "human",
-            format!("certificate expired at {}", certificate.not_after),
+            format!("certificate expired at {}", utc_text(certificate.not_after)),
         );
     } else {
-        let remaining = certificate.not_after - now;
+        let remaining = certificate.not_after.duration_since(now);
         for (days, code) in [
             (7, "VERO_CERTIFICATE_EXPIRES_WITHIN_7_DAYS"),
             (30, "VERO_CERTIFICATE_EXPIRES_WITHIN_30_DAYS"),
             (90, "VERO_CERTIFICATE_EXPIRES_WITHIN_90_DAYS"),
         ] {
-            if remaining <= Duration::days(days) {
+            if remaining <= SignedDuration::from_hours(24 * days) {
                 report.warnings.push(VeroReadinessWarning {
                     code,
-                    message: format!("certificate expires at {}", certificate.not_after),
+                    message: format!("certificate expires at {}", utc_text(certificate.not_after)),
                 });
                 break;
             }
@@ -620,7 +629,7 @@ mod tests {
     fn portal_evidence_is_non_secret_and_does_not_change_filing_mode() {
         let mut profile = VeroFilingProfile::default();
         profile.attestations.portal_verification = Some(PortalVerificationEvidence {
-            observed_at: Utc::now(),
+            observed_at: Instant::now(),
             certificate_fingerprint_sha256: "a".repeat(64),
             operations: vec![
                 "GetVATPeriods/v1".into(),

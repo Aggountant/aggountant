@@ -8,7 +8,6 @@
 use std::fmt;
 use std::str::FromStr;
 
-use chrono::Datelike;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -71,15 +70,14 @@ impl PeriodId {
 
     /// Legacy constructor: the calendar quarter containing `date`.
     pub fn containing(date: Date) -> Self {
-        let d = date.inner();
-        Self::new(d.year(), ((d.month0() / 3) + 1) as u8)
+        Self::new(date.year(), (((date.month() - 1) / 3) + 1) as u8)
             .expect("valid Date yields a valid PeriodId")
     }
 
     /// The calendar month containing `date`.
     pub fn month_containing(date: Date) -> Self {
-        let d = date.inner();
-        Self::new_month(d.year(), d.month() as u8).expect("valid Date yields a valid PeriodId")
+        Self::new_month(date.year(), date.month() as u8)
+            .expect("valid Date yields a valid PeriodId")
     }
 
     /// Parse strict canonical `YYYY-MM` or legacy `YYYY-Qn` syntax.
@@ -149,10 +147,18 @@ impl PeriodId {
         }
     }
 
+    /// The last calendar date of this period.
+    pub fn last_date(&self) -> Date {
+        let (_, last) = self.month_bounds();
+        let first_of_last =
+            Date::from_ymd(self.year, last.into(), 1).expect("a valid PeriodId has valid months");
+        let days = first_of_last.inner().days_in_month();
+        Date::from_ymd(self.year, last.into(), days as u32).expect("the month's last day exists")
+    }
+
     pub fn contains(&self, date: Date) -> bool {
-        let d = date.inner();
         let (first, last) = self.month_bounds();
-        d.year() == self.year && (first..=last).contains(&(d.month() as u8))
+        date.year() == self.year && (first..=last).contains(&(date.month() as u8))
     }
 
     pub fn overlaps(&self, other: &Self) -> bool {

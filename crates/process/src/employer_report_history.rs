@@ -18,8 +18,8 @@ use aggountant_broker::{
 };
 use aggountant_domain::payroll::ReportMonth;
 use aggountant_ledger::Ledger;
-use aggountant_model::BusinessId;
-use chrono::{DateTime, NaiveDate, Utc};
+use aggountant_model::{BusinessId, Instant};
+use jiff::civil::Date as CivilDate;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::PathBuf};
 
@@ -65,8 +65,8 @@ pub enum RegisterPeriodState {
 /// One employer-register period from YTJ.
 #[derive(Debug, Clone, Serialize)]
 pub struct RegisterPeriod {
-    pub from: NaiveDate,
-    pub to: Option<NaiveDate>,
+    pub from: CivilDate,
+    pub to: Option<CivilDate>,
     pub state: RegisterPeriodState,
     /// The register's own status text (Finnish when given).
     pub status: Option<String>,
@@ -101,7 +101,7 @@ pub struct DataSource {
 #[derive(Debug, Clone, Serialize)]
 pub struct EmployerRegistration {
     pub business_id: String,
-    pub checked_on: NaiveDate,
+    pub checked_on: CivilDate,
     pub source: DataSource,
     pub comparison: RegistrationComparison,
     pub current: Option<RegisterPeriod>,
@@ -123,7 +123,7 @@ fn months_between(from: ReportMonth, to: ReportMonth) -> u32 {
     (index(to) - index(from)).max(0) as u32
 }
 
-fn report_month_of(date: NaiveDate) -> ReportMonth {
+fn report_month_of(date: CivilDate) -> ReportMonth {
     ReportMonth::of(date).max(first_report_month())
 }
 
@@ -132,7 +132,7 @@ pub(crate) fn compare_registration(
     business_id: String,
     entries: Option<Vec<RegisterEntry>>,
     profile: Option<ReportMonth>,
-    today: NaiveDate,
+    today: CivilDate,
 ) -> Result<EmployerRegistration, ProcessError> {
     let Some(entries) = entries else {
         return Err(refused(
@@ -157,7 +157,8 @@ pub(crate) fn compare_registration(
                 ),
             ));
         }
-        let Some(from) = entry.registration_date else {
+        let end_date = entry.end_date.map(|d| d.inner());
+        let Some(from) = entry.registration_date.map(|d| d.inner()) else {
             if erroneous {
                 continue;
             }
@@ -166,7 +167,7 @@ pub(crate) fn compare_registration(
                 "an employer-register entry has no registration date",
             ));
         };
-        if entry.end_date.is_some_and(|end| end < from) {
+        if end_date.is_some_and(|end| end < from) {
             return Err(refused(
                 "YTJ_RESPONSE_INVALID",
                 format!("an employer-register entry ends before it starts ({from})"),
@@ -174,14 +175,14 @@ pub(crate) fn compare_registration(
         }
         let state = if from > today {
             RegisterPeriodState::Future
-        } else if entry.end_date.is_some_and(|end| end < today) {
+        } else if end_date.is_some_and(|end| end < today) {
             RegisterPeriodState::Ended
         } else {
             RegisterPeriodState::Current
         };
         let period = RegisterPeriod {
             from,
-            to: entry.end_date,
+            to: end_date,
             state,
             status: entry.status_text().map(str::to_string),
             entry_type: entry.entry_type.clone(),
@@ -297,7 +298,7 @@ impl ProcessEngine {
     pub fn employer_registration(
         &self,
         lookup: &dyn YtjLookup,
-        today: NaiveDate,
+        today: CivilDate,
     ) -> Result<EmployerRegistration, ProcessError> {
         let profile = read_wage_profile(&self.home)
             .map_err(|e| refused("EMPLOYER_REPORT_NOT_CONFIGURED", e))?;
@@ -332,7 +333,7 @@ pub struct TranscriptMonthRecord {
 struct TranscriptImportRecord {
     schema_version: u32,
     artifact: String,
-    imported_at: DateTime<Utc>,
+    imported_at: Instant,
     covers_from: ReportMonth,
     covers_to: ReportMonth,
     months: Vec<TranscriptMonthRecord>,
@@ -357,7 +358,7 @@ pub struct TranscriptEvidence {
     pub source: &'static str,
     /// SHA-256 of the stored transcript file (`artifacts/`).
     pub artifact: String,
-    pub imported_at: DateTime<Utc>,
+    pub imported_at: Instant,
     pub covers_from: ReportMonth,
     pub covers_to: ReportMonth,
     pub report_count: u32,
@@ -455,7 +456,7 @@ pub struct TranscriptImport {
     /// The same file was imported before; nothing changed.
     pub already_imported: bool,
     pub artifact: String,
-    pub imported_at: DateTime<Utc>,
+    pub imported_at: Instant,
     pub covers_from: ReportMonth,
     pub covers_to: ReportMonth,
     pub separator: String,
@@ -521,7 +522,7 @@ impl ProcessEngine {
     pub fn import_employer_transcript(
         &self,
         bytes: &[u8],
-        now: DateTime<Utc>,
+        now: Instant,
         dry_run: bool,
     ) -> Result<TranscriptImport, ProcessError> {
         if bytes.len() > MAX_TRANSCRIPT_BYTES {
@@ -671,7 +672,7 @@ mod tests {
     fn m(s: &str) -> ReportMonth {
         ReportMonth::parse(s).unwrap()
     }
-    fn today() -> NaiveDate {
+    fn today() -> CivilDate {
         "2026-11-18".parse().unwrap()
     }
 

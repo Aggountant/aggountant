@@ -482,7 +482,10 @@ fn a_held_lease_blocks_another_driver() {
         .join("runs")
         .join(&run_id)
         .join("lease");
-    let future = (chrono::Utc::now() + chrono::Duration::seconds(120)).to_rfc3339();
+    let future = aggountant_model::Instant::now()
+        .checked_add(jiff::SignedDuration::from_secs(120))
+        .unwrap()
+        .to_string();
     fs::write(&lease, format!("{future}\n")).unwrap();
 
     let err = engine.resume(&run_id).unwrap_err();
@@ -508,7 +511,10 @@ fn a_stale_lease_is_stealable() {
         .join("runs")
         .join(&run_id)
         .join("lease");
-    let past = (chrono::Utc::now() - chrono::Duration::seconds(1)).to_rfc3339();
+    let past = aggountant_model::Instant::now()
+        .checked_add(jiff::SignedDuration::from_secs(-1))
+        .unwrap()
+        .to_string();
     fs::write(&lease, format!("{past}\n")).unwrap();
 
     // resume steals it and proceeds.

@@ -1036,15 +1036,16 @@ fn run_with_unknown_outcome(engine: &ProcessEngine, home: &std::path::Path) -> S
 /// A clock at a Finnish local time: UTC+3 from April to September, else UTC+2
 /// (the tests use no date in the switch months).
 fn finnish_clock(local: &str) -> FixedClock {
-    use chrono::Datelike;
-    let local = chrono::NaiveDateTime::parse_from_str(local, "%Y-%m-%d %H:%M").unwrap();
+    let local = jiff::civil::DateTime::strptime("%Y-%m-%d %H:%M", local).unwrap();
     let offset = if (4..=9).contains(&local.month()) {
         3
     } else {
         2
     };
-    let utc = local - chrono::Duration::hours(offset);
-    FixedClock::new(u64::try_from(utc.and_utc().timestamp()).unwrap())
+    let utc = jiff::tz::Offset::constant(offset)
+        .to_timestamp(local)
+        .unwrap();
+    FixedClock::new(u64::try_from(utc.as_second()).unwrap())
 }
 
 /// Ask the authority about `run_id` at `local` time; it answers `answer`.
@@ -1162,7 +1163,7 @@ fn two_not_found_answers_a_bank_day_apart_close_run_1_and_run_2_files_once() {
     let first = reconcile_at(&engine, home.path(), &run1, "2026-11-20 10:00", not_found()).unwrap();
     // 10:00 Finnish time is 08:00 UTC; the second answer counts from Monday 10:00.
     assert_eq!(
-        first.next_check_from.unwrap().to_rfc3339(),
+        first.next_check_from.unwrap().to_string(),
         "2026-11-23T08:00:00+00:00"
     );
     let early = reconcile_at(&engine, home.path(), &run1, "2026-11-23 09:59", not_found()).unwrap();

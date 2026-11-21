@@ -28,7 +28,7 @@
 //! still carry a known report type and period, so a file of another kind or a
 //! changed layout is refused instead of half-read.
 use aggountant_domain::payroll::ReportMonth;
-use chrono::{Datelike, NaiveDate};
+use aggountant_model::Date;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -387,26 +387,17 @@ fn amount((name, value): (&str, &str), line_no: usize) -> Result<Decimal, Transc
     Decimal::from_str(&value.replace(',', ".")).map_err(|_| bad())
 }
 
-fn date(value: &str) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .ok()
-        .filter(|_| value.len() == 10)
-        .or_else(|| {
-            let mut parts = value.split('.');
-            let (d, m, y) = (parts.next()?, parts.next()?, parts.next()?);
-            let short = |s: &str, max| {
-                (1..=max).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_digit())
-            };
-            if parts.next().is_some()
-                || !short(d, 2)
-                || !short(m, 2)
-                || !short(y, 4)
-                || y.len() != 4
-            {
-                return None;
-            }
-            NaiveDate::from_ymd_opt(y.parse().ok()?, m.parse().ok()?, d.parse().ok()?)
-        })
+fn date(value: &str) -> Option<Date> {
+    Date::parse(value).ok().or_else(|| {
+        let mut parts = value.split('.');
+        let (d, m, y) = (parts.next()?, parts.next()?, parts.next()?);
+        let short =
+            |s: &str, max| (1..=max).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_digit());
+        if parts.next().is_some() || !short(d, 2) || !short(m, 2) || !short(y, 4) || y.len() != 4 {
+            return None;
+        }
+        Date::from_ymd(y.parse().ok()?, m.parse().ok()?, d.parse().ok()?).ok()
+    })
 }
 
 fn reporting_month(cells: &[&str], line_no: usize) -> Result<ReportMonth, TranscriptError> {
@@ -462,7 +453,7 @@ fn parse_range(value: &str) -> Result<(ReportMonth, ReportMonth), TranscriptErro
     if from > to {
         return Err(bad());
     }
-    let month = |d: NaiveDate| ReportMonth::parse(&format!("{:04}-{:02}", d.year(), d.month()));
+    let month = |d: Date| ReportMonth::parse(&format!("{:04}-{:02}", d.year(), d.month()));
     Ok((
         month(from).map_err(|_| bad())?,
         month(to).map_err(|_| bad())?,

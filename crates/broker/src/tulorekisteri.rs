@@ -14,9 +14,8 @@ use aggountant_domain::{
     payroll::{EmployerReportAction, EmployerSeparateReport, PensionInsurance, ReportMonth},
     WageReport,
 };
-use aggountant_model::BusinessId;
+use aggountant_model::{BusinessId, Instant};
 use aggountant_model::{FilingContactName, FilingContactPhone};
-use chrono::{DateTime, Utc};
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -166,7 +165,7 @@ pub fn write_wage_profile(home: &Path, bytes: &[u8]) -> Result<(), String> {
 pub fn check_readiness(
     profile: &WageProfile,
     handle: &CredentialHandle,
-    now: DateTime<Utc>,
+    now: Instant,
 ) -> Result<(), AdapterError> {
     let fail = || {
         AdapterError::Unauthorized("Tulorekisteri requires schema_version=1, mode=production, reporting_permission_active=true, own-organisation production credential and a currently valid certificate".into())
@@ -196,7 +195,7 @@ pub fn check_readiness(
 pub struct WageRequest {
     pub report: WageReport,
     pub hetu: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Instant,
 }
 pub fn wage_envelope(request: &WageRequest, status: bool) -> Result<Envelope, AdapterError> {
     Ok(Envelope::new(
@@ -221,8 +220,8 @@ pub fn wage_envelope(request: &WageRequest, status: bool) -> Result<Envelope, Ad
 #[serde(deny_unknown_fields)]
 pub struct EmployerReportRequest {
     pub report: EmployerSeparateReport,
-    pub timestamp: DateTime<Utc>,
-    pub status_timestamp: Option<DateTime<Utc>>,
+    pub timestamp: Instant,
+    pub status_timestamp: Option<Instant>,
 }
 pub fn employer_envelope(
     request: &EmployerReportRequest,
@@ -249,7 +248,7 @@ pub fn production_broker(
     home: &Path,
     profile: WageProfile,
     secret: String,
-    now: DateTime<Utc>,
+    now: Instant,
 ) -> Result<Broker, AdapterError> {
     let mut vault = Vault::new();
     for op in Op::ALL {
@@ -390,7 +389,7 @@ impl RequestResponse for TulorekisteriAdapter {
         envelope: &Envelope,
         handle: &CredentialHandle,
     ) -> Result<AdapterResponse, AdapterError> {
-        check_readiness(&self.profile, handle, Utc::now())?;
+        check_readiness(&self.profile, handle, Instant::now())?;
         let (record, expected) = self.record(envelope)?;
         let signed = sign_record(&record, handle)?;
         let cred = VeroCredentials::parse(handle.expose_secret())
@@ -459,7 +458,7 @@ impl ExpectedItem {
     }
     /// A new report becomes version 1. A replacement keeps the register's report
     /// reference and gets the next version (the register assigns replaced + 1).
-    pub fn employer(report: &EmployerSeparateReport, timestamp: DateTime<Utc>) -> Self {
+    pub fn employer(report: &EmployerSeparateReport, timestamp: Instant) -> Self {
         let (item_id, ir_item_id, version) = match &report.action {
             EmployerReportAction::New => (Some(report.report_id()), None, VersionRule::Exactly(1)),
             EmployerReportAction::Replacement {
@@ -690,7 +689,7 @@ mod tests {
     pub fn report() -> WageReport {
         serde_json::from_value(json!({"business_id":"1234567-1","employee_id":"fictional-employee","source_reference":"fictional-expense-2026-09","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":true,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[{"income_type":"311","amount":"120.00","kilometers":218},{"income_type":"331","amount":"54.00","allowance_code":3}]})).unwrap()
     }
-    fn time() -> DateTime<Utc> {
+    fn time() -> Instant {
         "2026-10-25T12:00:00Z".parse().unwrap()
     }
     fn secret() -> String {

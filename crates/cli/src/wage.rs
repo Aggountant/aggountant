@@ -7,21 +7,20 @@ use aggountant_domain::{
     payroll::{MonthPayments, PensionInsurance, ReportMonth},
     WageReport,
 };
-use aggountant_model::{FilingContactName, FilingContactPhone};
+use aggountant_model::{Date, FilingContactName, FilingContactPhone, Instant};
 use aggountant_process::{EmployerReportInput, EmployerReportReceipt, RegistrationCheck};
-use chrono::{DateTime, NaiveDate, Utc};
 
 #[derive(Subcommand, Debug)]
 pub enum WageCmd {
     /// Read report JSON on stdin. Offline; returns lines, explicit period/ownership, deadline and unsigned canonical record hash. Example: file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
     Preview {
         #[arg(long)]
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     },
     /// Persist the offline proposal and open approval gate. Use the preview timestamp. Example: file-wage start --timestamp 2026-10-25T12:00:00Z < report.json
     Start {
         #[arg(long)]
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
         #[arg(long)]
         dry_run: bool,
     },
@@ -74,7 +73,7 @@ pub struct EmployerReportArgs {
     payments: Payments,
     /// Record creation time; it also sets the report date. Use the same value in preview and submit.
     #[arg(long)]
-    timestamp: DateTime<Utc>,
+    timestamp: Instant,
     /// Replace the month's accepted report instead of sending a new one.
     #[arg(long)]
     replace: bool,
@@ -105,7 +104,7 @@ pub enum EmployerReportCmd {
     Missing {
         /// Date to judge against (default: today, UTC).
         #[arg(long)]
-        as_of: Option<NaiveDate>,
+        as_of: Option<Date>,
     },
     /// Record e-service evidence: the answer to an unsettled send, or a report given outside aggountant. Example: file-wage employer-report complete-manual --month 2026-07 --ir-report-id GUID
     CompleteManual {
@@ -124,7 +123,7 @@ pub enum EmployerReportCmd {
     Registration {
         /// Date to judge the entries against (default: today, UTC).
         #[arg(long)]
-        as_of: Option<NaiveDate>,
+        as_of: Option<Date>,
     },
     /// Write the employer_report block of .aggountant/tulorekisteri.json (registered_from, contact_name, contact_phone, pension_insurances), keeping every other byte of the profile, and print the block before and after. Give all four with flags, or none and the block as stdin JSON ({"registered_from":"2020-02","contact_name":"...","contact_phone":"...","pension_insurances":[{"provider_code":46,"policy_number":"..."}]}). registered_from is checked against the employer register in PRH/YTJ open data: a disagreement is refused (EMPLOYER_REGISTER_MISMATCH, with the comparison) unless --accept-register-mismatch, and a YTJ failure (YTJ_UNAVAILABLE) writes nothing unless --offline skips the check. Examples: file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --pension-insurance 46:12-3456789 --dry-run; file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --no-pension-insurance; file-wage employer-report configure --offline < employer-report.json
     Configure {
@@ -267,7 +266,7 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                 args.timestamp,
                 record_hash,
                 &broker(home)?,
-                Utc::now(),
+                Instant::now(),
             )?)
         }
         EmployerReportCmd::Status { month } => {
@@ -275,15 +274,17 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                 serde_json::to_value(engine.reconcile_employer_report(
                     *month,
                     &broker(home)?,
-                    Utc::now(),
+                    Instant::now(),
                 )?)
             } else {
                 serde_json::to_value(engine.employer_report_status(*month)?)
             }
         }
-        EmployerReportCmd::Missing { as_of } => serde_json::to_value(
-            engine.missing_employer_reports(as_of.unwrap_or_else(|| Utc::now().date_naive()))?,
-        ),
+        EmployerReportCmd::Missing { as_of } => {
+            serde_json::to_value(engine.missing_employer_reports(
+                as_of.map_or_else(|| Instant::now().utc_date(), |d| d.inner()),
+            )?)
+        }
         EmployerReportCmd::CompleteManual {
             month,
             ir_report_id,
@@ -300,18 +301,16 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                     version: *report_version,
                     source: "e_service".into(),
                 },
-                Utc::now(),
+                Instant::now(),
             )?)
         }
         EmployerReportCmd::Registration { as_of } => {
             let lookup =
                 HttpYtj::new().map_err(|e| CliError::system("YTJ_UNAVAILABLE", e.to_string()))?;
-            serde_json::to_value(
-                engine.employer_registration(
-                    &lookup,
-                    as_of.unwrap_or_else(|| Utc::now().date_naive()),
-                )?,
-            )
+            serde_json::to_value(engine.employer_registration(
+                &lookup,
+                as_of.map_or_else(|| Instant::now().utc_date(), |d| d.inner()),
+            )?)
         }
         EmployerReportCmd::Configure {
             registered_from,
@@ -344,7 +343,7 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                 })?;
                 RegistrationCheck::Online {
                     lookup: &lookup,
-                    today: Utc::now().date_naive(),
+                    today: Instant::now().utc_date(),
                 }
             };
             let done = engine.configure_employer_report(
@@ -367,7 +366,11 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
                     format!("could not read {}: {e}", file.display()),
                 )
             })?;
-            serde_json::to_value(engine.import_employer_transcript(&bytes, Utc::now(), *dry_run)?)
+            serde_json::to_value(engine.import_employer_transcript(
+                &bytes,
+                Instant::now(),
+                *dry_run,
+            )?)
         }
     };
     value.map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))
@@ -404,7 +407,7 @@ pub fn execute(cmd: &WageCmd, home: &Path) -> Result<Value, CliError> {
         }
         WageCmd::Reconcile { run_id, dry_run } => {
             refuse_dry_run(*dry_run)?;
-            serde_json::to_value(engine.reconcile_wage(run_id, &broker(home)?, Utc::now())?)
+            serde_json::to_value(engine.reconcile_wage(run_id, &broker(home)?, Instant::now())?)
         }
         WageCmd::CompleteManual {
             run_id,
@@ -474,6 +477,6 @@ fn broker(home: &Path) -> Result<Broker, CliError> {
     let secret = std::fs::read_to_string(&path).map_err(|_| {
         CliError::system("IO_ERROR", "could not read the configured credential file")
     })?;
-    production_broker(home, profile, secret, Utc::now())
+    production_broker(home, profile, secret, Instant::now())
         .map_err(|e| CliError::user("TULOREKISTERI_NOT_READY", e.to_string()))
 }

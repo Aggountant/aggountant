@@ -332,8 +332,8 @@ pub(super) fn validate_vat_rate_table(table: &VatRateTable) -> Result<(), Domain
                 .expect("open-ended prev already rejected as overlap");
             let contiguous = to
                 .inner()
-                .succ_opt()
-                .is_some_and(|day_after| day_after == next.valid_from.inner());
+                .tomorrow()
+                .is_ok_and(|day_after| day_after == next.valid_from.inner());
             if !contiguous {
                 return Err(DomainError::VatCode(format!(
                     "rate class {class:?} has a gap between editions: it ends {} but the \

@@ -15,7 +15,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use chrono::Utc;
+use aggountant_model::Instant;
 use rusqlite::types::ToSql;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use sha2::{Digest, Sha256};
@@ -715,7 +715,7 @@ impl FiscalStore for SqliteFiscalStore {
             .head_seq
             .checked_add(1)
             .ok_or_else(|| LedgerError::Store("period transition sequence overflow".into()))?;
-        let ts = Utc::now().to_rfc3339();
+        let ts = Instant::now().to_string();
         let hash = period_transition_hash(
             &cur.head_hash,
             &req.period_id,
@@ -968,7 +968,7 @@ impl FiscalStore for SqliteFiscalStore {
             .head_seq
             .checked_add(1)
             .ok_or_else(|| LedgerError::Store("fiscal-year transition sequence overflow".into()))?;
-        let ts = Utc::now().to_rfc3339();
+        let ts = Instant::now().to_string();
         let hash = fiscal_year_transition_hash(
             &cur.head_hash,
             req.year,
@@ -1196,7 +1196,7 @@ impl FiscalStore for SqliteFiscalStore {
                 req.year.start().to_string(),
                 req.year.end().to_string(),
                 req.actor,
-                Utc::now().to_rfc3339(),
+                Instant::now().to_string(),
             ],
         )?;
         tx.commit()?;
@@ -1294,7 +1294,7 @@ impl FiscalStore for SqliteFiscalStore {
             r.get::<_, i64>(0)
         })? + 1;
         let prev = latest_attribution_hash(&tx)?;
-        let ts = Utc::now().to_rfc3339();
+        let ts = Instant::now().to_string();
         let hash = attribution_hash(
             &prev,
             seq as u64,
@@ -2075,7 +2075,7 @@ fn insert_rejection(conn: &Connection, rej: &RejectionRecord) -> Result<(), Ledg
         Some(b) => hash_from_blob(&b)?,
         None => Hash::zero(),
     };
-    let ts = Utc::now().to_rfc3339();
+    let ts = Instant::now().to_string();
     let hash = rejection_hash(&prev, rej, &ts);
     conn.execute(
         "INSERT INTO rejections(prev_reject_hash, reason_code, request_hash, actor, target, note, ts, hash)

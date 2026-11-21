@@ -4,8 +4,8 @@ use aggountant_broker::{
 };
 use aggountant_domain::{TaxCard, WageReport};
 use aggountant_ledger::{EmployeeState, Ledger};
+use aggountant_model::Instant;
 use aggountant_process::{ProcessEngine, RunStatus};
-use chrono::{DateTime, Utc};
 use serde_json::json;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -14,7 +14,7 @@ use std::sync::{
 fn report() -> WageReport {
     serde_json::from_value(json!({"business_id":"1234567-1","source_reference":"test-expense","employee_id":"emp-1","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":true,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[{"income_type":"311","amount":"120.00","kilometers":200},{"income_type":"331","amount":"54.00","allowance_code":3}]})).unwrap()
 }
-fn time() -> DateTime<Utc> {
+fn time() -> Instant {
     "2026-10-25T12:00:00Z".parse().unwrap()
 }
 fn employee(hetu: &str) -> EmployeeState {

@@ -71,7 +71,7 @@ use sha2::{Digest, Sha256};
 
 use aggountant_domain::PolicySet;
 use aggountant_ledger::{Ledger, PeriodState};
-use aggountant_model::PeriodId;
+use aggountant_model::{Instant, PeriodId};
 
 pub use error::ProcessError;
 pub use journal::{EventPayload, JournalEvent};
@@ -1058,8 +1058,10 @@ impl ProcessEngine {
         for _ in 0..2 {
             match OpenOptions::new().create_new(true).write(true).open(&path) {
                 Ok(mut f) => {
-                    let expires = chrono::Utc::now() + chrono::Duration::seconds(LEASE_TTL_SECS);
-                    let _ = writeln!(f, "{}", expires.to_rfc3339());
+                    let expires = Instant::now()
+                        .checked_add(jiff::SignedDuration::from_secs(LEASE_TTL_SECS))
+                        .expect("the lease expiry is representable");
+                    let _ = writeln!(f, "{expires}");
                     let _ = f.sync_all();
                     return Ok(LeaseGuard { path });
                 }
@@ -1067,11 +1069,7 @@ impl ProcessEngine {
                     // Steal only if the existing lease has expired.
                     let stale = fs::read_to_string(&path)
                         .ok()
-                        .and_then(|s| {
-                            chrono::DateTime::parse_from_rfc3339(s.trim())
-                                .ok()
-                                .map(|t| t < chrono::Utc::now())
-                        })
+                        .and_then(|s| Instant::parse(s.trim()).ok().map(|t| t < Instant::now()))
                         .unwrap_or(false);
                     if stale {
                         let _ = fs::remove_file(&path);

@@ -34,8 +34,9 @@ use aggountant_broker::{
 use aggountant_domain::payroll::{
     EmployerReportAction, EmployerReportContent, EmployerSeparateReport, MonthPayments, ReportMonth,
 };
-use aggountant_model::BusinessId;
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use aggountant_model::{BusinessId, Instant};
+use jiff::civil::Date as CivilDate;
+use jiff::SignedDuration;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::PathBuf};
 
@@ -77,7 +78,7 @@ enum Filing {
     /// A record this Run builds and sends.
     Sent {
         report: EmployerSeparateReport,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
         record_hash: String,
     },
     /// A report given outside aggountant (the e-service), recorded from evidence.
@@ -188,7 +189,7 @@ pub enum EmployerMonthState {
 #[derive(Debug, Clone, Serialize)]
 pub struct EmployerMonthStatus {
     pub month: ReportMonth,
-    pub deadline: NaiveDate,
+    pub deadline: CivilDate,
     pub state: EmployerMonthState,
     /// The report the register holds now: the accepted Run with the highest sequence.
     pub current: Option<EmployerReportReceipt>,
@@ -215,9 +216,9 @@ impl EmployerMonthStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct EmployerReportPreview {
     pub month: ReportMonth,
-    pub deadline: NaiveDate,
+    pub deadline: CivilDate,
     pub payments: MonthPayments,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Instant,
     pub report: EmployerSeparateReport,
     pub delivery_id: String,
     /// SHA-256 of the exact unsigned record. `submit` sends only these bytes.
@@ -229,7 +230,7 @@ pub struct EmployerReportPreview {
 #[derive(Debug, Clone, Serialize)]
 pub struct MissingEmployerMonth {
     pub month: ReportMonth,
-    pub deadline: NaiveDate,
+    pub deadline: CivilDate,
     pub overdue: bool,
     pub state: EmployerMonthState,
     /// A transcript counts a report for a month whose own send is in doubt; it
@@ -248,7 +249,7 @@ pub struct FiledOutsideMonth {
 #[derive(Debug, Clone, Serialize)]
 pub struct MissingEmployerReports {
     pub registered_from: ReportMonth,
-    pub as_of: NaiveDate,
+    pub as_of: CivilDate,
     pub months: Vec<MissingEmployerMonth>,
     /// Months reported outside aggountant, with the transcript that shows it.
     pub filed_outside: Vec<FiledOutsideMonth>,
@@ -426,7 +427,7 @@ impl ProcessEngine {
     fn plan_employer_report(
         &self,
         input: EmployerReportInput,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     ) -> Result<Plan, ProcessError> {
         let (business_id, profile) = self.employer_profile()?;
         let month = input.month;
@@ -439,7 +440,7 @@ impl ProcessEngine {
                 ),
             ));
         }
-        if month > ReportMonth::of(timestamp.date_naive()) {
+        if month > ReportMonth::of(timestamp.utc_date()) {
             return Err(refused(
                 "EMPLOYER_REPORT_FUTURE_MONTH",
                 "a month is reported during or after it, never in advance",
@@ -584,7 +585,7 @@ impl ProcessEngine {
     pub fn preview_employer_report(
         &self,
         input: EmployerReportInput,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     ) -> Result<EmployerReportPreview, ProcessError> {
         Ok(self.plan_employer_report(input, timestamp)?.preview)
     }
@@ -594,10 +595,10 @@ impl ProcessEngine {
     pub fn submit_employer_report(
         &self,
         input: EmployerReportInput,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
         approved_hash: &str,
         broker: &Broker,
-        now: DateTime<Utc>,
+        now: Instant,
     ) -> Result<EmployerMonthStatus, ProcessError> {
         let plan = self.plan_employer_report(input, timestamp)?;
         let preview = plan.preview;
@@ -607,7 +608,8 @@ impl ProcessEngine {
                 "approval must name the record_hash of a preview with the same month, payments, timestamp and settings",
             ));
         }
-        if (now - timestamp).abs() > Duration::hours(MAX_TIMESTAMP_AGE_HOURS) {
+        if now.duration_since(timestamp).abs() > SignedDuration::from_hours(MAX_TIMESTAMP_AGE_HOURS)
+        {
             return Err(refused(
                 "EMPLOYER_REPORT_STALE_TIMESTAMP",
                 "the timestamp sets the report date; preview again with the current time",
@@ -702,7 +704,7 @@ impl ProcessEngine {
         &self,
         month: ReportMonth,
         broker: &Broker,
-        now: DateTime<Utc>,
+        now: Instant,
     ) -> Result<EmployerMonthStatus, ProcessError> {
         let status = self.employer_report_status(month)?;
         let Some(run) = status.in_doubt() else {
@@ -783,7 +785,7 @@ impl ProcessEngine {
         &self,
         month: ReportMonth,
         receipt: EmployerReportReceipt,
-        now: DateTime<Utc>,
+        now: Instant,
     ) -> Result<EmployerMonthStatus, ProcessError> {
         let receipt = EmployerReportReceipt {
             source: "e_service".into(),
@@ -801,7 +803,7 @@ impl ProcessEngine {
                 "evidence needs the 32-character report reference from the e-service (and optionally the record reference and a positive version)",
             ));
         }
-        if month > ReportMonth::of(now.date_naive()) {
+        if month > ReportMonth::of(now.utc_date()) {
             return Err(refused(
                 "EMPLOYER_REPORT_FUTURE_MONTH",
                 "month is in the future",
@@ -886,7 +888,7 @@ impl ProcessEngine {
     /// `as_of` with no accepted report, each with its deadline.
     pub fn missing_employer_reports(
         &self,
-        as_of: NaiveDate,
+        as_of: CivilDate,
     ) -> Result<MissingEmployerReports, ProcessError> {
         let (_, profile) = self.employer_profile()?;
         let imports = self.transcript_imports()?;
@@ -1007,7 +1009,7 @@ pub enum RegistrationCheck<'a> {
     /// Ask YTJ and judge its entries on `today`.
     Online {
         lookup: &'a dyn YtjLookup,
-        today: NaiveDate,
+        today: CivilDate,
     },
     /// The caller chose to write without the check.
     Offline,

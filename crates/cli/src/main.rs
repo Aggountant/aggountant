@@ -1473,7 +1473,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         read_vero_profile(&home),
                         credential_path.value.as_deref(),
                         VeroReadinessPurpose::ProductionFiling,
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     );
                     let mut value = serde_json::to_value(report).map_err(|_| {
                         CliError::system("INTERNAL_ERROR", "readiness output failed")
@@ -1496,7 +1496,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         Ok(profile.clone()),
                         credential_path.value.as_deref(),
                         VeroReadinessPurpose::ProductionFiling,
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     );
                     if profile.mode == VeroFilingMode::Production {
                         report.require_ready().map_err(|blockers| {
@@ -1550,7 +1550,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         Ok(profile.clone()),
                         credential_path.value.as_deref(),
                         VeroReadinessPurpose::TestVerification,
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     );
                     report
                         .require_ready()
@@ -1564,7 +1564,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         &mut profile,
                         report,
                         VeroCredentialTarget::Test.base_url(),
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     )
                 }
                 VeroFiCmd::VerifyPortal => {
@@ -1576,7 +1576,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         Ok(profile.clone()),
                         credential_path.value.as_deref(),
                         VeroReadinessPurpose::PortalVerification,
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     );
                     report.require_ready().map_err(|blockers| {
                         CliError::user("VERO_PORTAL_VERIFICATION_NOT_READY", blockers)
@@ -1588,7 +1588,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                             .expect("ready requires credential path"),
                         &mut profile,
                         report,
-                        chrono::Utc::now(),
+                        aggountant_model::Instant::now(),
                     )
                 }
             }
@@ -2408,7 +2408,7 @@ fn build_live_vero_broker(
         profile.clone(),
         credential_path.value.as_deref(),
         VeroReadinessPurpose::ProductionFiling,
-        chrono::Utc::now(),
+        aggountant_model::Instant::now(),
     );
     report.require_ready().map_err(|blockers| {
         CliError::user(
@@ -2435,7 +2435,7 @@ fn perform_test_verification(
     profile: &mut VeroFilingProfile,
     report: aggountant_broker::VeroReadinessReport,
     base_url: &str,
-    observed_at: chrono::DateTime<chrono::Utc>,
+    observed_at: aggountant_model::Instant,
 ) -> Result<Value, CliError> {
     let broker = build_direct_vero_broker_at(home, credential_path, base_url)?;
     let business_id = profile
@@ -2446,7 +2446,7 @@ fn perform_test_verification(
         .to_string();
     let request = serde_json::to_string(&json!({
         "BusinessId": business_id,
-        "FilingYear": observed_at.format("%Y").to_string(),
+        "FilingYear": observed_at.utc().year().to_string(),
     }))
     .map_err(|_| CliError::system("INTERNAL_ERROR", "verification request failed"))?;
     let envelope = aggountant_broker::Envelope::new(
@@ -2487,7 +2487,7 @@ fn perform_portal_verification(
     credential_path: &Path,
     profile: &mut VeroFilingProfile,
     report: aggountant_broker::VeroReadinessReport,
-    observed_at: chrono::DateTime<chrono::Utc>,
+    observed_at: aggountant_model::Instant,
 ) -> Result<Value, CliError> {
     use aggountant_broker::vero_vat_api::{
         portal_file_vat_return_request, portal_get_filed_vat_return_request,
@@ -2501,7 +2501,7 @@ fn perform_portal_verification(
             operation,
             format!(
                 "verify-portal:{}:{operation}",
-                observed_at.timestamp_micros()
+                observed_at.inner().as_microsecond()
             ),
             json!({"request_bytes": String::from_utf8(body).expect("static JSON is UTF-8")}),
         )
@@ -2520,7 +2520,7 @@ fn perform_portal_verification(
     );
     let receipt = match broker
         .submit(
-            &format!("verify-portal:{}", observed_at.timestamp_micros()),
+            &format!("verify-portal:{}", observed_at.inner().as_microsecond()),
             filing.natural_key.as_str(),
             &filing,
         )
@@ -3105,7 +3105,6 @@ mod tests {
     use aggountant_vero_vat_api_mock::{
         MockVeroVatServer, MtlsTestCredentials, Scenario, GET_VAT_PERIODS_PATH,
     };
-    use chrono::{TimeZone, Utc};
     use serde_json::json;
     use std::path::Path;
 
@@ -3181,7 +3180,7 @@ mod tests {
             contact_phone: Some(FilingContactPhone::parse("+358401234567").unwrap()),
             attestations: VeroAttestations::default(),
         };
-        let observed_at = Utc.with_ymd_and_hms(2026, 9, 13, 12, 0, 0).unwrap();
+        let observed_at = aggountant_model::Instant::parse("2026-09-13T12:00:00Z").unwrap();
         let report = evaluate_vero_readiness(
             home.path(),
             Ok(profile.clone()),

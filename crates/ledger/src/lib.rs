@@ -33,8 +33,9 @@ use aggountant_domain::{
     StatementProvenance,
 };
 use aggountant_model::{
-    Account, AccountId, AccountKind, Currency, Date, FiscalCalendar, FiscalYear, Hash, Money,
-    OpeningBalance, OpeningBalanceSource, PeriodId, Posting, Side, VoucherBody, VoucherDraft,
+    Account, AccountId, AccountKind, Currency, Date, FiscalCalendar, FiscalYear, Hash, Instant,
+    Money, OpeningBalance, OpeningBalanceSource, PeriodId, Posting, Side, VoucherBody,
+    VoucherDraft,
 };
 
 pub use employee::EmployeeState;
@@ -883,7 +884,7 @@ impl Ledger {
             software_version: SOFTWARE_VERSION.to_string(),
             chart_version: chart_version.clone(),
             // Attempt time (not commit-order): captured before the writer lock.
-            sealed_at: chrono::Utc::now().to_rfc3339(),
+            sealed_at: Instant::now().to_string(),
             sent_hash: None,
         };
 

@@ -11,10 +11,14 @@
 //! one, so a check made late in the evening UTC counts on the next Finnish day;
 //! [`one_bank_day_after`] is the earliest instant a full bank day later.
 
-use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, TimeZone, Utc, Weekday};
+use aggountant_model::Instant;
+use jiff::civil::{Date, DateTime, Weekday};
+use jiff::tz::Offset;
+use jiff::{SignedDuration, ToSpan};
 
 /// Easter Sunday of `year` in the Gregorian calendar (the anonymous computus).
-pub fn easter_sunday(year: i32) -> NaiveDate {
+pub fn easter_sunday(year: i16) -> Date {
+    let year = i32::from(year);
     let a = year.rem_euclid(19);
     let b = year.div_euclid(100);
     let c = year.rem_euclid(100);
@@ -29,23 +33,23 @@ pub fn easter_sunday(year: i32) -> NaiveDate {
     let m = (a + 11 * h + 22 * l).div_euclid(451);
     let month = (h + l - 7 * m + 114).div_euclid(31);
     let day = (h + l - 7 * m + 114).rem_euclid(31) + 1;
-    NaiveDate::from_ymd_opt(year, month as u32, day as u32)
+    Date::new(year as i16, month as i8, day as i8)
         .expect("the computus yields a date in March or April")
 }
 
 /// Whether `date` is a Finnish bank holiday that can fall on a weekday.
-pub fn is_finnish_bank_holiday(date: NaiveDate) -> bool {
+pub fn is_finnish_bank_holiday(date: Date) -> bool {
     let easter = easter_sunday(date.year());
     let moving = [
-        easter - Duration::days(2),  // Good Friday
-        easter + Duration::days(1),  // Easter Monday
-        easter + Duration::days(39), // Ascension Day
+        easter - 2.days(),  // Good Friday
+        easter + 1.days(),  // Easter Monday
+        easter + 39.days(), // Ascension Day
     ];
     if moving.contains(&date) {
         return true;
     }
     let midsummer_eve =
-        date.month() == 6 && (19..=25).contains(&date.day()) && date.weekday() == Weekday::Fri;
+        date.month() == 6 && (19..=25).contains(&date.day()) && date.weekday() == Weekday::Friday;
     midsummer_eve
         || matches!(
             (date.month(), date.day()),
@@ -54,15 +58,15 @@ pub fn is_finnish_bank_holiday(date: NaiveDate) -> bool {
 }
 
 /// Whether `date` is a Finnish bank day.
-pub fn is_finnish_bank_day(date: NaiveDate) -> bool {
-    !matches!(date.weekday(), Weekday::Sat | Weekday::Sun) && !is_finnish_bank_holiday(date)
+pub fn is_finnish_bank_day(date: Date) -> bool {
+    !matches!(date.weekday(), Weekday::Saturday | Weekday::Sunday) && !is_finnish_bank_holiday(date)
 }
 
 /// The first bank day strictly after `date`.
-pub fn next_finnish_bank_day(date: NaiveDate) -> NaiveDate {
-    let mut next = date + Duration::days(1);
+pub fn next_finnish_bank_day(date: Date) -> Date {
+    let mut next = date + 1.days();
     while !is_finnish_bank_day(next) {
-        next += Duration::days(1);
+        next += 1.days();
     }
     next
 }
@@ -73,43 +77,53 @@ pub fn next_finnish_bank_day(date: NaiveDate) -> NaiveDate {
 /// Friday by one at the same time on Monday. The days in between are counted as
 /// whole 24-hour days, so across a summer-time switch the clock time can differ
 /// by an hour.
-pub fn one_bank_day_after(instant: DateTime<Utc>) -> DateTime<Utc> {
+pub fn one_bank_day_after(instant: Instant) -> Instant {
     let date = finnish_date(instant);
     let next = next_finnish_bank_day(date);
-    let same_time = instant + Duration::days((next - date).num_days());
+    let days = i64::from((next - date).get_days());
+    let same_time = instant
+        .checked_add(SignedDuration::from_hours(24 * days))
+        .expect("a bank day after a representable instant is representable");
     same_time.max(start_of_finnish_day(next))
 }
 
 /// Finnish local time of an instant. Finland keeps UTC+2, and UTC+3 from the last
 /// Sunday of March to the last Sunday of October, switching at 01:00 UTC (the EU
-/// summer-time rule).
-pub fn finnish_local_time(instant: DateTime<Utc>) -> NaiveDateTime {
-    let year = instant.year();
-    let switch = |month: u32| {
-        let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
-            .expect("March and October are followed by a month")
-            .pred_opt()
-            .expect("a month has a last day");
-        let sunday =
-            last_day - Duration::days(i64::from(last_day.weekday().num_days_from_sunday()));
-        Utc.from_utc_datetime(&sunday.and_hms_opt(1, 0, 0).expect("01:00 exists"))
+/// summer-time rule). The rule is written out rather than read from a time-zone
+/// database so that a static binary needs none; it matches Europe/Helsinki in
+/// the database for every instant from 1997 to 2037.
+pub fn finnish_local_time(instant: Instant) -> DateTime {
+    let year = instant.utc().year();
+    let switch = |month: i8| {
+        let last_day = Date::new(year, month, 1)
+            .expect("March and October exist")
+            .last_of_month();
+        let sunday = last_day - i64::from(last_day.weekday().to_sunday_zero_offset()).days();
+        Offset::UTC
+            .to_timestamp(sunday.at(1, 0, 0, 0))
+            .map(Instant::from)
+            .expect("the switch is representable")
     };
     let summer = switch(3) <= instant && instant < switch(10);
-    let offset = Duration::hours(if summer { 3 } else { 2 });
-    (instant + offset).naive_utc()
+    let offset = Offset::constant(if summer { 3 } else { 2 });
+    offset.to_datetime(instant.inner())
 }
 
 /// The Finnish calendar date of an instant.
-pub fn finnish_date(instant: DateTime<Utc>) -> NaiveDate {
+pub fn finnish_date(instant: Instant) -> Date {
     finnish_local_time(instant).date()
 }
 
 /// The first instant of a Finnish calendar date.
-fn start_of_finnish_day(date: NaiveDate) -> DateTime<Utc> {
-    let midnight = date.and_hms_opt(0, 0, 0).expect("midnight exists");
+fn start_of_finnish_day(date: Date) -> Instant {
     [3, 2]
         .into_iter()
-        .map(|offset| Utc.from_utc_datetime(&(midnight - Duration::hours(offset))))
+        .map(|hours| {
+            Offset::constant(hours)
+                .to_timestamp(date.at(0, 0, 0, 0))
+                .map(Instant::from)
+                .expect("midnight is representable")
+        })
         .find(|candidate| finnish_date(*candidate) == date)
         .expect("a Finnish date starts at UTC+3 or UTC+2")
 }
@@ -118,12 +132,12 @@ fn start_of_finnish_day(date: NaiveDate) -> DateTime<Utc> {
 mod tests {
     use super::*;
 
-    fn d(value: &str) -> NaiveDate {
-        NaiveDate::parse_from_str(value, "%Y-%m-%d").unwrap()
+    fn d(value: &str) -> Date {
+        aggountant_model::Date::parse(value).unwrap().inner()
     }
 
-    fn utc(value: &str) -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339(value).unwrap().to_utc()
+    fn utc(value: &str) -> Instant {
+        Instant::parse(value).unwrap()
     }
 
     #[test]
@@ -242,7 +256,7 @@ mod tests {
         ] {
             assert_eq!(
                 finnish_local_time(utc(instant))
-                    .format("%Y-%m-%d %H:%M")
+                    .strftime("%Y-%m-%d %H:%M")
                     .to_string(),
                 local,
                 "{instant}"

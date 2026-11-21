@@ -15,7 +15,7 @@ use aggountant_broker::{
 };
 use aggountant_domain::{payroll::ReportMonth, WageReport};
 use aggountant_ledger::Ledger;
-use chrono::{DateTime, Utc};
+use aggountant_model::Instant;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write};
 const WORKFLOW: &str = "file-wage/v1: Preview(bind canonical unsigned record) -> ApproveWage -> SendWageReport(at-most-once) -> signed GetDeliveryDataStatus";
@@ -33,14 +33,14 @@ fn version() -> String {
 #[serde(deny_unknown_fields)]
 struct WageState {
     report: WageReport,
-    timestamp: DateTime<Utc>,
+    timestamp: Instant,
     proposal_hash: String,
     identity_hash: String,
 }
 #[derive(Serialize)]
 pub struct WagePreview {
     pub report: WageReport,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Instant,
     pub deadline: String,
     pub delivery_id: String,
     pub report_id: String,
@@ -53,10 +53,10 @@ impl ProcessEngine {
     fn wage_request(
         &self,
         report: &WageReport,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     ) -> Result<WageRequest, ProcessError> {
         report
-            .validate(timestamp.date_naive())
+            .validate(timestamp.utc_date())
             .map_err(|e| invalid(&e.to_string()))?;
         let ledger = Ledger::open(&self.home)?;
         let employee = ledger.get_employee(&report.employee_id)?;
@@ -69,7 +69,7 @@ impl ProcessEngine {
     pub fn preview_wage(
         &self,
         report: &WageReport,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     ) -> Result<WagePreview, ProcessError> {
         let request = self.wage_request(report, timestamp)?;
         let xml = wage_record(report, &request.hetu, timestamp)
@@ -88,7 +88,7 @@ impl ProcessEngine {
     pub fn start_wage(
         &self,
         report: &WageReport,
-        timestamp: DateTime<Utc>,
+        timestamp: Instant,
     ) -> Result<RunView, ProcessError> {
         // Validate PII without persisting its low-entropy-derived digest.
         self.preview_wage(report, timestamp)?;
@@ -294,7 +294,7 @@ impl ProcessEngine {
         &self,
         run_id: &str,
         broker: &Broker,
-        now: DateTime<Utc>,
+        now: Instant,
     ) -> Result<RunView, ProcessError> {
         self.read_wage(run_id)?;
         let _lease = self.acquire_lease(run_id)?;
@@ -421,7 +421,7 @@ fn store(e: std::io::Error) -> ProcessError {
 /// Git-native approval state binds ONLY non-PII content. The full record hash is
 /// supplied ephemerally by the approving caller and checked against resolved PII
 /// immediately before dispatch; only the private outbox keeps a PII-bearing digest.
-fn proposal_hash(report: &WageReport, timestamp: DateTime<Utc>) -> Result<String, ProcessError> {
+fn proposal_hash(report: &WageReport, timestamp: Instant) -> Result<String, ProcessError> {
     let bytes = serde_json::to_string(&(report, timestamp))
         .map_err(|e| ProcessError::Store(e.to_string()))?;
     Ok(record_hash(&bytes))

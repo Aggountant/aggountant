@@ -263,13 +263,14 @@ impl<'de> Deserialize<'de> for VatCode {
 // Date
 // ----------------------------------------------------------------------------
 
-/// ISO-8601 calendar date `YYYY-MM-DD`. Deserialize is strict: it rejects any
-/// non-canonical alias (unpadded fields, slashes, trailing bytes).
+/// ISO-8601 calendar date `YYYY-MM-DD`. This is the one strict date parser:
+/// it rejects any non-canonical alias (unpadded fields, slashes, a time, a sign,
+/// trailing bytes), which the date-time library alone would accept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Date(chrono::NaiveDate);
+pub struct Date(jiff::civil::Date);
 
 /// Fiscal dates are four-digit calendar years; reject anything outside this so
-/// `%Y` never emits a signed/extended year that would round-trip oddly.
+/// the canonical form is always exactly `YYYY-MM-DD`.
 const MIN_YEAR: i32 = 1000;
 const MAX_YEAR: i32 = 9999;
 
@@ -280,34 +281,56 @@ impl Date {
                 "year {year} outside {MIN_YEAR}..={MAX_YEAR}"
             )));
         }
-        chrono::NaiveDate::from_ymd_opt(year, month, day)
+        let invalid = || ModelError::InvalidDate(format!("{year:04}-{month:02}-{day:02}"));
+        let (Ok(m), Ok(d)) = (i8::try_from(month), i8::try_from(day)) else {
+            return Err(invalid());
+        };
+        jiff::civil::Date::new(year as i16, m, d)
             .map(Date)
-            .ok_or_else(|| ModelError::InvalidDate(format!("{year:04}-{month:02}-{day:02}")))
+            .map_err(|_| invalid())
     }
     pub fn parse(s: &str) -> Result<Self, ModelError> {
-        let d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+        let d = s
+            .parse::<jiff::civil::Date>()
             .map_err(|e| ModelError::InvalidDate(format!("{s:?} ({e})")))?;
         // Reject non-canonical aliases (e.g. "2026-1-2"): the reformat must match.
-        if d.format("%Y-%m-%d").to_string() != s {
+        if d.to_string() != s {
             return Err(ModelError::InvalidDate(format!(
                 "{s:?} is not canonical YYYY-MM-DD"
             )));
         }
-        if !(MIN_YEAR..=MAX_YEAR).contains(&chrono::Datelike::year(&d)) {
+        if !(MIN_YEAR..=MAX_YEAR).contains(&i32::from(d.year())) {
             return Err(ModelError::InvalidDate(format!(
                 "{s:?} year outside {MIN_YEAR}..={MAX_YEAR}"
             )));
         }
         Ok(Date(d))
     }
-    pub fn inner(&self) -> chrono::NaiveDate {
+    /// The date-time library's value, for calendar arithmetic.
+    pub fn inner(&self) -> jiff::civil::Date {
         self.0
+    }
+    pub fn year(&self) -> i32 {
+        i32::from(self.0.year())
+    }
+    pub fn month(&self) -> u32 {
+        self.0.month() as u32
+    }
+    pub fn day(&self) -> u32 {
+        self.0.day() as u32
     }
 }
 
 impl fmt::Display for Date {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.format("%Y-%m-%d"))
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for Date {
+    type Err = ModelError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Date::parse(s)
     }
 }
 
@@ -502,7 +525,7 @@ impl FinnishPersonId {
         let day: u32 = raw[0..2].parse().map_err(|_| bad("bad day"))?;
         let month: u32 = raw[2..4].parse().map_err(|_| bad("bad month"))?;
         let yy: i32 = raw[4..6].parse().map_err(|_| bad("bad year"))?;
-        if chrono::NaiveDate::from_ymd_opt(century + yy, month, day).is_none() {
+        if Date::from_ymd(century + yy, month, day).is_err() {
             return Err(bad("impossible birth date"));
         }
         let ddmmyyzzz: u64 = format!("{}{}", &raw[0..6], &raw[7..10])

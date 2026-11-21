@@ -16,6 +16,7 @@
 pub mod account;
 pub mod error;
 pub mod fiscal_year;
+pub mod instant;
 pub mod newtype;
 pub mod opening_balance;
 pub mod period;
@@ -26,6 +27,7 @@ pub mod voucher;
 pub use account::{Account, AccountKind};
 pub use error::ModelError;
 pub use fiscal_year::{FiscalCalendar, FiscalYear, MAX_FISCAL_YEAR_MONTHS};
+pub use instant::Instant;
 pub use newtype::{AccountId, Currency, Date, FinnishPersonId, Hash, Iban, Money, VatCode};
 pub use opening_balance::{OpeningBalance, OpeningBalanceSource};
 pub use period::PeriodId;

@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use aggountant_domain::{VatReturnField, VatReturnFields};
 use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, PeriodId};
-use chrono::{Datelike, NaiveDate};
 use reqwest::blocking::Client;
 use reqwest::{StatusCode, Url};
 use rust_decimal::Decimal;
@@ -129,7 +128,7 @@ pub fn project_file_vat_return(
     let no_activity = details.is_empty();
     Ok(FileVatReturn {
         business_id: business_id.as_str().into(),
-        filing_period: filing_period_end(period)?,
+        filing_period: period.last_date().to_string(),
         contact_details: ContactDetails {
             full_name: contact_name.as_str().into(),
             phone_number: contact_phone.as_str().into(),
@@ -139,22 +138,6 @@ pub fn project_file_vat_return(
         replacement_return: Some(false),
         replacement_reason: None,
     })
-}
-
-fn filing_period_end(period: &PeriodId) -> Result<String, AdapterError> {
-    let (_, last_month) = period.month_bounds();
-    let (next_year, next_month) = if last_month == 12 {
-        (period.year() + 1, 1)
-    } else {
-        (period.year(), u32::from(last_month) + 1)
-    };
-    let next = NaiveDate::from_ymd_opt(next_year, next_month, 1)
-        .ok_or_else(|| AdapterError::Malformed("VAT filing period date is invalid".into()))?;
-    let end = next
-        .pred_opt()
-        .ok_or_else(|| AdapterError::Malformed("VAT filing period date underflow".into()))?;
-    debug_assert_eq!(end.month(), u32::from(last_month));
-    Ok(end.format("%Y-%m-%d").to_string())
 }
 
 fn api_field(field: VatReturnField) -> (&'static str, &'static str) {

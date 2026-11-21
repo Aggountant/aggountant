@@ -10,11 +10,12 @@ use aggountant_domain::{
     TaxCard, WageReport,
 };
 use aggountant_ledger::{EmployeeState, Ledger};
+use aggountant_model::Instant;
 use aggountant_process::{
     EmployerMonthState, EmployerReportInput, EmployerReportReceipt, EmployerRunOutcome,
     ProcessEngine, ProcessError,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::civil::Date as CivilDate;
 use serde_json::json;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -149,7 +150,7 @@ fn input(m: &str, payments: MonthPayments) -> EmployerReportInput {
         replace: false,
     }
 }
-fn t(s: &str) -> DateTime<Utc> {
+fn t(s: &str) -> Instant {
     s.parse().unwrap()
 }
 fn code(e: ProcessError) -> &'static str {
@@ -360,7 +361,7 @@ fn rejection_is_definitive_and_a_corrected_report_may_be_sent() {
     );
     assert_eq!(code(same.unwrap_err()), "EMPLOYER_REPORT_ALREADY_SENT");
     let missing = e
-        .missing_employer_reports(NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())
+        .missing_employer_reports(CivilDate::constant(2026, 11, 16))
         .unwrap();
     assert!(missing
         .months
@@ -740,7 +741,7 @@ fn missing_months_list_unreported_months_with_deadlines_and_write_nothing() {
         .unwrap()
         .count();
     let m = e
-        .missing_employer_reports(NaiveDate::from_ymd_opt(2026, 11, 3).unwrap())
+        .missing_employer_reports(CivilDate::constant(2026, 11, 3))
         .unwrap();
     let got: Vec<_> = m
         .months
@@ -811,6 +812,6 @@ fn unconfigured_company_is_told_what_to_set() {
         t("2026-11-02T08:00:00Z"),
     );
     assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_NOT_CONFIGURED");
-    let r = e.missing_employer_reports(NaiveDate::from_ymd_opt(2026, 11, 2).unwrap());
+    let r = e.missing_employer_reports(CivilDate::constant(2026, 11, 2));
     assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_NOT_CONFIGURED");
 }

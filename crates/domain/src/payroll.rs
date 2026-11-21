@@ -26,9 +26,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use aggountant_model::{
-    AccountId, BusinessId, Currency, Date, FilingContactName, FilingContactPhone, Money, Posting,
-    Side, VoucherDraft,
+    AccountId, BusinessId, Currency, Date, FilingContactName, FilingContactPhone, Instant, Money,
+    Posting, Side, VoucherDraft,
 };
+use jiff::civil::Date as CivilDate;
+use jiff::ToSpan;
 
 use crate::DomainError;
 
@@ -458,15 +460,11 @@ pub enum TulorekisteriReport {
 /// The palkkatietoilmoitus filing deadline: 5 calendar days after the payment
 /// (must-spec #4). Deterministic date math.
 pub fn palkkatieto_deadline(payment_date: Date) -> Date {
-    let d = payment_date.inner() + chrono::Duration::days(5);
+    let d = payment_date.inner() + 5.days();
     // `payment_date` is already in the valid calendar-year range and +5 days cannot
     // leave it, so this constructor cannot fail.
-    Date::from_ymd(
-        chrono::Datelike::year(&d),
-        chrono::Datelike::month(&d),
-        chrono::Datelike::day(&d),
-    )
-    .expect("payment_date + 5 days is a valid date")
+    Date::from_ymd(i32::from(d.year()), d.month() as u32, d.day() as u32)
+        .expect("payment_date + 5 days is a valid date")
 }
 
 /// Build the per-payment report descriptor for a payment made on `payment_date`.
@@ -480,13 +478,8 @@ pub fn palkkatietoilmoitus(payment_date: Date) -> TulorekisteriReport {
 /// Build the monthly report descriptor for the month containing `payment_date`
 /// (`YYYY-MM`).
 pub fn erillisilmoitus(payment_date: Date) -> TulorekisteriReport {
-    let d = payment_date.inner();
     TulorekisteriReport::TyonantajanErillisilmoitus {
-        month: format!(
-            "{:04}-{:02}",
-            chrono::Datelike::year(&d),
-            chrono::Datelike::month(&d)
-        ),
+        month: format!("{:04}-{:02}", payment_date.year(), payment_date.month()),
     }
 }
 
@@ -522,10 +515,10 @@ impl ReportMonth {
         }
         Ok(Self { year, month })
     }
-    pub fn of(date: chrono::NaiveDate) -> Self {
+    pub fn of(date: CivilDate) -> Self {
         Self {
-            year: chrono::Datelike::year(&date),
-            month: chrono::Datelike::month(&date),
+            year: i32::from(date.year()),
+            month: date.month() as u32,
         }
     }
     pub fn year(&self) -> i32 {
@@ -547,15 +540,15 @@ impl ReportMonth {
             }
         }
     }
-    pub fn first_day(&self) -> chrono::NaiveDate {
-        chrono::NaiveDate::from_ymd_opt(self.year, self.month, 1).expect("validated month")
+    pub fn first_day(&self) -> CivilDate {
+        CivilDate::new(self.year as i16, self.month as i8, 1).expect("validated month")
     }
     /// Statutory deadline: the 5th day of the following month. When that day is a
     /// Saturday or a holiday the report may be sent on the next banking day; that
     /// relief is not computed here, so this date is the conservative one.
-    pub fn deadline(&self) -> chrono::NaiveDate {
+    pub fn deadline(&self) -> CivilDate {
         let next = self.next();
-        chrono::NaiveDate::from_ymd_opt(next.year, next.month, 5).expect("valid date")
+        CivilDate::new(next.year as i16, next.month as i8, 5).expect("valid date")
     }
     /// `YYYYMM`, used inside report and delivery references.
     pub fn compact(&self) -> String {
@@ -749,7 +742,7 @@ impl EmployerSeparateReport {
     /// The record reference, unique per record: derived from the whole report
     /// and its creation time, so a corrected resend after a definitive rejection
     /// never reuses a reference. At most 40 characters from `[A-Za-z0-9_-]`.
-    pub fn delivery_id(&self, timestamp: chrono::DateTime<chrono::Utc>) -> String {
+    pub fn delivery_id(&self, timestamp: Instant) -> String {
         let mut h = Sha256::new();
         h.update(b"aggountant/employer-separate-report/v1");
         let body = serde_json::to_vec(&(self, timestamp)).expect("report serializes");
@@ -803,7 +796,7 @@ pub fn validate_hetu(hetu: &str) -> Result<(), DomainError> {
         b'-' | b'Y' | b'X' | b'W' | b'V' | b'U' => 1900,
         _ => 2000, // A..F (validated above)
     };
-    if chrono::NaiveDate::from_ymd_opt(century + yy, month, day).is_none() {
+    if Date::from_ymd(century + yy, month, day).is_err() {
         return Err(bad("impossible birth date"));
     }
     // The checksum is over the 9-digit number ddmmyyzzz.
@@ -1035,8 +1028,8 @@ mod tests {
         let r = employer_report();
         r.validate().unwrap();
         assert_eq!(r.report_id(), "agg-er-202610");
-        let t1: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:00Z".parse().unwrap();
-        let t2: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:01Z".parse().unwrap();
+        let t1: Instant = "2026-11-02T08:00:00Z".parse().unwrap();
+        let t2: Instant = "2026-11-02T08:00:01Z".parse().unwrap();
         let id = r.delivery_id(t1);
         assert_eq!(id.len(), 40);
         assert!(id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'));
@@ -1044,7 +1037,7 @@ mod tests {
         // The reference hashes the serde form of the timestamp; a stored
         // reference must stay reproducible for the same report and instant.
         assert_eq!(id, "er-202610-771840898b96bde4b19133858396cf");
-        let fractional: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:00.120Z".parse().unwrap();
+        let fractional: Instant = "2026-11-02T08:00:00.120Z".parse().unwrap();
         assert_eq!(
             r.delivery_id(fractional),
             "er-202610-ca3374b86b2a0300e765db2cee014d"

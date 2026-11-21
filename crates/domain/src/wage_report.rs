@@ -1,7 +1,8 @@
 //! The deliberately narrow, tax-free travel-only earnings report. No salary mapping.
 use crate::{resolve_tulolaji, DomainError};
 use aggountant_model::{BusinessId, Date, FilingContactName, FilingContactPhone};
-use chrono::{Duration, NaiveDate};
+use jiff::civil::Date as CivilDate;
+use jiff::ToSpan;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -54,7 +55,7 @@ impl TravelLine {
     }
 }
 impl WageReport {
-    pub fn validate(&self, today: NaiveDate) -> Result<(), DomainError> {
+    pub fn validate(&self, today: CivilDate) -> Result<(), DomainError> {
         let bad = |s: &str| DomainError::Payroll(s.into());
         for (name, value) in [
             ("source_reference", &self.source_reference),
@@ -71,8 +72,8 @@ impl WageReport {
         if self.period_end < self.period_start {
             return Err(bad("period_end must be >= period_start"));
         }
-        if self.payment_date.inner() < NaiveDate::from_ymd_opt(2019, 1, 1).unwrap()
-            || self.payment_date.inner() > today + Duration::days(45)
+        if self.payment_date.inner() < CivilDate::constant(2019, 1, 1)
+            || self.payment_date.inner() > today + 45.days()
         {
             return Err(bad(
                 "payment_date must be >= 2019-01-01 and no more than 45 days in the future",
@@ -111,8 +112,8 @@ impl WageReport {
         }
         Ok(())
     }
-    pub fn deadline(&self) -> NaiveDate {
-        self.payment_date.inner() + Duration::days(5)
+    pub fn deadline(&self) -> CivilDate {
+        self.payment_date.inner() + 5.days()
     }
     /// Full framed natural-key digest retained locally; bounded public references are not payload hashes.
     pub fn identity_hash(&self) -> String {
@@ -163,7 +164,7 @@ mod tests {
     #[test]
     fn strict_subset_and_stable_natural_identity() {
         let mut r = report();
-        let today = NaiveDate::from_ymd_opt(2026, 10, 24).unwrap();
+        let today = CivilDate::constant(2026, 10, 24);
         r.validate(today).unwrap();
         let identity = r.identity_hash();
         r.joint_owner = false;
@@ -189,9 +190,7 @@ mod tests {
         r.source_reference = " ".into();
         assert!(r.validate(today).is_err());
         r = report();
-        assert!(r
-            .validate(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap())
-            .is_err());
+        assert!(r.validate(CivilDate::constant(2026, 1, 1)).is_err());
     }
     #[test]
     fn reject_missing_ownership_unknown_fields_and_non_decimal_strings() {

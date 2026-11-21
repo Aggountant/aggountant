@@ -157,7 +157,7 @@ impl Journal {
             .last()
             .map(|e| e.hash.clone())
             .unwrap_or_else(zero_hex);
-        let ts = chrono::Utc::now().to_rfc3339();
+        let ts = aggountant_model::Instant::now().to_string();
         let event_type = payload.event_type().to_string();
         let payload_json =
             serde_json::to_vec(&payload).map_err(|e| ProcessError::Store(e.to_string()))?;

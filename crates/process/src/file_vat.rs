@@ -1350,8 +1350,7 @@ fn read_fileable_vero_period(
             code: "VERO_VAT_PERIODS_MALFORMED",
             detail: format!("GetVATPeriods response malformed: {e}"),
         })?;
-    let (period_start, period_end) =
-        period_dates(&input.period).map_err(|e| local(e.to_string()))?;
+    let (period_start, period_end) = period_dates(&input.period);
     let vero_period = periods
         .vat_periods
         .into_iter()
@@ -1372,20 +1371,10 @@ fn read_fileable_vero_period(
     serde_json::to_value(vero_period).map_err(|e| local(e.to_string()))
 }
 
-fn period_dates(period: &PeriodId) -> Result<(String, String), ProcessError> {
-    let (first_month, last_month) = period.month_bounds();
+fn period_dates(period: &PeriodId) -> (String, String) {
+    let (first_month, _) = period.month_bounds();
     let start = format!("{:04}-{first_month:02}-01", period.year());
-    let (next_year, next_month) = if last_month == 12 {
-        (period.year() + 1, 1)
-    } else {
-        (period.year(), u32::from(last_month) + 1)
-    };
-    let next = chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
-        .ok_or_else(|| ProcessError::Store("invalid VAT period date".into()))?;
-    let end = next
-        .pred_opt()
-        .ok_or_else(|| ProcessError::Store("invalid VAT period end date".into()))?;
-    Ok((start, end.format("%Y-%m-%d").to_string()))
+    (start, period.last_date().to_string())
 }
 
 fn filing_approval_hash(

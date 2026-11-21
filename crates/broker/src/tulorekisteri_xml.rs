@@ -8,8 +8,8 @@ use aggountant_domain::{
     payroll::{EmployerReportAction, EmployerSeparateReport},
     validate_hetu, TravelLine, WageReport,
 };
+use aggountant_model::Instant;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use chrono::{DateTime, Utc};
 use ring::{rand::SystemRandom, signature};
 use sha2::{Digest, Sha256};
 use x509_parser::{parse_x509_certificate, pem::parse_x509_pem};
@@ -53,12 +53,12 @@ fn actors(business_id: &str) -> String {
 pub fn wage_record(
     report: &WageReport,
     hetu: &str,
-    timestamp: DateTime<Utc>,
+    timestamp: Instant,
 ) -> Result<String, AdapterError> {
-    report.validate(timestamp.date_naive()).map_err(|_| bad())?;
+    report.validate(timestamp.utc_date()).map_err(|_| bad())?;
     validate_hetu(hetu)
         .map_err(|_| AdapterError::Malformed("invalid income earner HETU in PII store".into()))?;
-    let mut data = e("Timestamp", &timestamp.to_rfc3339());
+    let mut data = e("Timestamp", &timestamp.to_string());
     data += &e("Source", "aggountant");
     data += &e("DeliveryDataType", DELIVERY_TYPE_WAGE);
     data += &e("DeliveryId", &report.delivery_id());
@@ -110,11 +110,11 @@ pub fn wage_record(
 /// Offline, no PII. Element order and names follow PayerSummaryReportsToIRTypes.xsd.
 pub fn payer_summary_record(
     report: &EmployerSeparateReport,
-    timestamp: DateTime<Utc>,
+    timestamp: Instant,
 ) -> Result<String, AdapterError> {
     report.validate().map_err(|_| bad())?;
     let business_id = report.business_id.as_str();
-    let mut data = e("Timestamp", &timestamp.to_rfc3339());
+    let mut data = e("Timestamp", &timestamp.to_string());
     data += &e("Source", "aggountant");
     data += &e("DeliveryDataType", DELIVERY_TYPE_EMPLOYER);
     data += &e("DeliveryId", &report.delivery_id(timestamp));
@@ -126,7 +126,7 @@ pub fn payer_summary_record(
         e("Name", report.contact_name.as_str()),
         e("Telephone", report.contact_phone.as_str())
     );
-    data += &e("ReportDate", &timestamp.date_naive().to_string());
+    data += &e("ReportDate", &timestamp.utc_date().to_string());
     data += &format!("<Payer><PayerIds>{}</PayerIds>", id("1", business_id));
     let pensions = report.sent_pension_insurances();
     if !pensions.is_empty() {
@@ -173,11 +173,11 @@ pub fn status_record(
     delivery_data_type: &str,
     delivery_id: &str,
     business_id: &str,
-    timestamp: DateTime<Utc>,
+    timestamp: Instant,
 ) -> String {
     format!(
         "<ir:StatusRequestToIR xmlns:ir=\"{STATUS_NS}\">{}{}{}{}{}</ir:StatusRequestToIR>",
-        e("Timestamp", &timestamp.to_rfc3339()),
+        e("Timestamp", &timestamp.to_string()),
         e("DeliveryDataType", delivery_data_type),
         e("DeliveryId", delivery_id),
         e("ProductionEnvironment", "true"),

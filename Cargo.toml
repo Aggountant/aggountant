@@ -25,7 +25,7 @@ homepage = "https://github.com/aggountant/aggountant"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 thiserror = "1"
-chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+jiff = { version = "1.0.1", default-features = false, features = ["std", "serde"] }
 rust_decimal = { version = "1.36", default-features = false, features = ["std"] }
 sha2 = "0.10"
 hex = "0.4"

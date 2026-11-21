@@ -10,7 +10,7 @@ use aggountant_broker::tulorekisteri_xml::{payer_summary_record, PSR_NS};
 use aggountant_domain::payroll::{
     EmployerReportAction, EmployerReportContent, EmployerSeparateReport, MonthPayments,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use aggountant_model::{Date, Instant};
 use roxmltree::{Document, Node};
 use serde_json::json;
 use std::collections::HashMap;
@@ -242,8 +242,8 @@ fn builtin(name: &str, v: &str) -> Result<(), String> {
         "boolean" => matches!(v, "true" | "false" | "1" | "0"),
         "decimal" => rust_decimal::Decimal::from_str_exact(v).is_ok(),
         // The Incomes Register forbids a time zone on dates and requires one on times.
-        "date" => NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok() && v.len() == 10,
-        "dateTime" => DateTime::parse_from_rfc3339(v).is_ok(),
+        "date" => Date::parse(v).is_ok(),
+        "dateTime" => Instant::parse(v).is_ok(),
         other => return Err(format!("unsupported builtin xs:{other}")),
     };
     if ok {
@@ -287,7 +287,7 @@ fn report() -> EmployerSeparateReport {
     .unwrap()
 }
 
-fn at() -> DateTime<Utc> {
+fn at() -> Instant {
     "2026-10-02T09:30:00Z".parse().unwrap()
 }
 

@@ -7,7 +7,8 @@
 //! comparisons between years valid; they may skip a value after an 18-month year, so
 //! the previous year comes from [`FiscalCalendar::previous`], never from `year - 1`.
 
-use chrono::{Datelike, Months, NaiveDate};
+use jiff::civil::Date as CivilDate;
+use jiff::Span;
 use serde::Serialize;
 
 use crate::error::ModelError;
@@ -28,17 +29,18 @@ pub struct FiscalYear {
     end: Date,
 }
 
-fn date_of(d: NaiveDate) -> Result<Date, ModelError> {
-    Date::from_ymd(d.year(), d.month(), d.day())
+fn date_of(d: CivilDate) -> Result<Date, ModelError> {
+    Date::from_ymd(i32::from(d.year()), d.month() as u32, d.day() as u32)
 }
 
-fn month_index(d: NaiveDate) -> i64 {
-    i64::from(d.year()) * 12 + i64::from(d.month0())
+fn month_index(d: CivilDate) -> i64 {
+    i64::from(d.year()) * 12 + i64::from(d.month() - 1)
 }
 
-fn add_months(d: NaiveDate, months: u32) -> Result<NaiveDate, ModelError> {
-    d.checked_add_months(Months::new(months))
-        .ok_or_else(|| ModelError::InvalidDate(format!("{d} + {months} months overflows")))
+/// `months` calendar months after `d`, clamped to the end of a shorter month.
+fn add_months(d: CivilDate, months: u32) -> Result<CivilDate, ModelError> {
+    d.checked_add(Span::new().months(i64::from(months)))
+        .map_err(|_| ModelError::InvalidDate(format!("{d} + {months} months overflows")))
 }
 
 impl FiscalYear {
@@ -50,7 +52,7 @@ impl FiscalYear {
                 "fiscal year must start on the first day of a month, got {start}"
             )));
         }
-        if e.succ_opt().is_none_or(|next| next.day() != 1) {
+        if e.tomorrow().ok().is_none_or(|next| next.day() != 1) {
             return Err(ModelError::InvalidFiscalYear(format!(
                 "fiscal year must end on the last day of a month, got {end}"
             )));
@@ -68,7 +70,7 @@ impl FiscalYear {
             )));
         }
         Ok(Self {
-            year: e.year(),
+            year: i32::from(e.year()),
             start,
             end,
         })
@@ -111,7 +113,7 @@ impl FiscalYear {
         (0..self.months())
             .map(|offset| {
                 let d = add_months(first, offset)?;
-                PeriodId::new_month(d.year(), d.month() as u8)
+                PeriodId::new_month(i32::from(d.year()), d.month() as u8)
             })
             .collect()
     }
@@ -121,14 +123,15 @@ impl FiscalYear {
         let start = self
             .end
             .inner()
-            .succ_opt()
+            .tomorrow()
+            .ok()
             .ok_or_else(|| ModelError::InvalidDate(format!("no day after {}", self.end)))?;
         Self::twelve_from(start)
     }
 
-    fn twelve_from(start: NaiveDate) -> Result<Self, ModelError> {
+    fn twelve_from(start: CivilDate) -> Result<Self, ModelError> {
         let end = add_months(start, 12)?
-            .pred_opt()
+            .yesterday()
             .expect("a date after a valid start has a predecessor");
         Self::new(date_of(start)?, date_of(end)?)
     }
@@ -213,12 +216,12 @@ impl FiscalCalendar {
     /// The fiscal year containing `date`.
     pub fn year_of(&self, date: Date) -> Result<FiscalYear, ModelError> {
         let Some(first) = self.defined.first() else {
-            return FiscalYear::calendar(date.inner().year());
+            return FiscalYear::calendar(date.year());
         };
         if date < first.start {
             let s = first.start.inner();
             if s.month() == 1 && s.day() == 1 {
-                return FiscalYear::calendar(date.inner().year());
+                return FiscalYear::calendar(date.year());
             }
             return Err(ModelError::FiscalYearUndefined(format!(
                 "{date} is before the first fiscal year {}..{}",
@@ -237,7 +240,8 @@ impl FiscalCalendar {
         let continuation = anchor
             .end
             .inner()
-            .succ_opt()
+            .tomorrow()
+            .ok()
             .ok_or_else(|| ModelError::InvalidDate(format!("no day after {}", anchor.end)))?;
         // Years are whole months, so the month distance alone picks the year.
         let whole_years = (month_index(date.inner()) - month_index(continuation)) / 12;
@@ -269,7 +273,8 @@ impl FiscalCalendar {
         let day_before = year
             .start
             .inner()
-            .pred_opt()
+            .yesterday()
+            .ok()
             .ok_or_else(|| ModelError::InvalidDate(format!("no day before {}", year.start)))?;
         self.year_of(date_of(day_before)?)
     }
@@ -279,7 +284,8 @@ impl FiscalCalendar {
         let day_after = year
             .end
             .inner()
-            .succ_opt()
+            .tomorrow()
+            .ok()
             .ok_or_else(|| ModelError::InvalidDate(format!("no day after {}", year.end)))?;
         self.year_of(date_of(day_after)?)
     }

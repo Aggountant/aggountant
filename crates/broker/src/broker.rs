@@ -325,7 +325,7 @@ impl Broker {
                 sent_hash: sent_hash.clone(),
                 delivery_semantics: semantics,
                 attempt: attempt_no,
-                ts: chrono::Utc::now().to_rfc3339(),
+                ts: aggountant_model::Instant::now().to_string(),
             };
 
             // Pre-dispatch intent: record the attempt durably BEFORE the network call,

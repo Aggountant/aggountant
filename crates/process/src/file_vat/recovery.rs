@@ -39,7 +39,8 @@
 //! `file-vat status` reads the same evidence without recording it and names
 //! `file-vat reconcile`; there is no resume command.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use aggountant_model::Instant;
+use jiff::civil::Date as CivilDate;
 use serde::Serialize;
 
 use aggountant_broker::{
@@ -85,9 +86,9 @@ pub enum FileVatReconcileOutcome {
 /// One answer recorded on the Run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AuthorityCheck {
-    pub checked_at: DateTime<Utc>,
+    pub checked_at: Instant,
     /// The Finnish calendar date of the check, which bank days are counted in.
-    pub finnish_date: NaiveDate,
+    pub finnish_date: CivilDate,
     /// GetFiledVATReturn's `Status`, or `(none)`.
     pub remote_status: String,
 }
@@ -103,7 +104,7 @@ pub struct FileVatReconcile {
     /// Every answer recorded on the Run, oldest first.
     pub authority_checks: Vec<AuthorityCheck>,
     /// After a "not found": the earliest instant a second one counts.
-    pub next_check_from: Option<DateTime<Utc>>,
+    pub next_check_from: Option<Instant>,
     /// Where the processed return the authority shows differs from the approved
     /// request; empty unless this read found one that differs.
     pub differences: Vec<VatValueDifference>,
@@ -591,7 +592,7 @@ impl ProcessEngine {
         &self,
         broker: &Broker,
         period: &PeriodId,
-    ) -> Result<Option<DateTime<Utc>>, ProcessError> {
+    ) -> Result<Option<Instant>, ProcessError> {
         let entry = broker
             .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &filing_outbox_key(period))
             .map_err(map_broker)?
@@ -626,7 +627,7 @@ fn filing_outbox_key(period: &PeriodId) -> String {
 type ReconcileStep = (
     FileVatReconcileOutcome,
     Option<String>,
-    Option<DateTime<Utc>>,
+    Option<Instant>,
     String,
 );
 
@@ -650,17 +651,17 @@ pub(super) enum Dispatch {
     /// The authority accepted the request; the outbox holds its receipt.
     Receipt(FileVatReceipt),
     /// A request may have reached the authority without an answer recorded.
-    MayHaveArrived { attempted: DateTime<Utc> },
+    MayHaveArrived { attempted: Instant },
     /// No request for the period left, or every one was refused outright, so no
     /// return of the Run can surface later. `since` is when the Run began
     /// dispatching.
-    NotAccepted { since: DateTime<Utc> },
+    NotAccepted { since: Instant },
 }
 
 /// Whether the authority may hold a return from this filing.
 pub(super) enum Reach {
-    MayHaveArrived { attempted: DateTime<Utc> },
-    Refused { since: DateTime<Utc> },
+    MayHaveArrived { attempted: Instant },
+    Refused { since: Instant },
 }
 
 /// What GetFiledVATReturn says about the approved return.
@@ -708,23 +709,22 @@ pub(super) fn describe_differences(differences: &[VatValueDifference]) -> String
     format!(" Differs: {}.", listed.join("; "))
 }
 
-fn parse_instant(value: &str) -> Result<DateTime<Utc>, ProcessError> {
-    DateTime::parse_from_rfc3339(value)
-        .map(|instant| instant.to_utc())
+fn parse_instant(value: &str) -> Result<Instant, ProcessError> {
+    Instant::parse(value)
         .map_err(|_| ProcessError::JournalCorrupt(format!("bad timestamp {value:?}")))
 }
 
-fn clock_now(clock: &dyn Clock) -> Result<DateTime<Utc>, ProcessError> {
+fn clock_now(clock: &dyn Clock) -> Result<Instant, ProcessError> {
     i64::try_from(clock.now_epoch_secs())
         .ok()
-        .and_then(|secs| DateTime::from_timestamp(secs, 0))
+        .and_then(|secs| Instant::from_unix(secs, 0))
         .ok_or_else(|| ProcessError::Store("the clock is out of range".into()))
 }
 
 /// An instant as Finnish local time to the minute, for messages and notes.
-fn finnish_minute(instant: DateTime<Utc>) -> String {
+fn finnish_minute(instant: Instant) -> String {
     finnish_local_time(instant)
-        .format("%Y-%m-%d %H:%M")
+        .strftime("%Y-%m-%d %H:%M")
         .to_string()
 }
 
@@ -743,7 +743,7 @@ fn record_authority_check(
     journal: &Journal,
     f: &Fold,
     remote_status: &str,
-    checked_at: DateTime<Utc>,
+    checked_at: Instant,
 ) -> Result<(), ProcessError> {
     let n = f
         .effects
@@ -760,7 +760,7 @@ fn record_authority_check(
         effect_key,
         note: format!(
             "{remote_status}{CHECKED_AT}{}",
-            checked_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            checked_at.to_whole_seconds_z()
         ),
     })?;
     Ok(())
@@ -783,9 +783,7 @@ fn authority_checks(
         .map(|note| {
             let corrupt = || ProcessError::JournalCorrupt(format!("bad authority check {note:?}"));
             let (remote_status, checked_at) = note.rsplit_once(CHECKED_AT).ok_or_else(corrupt)?;
-            let instant = DateTime::parse_from_rfc3339(checked_at)
-                .map_err(|_| corrupt())?
-                .to_utc();
+            let instant = Instant::parse(checked_at).map_err(|_| corrupt())?;
             Ok(AuthorityCheck {
                 checked_at: instant,
                 finnish_date: finnish_date(instant),
@@ -797,13 +795,8 @@ fn authority_checks(
 
 enum NotFoundStreak {
     None,
-    Waiting {
-        first: DateTime<Utc>,
-    },
-    Conclusive {
-        first: DateTime<Utc>,
-        last: DateTime<Utc>,
-    },
+    Waiting { first: Instant },
+    Conclusive { first: Instant, last: Instant },
 }
 
 /// The "not found" answers since the last other answer. Conclusive once one of
@@ -847,9 +840,7 @@ mod tests {
     use super::*;
 
     fn check(status: &str, date: &str) -> AuthorityCheck {
-        let checked_at = DateTime::parse_from_rfc3339(&format!("{date}T09:00:00Z"))
-            .unwrap()
-            .to_utc();
+        let checked_at = Instant::parse(&format!("{date}T09:00:00Z")).unwrap();
         AuthorityCheck {
             checked_at,
             finnish_date: finnish_date(checked_at),
@@ -886,8 +877,8 @@ mod tests {
     #[test]
     fn two_answers_across_midnight_are_not_a_bank_day_apart() {
         let at = |value: &str| AuthorityCheck {
-            checked_at: DateTime::parse_from_rfc3339(value).unwrap().to_utc(),
-            finnish_date: finnish_date(DateTime::parse_from_rfc3339(value).unwrap().to_utc()),
+            checked_at: Instant::parse(value).unwrap(),
+            finnish_date: finnish_date(Instant::parse(value).unwrap()),
             remote_status: NOT_FOUND.into(),
         };
         // Monday 23:59 and Tuesday 00:00 in Finland (UTC+2).

@@ -627,5 +627,5 @@ fn receipt_date(accepted_timestamp: &str) -> Option<&str> {
 }
 
 fn is_date(value: &str) -> bool {
-    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
+    aggountant_model::Date::parse(value).is_ok()
 }

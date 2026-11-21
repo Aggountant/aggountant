@@ -4,13 +4,12 @@ use aggountant_broker::{
     evaluate_vero_readiness, VeroAttestations, VeroCredentialTarget, VeroFilingMode,
     VeroFilingProfile, VeroReadinessPurpose,
 };
-use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone};
+use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Instant};
 use aggountant_vero_vat_api_mock::MtlsTestCredentials;
-use chrono::{TimeZone, Utc};
 use serde_json::json;
 
-fn now() -> chrono::DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 9, 13, 12, 0, 0).unwrap()
+fn now() -> Instant {
+    Instant::parse("2026-09-13T12:00:00Z").unwrap()
 }
 
 fn profile(mode: VeroFilingMode) -> VeroFilingProfile {

@@ -5,11 +5,12 @@ use aggountant_broker::ytj::{parse_companies, RegisterEntry, YtjError, YtjLookup
 use aggountant_domain::payroll::{MonthPayments, ReportMonth};
 use aggountant_ledger::Ledger;
 use aggountant_model::BusinessId;
+use aggountant_model::Instant;
 use aggountant_process::{
     EmployerMonthState, EmployerReportInput, EmployerReportReceipt, ProcessEngine,
     RegistrationCheck, RegistrationComparison, RegistrationVerdict, TranscriptConflictKind,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::civil::Date as CivilDate;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -62,10 +63,10 @@ fn month(s: &str) -> ReportMonth {
 fn months(list: &[&str]) -> Vec<ReportMonth> {
     list.iter().map(|m| month(m)).collect()
 }
-fn day(s: &str) -> NaiveDate {
+fn day(s: &str) -> CivilDate {
     s.parse().unwrap()
 }
-fn t(s: &str) -> DateTime<Utc> {
+fn t(s: &str) -> Instant {
     s.parse().unwrap()
 }
 fn manual(e: &ProcessEngine, m: &str) {
