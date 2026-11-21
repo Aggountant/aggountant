@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use aggountant_broker::tulorekisteri::{
     evaluate_readiness, load_wage_profile, wage_profile_path, write_wage_profile,
-    TulorekisteriReadiness, WageProfile,
+    EmployerReportProfile, TulorekisteriReadiness, WageProfile,
 };
 use aggountant_model::Instant;
 use clap::Subcommand;
@@ -27,7 +27,7 @@ pub enum TulorekisteriCmd {
         /// Validate and report the changes and the resulting readiness; write nothing.
         #[arg(long)]
         dry_run: bool,
-        /// Write the input as the whole profile instead of merging it into the stored one; drops every stored field the input leaves out, the employer_report block included. Also the way to overwrite a stored profile that is not valid.
+        /// Write the input as the whole set of channel settings instead of merging it into the stored ones; drops every stored setting the input leaves out. A readable employer_report block is kept. Also the way to overwrite a stored profile that is not valid.
         #[arg(long)]
         replace: bool,
     },
@@ -112,22 +112,29 @@ fn configure(home: &Path, input: &str, dry_run: bool, replace: bool) -> Result<V
     };
     // The merge base is the stored file as a JSON object, so the employer_report
     // block passes through as written; the result is then read as the profile type,
-    // which refuses anything malformed.
-    let before = match &stored {
-        Some(bytes) if !replace => match serde_json::from_slice::<Value>(bytes) {
-            Ok(value @ Value::Object(_)) => value,
-            _ => {
-                return Err(CliError::user(
-                    "TULOREKISTERI_PROFILE_INVALID",
-                    "the stored tulorekisteri.json is not a JSON object, so the input cannot be merged into it; write a complete profile with --replace",
-                ))
-            }
-        },
-        _ => Value::Object(Default::default()),
-    };
+    // which refuses anything malformed. `changes` is always against the stored file.
+    let stored_object = stored
+        .as_deref()
+        .and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok())
+        .filter(Value::is_object);
+    if stored.is_some() && stored_object.is_none() && !replace {
+        return Err(CliError::user(
+            "TULOREKISTERI_PROFILE_INVALID",
+            "the stored tulorekisteri.json is not a JSON object, so the input cannot be merged into it; write a complete profile with --replace",
+        ));
+    }
+    let before = stored_object.unwrap_or_else(|| Value::Object(Default::default()));
     let mut merged = before.clone();
     if replace {
+        // The replaced fields are this command's; a readable employer_report block
+        // belongs to its own command and is kept. One that does not parse is
+        // dropped, and `changes` shows it.
         merged = patch;
+        if let Some(block) = before.get("employer_report").filter(|block| {
+            serde_json::from_value::<EmployerReportProfile>((*block).clone()).is_ok()
+        }) {
+            merged["employer_report"] = block.clone();
+        }
     } else {
         vero_fi::merge_patch(&mut merged, &patch);
     }

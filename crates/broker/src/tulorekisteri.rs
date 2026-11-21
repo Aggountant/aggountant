@@ -300,6 +300,14 @@ fn credential_blockers(
             return None;
         }
     };
+    if crate::tulorekisteri_xml::signing_key(&cred).is_err() {
+        blocker(
+            blockers,
+            "TULOREKISTERI_CREDENTIAL_INVALID",
+            "agent",
+            "the client private key is not an RSA key in PKCS#8 or PKCS#1 PEM, which record signing needs",
+        );
+    }
     if now < meta.not_before {
         blocker(
             blockers,
@@ -1269,6 +1277,13 @@ mod tests {
         let later = "2040-01-01T00:00:00Z".parse().unwrap();
         let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&credential), later);
         assert_eq!(codes(&r), ["TULOREKISTERI_CERTIFICATE_EXPIRED"]);
+
+        // A key record signing cannot load is a blocker, not a send-time refusal.
+        let mut bundle: serde_json::Value = serde_json::from_str(&secret()).unwrap();
+        bundle["client_private_key_pem"] = json!(format!("\n{}", Pki::KEY));
+        std::fs::write(&credential, bundle.to_string()).unwrap();
+        let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&credential), time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_CREDENTIAL_INVALID"]);
     }
     #[test]
     fn golden_signed_records_and_rsa_verification() {

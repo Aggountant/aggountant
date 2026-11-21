@@ -14,11 +14,13 @@ macro_rules! vat_code_input {
         r#"  vat_code (optional, per posting) is how a manually prepared voucher reaches
   the VAT return. Put it on the VAT base line (the net sales or expense
   posting), never on the VAT account line, which carries no code: the VAT
-  return derives each tagged posting's VAT as round(base x rate) at the rate in
-  force on document_date and reconciles it against the VAT accounts, so a code
-  on the VAT line would count VAT on VAT and an untagged base line is missing
-  from the return. Book the VAT line at that derived amount (with -deduct<NN>,
-  the deductible share).
+  return derives each tagged posting's VAT at the rate in force on
+  document_date and reconciles it against the VAT accounts, so a code on the
+  VAT line would count VAT on VAT and an untagged base line is missing from
+  the return. The derived VAT is round(base x rate / 100); for a margin code
+  it is extracted from within the tagged margin, round(margin x rate /
+  (100 + rate)). Book the VAT line at that derived amount (with -deduct<NN>,
+  the deductible share of it).
   Grammar: <direction>-<rate class>. direction is sales (output VAT) or
   purchase (deductible input VAT); the rate class comes from the dated rate
   table, e.g. sales-domestic-standard, purchase-domestic-reduced-1,
@@ -459,10 +461,10 @@ pub(crate) const TULOREKISTERI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
   are merged into the stored profile (JSON merge patch): a field left out keeps
   its stored value and null clears credentials_file. The output lists every
   changed field under changes, before and after, and the resulting readiness;
-  check them with --dry-run first. --replace writes the input as the whole
-  profile instead. Unknown fields are refused; employer_report is refused here
-  and kept as stored (`file-wage employer-report configure` writes it). The
-  profile holds no secrets.
+  check them with --dry-run first. --replace writes the input as the whole set
+  of settings instead. Unknown fields are refused; employer_report is refused
+  here and kept as stored, also with --replace (`file-wage employer-report
+  configure` writes it). The profile holds no secrets.
   schema_version               1.
   mode                         "disabled" or "production". A production profile
                                is written only when readiness is ready

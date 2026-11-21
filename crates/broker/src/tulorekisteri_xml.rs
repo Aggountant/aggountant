@@ -260,10 +260,12 @@ pub fn status_record(
 fn signed_info(digest: &str) -> String {
     format!("<ds:SignedInfo xmlns:ds=\"{DS}\"><ds:CanonicalizationMethod Algorithm=\"{C14N}\"></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256\"></ds:SignatureMethod><ds:Reference URI=\"\"><ds:Transforms><ds:Transform Algorithm=\"{DS}enveloped-signature\"></ds:Transform><ds:Transform Algorithm=\"{C14N}\"></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"></ds:DigestMethod><ds:DigestValue>{digest}</ds:DigestValue></ds:Reference></ds:SignedInfo>")
 }
-/// Called only on this module's generated records. The adapter reconstructs them
-/// from validated input, rather than signing caller-supplied XML.
-pub(crate) fn sign_record(record: &str, handle: &CredentialHandle) -> Result<String, AdapterError> {
-    let credentials = VeroCredentials::parse(handle.expose_secret()).map_err(|_| bad())?;
+/// The RSA key records are signed with: PKCS#8 or PKCS#1 PEM. Readiness loads it
+/// too, so a bundle the transport accepts but signing cannot use is a blocker
+/// rather than a refusal at send time.
+pub(crate) fn signing_key(
+    credentials: &VeroCredentials,
+) -> Result<signature::RsaKeyPair, AdapterError> {
     let key_pem = &credentials.client_private_key_pem;
     let (label, pkcs8) = if key_pem.starts_with("-----BEGIN PRIVATE KEY-----") {
         ("PRIVATE KEY", true)
@@ -282,12 +284,18 @@ pub(crate) fn sign_record(record: &str, handle: &CredentialHandle) -> Result<Str
                 .collect::<String>(),
         )
         .map_err(|_| bad())?;
-    let key = if pkcs8 {
+    if pkcs8 {
         signature::RsaKeyPair::from_pkcs8(&key_der)
     } else {
         signature::RsaKeyPair::from_der(&key_der)
     }
-    .map_err(|_| bad())?;
+    .map_err(|_| bad())
+}
+/// Called only on this module's generated records. The adapter reconstructs them
+/// from validated input, rather than signing caller-supplied XML.
+pub(crate) fn sign_record(record: &str, handle: &CredentialHandle) -> Result<String, AdapterError> {
+    let credentials = VeroCredentials::parse(handle.expose_secret()).map_err(|_| bad())?;
+    let key = signing_key(&credentials)?;
     let (_, cert) =
         parse_x509_pem(credentials.client_certificate_pem.as_bytes()).map_err(|_| bad())?;
     let (_, parsed) = parse_x509_certificate(&cert.contents).map_err(|_| bad())?;

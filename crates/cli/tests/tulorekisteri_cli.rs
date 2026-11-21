@@ -165,6 +165,26 @@ fn configure_merges_status_itemises_and_employer_report_survives() {
     assert_eq!(status["ready"], true, "{status}");
     assert!(status["certificate"]["not_after"].is_string());
 
+    // --replace rewrites the channel settings and keeps the employer_report block.
+    let (code, replaced, err) = invoke(
+        h,
+        p,
+        &["tulorekisteri", "configure", "--replace"],
+        &json!({"schema_version":1,"mode":"disabled","business_id":"1234567-1","reporting_permission_active":true}).to_string(),
+    );
+    assert_eq!(code, 0, "{err}");
+    let changed: Vec<&str> = replaced["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["field"].as_str().unwrap())
+        .collect();
+    assert_eq!(changed, ["credentials_file", "mode"]);
+    let stored: Value = serde_json::from_slice(&std::fs::read(&profile_path).unwrap()).unwrap();
+    assert_eq!(stored["employer_report"]["registered_from"], "2026-08");
+    let (code, _, err) = invoke(h, p, &["tulorekisteri", "configure"], &production);
+    assert_eq!(code, 0, "{err}");
+
     // A credential for another company is a human blocker, not a vague refusal.
     let (code, status, _) = invoke(
         h,
