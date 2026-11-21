@@ -26,7 +26,7 @@ stored or sent timestamp keeps the bytes the chrono build wrote.
   times". The ADR-9 page and its manifest entry are removed.
 
 Proof that formats did not move: the golden tests were committed on chrono
-first (`c23cfb4`) and their expected strings are unchanged since then:
+first (`2206072`) and their expected strings are unchanged since then:
 formats 1–3 and read-back over 72 instants × 12 sub-second values
 (`crates/model/tests/golden/instants.tsv`), strict dates, Finnish local time,
 the employer-report delivery reference and wage proposal hash for whole and

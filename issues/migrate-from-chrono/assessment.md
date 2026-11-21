@@ -1,6 +1,6 @@
 # Assessment: migrate-from-chrono
 
-Source review: `history/review-migrate-from-chrono.md` (copied to `issues/migrate-from-chrono/review.md`). HEAD at assessment: `04247ec`.
+Source review: `history/review-migrate-from-chrono.md` (copied to `issues/migrate-from-chrono/review.md`). HEAD at assessment: `04247ec` (before rebase; now `4527735`).
 
 | # | Finding | Conf | Like | Read | Arch | Confidence | Recommendation |
 |---|---|---|---|---|---|---|---|

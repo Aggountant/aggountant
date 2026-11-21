@@ -1,6 +1,6 @@
 # Review: migrate-from-chrono (ADR-9, chrono → jiff)
 
-- **Target:** `git diff 5fcece7..04247ec` (golden tests, migration, deny/AGENTS/ADR removal), 3 100 lines without the golden TSV, `Cargo.lock` and the removed ADR page.
+- **Target:** `git diff 5fcece7..04247ec` (rebased onto main as `2206072..4527735`) (golden tests, migration, deny/AGENTS/ADR removal), 3 100 lines without the golden TSV, `Cargo.lock` and the removed ADR page.
 - **Finder:** gpt-6-astra (other provider than the implementing agent). **Verifier:** claude-fable-5-2. **Model calls:** 2.
 - **Rigor:** critical. Qualifying reason: timestamps in sealed vouchers, hash chains and authority payloads; a format drift is silently wrong bookkeeping and cannot be undone once written.
 - **Risk class:** data integrity (stored and sent formats), parsing of previously written data.
@@ -25,5 +25,5 @@ None.
 ## Coverage
 
 - Verifier's differential harness, sampled not exhaustive: 13.2 M `(secs, nanos)` pairs 1900–2100 (negative epoch, day boundaries, 19 nano patterns) comparing `Display`, serde, `to_whole_seconds_z`, `Debug`, `unix_seconds` and re-parsing all three chrono forms — zero differences. 10.6 M instants through old vs new `finnish_local_time` / `one_bank_day_after` (20-minute grid plus probes around every switch, year end, holidays) and all 73 413 dates through `start_of_finnish_day`, `is_finnish_bank_day`, `next_finnish_bank_day` — zero differences.
-- Host checks: every `Display` use of `Instant` enumerated by compiling with `Display` removed (only intended format-1 sites); golden expected strings unchanged since the chrono commit (`git diff c23cfb4 HEAD -- crates/model/tests/golden` empty; other golden diffs only change type annotations); `scripts/ci-local.sh` green on stable and 1.89, including `cargo deny` without the RUSTSEC-2026-0543 ignore.
+- Host checks: every `Display` use of `Instant` enumerated by compiling with `Display` removed (only intended format-1 sites); golden expected strings unchanged since the chrono commit (`git diff <golden commit> HEAD -- crates/model/tests/golden` empty; other golden diffs only change type annotations); `scripts/ci-local.sh` green on stable and 1.89, including `cargo deny` without the RUSTSEC-2026-0543 ignore.
 - Outside scope: musl and macOS release cross-builds (jiff and jiff-core are pure Rust with no build script; not cross-built here).
