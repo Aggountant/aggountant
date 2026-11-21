@@ -542,3 +542,60 @@ fn a_first_configure_without_mode_is_refused() {
     assert!(stderr.contains("mode"), "{stderr}");
     assert!(!accounting.path().join("vero-filing.json").exists());
 }
+
+#[test]
+fn a_misspelt_field_cleared_with_null_is_refused() {
+    let (accounting, platform, _secrets, _) = onboarded_home();
+    let before = std::fs::read(accounting.path().join("vero-filing.json")).unwrap();
+    for input in [
+        json!({"unexpected": null}),
+        json!({"attestations": {"production_permission_activ": null}}),
+        json!({"attestations": {"portal_verification": {"observed": null}}}),
+    ] {
+        let (code, _, stderr) = invoke(
+            accounting.path(),
+            platform.path(),
+            &["vero-fi", "configure"],
+            &input.to_string(),
+        );
+        assert_eq!(code, 1, "{input}");
+        assert!(stderr.contains("INVALID_INPUT"), "{stderr}");
+        assert!(stderr.contains("unknown field"), "{stderr}");
+    }
+    assert_eq!(
+        std::fs::read(accounting.path().join("vero-filing.json")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn a_new_credential_path_is_listed_among_the_changes() {
+    let (accounting, platform, secrets, _) = onboarded_home();
+    let old = secrets.path().join("vero.json");
+    let new = secrets.path().join("vero-renewed.json");
+    write_credential(&new, "production");
+    let input = json!({"credential_path": new}).to_string();
+    for args in [
+        &["vero-fi", "configure", "--dry-run"][..],
+        &["vero-fi", "configure"],
+    ] {
+        let (code, stdout, stderr) = invoke(accounting.path(), platform.path(), args, &input);
+        assert_eq!(code, 0, "{stderr}");
+        assert_eq!(
+            serde_json::from_str::<Value>(&stdout).unwrap()["changes"],
+            json!([{"field": "credential_path", "before": old, "after": new}]),
+            "{args:?}"
+        );
+    }
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["changes"],
+        json!([])
+    );
+}

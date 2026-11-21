@@ -101,6 +101,7 @@ pub(super) fn apply_configure_input(
     let merged = if replace {
         patch
     } else {
+        reject_unknown_nulls("", &patch, PROFILE_FIELDS)?;
         let mut merged = before.clone();
         merge_patch(&mut merged, &patch);
         merged
@@ -141,6 +142,72 @@ pub(super) fn apply_configure_input(
         credential_path,
         changes,
     })
+}
+
+/// The profile's field names, level by level: a field name and the fields of
+/// its object value. Only the merge needs it: a `null` member is a deletion and
+/// never reaches `deny_unknown_fields`, so a misspelt name would otherwise be
+/// accepted as a silent no-op. Every other member is checked by deserialising
+/// the merged profile.
+struct Field(&'static str, &'static [Field]);
+const PROFILE_FIELDS: &[Field] = &[
+    Field("schema_version", &[]),
+    Field("mode", &[]),
+    Field("business_id", &[]),
+    Field("contact_name", &[]),
+    Field("contact_phone", &[]),
+    Field(
+        "attestations",
+        &[
+            Field("software_registered", &[]),
+            Field("api_agreement_active", &[]),
+            Field("production_verification_completed", &[]),
+            Field("production_permission_active", &[]),
+            Field("activation_certificate_fingerprint_sha256", &[]),
+            Field(
+                "test_verification",
+                &[
+                    Field("observed_at", &[]),
+                    Field("certificate_fingerprint_sha256", &[]),
+                ],
+            ),
+            Field(
+                "portal_verification",
+                &[
+                    Field("observed_at", &[]),
+                    Field("certificate_fingerprint_sha256", &[]),
+                    Field("operations", &[]),
+                    Field("file_vat_return_receipt", &[]),
+                ],
+            ),
+        ],
+    ),
+];
+
+fn reject_unknown_nulls(
+    prefix: &str,
+    patch: &serde_json::Value,
+    fields: &[Field],
+) -> Result<(), CliError> {
+    let Some(members) = patch.as_object() else {
+        return Ok(());
+    };
+    for (key, value) in members {
+        let known = fields.iter().find(|Field(name, _)| name == key);
+        match known {
+            None if value.is_null() => {
+                return Err(CliError::user(
+                    "INVALID_INPUT",
+                    format!("could not parse stdin JSON: unknown field `{prefix}{key}`"),
+                ))
+            }
+            Some(Field(_, nested)) => {
+                reject_unknown_nulls(&format!("{prefix}{key}."), value, nested)?
+            }
+            None => {}
+        }
+    }
+    Ok(())
 }
 
 /// RFC 7386 JSON merge patch.
@@ -205,5 +272,64 @@ fn diff_leaves(
             "after": after,
         })),
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paths(prefix: &str, value: &serde_json::Value, out: &mut Vec<String>) {
+        for (key, nested) in value.as_object().into_iter().flatten() {
+            out.push(format!("{prefix}{key}"));
+            paths(&format!("{prefix}{key}."), nested, out);
+        }
+    }
+
+    fn field_paths(prefix: &str, fields: &[Field], out: &mut Vec<String>) {
+        for Field(name, nested) in fields {
+            out.push(format!("{prefix}{name}"));
+            field_paths(&format!("{prefix}{name}."), nested, out);
+        }
+    }
+
+    /// PROFILE_FIELDS names exactly the fields a fully populated profile
+    /// serialises, so a field added to the profile cannot be missed here.
+    #[test]
+    fn profile_fields_match_the_profile_type() {
+        let fingerprint = "a".repeat(64);
+        let full = serde_json::json!({
+            "schema_version": 1,
+            "mode": "production",
+            "business_id": "1234567-1",
+            "contact_name": "Maija Meikäläinen",
+            "contact_phone": "+358401234567",
+            "attestations": {
+                "software_registered": true,
+                "api_agreement_active": true,
+                "production_verification_completed": true,
+                "production_permission_active": true,
+                "activation_certificate_fingerprint_sha256": fingerprint,
+                "test_verification": {
+                    "observed_at": "2026-09-12T08:15:30Z",
+                    "certificate_fingerprint_sha256": fingerprint
+                },
+                "portal_verification": {
+                    "observed_at": "2026-09-13T09:00:00Z",
+                    "certificate_fingerprint_sha256": fingerprint,
+                    "operations": ["GetVATPeriods/v1", "FileVATReturn/v2", "GetFiledVATReturn/v2"],
+                    "file_vat_return_receipt": "{\"UniqueIdentifier\":\"verification\",\"AcceptedTimestamp\":\"2026-09-13T09:00:00Z\"}"
+                }
+            }
+        });
+        let profile: aggountant_broker::VeroFilingProfile = serde_json::from_value(full).unwrap();
+        profile.validate().unwrap();
+        let mut serialised = Vec::new();
+        paths("", &serde_json::to_value(profile).unwrap(), &mut serialised);
+        let mut declared = Vec::new();
+        field_paths("", PROFILE_FIELDS, &mut declared);
+        serialised.sort();
+        declared.sort();
+        assert_eq!(serialised, declared);
     }
 }

@@ -1445,6 +1445,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                             )
                         })?;
                     }
+                    let stored_credential_path = platform_config.vero_credentials_file.clone();
                     if !dry_run {
                         if outcome.credential_path.is_some() {
                             platform_config.vero_credentials_file = outcome.credential_path.clone();
@@ -1461,7 +1462,19 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     value["dry_run"] = json!(dry_run);
                     value["written"] = json!(!dry_run);
                     value["merged"] = json!(!replace);
-                    value["changes"] = json!(outcome.changes);
+                    let mut changes = outcome.changes;
+                    if let Some(path) = outcome
+                        .credential_path
+                        .as_ref()
+                        .filter(|path| stored_credential_path.as_ref() != Some(*path))
+                    {
+                        changes.push(json!({
+                            "field": "credential_path",
+                            "before": stored_credential_path,
+                            "after": path,
+                        }));
+                    }
+                    value["changes"] = json!(changes);
                     if *dry_run {
                         let mut would = vec![json!({
                             "action": "update",

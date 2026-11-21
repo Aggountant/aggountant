@@ -381,7 +381,8 @@ pub(crate) const VERO_FI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
                   test_verification and portal_verification (evidence the
                   verify commands record; leave them out).
   credential_path optional. Platform-local credential bundle path, stored in
-                  the platform configuration, not in the profile.
+                  the platform configuration, not in the profile; absent or
+                  null leaves the stored path unchanged.
 
 Example JSON (input-shape demonstration only; fictional company):
 ```json
