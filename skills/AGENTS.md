@@ -34,8 +34,11 @@ maintainer keeps when editing entries:
   business IDs, no URLs carrying an identifier (write `./Retrieve/…`), and
   nothing about extracting cookies, tokens or session identifiers.
 - **Knowledge is never authority.** Reject an entry that makes the browser a
-  channel for a filing aggountant can make, or that steps around an approval or
-  a blocker. *Rajapinta* names the command where one exists.
+  route around aggountant: past a blocker, an unresolved submission or a
+  pending approval. A return the user files by hand may be filled on their
+  explicit request, but the submit and its confirmation stay theirs and the
+  result is recorded with `complete-manual`. *Rajapinta* names the command
+  where one exists.
 - **Dates move only on evidence**: someone saw the behaviour at the page, in a
   contribution or the maintainer's own use. Changed behaviour is a rewritten
   entry with a new *Havaittu*; the id stays, because local company facts and

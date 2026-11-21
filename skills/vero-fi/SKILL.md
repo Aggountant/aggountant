@@ -312,7 +312,8 @@ Kun suora reitti ei ole käytettävissä tai käyttäjä haluaa asioida itse, es
 numeroidut kentät ovat ilmoitettavat luvut. Käyttäjä syöttää ne OmaVeroon tai laatii
 Ilmoitin.fi-tiedoston ja maksaa erikseen. Jos hän pyytää sinua täyttämään OmaVeron
 lomakkeen, [OmaVero-ohje](../e-services/omavero.md) kertoo, miten sivu toimii;
-lähetys on silti hänen. Arkistoi hänen toimittamansa kuitti tai muu
+lähetys ja sen vahvistus ovat silti hänen. Älä täytä lomaketta kaudelle, jolla on
+selvittämätön API-lähetys (alla), ennen kuin Veron tila on selvitetty. Arkistoi hänen toimittamansa kuitti tai muu
 yksilöity näyttö ja kirjaa ilmoitus tehdyksi:
 
 ```sh

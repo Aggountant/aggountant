@@ -19,14 +19,15 @@ ja `aggountant`-työvälineesi.
 Tämän skillin merkinnät kertovat, miten palvelun sivu käyttäytyy. Mikään merkintä ei
 anna lupaa tehdä mitään. Kun aggountantilla on komento tehtävään, käytä sitä:
 ALV-ilmoitus kulkee `file-vat`-komennolla ja työnantajan ilmoitus `file-wage`-komennolla,
-kumpikin omalla hyväksynnällään. Selain ei ole varakanava ilmoitukselle, jonka
-aggountant osaa tehdä, eikä sillä kierretä ohjelman estettä tai odottavaa
-hyväksyntää.
+kumpikin omalla hyväksynnällään. Selain ei ole aggountantin varakanava: kun ohjelma
+estää lähetyksen, aiempi lähetys on selvittämättä tai hyväksyntä odottaa, selaimella
+ei tehdä samaa ilmoitusta sen ohi.
 
-Lomakkeen, jota aggountant ei tuota (esimerkiksi käsin tehtävä ilmoitus tai korjaus),
-voit täyttää käyttäjän nimenomaisesta pyynnöstä, mutta lopullinen lähetys on
-käyttäjän teko. Tulos kirjataan aggountantin manuaalisen ilmoituksen polulla
-(`complete-manual`), jotta kirjanpito tietää, mitä viranomaiselle on annettu.
+Ilmoituksen, jonka käyttäjä antaa itse (käsin annettu ilmoitus tai korjaus, jota
+aggountant ei tuota), lomakkeen voit täyttää hänen nimenomaisesta pyynnöstään.
+Lähetys ja sen vahvistus ovat hänen tekojaan: pysähdy ennen lähetyspainiketta. Tulos
+kirjataan aggountantin manuaalisen ilmoituksen polulla (`complete-manual`), jotta
+kirjanpito tietää, mitä viranomaiselle on annettu.
 
 Älä poimi evästeitä, tunnisteita tai istuntotunnuksia sivulta, äläkä tallenna
 tunnisteen sisältäviä osoitteita. Merkinnöissä polut ovat malleja (`./Retrieve/…`).
@@ -57,8 +58,8 @@ jossa on pysyvä tunniste ja nimi, neljä otsakeriviä ja selitys.
 - **Havaittu** on päivä, jolloin käyttäytyminen nähtiin ensimmäisen kerran, ja
   **Vahvistettu** viimeisin päivä, jolloin joku näki sen yhä toimivan.
 - **Rajapinta** nimeää aggountantin komennon tai viranomaisen rajapinnan, joka tekee
-  saman tehtävän, tai sanoo, ettei sellaista ole. Jos komento on, käytä sitä äläkä
-  selainta.
+  saman tehtävän, tai sanoo, ettei sellaista ole. Jos komento on, käytä sitä, ellei
+  käyttäjä nimenomaan halua antaa ilmoitusta itse.
 
 Tunniste (esimerkiksi `omavero-kirje-lataus`) pysyy, vaikka teksti muuttuu. Viittaa
 siihen, kun kerrot käyttäjälle, minkä ohjeen mukaan toimit tai mikä ohje ei enää

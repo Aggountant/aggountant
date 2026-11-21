@@ -31,19 +31,20 @@ perusteella, ei sijainnin. Palaa avatusta kirjeestä listaan sivun "Palaa heti"
 - **Palvelu ja sivu:** OmaVero › lomakkeiden syöttökentät
 - **Lähde:** havaittu (ei dokumentoitu)
 - **Havaittu:** 2026-11-19 · **Vahvistettu:** 2026-11-19
-- **Rajapinta:** ALV-ilmoitus `aggountant file-vat`; muille lomakkeille ei
+- **Rajapinta:** ALV-ilmoitus `aggountant file-vat`; käsin annettu ilmoitus kirjataan `complete-manual`-komennolla
 
 Kenttä hyväksyy arvon vain, kun se syötetään
-`document.execCommand('insertText')`-kutsulla kenttään kohdistettuna. Täytä lomaketta vain käyttäjän nimenomaisesta pyynnöstä ja vain, kun
-aggountant ei tuota samaa ilmoitusta.
+`document.execCommand('insertText')`-kutsulla kenttään kohdistettuna. Täytä
+lomaketta vain käyttäjän nimenomaisesta pyynnöstä, äläkä koskaan ohjelman esteen,
+selvittämättömän lähetyksen tai odottavan hyväksynnän ohi.
 
 ## omavero-lahetys-vahvistus — Lähetys pyytää erillisen vahvistuksen
 
 - **Palvelu ja sivu:** OmaVero › lomakkeen lähetys
 - **Lähde:** havaittu (ei dokumentoitu)
 - **Havaittu:** 2026-11-19 · **Vahvistettu:** 2026-11-19
-- **Rajapinta:** ALV-ilmoitus `aggountant file-vat`; muille lomakkeille ei
+- **Rajapinta:** ALV-ilmoitus `aggountant file-vat`; käsin annettu ilmoitus kirjataan `complete-manual`-komennolla
 
-Jokainen lähetys avaa vielä erillisen vahvistuksen, joka hyväksytään OK-painikkeella.
-Lähetys on tehty vasta sen jälkeen. Vahvistus on käyttäjän teko: pysähdy sen
-kohdalla ja anna käyttäjän hyväksyä se itse.
+Lähetyspainikkeen jälkeen avautuu vielä erillinen vahvistus, joka hyväksytään
+OK-painikkeella; lähetys on tehty vasta sen jälkeen. Kumpikin on käyttäjän teko:
+pysähdy ennen lähetyspainiketta, älä vasta vahvistuksen kohdalla.
