@@ -295,7 +295,7 @@ mod tests {
             OpeningBalanceSource::ExternalCutover {
                 prior_year: 2025,
                 source_head_hash: Hash::from_bytes([1; 32]),
-                source_chart_version: "briox-2025@source".into(),
+                source_chart_version: "imported-2025@source".into(),
                 target_chart_version: "fi-general-2026@target".into(),
                 account_mapping_hash: Hash::from_bytes([2; 32]),
                 live_period: PeriodId::new(2026, 3).unwrap(),

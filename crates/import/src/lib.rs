@@ -1,7 +1,6 @@
 //! # aggountant-import (F23/F24 MVP — camt.053 tosite-loading)
 //!
-//! The smallest missing glue of the manual tosite-loading pipeline
-//! (`briox-holvi-import-strategy/architecture-options.md` §3.2): a deterministic
+//! The smallest missing glue of the manual tosite-loading pipeline: a deterministic
 //! **camt.053 parser** ([`camt053`]) and the lawful **projection** from a parsed
 //! bank transaction to a [`aggountant_domain::DraftInput`] ([`project_draft`]).
 //!

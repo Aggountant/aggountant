@@ -1,6 +1,6 @@
 use super::*;
 
-const BRIOX_CHART_VERSION: &str = "example-briox-2026@fixture";
+const IMPORTED_CHART_VERSION: &str = "example-imported-2026@fixture";
 const CUSTOM_CHART_VERSION: &str = "synthetic-company@roles-v1";
 const SHARED_CHART_VERSION: &str = "shared-company@roles-v1";
 const DEFAULT_CHART_VERSION: &str =
@@ -11,7 +11,7 @@ const TEST_ROLE_TABLE_JSON: &str = r#"{
     {"chart_version":"fi-general-2026@0","active":true,"accounts":[
       {"account":"1763","role":"input-vat"},{"account":"2939","role":"tagged-only"}
     ],"mistag_guards":[{"account":"7010","dedicated_rate_class":"domestic-electricity"}]},
-    {"chart_version":"example-briox-2026@fixture","active":true,"accounts":[
+    {"chart_version":"example-imported-2026@fixture","active":true,"accounts":[
       {"account":"1763","role":"input-vat"},{"account":"1797","role":"input-vat"},
       {"account":"1798","role":"input-vat"},
       {"account":"2982","role":"reverse-charge-output-vat","reverse_charge_scope":"non-eu-services","paired_input_account":"1763"},
@@ -95,7 +95,7 @@ fn test_mistag(
 }
 
 /// Expand with the existing pure VAT engine, then bind the sealed body to the imported
-/// Briox snapshot whose metadata owns the reverse-charge account meanings.
+/// chart snapshot whose metadata owns the reverse-charge account meanings.
 fn company_expand_body(
     number: u64,
     amount: &str,
@@ -114,7 +114,7 @@ fn company_expand_body(
     );
     input.posting_date = date(posting_date);
     let draft = vat_expand(&input).unwrap();
-    VoucherBody::from_draft(&draft, number, BRIOX_CHART_VERSION.into()).unwrap()
+    VoucherBody::from_draft(&draft, number, IMPORTED_CHART_VERSION.into()).unwrap()
 }
 
 #[test]
@@ -782,7 +782,7 @@ fn account_sum_excludes_an_unmarked_correction() {
             None,
         )
         .unwrap();
-        VoucherBody::from_draft(&draft, 2, BRIOX_CHART_VERSION.into()).unwrap()
+        VoucherBody::from_draft(&draft, 2, IMPORTED_CHART_VERSION.into()).unwrap()
     };
     let summed = test_sum(&q1(), &[accrual, reversal]).unwrap();
     assert_eq!(summed.sales_vat.amount_str(), "25.50");
@@ -1097,7 +1097,7 @@ fn partial_reverse_charge_expansion_matches_legacy_derive_golden_vector() {
         None,
     )
     .unwrap();
-    let legacy = VoucherBody::from_draft(&legacy_draft, 2, BRIOX_CHART_VERSION.into()).unwrap();
+    let legacy = VoucherBody::from_draft(&legacy_draft, 2, IMPORTED_CHART_VERSION.into()).unwrap();
     let expanded_figures = test_sum(&q1(), &[expanded]).unwrap();
     let legacy_figures = derive_vat_figures(&q1(), &[legacy]).unwrap();
     assert_eq!(expanded_figures.sales_vat, legacy_figures.sales_vat);
@@ -1209,7 +1209,7 @@ fn verify_ignores_an_unmarked_output_account_movement() {
         None,
     )
     .unwrap();
-    let body = VoucherBody::from_draft(&draft, 1, BRIOX_CHART_VERSION.into()).unwrap();
+    let body = VoucherBody::from_draft(&draft, 1, IMPORTED_CHART_VERSION.into()).unwrap();
     assert_eq!(test_verify(&body).unwrap(), VatRecompute::NotApplicable);
 }
 
@@ -1251,7 +1251,7 @@ fn verify_treats_a_reversal_as_not_applicable_not_malformed() {
         None,
     )
     .unwrap();
-    let body = VoucherBody::from_draft(&draft, 1, BRIOX_CHART_VERSION.into()).unwrap();
+    let body = VoucherBody::from_draft(&draft, 1, IMPORTED_CHART_VERSION.into()).unwrap();
     assert_eq!(test_verify(&body).unwrap(), VatRecompute::NotApplicable);
 }
 
@@ -1314,7 +1314,7 @@ fn bundled_active_default_selects_the_shared_service_pair_explicitly() {
 #[test]
 fn default_chart_roles_only_name_accounts_in_the_default_chart() {
     // The bundled chart has domestic deductible/output accounts, but no dedicated
-    // reverse-charge accounts. In particular, Briox's 1798/2992 pair must not leak in
+    // reverse-charge accounts. In particular, an imported chart's 1798/2992 pair must not leak in
     // as a default-chart assumption.
     let table = test_role_table();
     let chart = table.resolve("fi-general-2026@0").unwrap();
@@ -1329,9 +1329,9 @@ fn default_chart_roles_only_name_accounts_in_the_default_chart() {
 }
 
 #[test]
-fn imported_briox_snapshot_owns_reverse_charge_pairing() {
+fn imported_chart_snapshot_owns_reverse_charge_pairing() {
     let table = test_role_table();
-    let chart = table.resolve(BRIOX_CHART_VERSION).unwrap();
+    let chart = table.resolve(IMPORTED_CHART_VERSION).unwrap();
     assert_eq!(
         reverse_charge_pair(chart, "2992"),
         Some((ReverseChargeScope::EuServices, "1798"))
@@ -1382,8 +1382,10 @@ fn projection_excludes_unmarked_imported_vat_account_movements() {
 #[test]
 fn resolver_is_version_exact_and_refuses_unactivated_imports() {
     let table = test_role_table();
-    assert!(table.resolve(BRIOX_CHART_VERSION).is_ok());
-    assert!(table.resolve("example-briox-2026@another-version").is_err());
+    assert!(table.resolve(IMPORTED_CHART_VERSION).is_ok());
+    assert!(table
+        .resolve("example-imported-2026@another-version")
+        .is_err());
     let error = table.resolve("unreviewed-import@fixture").unwrap_err();
     assert_eq!(error.error_code(), "VAT_STRUCTURE");
     assert!(error.to_string().contains("not activated"));

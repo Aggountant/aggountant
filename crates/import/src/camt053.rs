@@ -1,6 +1,5 @@
 //! Deterministic camt.053 (ISO 20022 `BankToCustomerStatement`) reader — the
-//! Stage-1 parser of the manual tosite-loading pipeline
-//! (`briox-holvi-import-strategy/architecture-options.md` §1.2). Each `Ntry`
+//! Stage-1 parser of the manual tosite-loading pipeline. Each `Ntry`
 //! becomes one canonical [`BankTransaction`] row: amount + direction + dates +
 //! counterparty + the bank's own reference, all preserved verbatim.
 //!

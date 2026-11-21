@@ -10,19 +10,20 @@ use sha2::{Digest, Sha256};
 /// Deductible **domestic** input VAT (ostovähennys-ALV) — Pattern B, and the input
 /// leg of a **non-EU** reverse charge. `1763 Arvonlisäverosaaminen`.
 pub(super) const ACCT_INPUT_VAT_DOMESTIC: &str = "1763";
-/// Deductible input VAT on an **EU reverse-charge service** acquisition (`1798`) —
-/// the 350↔350 pair partner of `2992` in the real Briox ledger (ADR-7 §Context).
+/// Deductible input VAT on an **EU reverse-charge service** acquisition (`1798`),
+/// paired with output account `2992` by the legacy chartless expander. Chart-aware
+/// paths take the pair from the active chart's metadata instead.
 pub(super) const ACCT_INPUT_VAT_RC_EU_SERVICES: &str = "1798";
-/// Deductible input VAT on an **EU reverse-charge goods** acquisition (`1797`) —
-/// the 29↔29 pair partner of `2991`.
+/// Deductible input VAT on an **EU reverse-charge goods** acquisition (`1797`),
+/// paired with output account `2991` by the legacy chartless expander.
 pub(super) const ACCT_INPUT_VAT_RC_EU_GOODS: &str = "1797";
 /// Self-assessed **output** VAT on an EU reverse-charge *service* acquisition (`2992`).
 pub(super) const ACCT_OUTPUT_VAT_RC_EU_SERVICES: &str = "2992";
 /// Self-assessed **output** VAT on an EU reverse-charge *goods* acquisition (`2991`).
 pub(super) const ACCT_OUTPUT_VAT_RC_EU_GOODS: &str = "2991";
-/// Self-assessed **output** VAT on a **non-EU** reverse-charge acquisition — the
-/// domestic-output account the real books reuse for the non-EU variant (`2982`,
-/// ADR-7 §Context "ei-EU-variantti: ALV-jalat 1763/2982").
+/// Self-assessed **output** VAT on a **non-EU** reverse-charge acquisition (`2982`)
+/// in the legacy chartless expander; its input leg is the domestic input account
+/// `1763`.
 pub(super) const ACCT_OUTPUT_VAT_RC_NON_EU: &str = "2982";
 
 /// Which supported reverse-charge treatment a self-assessed acquisition uses.

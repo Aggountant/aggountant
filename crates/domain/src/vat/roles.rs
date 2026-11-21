@@ -39,8 +39,9 @@ impl VatRoleTag {
 /// One VAT account's role tag in a chart snapshot's masterdata.
 ///
 /// Reverse-charge output roles carry their scope and paired deductible-input account
-/// explicitly. The pair is chart metadata: `1798 ↔ 2992` is true for the imported
-/// Briox chart, not a universal meaning of those account numbers.
+/// explicitly. The pair is chart metadata: a pair such as `1798 ↔ 2992` holds only
+/// for a chart snapshot that declares it, not as a universal meaning of those account
+/// numbers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChartVatAccount {
