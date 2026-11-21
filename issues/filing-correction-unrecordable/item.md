@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/review-finding:sha1:d8cfb3cf331def517313168ed7b13c00e28ecadd
@@ -19,6 +19,8 @@ review_severity: High
 lane: wage-reporting
 lane_seq: 1
 preparation: ready
+closed: 2026-11-21
+closed_by: taskfleet-worker
 ---
 
 # A correction made in the e-service cannot be recorded; file-wage complete-manual succeeds without recording it
@@ -105,3 +107,9 @@ This issue therefore covers:
 
 The employer's separate report cancellation stays in
 `employer-report-record-cancellation`, but should follow the same decision.
+
+## Resolution
+
+### 2026-11-21T10:45:56Z · @taskfleet-worker
+
+file-wage complete-manual refuses on an accepted report (WAGE_REPORT_ALREADY_ACCEPTED); the travel report's replacement and cancellation go through file-wage correction with preview, approval, outbox and reconcile-only recovery; an e-service correction is recorded from evidence. VAT replacement return is filed as vat-replacement-return. See result.md.

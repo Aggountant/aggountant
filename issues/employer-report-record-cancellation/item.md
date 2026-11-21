@@ -1,6 +1,6 @@
 ---
 created: 2026-11-18
-updated: 2026-11-18
+updated: 2026-11-21
 type: bug
 status: open
 priority: normal
@@ -47,3 +47,9 @@ Fix sketch: a `complete-manual --supersedes` (or a separate
 `record-cancellation`) that records e-service evidence of the cancellation and,
 optionally, the new report's reference, so `current` moves to the report the
 register actually holds. Found while gating employer-separate-report.
+
+## Comments
+
+### 2026-11-21T10:45:14Z · @taskfleet-worker
+
+filing-correction-unrecordable (2026-11-21) decided that corrections go through aggountant and built the travel report's replacement and cancellation as `file-wage correction`. For this issue that means sending the cancellation through the API, not only recording an e-service one: `invalidation_record` in crates/broker/src/tulorekisteri_xml.rs already builds InvalidationRequestToIR and takes the record type (106 for the employer's separate report; Cancellation data 2026 §2.1–2.2), and crates/process/src/file_wage_correction.rs is the pattern for the Run, the in-doubt rule and the e-service fallback (`correction complete-manual`).
