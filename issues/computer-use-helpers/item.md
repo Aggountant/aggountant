@@ -4,37 +4,43 @@ updated: 2026-11-21
 type: feature
 status: open
 priority: normal
-lane: onboarding
-lane_seq: 9
-preparation: pending
+lane: unlaned
+collision: [crates/domain/src/vat/expand.rs, docs/user]
 ---
 
-# Computer-use helpers for other accounting programs in their own directory
+# Migration guide for moving books from another program
 
 ## Description
 
-aggountant needs a home for helpers that let an agent work with other
-accounting and banking programs through computer use (browser automation),
-for example to fetch statements, vouchers and reports from a previous
-bookkeeping system or a bank when moving books into aggountant. Each program
-gets its own subdirectory (for example `helpers/briox/`, `helpers/holvi/`) with
-its notes and code, and program-specific knowledge lives there, not in the core
-crates.
+Narrowed by the product owner on 2026-11-21. The original idea was to
+bring browser-automation helpers for other accounting and banking
+programs into this repository (`helpers/<program>/`). That was dropped:
+the helpers would work on one platform and one browser only, they break
+whenever the vendor changes its interface, and the useful part is the
+knowledge, not the code. A vendor's own export or API is the better
+route where one exists.
 
-A first set exists outside this repository: a macOS Chrome driver over
-AppleScript, a Holvi download checker with a browser PDF fallback, and a Briox
-attachment saver, standard-library Python with synthetic tests. Bring them in
-with neutral instructions: what each helper does, what the user does (signs in,
-MFA, permission dialogs), read-only use of the other system, no cookies or
-tokens extracted, raw data kept outside git, completeness checked against an
-inventory and SHA-256.
+What this issue delivers instead:
 
-Also move Briox-specific explanations out of core code comments (for example
-`crates/domain/src/vat/expand.rs`) into the helper's notes where they explain a
-source chart rather than aggountant behaviour.
+1. A user-guide page (`docs/user/fi` and `docs/user/en`) on moving books
+   from another program into aggountant: what to collect (chart, opening
+   balances, vouchers and their attachments, bank statements, filed
+   returns), the rules for collecting it (read-only use of the old system,
+   the user signs in and handles MFA, no cookies or tokens extracted, raw
+   data kept outside git, completeness checked against an inventory and
+   SHA-256 checksums), how it enters aggountant (SIE4 chart import, camt.053
+   bank import, capture-receipt for attachments, opening-balance cutover),
+   and short per-program notes for at least one bookkeeping program and one
+   bank, using their own exports where they exist and naming what is only
+   reachable through the browser.
+2. Vendor-specific explanations moved out of core code comments (for
+   example `crates/domain/src/vat/expand.rs`): where a comment explains a
+   source program's chart rather than aggountant behaviour, it is
+   rewritten neutrally or moved into the guide.
 
 ## Acceptance Criteria
 
-- [ ] `helpers/<program>/` layout with an `AGENTS.md` explaining the shared rules.
-- [ ] Chrome, Holvi and Briox helpers and their tests present and passing in `scripts/ci-local.sh`.
+- [ ] Guide page in both languages, linked from the user-guide index and
+      the onboarding pages where moving from another program comes up.
 - [ ] Core comments no longer depend on one vendor's chart.
+- [ ] No browser-automation code added.
