@@ -2,13 +2,15 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: skills-rebuild
 lane_seq: 2
 collision: [skills/aggountant-init/SKILL.md]
 blocked_by: ['@skill-soul-rebuild']
+closed: 2026-11-21
+closed_by: claude-fable-5-2
 ---
 
 # Skill rebuild: streamline aggountant-init
@@ -29,3 +31,9 @@ About 800 words: set-up knowledge as it is, the opening voucher cases made
 clear, `TODO.md`/`AGENTS.md` created here with the rules left to SOUL,
 `home upgrade` reduced to when to run it (or moved to SOUL's tool part).
 Only this file.
+
+## Resolution
+
+### 2026-11-21T07:33:56Z · @claude-fable-5-2
+
+SKILL.md 1 398 -> 935 words: house rules left to SOUL, help restatements dropped, opening voucher cases stated once each. Review and assessment beside the issue; two product gaps filed (nominally-undesirable-afterthought, distinctly-tired-hearing). See result.md.
