@@ -408,8 +408,8 @@ pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
                        "deductibility":{"numerator":N,"denominator":D,
                         "provenance":{"source":"documented-use-allocation",
                         "reference":"..."}}  (0 < N < D).
-                     A partial deduction needs the -partial type: on the full
-                     types a deductibility member is ignored, not refused.
+                     A partial deduction needs the -partial type; a member
+                     that does not belong to the type is refused.
                      Sales VAT is not expanded here; do not import such an entry.
     document_date    YYYY-MM-DD, the source document's date. Required with
                      vat_treatment (it selects the VAT rate; the bank date stays

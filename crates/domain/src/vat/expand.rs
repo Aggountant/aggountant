@@ -195,9 +195,15 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
 /// percentage the `document_date` selects. Partial variants carry the exact AVL 117 §
 /// fraction and its provenance as typed data, never as a `-deductNN` rate-class code.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
+// `deny_unknown_fields`: a member of another variant (a `deductibility` on a full
+// type, a `scope` on a domestic one) is refused, never silently dropped, so a
+// mistyped variant cannot seal a different deduction than the caller meant. Serde
+// does not apply it to a unit variant of an internally tagged enum, so `NoVat`
+// refuses its members through `deny_members`.
+#[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum VatTreatment {
     /// Pattern C — no VAT. The amount is booked in full to the net account; no VAT leg.
+    #[serde(deserialize_with = "deny_members")]
     NoVat,
     /// Pattern B — a domestic purchase with deductible input VAT. The intake amount
     /// is **VAT-inclusive** (the gross cash paid): the VAT is split out to `1763`
@@ -223,6 +229,17 @@ pub enum VatTreatment {
         scope: ReverseChargeScope,
         deductibility: VatDeductibility,
     },
+}
+
+/// Deserialize a memberless variant, refusing any member besides the `type` tag.
+fn deny_members<'de, D>(deserializer: D) -> Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct NoMembers {}
+    NoMembers::deserialize(deserializer).map(|NoMembers {}| ())
 }
 
 /// The input to [`vat_expand`]: one intake purchase to expand into a sealed voucher's

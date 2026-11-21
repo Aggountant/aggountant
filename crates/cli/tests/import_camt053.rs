@@ -287,6 +287,31 @@ fn vat_treatment_without_document_date_is_a_stable_batch_refusal() {
 }
 
 #[test]
+fn deductibility_misplaced_on_a_full_treatment_is_refused_before_sealing() {
+    // An agent meaning a 50 % deduction but writing `domestic-input` instead of
+    // `domestic-input-partial` must get a refusal, not a sealed full deduction.
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let input = r#"{"assignments":[
+      {"bank_ref":"HLV-2026-0314-001","bank_account":"1910","document_date":"2026-03-14",
+       "contra_postings":[{"account":"7690","amount":{"amount":"124.00","currency":"EUR"}}],
+       "vat_treatment":{"type":"domestic-input","rate_class":"domestic-standard",
+        "deductibility":{"numerator":1,"denominator":2,
+         "provenance":{"source":"documented-use-allocation","reference":"vehicle-logbook-2026"}}}},
+      {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
+        {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
+    ]}"#;
+    let (code, _, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    assert_eq!(code, 1, "{stderr}");
+    let error: Value = serde_json::from_str(&stderr).unwrap();
+    assert_eq!(error["error_code"], "INVALID_INPUT");
+    assert!(error["message"].as_str().unwrap().contains("deductibility"));
+    assert_no_fiscal_vouchers(home);
+}
+
+#[test]
 fn zero_rate_legacy_tag_remains_a_supported_transport_path() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();

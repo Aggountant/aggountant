@@ -737,3 +737,65 @@ fn treatment_input_accepts_non_eu_services_but_refuses_imported_goods() {
         assert!(serde_json::from_str::<VatTreatment>(&json).is_err());
     }
 }
+
+#[test]
+fn treatment_refuses_members_of_another_variant_for_every_variant() {
+    // A member that belongs to another variant must be refused, not silently dropped:
+    // a `deductibility` on `domestic-input` would otherwise seal a full deduction.
+    const DEDUCTIBILITY: &str = r#""deductibility":{"numerator":1,"denominator":2,"provenance":{"source":"documented-use-allocation","reference":"vehicle-logbook-2026"}}"#;
+    let valid = [
+        (r#""type":"no-vat""#.to_string(), VatTreatment::NoVat),
+        (
+            r#""type":"domestic-input","rate_class":"domestic-standard""#.to_string(),
+            domestic_standard(),
+        ),
+        (
+            format!(
+                r#""type":"domestic-input-partial","rate_class":"domestic-standard",{DEDUCTIBILITY}"#
+            ),
+            domestic_half_deductible(),
+        ),
+        (
+            r#""type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-goods""#
+                .to_string(),
+            reverse_charge(ReverseChargeScope::EuGoods),
+        ),
+        (
+            format!(
+                r#""type":"reverse-charge-partial","rate_class":"domestic-standard","scope":"eu-goods",{DEDUCTIBILITY}"#
+            ),
+            reverse_charge_half_deductible(ReverseChargeScope::EuGoods),
+        ),
+    ];
+    for (members, expected) in &valid {
+        // The `type` tag still selects the variant.
+        let parsed: VatTreatment = serde_json::from_str(&format!("{{{members}}}"))
+            .unwrap_or_else(|e| panic!("{members} must parse: {e}"));
+        assert_eq!(&parsed, expected);
+        // Serialization still emits exactly the members deserialization accepts.
+        let round_trip: VatTreatment =
+            serde_json::from_value(serde_json::to_value(expected).unwrap()).unwrap();
+        assert_eq!(&round_trip, expected);
+        for extra in [
+            DEDUCTIBILITY.to_string(),
+            r#""scope":"eu-services""#.to_string(),
+            r#""rate_class":"domestic-reduced-a""#.to_string(),
+            r#""unknown":1"#.to_string(),
+        ] {
+            let json = format!("{{{members},{extra}}}");
+            assert!(
+                serde_json::from_str::<VatTreatment>(&json).is_err(),
+                "an unknown or duplicate member must be refused: {json}"
+            );
+        }
+    }
+
+    // The issue's reproduction: a 50 % deductibility misplaced on the full type.
+    let misplaced =
+        format!(r#"{{"type":"domestic-input","rate_class":"domestic-standard",{DEDUCTIBILITY}}}"#);
+    let error = serde_json::from_str::<VatTreatment>(&misplaced).unwrap_err();
+    assert!(
+        error.to_string().contains("deductibility"),
+        "the refusal names the member: {error}"
+    );
+}
