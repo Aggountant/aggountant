@@ -1,13 +1,18 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: payroll-pii
 lane_seq: 1
 collision: [crates/ledger/src/store/sqlite_pii.rs, crates/cli/src/main.rs]
 related: ['@employee-pii-entry']
+closed: 2026-11-21
+closed_by: claude-opus-5-5
+commits:
+- hash: 5e0b48e
+  summary: 'cli: fix INPUT help findings from review'
 ---
 
 # employee help claims an encrypted store; the store is plaintext
@@ -40,3 +45,9 @@ encrypted, until real at-rest encryption lands. The help names `employee_id`.
 
 - [ ] `employee` help text matches the store's actual protection.
 - [ ] `employee add --help` names `employee_id`.
+
+## Resolution
+
+### 2026-11-21T07:19:19Z · @claude-opus-5-5
+
+employee help now states the separate gitignored, unencrypted PII store and names employee_id (cli-stdin-input-help review F2).
