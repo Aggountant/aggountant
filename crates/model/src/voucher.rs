@@ -10,6 +10,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::ModelError;
 use crate::newtype::{AccountId, Date, Hash, Money, VatCode};
+use crate::period::PeriodId;
 use crate::vat_expansion::VatExpansion;
 
 /// Current wire-format profile revision (`ADR-2 §Decision.2`).
@@ -46,6 +47,18 @@ impl Posting {
             Side::Credit => -self.amount.amount(),
         }
     }
+}
+
+/// A correction to a filed VAT return is posted after the period it corrects:
+/// a voucher dated inside the period is that period's own voucher.
+fn check_corrects_vat_period(period: &PeriodId, posting_date: Date) -> Result<(), ModelError> {
+    if posting_date <= period.last_date() {
+        return Err(ModelError::InvalidVoucherBody(format!(
+            "corrects_vat_period {period} must be earlier than the period of posting_date \
+             {posting_date}"
+        )));
+    }
+    Ok(())
 }
 
 /// Shared local-invariant check over a set of postings.
@@ -118,6 +131,7 @@ pub struct VoucherDraft {
     attachment_ref: Option<Hash>,
     buyer_vat_id: Option<String>,
     vat_expansion: Option<VatExpansion>,
+    corrects_vat_period: Option<PeriodId>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,6 +147,8 @@ struct VoucherDraftWire {
     buyer_vat_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     vat_expansion: Option<VatExpansion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    corrects_vat_period: Option<PeriodId>,
 }
 
 impl VoucherDraft {
@@ -157,6 +173,7 @@ impl VoucherDraft {
             attachment_ref,
             buyer_vat_id: None,
             vat_expansion: None,
+            corrects_vat_period: None,
         })
     }
 
@@ -180,6 +197,24 @@ impl VoucherDraft {
     }
     pub fn vat_expansion(&self) -> Option<&VatExpansion> {
         self.vat_expansion.as_ref()
+    }
+    pub fn corrects_vat_period(&self) -> Option<&PeriodId> {
+        self.corrects_vat_period.as_ref()
+    }
+
+    /// Mark the voucher as a correction to the VAT return of an earlier, already
+    /// filed period: its VAT then belongs to that period's return and not to the
+    /// return of the period it is posted in. Whether the named period is filed is
+    /// the Ledger's check at the seal; here only the order is checked.
+    pub fn with_corrects_vat_period(mut self, period: PeriodId) -> Result<Self, ModelError> {
+        check_corrects_vat_period(&period, self.posting_date)?;
+        if self.corrects_vat_period.is_some() {
+            return Err(ModelError::InvalidVoucherBody(
+                "corrects_vat_period is already set".into(),
+            ));
+        }
+        self.corrects_vat_period = Some(period);
+        Ok(self)
     }
 
     /// Attach a domain-validated, normalized buyer VAT ID while retaining `new`'s
@@ -229,6 +264,7 @@ impl Serialize for VoucherDraft {
             attachment_ref: self.attachment_ref,
             buyer_vat_id: self.buyer_vat_id.clone(),
             vat_expansion: self.vat_expansion.clone(),
+            corrects_vat_period: self.corrects_vat_period.clone(),
         }
         .serialize(s)
     }
@@ -250,6 +286,10 @@ impl<'de> Deserialize<'de> for VoucherDraft {
         })
         .and_then(|draft| match w.vat_expansion {
             Some(expansion) => draft.with_vat_expansion(expansion),
+            None => Ok(draft),
+        })
+        .and_then(|draft| match w.corrects_vat_period {
+            Some(period) => draft.with_corrects_vat_period(period),
             None => Ok(draft),
         })
         .map_err(D::Error::custom)
@@ -277,6 +317,7 @@ pub struct VoucherBody {
     chart_version: String,
     buyer_vat_id: Option<String>,
     vat_expansion: Option<VatExpansion>,
+    corrects_vat_period: Option<PeriodId>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -297,6 +338,8 @@ struct VoucherBodyWire {
     buyer_vat_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     vat_expansion: Option<VatExpansion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    corrects_vat_period: Option<PeriodId>,
 }
 
 impl VoucherBody {
@@ -317,6 +360,7 @@ impl VoucherBody {
         chart_version: String,
         buyer_vat_id: Option<String>,
         vat_expansion: Option<VatExpansion>,
+        corrects_vat_period: Option<PeriodId>,
     ) -> Result<Self, ModelError> {
         if wire_version != WIRE_VERSION {
             return Err(ModelError::InvalidVoucherBody(format!(
@@ -355,6 +399,9 @@ impl VoucherBody {
             }
             expansion.validate_postings(&postings)?;
         }
+        if let Some(period) = &corrects_vat_period {
+            check_corrects_vat_period(period, posting_date)?;
+        }
         Ok(VoucherBody {
             wire_version,
             schema_version,
@@ -367,6 +414,7 @@ impl VoucherBody {
             chart_version,
             buyer_vat_id,
             vat_expansion,
+            corrects_vat_period,
         })
     }
 
@@ -389,6 +437,7 @@ impl VoucherBody {
             chart_version,
             draft.buyer_vat_id.clone(),
             draft.vat_expansion.clone(),
+            draft.corrects_vat_period.clone(),
         )
     }
 
@@ -425,6 +474,29 @@ impl VoucherBody {
     pub fn vat_expansion(&self) -> Option<&VatExpansion> {
         self.vat_expansion.as_ref()
     }
+    /// The filed VAT period this voucher corrects, when it is such a correction.
+    pub fn corrects_vat_period(&self) -> Option<&PeriodId> {
+        self.corrects_vat_period.as_ref()
+    }
+
+    /// Whether the voucher's VAT belongs to the return of `period`: the period it
+    /// is posted in, unless it was sealed as a correction to an earlier period's
+    /// return, and then that period only. Every VAT derivation selects vouchers
+    /// through this, so a correction is counted in exactly one return.
+    pub fn in_vat_period(&self, period: &PeriodId) -> bool {
+        match &self.corrects_vat_period {
+            Some(corrected) => corrected == period,
+            None => period.contains(self.posting_date),
+        }
+    }
+
+    /// A period whose return the voucher's VAT belongs to
+    /// ([`Self::in_vat_period`]), for deriving one voucher's own figures.
+    pub fn own_vat_period(&self) -> PeriodId {
+        self.corrects_vat_period
+            .clone()
+            .unwrap_or_else(|| PeriodId::containing(self.posting_date))
+    }
 }
 
 impl Serialize for VoucherBody {
@@ -442,6 +514,7 @@ impl Serialize for VoucherBody {
             chart_version: self.chart_version.clone(),
             buyer_vat_id: self.buyer_vat_id.clone(),
             vat_expansion: self.vat_expansion.clone(),
+            corrects_vat_period: self.corrects_vat_period.clone(),
         }
         .serialize(s)
     }
@@ -472,6 +545,7 @@ impl<'de> Deserialize<'de> for VoucherBody {
             w.chart_version,
             w.buyer_vat_id,
             w.vat_expansion,
+            w.corrects_vat_period,
         )
         .map_err(D::Error::custom)
     }

@@ -609,6 +609,27 @@ impl FiscalStore for SqliteFiscalStore {
         let owner_ok =
             !req.match_owner || cur.owning_run_id.as_deref() == Some(req.run_id.as_str());
         let filed_ok = !req.require_unfiled || !cur.vat_filed;
+        // A filing event is either the first return (`set_filed`) or a replacement
+        // of exactly the filings recorded so far; no other `Sealed→Sealed` exists.
+        let self_edge = req.from == PeriodState::Sealed && req.to == PeriodState::Sealed;
+        if self_edge != (req.set_filed || req.replaces_filings.is_some())
+            || (req.set_filed && req.replaces_filings.is_some())
+        {
+            return Err(LedgerError::Store(
+                "a Sealed→Sealed transition is a first VAT filing or a replacement, and \
+                 nothing else is"
+                    .into(),
+            ));
+        }
+        let filed_ok = filed_ok
+            && match req.replaces_filings {
+                None => true,
+                Some(replaces) => {
+                    cur.vat_filed
+                        && replaces >= 1
+                        && filing_events(&tx, &req.period_id)?.len() as u64 == replaces
+                }
+            };
 
         if !(state_ok && owner_ok && filed_ok) {
             let err = if state_ok && filed_ok && req.match_owner && !owner_ok {
@@ -823,75 +844,9 @@ impl FiscalStore for SqliteFiscalStore {
         Ok(new_row)
     }
 
-    fn last_filing_sent_hash(
-        &self,
-        period_id: &str,
-    ) -> Result<Option<Option<String>>, LedgerError> {
+    fn period_filings(&self, period_id: &str) -> Result<Vec<StoredPeriodTransition>, LedgerError> {
         let guard = self.conn.lock().unwrap();
-        // The latest Sealed→Sealed self-edge is the (single) filing event.
-        let row: Option<Option<String>> = guard
-            .query_row(
-                "SELECT sent_hash FROM period_transition
-                 WHERE period_id = ?1 AND from_state = 'Sealed' AND to_state = 'Sealed'
-                 ORDER BY period_seq DESC LIMIT 1",
-                params![period_id],
-                |r| r.get::<_, Option<String>>(0),
-            )
-            .optional()?;
-        Ok(row)
-    }
-
-    fn last_filing_receipt(
-        &self,
-        period_id: &str,
-    ) -> Result<Option<(String, String)>, LedgerError> {
-        let guard = self.conn.lock().unwrap();
-        guard
-            .query_row(
-                "SELECT receipt_unique_identifier, receipt_accepted_timestamp
-                 FROM period_transition
-                 WHERE period_id = ?1 AND from_state = 'Sealed' AND to_state = 'Sealed'
-                 ORDER BY period_seq DESC LIMIT 1",
-                params![period_id],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                    ))
-                },
-            )
-            .optional()?
-            .and_then(|(identifier, timestamp)| identifier.zip(timestamp))
-            .map_or(Ok(None), |pair| Ok(Some(pair)))
-    }
-
-    fn last_manual_filing_evidence(
-        &self,
-        period_id: &str,
-    ) -> Result<Option<(String, String, Option<String>)>, LedgerError> {
-        let guard = self.conn.lock().unwrap();
-        guard
-            .query_row(
-                "SELECT manual_channel, manual_evidence_ref, remote_status_evidence_ref
-                 FROM period_transition
-                 WHERE period_id = ?1 AND from_state = 'Sealed' AND to_state = 'Sealed'
-                 ORDER BY period_seq DESC LIMIT 1",
-                params![period_id],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, Option<String>>(2)?,
-                    ))
-                },
-            )
-            .optional()?
-            .and_then(|(channel, evidence, remote)| {
-                channel
-                    .zip(evidence)
-                    .map(|(channel, evidence)| (channel, evidence, remote))
-            })
-            .map_or(Ok(None), |value| Ok(Some(value)))
+        filing_events(&guard, period_id)
     }
 
     fn read_fiscal_year(&self, year: i32) -> Result<FiscalYearRow, LedgerError> {
@@ -1480,72 +1435,7 @@ impl FiscalStore for SqliteFiscalStore {
             out
         };
 
-        let period_transitions = {
-            let mut stmt = tx.prepare(
-                "SELECT period_id, period_seq, prev_hash, from_state, to_state,
-                        owning_run_id, sent_hash, receipt_unique_identifier,
-                        receipt_accepted_timestamp, manual_channel, manual_evidence_ref,
-                        remote_status_evidence_ref, actor, ts, hash
-                 FROM period_transition ORDER BY seq ASC",
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, i64>(1)?,
-                    r.get::<_, Vec<u8>>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                    r.get::<_, Option<String>>(5)?,
-                    r.get::<_, Option<String>>(6)?,
-                    r.get::<_, Option<String>>(7)?,
-                    r.get::<_, Option<String>>(8)?,
-                    r.get::<_, Option<String>>(9)?,
-                    r.get::<_, Option<String>>(10)?,
-                    r.get::<_, Option<String>>(11)?,
-                    r.get::<_, String>(12)?,
-                    r.get::<_, String>(13)?,
-                    r.get::<_, Vec<u8>>(14)?,
-                ))
-            })?;
-            let mut out = Vec::new();
-            for row in rows {
-                let (
-                    period_id,
-                    period_seq,
-                    prev,
-                    from_state,
-                    to_state,
-                    owner,
-                    sent_hash,
-                    receipt_unique_identifier,
-                    receipt_accepted_timestamp,
-                    manual_channel,
-                    manual_evidence_ref,
-                    remote_status_evidence_ref,
-                    actor,
-                    ts,
-                    hash,
-                ) = row?;
-                out.push(StoredPeriodTransition {
-                    period_id,
-                    period_seq: period_seq as u64,
-                    prev_hash: hash_from_blob(&prev)?,
-                    from_state,
-                    to_state,
-                    owning_run_id: owner,
-                    sent_hash,
-                    receipt_unique_identifier,
-                    receipt_accepted_timestamp,
-                    manual_channel,
-                    manual_evidence_ref,
-                    remote_status_evidence_ref,
-                    actor,
-                    ts,
-                    hash: hash_from_blob(&hash)?,
-                });
-            }
-            out
-        };
+        let period_transitions = read_period_transitions(&tx, None)?;
 
         let fiscal_years = {
             let mut stmt = tx.prepare(
@@ -1673,6 +1563,88 @@ impl FiscalStore for SqliteFiscalStore {
         let guard = self.conn.lock().unwrap();
         Ok(guard.query_row("SELECT COUNT(*) FROM rejections", [], |r| r.get(0))?)
     }
+}
+
+/// A period's VAT-filing events, oldest first.
+fn filing_events(
+    conn: &Connection,
+    period_id: &str,
+) -> Result<Vec<StoredPeriodTransition>, LedgerError> {
+    Ok(read_period_transitions(conn, Some(period_id))?
+        .into_iter()
+        .filter(|t| t.from_state == "Sealed" && t.to_state == "Sealed")
+        .collect())
+}
+
+/// The period transition log in commit order, for one period or for all.
+fn read_period_transitions(
+    conn: &Connection,
+    period_id: Option<&str>,
+) -> Result<Vec<StoredPeriodTransition>, LedgerError> {
+    let mut stmt = conn.prepare(
+        "SELECT period_id, period_seq, prev_hash, from_state, to_state,
+                owning_run_id, sent_hash, receipt_unique_identifier,
+                receipt_accepted_timestamp, manual_channel, manual_evidence_ref,
+                remote_status_evidence_ref, actor, ts, hash
+         FROM period_transition WHERE ?1 IS NULL OR period_id = ?1 ORDER BY seq ASC",
+    )?;
+    let rows = stmt.query_map(params![period_id], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, Vec<u8>>(2)?,
+            r.get::<_, String>(3)?,
+            r.get::<_, String>(4)?,
+            r.get::<_, Option<String>>(5)?,
+            r.get::<_, Option<String>>(6)?,
+            r.get::<_, Option<String>>(7)?,
+            r.get::<_, Option<String>>(8)?,
+            r.get::<_, Option<String>>(9)?,
+            r.get::<_, Option<String>>(10)?,
+            r.get::<_, Option<String>>(11)?,
+            r.get::<_, String>(12)?,
+            r.get::<_, String>(13)?,
+            r.get::<_, Vec<u8>>(14)?,
+        ))
+    })?;
+    let mut out = Vec::new();
+    for row in rows {
+        let (
+            period_id,
+            period_seq,
+            prev,
+            from_state,
+            to_state,
+            owner,
+            sent_hash,
+            receipt_unique_identifier,
+            receipt_accepted_timestamp,
+            manual_channel,
+            manual_evidence_ref,
+            remote_status_evidence_ref,
+            actor,
+            ts,
+            hash,
+        ) = row?;
+        out.push(StoredPeriodTransition {
+            period_id,
+            period_seq: period_seq as u64,
+            prev_hash: hash_from_blob(&prev)?,
+            from_state,
+            to_state,
+            owning_run_id: owner,
+            sent_hash,
+            receipt_unique_identifier,
+            receipt_accepted_timestamp,
+            manual_channel,
+            manual_evidence_ref,
+            remote_status_evidence_ref,
+            actor,
+            ts,
+            hash: hash_from_blob(&hash)?,
+        });
+    }
+    Ok(out)
 }
 
 /// Read the authoritative `period` row, synthesizing the implicit `Open` state
@@ -2026,6 +1998,22 @@ fn posting_gate_refusal(
         };
         if let Some(refusal) = evaluate_period_gate(&prow, gate) {
             return Ok(Some((refusal, format!("fiscal:period:{}", prow.period_id))));
+        }
+    }
+    // A correction to a VAT return exists only once the return is filed: before
+    // that the period itself takes the voucher (or is reopened for it), and its
+    // first return already carries the right figures.
+    if let Some(corrected) = gate.corrects_vat_period {
+        let prow = read_period_row(conn, &corrected.to_string())?;
+        if prow.state != PeriodState::Sealed || !prow.vat_filed {
+            return Ok(Some((
+                LedgerError::VatPeriodNotFiled(format!(
+                    "corrects_vat_period {corrected} is {} with no VAT return filed; only a \
+                     filed return is corrected by a voucher of a later period",
+                    prow.state.as_str()
+                )),
+                format!("fiscal:period:{corrected}"),
+            )));
         }
     }
     Ok(None)

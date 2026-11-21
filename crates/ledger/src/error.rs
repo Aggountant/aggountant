@@ -48,6 +48,11 @@ pub enum LedgerError {
     /// precondition). Filing requires a sealed period.
     #[error("PERIOD_NOT_SEALED: {0}")]
     PeriodNotSealed(String),
+    /// A voucher names a VAT period it corrects, but that period's return is not
+    /// filed: before the filing a correction is posted into the period itself (or
+    /// the closed period is reopened), so there is no filed return to correct.
+    #[error("VAT_PERIOD_NOT_FILED: {0}")]
+    VatPeriodNotFiled(String),
     #[error("ARTIFACT_NOT_FOUND: {0}")]
     ArtifactNotFound(String),
     /// A `natural_key` was reused with a different draft (`request_hash`
@@ -115,6 +120,7 @@ impl LedgerError {
             LedgerError::VoucherNotInRun(_) => "VOUCHER_NOT_IN_RUN",
             LedgerError::PeriodTransitionConflict(_) => "PERIOD_TRANSITION_CONFLICT",
             LedgerError::PeriodNotSealed(_) => "PERIOD_NOT_SEALED",
+            LedgerError::VatPeriodNotFiled(_) => "VAT_PERIOD_NOT_FILED",
             LedgerError::ArtifactNotFound(_) => "ARTIFACT_NOT_FOUND",
             LedgerError::IdempotencyKeyReuse(_) => "IDEMPOTENCY_KEY_REUSE",
             LedgerError::AuditUnavailable(_) => "AUDIT_UNAVAILABLE",

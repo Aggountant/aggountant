@@ -115,8 +115,12 @@ from source with the Rust toolchain. Do this:
 - **The Tax Administration's bank account number is given every time.** The
   agent gives the filing run the account number shown in OmaVero. The program
   does not know the payment reference (`tax-payment-references`).
-- **Replacement returns are not made.** When the filed figures need a
-  correction, make a replacement return in OmaVero.
+- **A replacement return does not pay.** A filed return is corrected with
+  aggountant
+  ([Correct a return that has been filed](../tasks/file-vat-direct.md#correct-a-return-that-has-been-filed)),
+  but the program does not calculate the difference to pay or to be refunded:
+  it shows on the tax account in OmaVero. A replacement return has not yet
+  been sent to the Tax Administration's production service.
 - **Fields 309–311 for EU sales and zero-rated sales do not come from the
   books.** If your company has EU sales or exports, file the return in OmaVero
   and enter these fields yourself. aggountant does not make the EC sales list

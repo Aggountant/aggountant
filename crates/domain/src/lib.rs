@@ -157,6 +157,13 @@ pub struct DraftInput {
     /// and format when an EU-sale code is present.
     #[serde(default)]
     pub buyer_vat_id: Option<String>,
+    /// The already filed VAT period whose return this voucher corrects. The
+    /// voucher is posted in a later, open period, but its VAT is counted in the
+    /// named period's replacement return and left out of the return of the period
+    /// it is posted in. Absent for every other voucher, including a small error
+    /// corrected in the current period's return.
+    #[serde(default)]
+    pub corrects_vat_period: Option<aggountant_model::PeriodId>,
 }
 
 /// Assemble a validated `VoucherDraft` from structured input. Local invariants
@@ -185,8 +192,12 @@ pub fn build_draft(input: DraftInput) -> Result<VoucherDraft, DomainError> {
         input.postings,
         input.attachment_ref,
     )?;
-    Ok(match buyer_vat_id {
+    let draft = match buyer_vat_id {
         Some(buyer_vat_id) => draft.with_buyer_vat_id(buyer_vat_id)?,
+        None => draft,
+    };
+    Ok(match input.corrects_vat_period {
+        Some(period) => draft.with_corrects_vat_period(period)?,
         None => draft,
     })
 }

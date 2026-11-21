@@ -82,6 +82,71 @@ kuluttua. Agentti voi kysyä sen tilan Verohallinnolta lähettämättä mitään
 **Älä lähetä sitä uudelleen sen takia, että se ei vielä näy:**
 [Kun jokin menee vikaan](../troubleshooting.md#ilmoitus-ei-näy-omaverossa).
 
+## Korjaa jo annettu ilmoitus
+
+Annettua ilmoitusta ei voi perua, mutta sen voi korvata. Korvaava ilmoitus
+antaa kauden kaikki luvut uudelleen korjattuina, ja Verohallinto käyttää sen
+jälkeen sitä.
+
+1. **Korjaa ensin kirjanpito.** Ilmoitettu kuukausi on lukittu, joten
+   korjaustosite kirjataan seuraavalle avoimelle kuukaudelle
+   ([Korjaa sinetöity tosite](correct-voucher.md)). Kerro agentille, että
+   tosite korjaa ilmoitetun kuukauden ALV-ilmoitusta. Agentti merkitsee sen
+   tositteeseen sinetöitäessä (`corrects_vat_period`), ja tositteen vero
+   lasketaan silloin korjattavan kuukauden lukuihin eikä sen kuukauden
+   ilmoitukseen, jolle tosite on kirjattu. Merkintää ei voi lisätä
+   sinetöinnin jälkeen.
+
+   Verohallinnon ohjeen mukaan taloudellisesti vähäisen virheen saa korjata
+   myös kuluvan kauden ilmoituksella. Silloin merkintää ei tehdä eikä
+   korvaavaa ilmoitusta anneta. Valinta on sinun.
+
+2. **Pyydä korvaava ilmoitus.**
+
+   > Tee lokakuun ALV-ilmoituksesta korvaava ilmoitus.
+
+   Agentti esikatselee kuukauden uudet luvut ja valmistelee korvaavan
+   ilmoituksen. Kerro korjauksen syy: laskuvirhe tai ilmoituksen
+   täyttövirhe, oikeuskäytännön muutos, verotarkastuksessa saatu ohjaus tai
+   lain tulkintavirhe.
+
+3. **Tarkista ja hyväksy.** Agentti näyttää koko ilmoituksen ja sen, mitkä
+   luvut muuttuvat Verohallinnolla nyt olevaan ilmoitukseen nähden.
+   Hyväksyntä koskee juuri tätä sisältöä, kuten ensimmäisessä ilmoituksessa.
+
+4. **Ohjelma lähettää korvaavan ilmoituksen** ja tallentaa sen kuittauksen
+   alkuperäisen viereen. Molemmat säilyvät, ja uusin on voimassa.
+
+5. **Tarkista verotili OmaVerosta.** Korvaava ilmoitus muuttaa kauden veroa
+   erotuksen verran. Ohjelma ei maksa eikä laske erotusta: maksa lisää
+   maksettava itse tai odota palautusta.
+
+<details>
+<summary>Komennot, joita agentti ajaa</summary>
+
+```sh
+aggountant voucher seal < korjaus-sinetointi.json
+aggountant file-vat preview --period 2026-10
+aggountant file-vat replace < korvaava.json
+aggountant file-vat approve-filing --run-id fv-… --answer approve
+aggountant file-vat status --period 2026-10
+```
+
+`file-vat replace` ottaa saman syötteen kuin `file-vat start` ja lisäksi
+kentän `replacement_reasons`. Vastauksen `replacement.changes` luettelee
+muuttuvat kentät. `file-vat status` ja `file-vat preview` näyttävät kentässä
+`filings` kauden kaikki ilmoitukset kuittauksineen.
+</details>
+
+Korvaavaa ilmoitusta ei voi lähettää, ennen kuin Verohallinto on käsitellyt
+voimassa olevan ilmoituksen (`VERO_VAT_RETURN_NOT_PROCESSED`); yritä
+myöhemmin uudelleen. Jos lähetyksen lopputulos jää epävarmaksi, se
+selvitetään kuten ensimmäisen ilmoituksen: uutta korvaavaa ei lähetetä
+arvaamalla ([Kun jokin menee vikaan](../troubleshooting.md)).
+
+Jos olet jo tehnyt korvaavan ilmoituksen OmaVerossa, pyydä agenttia kirjaamaan
+se kuitteineen (`file-vat complete-manual --replacement`).
+
 ## Rajoitukset
 
 - Kun veroa on maksettavaa, ajo avaa lopuksi maksun hyväksynnän. aggountantilla
@@ -89,7 +154,7 @@ kuluttua. Agentti voi kysyä sen tilan Verohallinnolta lähettämättä mitään
   odottavaa tilaa. Ilmoitus on silti tehty. Palautukseen oikeuttava ilmoitus
   päättyy ilman maksuvaihetta.
 - Suoraa ilmoittamista on koeteltu kuukausikausilla.
-- Korvaavaa ilmoitusta aggountant ei tee.
+- Korvaava ilmoitus ei maksa eikä laske maksettavaa erotusta.
 
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
 

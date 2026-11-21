@@ -143,6 +143,7 @@ pub fn project_draft(
         // Bank-statement imports never project an EU-sale code, so no buyer VAT-ID
         // is threaded here (the domain's AVL 72 b § gate only fires on sales-eu-*).
         buyer_vat_id: None,
+        corrects_vat_period: None,
     })
 }
 

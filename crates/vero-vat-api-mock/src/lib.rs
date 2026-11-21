@@ -385,12 +385,16 @@ fn handle<S: Read + Write>(
                 unique_identifier,
                 accepted_timestamp,
             } => {
-                if let Some(body) = request_json {
-                    state
-                        .lock()
-                        .expect("mock state poisoned")
-                        .latest_accepted_return = Some(body);
+                let mut state = state.lock().expect("mock state poisoned");
+                if let Some(error) = request_json.as_ref().and_then(|request| {
+                    replacement_error(request, state.latest_accepted_return.is_some())
+                }) {
+                    return write_json(stream, 400, &error);
                 }
+                if let Some(body) = request_json {
+                    state.latest_accepted_return = Some(body);
+                }
+                drop(state);
                 write_json(
                     stream,
                     200,
@@ -436,6 +440,35 @@ fn handle<S: Read + Write>(
         }
         _ => write_json(stream, 404, &json!({"error":"unknown mock operation"})),
     }
+}
+
+/// The documented replacement rules of FileVATReturn/v2: `ReplacementReturn`
+/// and `ReplacementReason` go together (error `VAT106`, with the reason codes
+/// CLC, LGL, TXA and LAW, comma-separated), and every return after the first
+/// accepted one must be a replacement while the first must not be. The portal
+/// names no error code for the second rule; the mock's code says so.
+fn replacement_error(request: &Value, already_filed: bool) -> Option<Value> {
+    let replacement = request.get("ReplacementReturn").and_then(Value::as_bool) == Some(true);
+    let reason = request.get("ReplacementReason").and_then(Value::as_str);
+    let valid_reason = reason.is_some_and(|reason| {
+        reason
+            .split(',')
+            .all(|code| matches!(code, "CLC" | "LGL" | "TXA" | "LAW"))
+    });
+    if replacement != reason.is_some() || (replacement && !valid_reason) {
+        return Some(json!({
+            "ErrorCode": "VAT106",
+            "ErrorText": "If ReplacementReturn is true ReplacementReason needs to have a value. \
+                          If ReplacementReason has a value ReplacementReturn needs to be true."
+        }));
+    }
+    (replacement != already_filed).then(|| {
+        json!({
+            "ErrorCode": "MOCK_REPLACEMENT_SEQUENCE",
+            "ErrorText": "Every return after the first one needs to be a ReplacementReturn; \
+                          if no previous return exists ReplacementReturn needs to be false."
+        })
+    })
 }
 
 /// The GetFiledVATReturn/v2 answer for an accepted request, shaped like the

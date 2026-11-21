@@ -46,7 +46,15 @@ pub(crate) const VOUCHER_DRAFT: &str = concat!(
     aggountant --home ./accounting --json chart list
   Optional draft fields: attachment_ref (singular sha256 returned for an existing
   file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
-  buyer_vat_id.
+  buyer_vat_id, corrects_vat_period.
+  corrects_vat_period (YYYY-MM or YYYY-Qn) marks the voucher as a correction to
+  the already filed VAT return of an earlier period: its VAT is then counted in
+  that period's replacement return (`file-vat replace`) and left out of the
+  return of the period it is posted in. posting_date stays in an open period;
+  keep document_date at the original document's date, since the VAT rate is
+  resolved from it. Refused unless the named period is sealed and its return
+  filed (VAT_PERIOD_NOT_FILED). Leave it out for a small error corrected in
+  the current period's return.
   Omit optional fields when absent.
 "#,
     vat_code_input!(),
@@ -96,7 +104,15 @@ pub(crate) const VOUCHER_SEAL: &str = concat!(
     aggountant --home ./accounting --json chart list
   Optional draft fields: attachment_ref (singular sha256 returned for an existing
   file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
-  buyer_vat_id.
+  buyer_vat_id, corrects_vat_period.
+  corrects_vat_period (YYYY-MM or YYYY-Qn) marks the voucher as a correction to
+  the already filed VAT return of an earlier period: its VAT is then counted in
+  that period's replacement return (`file-vat replace`) and left out of the
+  return of the period it is posted in. posting_date stays in an open period;
+  keep document_date at the original document's date, since the VAT rate is
+  resolved from it. Refused unless the named period is sealed and its return
+  filed (VAT_PERIOD_NOT_FILED). Leave it out for a small error corrected in
+  the current period's return.
   Omit optional fields when absent.
 "#,
     vat_code_input!(),
@@ -528,6 +544,38 @@ Run it:
     vero_transport_help!()
 );
 
+pub(crate) const FILE_VAT_REPLACE: &str = concat!(
+    r#"INPUT (JSON on stdin)
+  The `file-vat start` input (see `file-vat start --help`) for a period whose
+  return is already filed, plus the reason. Take the figures from `file-vat
+  preview` of that period: they include later vouchers sealed with
+  `corrects_vat_period` for it. Unknown fields are refused.
+  period, sales_vat, purchase_vat, payee_iban
+                 required, as for `file-vat start`. payee_iban is recorded
+                 only; a replacement Run pays nothing.
+  replacement_reasons
+                 required, one or more of calculation-error, legal-practice,
+                 tax-audit-guidance, law-interpretation (FileVATReturn/v2
+                 ReplacementReason CLC, LGL, TXA, LAW).
+  business_id, contact_name, contact_phone, vat_reconciliation_acknowledgement
+                 optional, as for `file-vat start`.
+  Refused: a period with no filed return (VAT_PERIOD_NOT_FILED); a return the
+  Tax Administration has not processed yet (VERO_VAT_RETURN_NOT_PROCESSED);
+  figures the Tax Administration already shows
+  (VAT_REPLACEMENT_CHANGES_NOTHING); an earlier filing whose outcome is open
+  (VAT_FILING_UNRESOLVED).
+
+Example JSON (input-shape demonstration only, not VAT advice):
+```json
+{"period":"2026-10","sales_vat":{"amount":"504.00","currency":"EUR"},"purchase_vat":{"amount":"45.68","currency":"EUR"},"payee_iban":"FI2112345600000785","replacement_reasons":["calculation-error"]}
+```
+Run it:
+  aggountant --home ./accounting --json file-vat replace < replace.json
+
+"#,
+    vero_transport_help!()
+);
+
 pub(crate) const FILE_WAGE_REPORT: &str = r#"INPUT (JSON on stdin)
   One tax-free travel earnings report. The JSON carries no personal identity
   code: the earner is an employee_id stored with `employee add`. Every field is
@@ -706,6 +754,7 @@ mod tests {
                 parses::<aggountant_broker::tulorekisteri::WageProfile>,
             ),
             ("file-vat start", parses::<crate::CliFileVatInput>),
+            ("file-vat replace", parses::<crate::CliFileVatInput>),
             ("file-wage preview", parse_wage_report),
             ("file-wage start", parse_wage_report),
             ("file-wage correction preview", parse_wage_report),

@@ -67,9 +67,9 @@ pub use vero_filing::{
 pub use vero_vat_api::{
     project_file_vat_return, FileVatReceipt, FileVatReturn, FiledVatReturn, GetVatPeriodsResponse,
     ScriptedVeroFileVatReturnAdapter, ScriptedVeroFiledVatReturnAdapter,
-    ScriptedVeroVatPeriodsAdapter, VatValueDifference, VeroFileVatReturnAdapter,
-    VeroFiledVatReturnAdapter, VeroVatPeriodsAdapter, SVC_VERO_FILED_VAT_RETURN,
-    SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
+    ScriptedVeroVatPeriodsAdapter, VatReplacementReason, VatValueDifference,
+    VeroFileVatReturnAdapter, VeroFiledVatReturnAdapter, VeroVatPeriodsAdapter,
+    SVC_VERO_FILED_VAT_RETURN, SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
 };
 
 pub mod tulorekisteri;

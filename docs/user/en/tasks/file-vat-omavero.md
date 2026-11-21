@@ -108,8 +108,10 @@ period "2026-03" — "sealed" (…, vat_filed true)
   the payment, such as an advance received. aggountant cannot tell it from
   late-payment interest. Record credits in their own vouchers and with a VAT
   code.
-- aggountant does not make corrected or replacement returns. If the filed
-  figures need correcting, make a replacement return in OmaVero.
+- A filed return is corrected with a replacement return
+  ([Correct a return that has been filed](file-vat-direct.md#correct-a-return-that-has-been-filed)).
+  A replacement return made in OmaVero is recorded with its receipt
+  (`file-vat complete-manual --replacement`).
 
 More detail: [What is ready and what is not](../reference/status.md#vat-return).
 
@@ -132,8 +134,8 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
     closed month cannot be reopened, and direct filing does not send these
     figures. Do not record the same tax again with a VAT code in the next
     month, because it would then be reported twice. If the month has already
-    been filed with figures that are too low, make a replacement return in
-    OmaVero.
+    been filed with figures that are too low, make a replacement return
+    ([Correct a return that has been filed](file-vat-direct.md#correct-a-return-that-has-been-filed)).
   - If the posting does not belong in a return, for example a refund from the
     Tax Administration recorded on account 2939 or the VAT balance of an
     opening voucher, the figures are right and you can file them. In direct

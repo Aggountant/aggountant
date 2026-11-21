@@ -628,7 +628,7 @@ pub fn sum_vat_account_figures_with_role_table(
     let mut purchase = Decimal::ZERO;
     let mut fields = VatReturnFields::new();
     for voucher in vouchers {
-        if !period.contains(voucher.posting_date()) {
+        if !voucher.in_vat_period(period) {
             continue;
         }
         // Preserve the existing exact chart-activation gate for every filing voucher.
@@ -777,7 +777,7 @@ pub fn derive_filing_figures_with_role_table(
     role_table: &VatAccountRoleTable,
 ) -> Result<DerivedVatFigures, DomainError> {
     for voucher in vouchers {
-        if period.contains(voucher.posting_date()) {
+        if voucher.in_vat_period(period) {
             verify_vat_expansion_with_role_table(voucher, role_table)?;
         }
     }
@@ -857,7 +857,7 @@ pub fn draft_deductible_vat_with_role_table(
         return Ok(Money::new(eur_2dp(purchase), eur));
     }
     let body = VoucherBody::from_draft(draft, 1, chart_version.to_string())?;
-    let period = PeriodId::containing(draft.posting_date());
+    let period = body.own_vat_period();
     Ok(derive_filing_figures_with_role_table(&period, &[body], role_table)?.purchase_vat)
 }
 

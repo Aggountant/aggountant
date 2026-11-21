@@ -25,7 +25,7 @@ fields and an example in the INPUT section of its help. Every command accepts th
 | `run` | the month's close run: preview, start, approval, resume, status and moving to a new version | [Close the month](../tasks/close-month.md) |
 | `period` | a period's state (`open`, `closing`, `sealed`) and its VAT filing status | [Periods](../concepts/periods.md) |
 | `fiscal-year` | a fiscal year's dates and state (`open`, `sealed`); defining a fiscal year that is not the calendar year | [Periods](../concepts/periods.md#fiscal-year-status) |
-| `file-vat` | VAT return preview, direct submission, the status of a filed return, status reconciliation and recording a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [directly](../tasks/file-vat-direct.md) |
+| `file-vat` | VAT return preview, direct submission, replacement return, the status of a filed return, status reconciliation and recording a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [directly](../tasks/file-vat-direct.md) |
 | `tulorekisteri` | the Tulorekisteri channel profile and the readiness check | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `vero-fi` | direct filing settings, the readiness check and the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | the employee register | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |

@@ -42,7 +42,7 @@ pub fn derive_vat_figures(
     let mut fields = VatReturnFields::new();
 
     for voucher in vouchers {
-        if !period.contains(voucher.posting_date()) {
+        if !voucher.in_vat_period(period) {
             continue;
         }
         let mut domestic_sales_fields = VatReturnFields::new();

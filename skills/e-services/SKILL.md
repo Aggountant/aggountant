@@ -31,12 +31,13 @@ annettu ilmoitus kirjataan aggountantin manuaalisen ilmoituksen polulla
 
 Jo hyväksytyn ilmoituksen korjaus ei kuulu selaimeen silloin, kun ohjelma osaa sen:
 matkakorvausilmoituksen korvaava ilmoitus ja mitätöinti tehdään komennolla
-`file-wage correction` ja erillisilmoituksen korvaava valitsimella `--replace`.
-Asiointipalvelussa jo tehty matkakorvausilmoituksen korjaus kirjataan komennolla
-`file-wage correction complete-manual`. ALV:n korvaavaa ilmoitusta ja erillisilmoituksen
-mitätöintiä ohjelma ei vielä tee eikä kirjaa: `complete-manual` kieltäytyy niistä, ja
-käyttäjän asiointipalvelussa tekemän korjauksen kuitti arkistoidaan ja asia merkitään
-kodin muistiin.
+`file-wage correction`, erillisilmoituksen korvaava valitsimella `--replace` ja ALV:n
+korvaava ilmoitus komennolla `file-vat replace`. Asiointipalvelussa jo tehty korjaus
+kirjataan: matkakorvausilmoituksen komennolla `file-wage correction complete-manual` ja
+ALV:n korvaava ilmoitus komennolla `file-vat complete-manual` valitsimella
+`--replacement`. Erillisilmoituksen mitätöintiä ohjelma ei vielä tee eikä kirjaa:
+`complete-manual` kieltäytyy siitä, ja käyttäjän asiointipalvelussa tekemän korjauksen
+kuitti arkistoidaan ja asia merkitään kodin muistiin.
 
 Älä poimi evästeitä, tunnisteita tai istuntotunnuksia sivulta, äläkä tallenna
 tunnisteen sisältäviä osoitteita. Merkinnöissä polut ovat malleja (`./Retrieve/…`).

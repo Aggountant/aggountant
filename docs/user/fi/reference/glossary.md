@@ -78,9 +78,9 @@ Tulorekisterin tulolaji 311.
 **Korjaustosite.** Uusi tosite, jolla aiemman tositteen virhe korjataan.
 Alkuperäistä ei muuteta eikä poisteta.
 
-**Korvaava ilmoitus.** Uusi ilmoitus, joka korvaa jo annetun ilmoituksen.
-aggountant ei tee korvaavia ilmoituksia. Ne tehdään OmaVerossa tai
-Tulorekisterin asiointipalvelussa.
+**Korvaava ilmoitus.** Uusi ilmoitus, joka korvaa jo annetun ilmoituksen
+kokonaan. aggountant tekee sen omana hyväksyttävänä lähetyksenään ja
+säilyttää aiemman kuittauksen uuden vieressä.
 
 **Kuittaus.** Verohallinnon vastaus siitä, että se on vastaanottanut
 ilmoituksen. Kuittaus ei vielä tarkoita, että ilmoitus näkyisi OmaVerossa.

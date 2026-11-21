@@ -43,7 +43,7 @@ pub use error::LedgerError;
 pub use period::{
     AdjustmentAttributionView, ClosingAuthority, FilingAuthority, FiscalYearDefinitionView,
     FiscalYearState, FiscalYearView, ManualVatFilingEvidence, PeriodState, PeriodView,
-    VatFilingReceipt,
+    ReplacementAuthority, VatFilingEvidence, VatFilingReceipt, VatFilingRecord,
 };
 pub use reports::{
     render_monthly_report_html, BalanceSection, IncomeSection, MonthlyReportOptions,
@@ -681,6 +681,7 @@ impl Ledger {
             let gate = PeriodGate {
                 posting_date: draft.posting_date(),
                 authority: None,
+                corrects_vat_period: draft.corrects_vat_period(),
             };
             return match self.fiscal.posting_gate_refusal(&gate)? {
                 Some(refusal) => Err(refusal),
@@ -944,6 +945,7 @@ impl Ledger {
         let gate = PeriodGate {
             posting_date: draft.posting_date(),
             authority,
+            corrects_vat_period: draft.corrects_vat_period(),
         };
 
         match self.fiscal.commit(&provenance, &gate, &build)? {
@@ -1050,6 +1052,46 @@ impl Ledger {
             }
         }
         Ok(vouchers)
+    }
+
+    /// The sealed vouchers whose VAT belongs to the return of `period`
+    /// ([`VoucherBody::in_vat_period`]): the period's own vouchers that correct no
+    /// earlier return, and the vouchers of later periods sealed as corrections to
+    /// this one. This, not [`Ledger::period_vouchers`], is what a VAT return and
+    /// its reconciliation are derived from.
+    pub fn vat_period_vouchers(&self, period: &PeriodId) -> Result<Vec<VoucherBody>, LedgerError> {
+        let snapshot = self.fiscal.verification_snapshot()?;
+        let mut vouchers = Vec::new();
+        for v in &snapshot.vouchers {
+            let body = aggountant_wire::decode_voucher_body(&v.canonical)?;
+            if body.in_vat_period(period) {
+                vouchers.push(body);
+            }
+        }
+        Ok(vouchers)
+    }
+
+    /// The correction vouchers of `period`'s VAT return that no filing covers yet:
+    /// sealed as corrections to it after its latest filing was recorded. While
+    /// there are any, the return in force is short of the books and a replacement
+    /// return is due. Empty for a period that is not filed.
+    pub fn unfiled_vat_corrections(&self, period: &PeriodId) -> Result<Vec<u64>, LedgerError> {
+        let Some(latest) = self.fiscal.period_filings(&period.to_string())?.pop() else {
+            return Ok(Vec::new());
+        };
+        let instant = |value: &str| {
+            Instant::parse(value)
+                .map_err(|_| LedgerError::Store(format!("unreadable fiscal timestamp {value:?}")))
+        };
+        let filed_at = instant(&latest.ts)?;
+        let mut numbers = Vec::new();
+        for v in &self.fiscal.verification_snapshot()?.vouchers {
+            let body = aggountant_wire::decode_voucher_body(&v.canonical)?;
+            if body.corrects_vat_period() == Some(period) && instant(&v.sealed_at)? > filed_at {
+                numbers.push(v.number);
+            }
+        }
+        Ok(numbers)
     }
 
     /// Read one sealed voucher from one consistent fiscal snapshot. The canonical
@@ -1742,6 +1784,7 @@ impl Ledger {
             match_owner: false,
             require_unfiled: false,
             set_filed: false,
+            replaces_filings: None,
             sent_hash: None,
             receipt_unique_identifier: None,
             receipt_accepted_timestamp: None,
@@ -1771,6 +1814,7 @@ impl Ledger {
             match_owner: true,
             require_unfiled: false,
             set_filed: false,
+            replaces_filings: None,
             sent_hash: None,
             receipt_unique_identifier: None,
             receipt_accepted_timestamp: None,
@@ -1804,6 +1848,7 @@ impl Ledger {
             match_owner: true,
             require_unfiled: true,
             set_filed: false,
+            replaces_filings: None,
             sent_hash: None,
             receipt_unique_identifier: None,
             receipt_accepted_timestamp: None,
@@ -1841,6 +1886,7 @@ impl Ledger {
             match_owner: true,
             require_unfiled: true,
             set_filed: false,
+            replaces_filings: None,
             sent_hash: None,
             receipt_unique_identifier: None,
             receipt_accepted_timestamp: None,
@@ -1927,7 +1973,8 @@ impl Ledger {
                 Ok(FilingAuthority::mint(run_id.to_string(), period.clone()))
             }
             PeriodState::Sealed => Err(LedgerError::PeriodTransitionConflict(format!(
-                "period {period} is already filed — filing is irreversible"
+                "period {period} is already filed — filing is irreversible; a filed return \
+                 is corrected with a replacement return (`file-vat replace`)"
             ))),
             other => Err(LedgerError::PeriodNotSealed(format!(
                 "period {period} is {} — a VAT return can only be filed for a Sealed period",
@@ -2054,9 +2101,9 @@ impl Ledger {
         // so a crash between the broker success and this COMMIT can be retried
         // cleanly. A *different* sent_hash is still refused (filing is irreversible).
         if cur.vat_filed {
-            let existing = self.fiscal.last_filing_sent_hash(&period.to_string())?;
+            let existing = self.fiscal.period_filings(&period.to_string())?.pop();
             return match existing {
-                Some(stored) if stored.as_deref() == sent_hash => Ok(row_to_view(cur)),
+                Some(stored) if stored.sent_hash.as_deref() == sent_hash => Ok(row_to_view(cur)),
                 _ => Err(LedgerError::PeriodTransitionConflict(format!(
                     "period {period} is already filed with different bytes — filing is irreversible"
                 ))),
@@ -2070,6 +2117,7 @@ impl Ledger {
             match_owner: false,
             require_unfiled: true,
             set_filed: true,
+            replaces_filings: None,
             sent_hash: sent_hash.map(|s| s.to_string()),
             receipt_unique_identifier: receipt.map(|value| value.0.to_string()),
             receipt_accepted_timestamp: receipt.map(|value| value.1.to_string()),
@@ -2081,32 +2129,175 @@ impl Ledger {
         Ok(row_to_view(row))
     }
 
+    /// Mint a [`ReplacementAuthority`] for a period whose return is filed: the
+    /// capability to record a replacement return, distinct from the first filing's
+    /// [`FilingAuthority`] so that neither can stand in for the other. `replaces`
+    /// is the number of filings the caller saw (the first return and every
+    /// replacement so far); the recording CAS requires it to still hold, so a
+    /// replacement prepared against an earlier state of the period is refused.
+    pub fn acquire_replacement_authority(
+        &self,
+        period: &PeriodId,
+        run_id: &str,
+        replaces: usize,
+    ) -> Result<ReplacementAuthority, LedgerError> {
+        let row = self.fiscal.read_period(&period.to_string())?;
+        if row.state != PeriodState::Sealed || !row.vat_filed {
+            return Err(LedgerError::VatPeriodNotFiled(format!(
+                "period {period} is {} with no VAT return filed; only a filed return is \
+                 replaced (file the first return with `file-vat start`)",
+                row.state.as_str()
+            )));
+        }
+        let filings = self.fiscal.period_filings(&period.to_string())?.len();
+        if filings != replaces {
+            return Err(LedgerError::PeriodTransitionConflict(format!(
+                "period {period} has {filings} recorded VAT filing(s), not the {replaces} this \
+                 replacement was prepared against; preview the replacement again"
+            )));
+        }
+        Ok(ReplacementAuthority::mint(
+            run_id.to_string(),
+            period.clone(),
+            replaces as u64,
+        ))
+    }
+
+    /// Record a replacement return as a further audited filing event of a filed
+    /// period. Earlier filing events stay in the chain; the latest is in force.
+    /// Idempotent for crash recovery: when the replacement is already the latest
+    /// filing (same `sent_hash`, one more filing than it replaced) it is replayed.
+    pub fn replace_vat_filing(
+        &self,
+        period: &PeriodId,
+        authority: &ReplacementAuthority,
+        evidence: VatFilingEvidence<'_>,
+        actor: &str,
+    ) -> Result<PeriodView, LedgerError> {
+        if authority.period() != period {
+            return Err(LedgerError::VoucherNotInRun(format!(
+                "ReplacementAuthority is for period {}, not {period}",
+                authority.period()
+            )));
+        }
+        let blank = |value: &str| value.trim().is_empty();
+        let (sent_hash, receipt, manual) = match evidence {
+            VatFilingEvidence::Receipt {
+                sent_hash,
+                unique_identifier,
+                accepted_timestamp,
+            } => {
+                if blank(sent_hash) || blank(unique_identifier) || blank(accepted_timestamp) {
+                    return Err(LedgerError::Store(
+                        "a replacement receipt requires sent_hash, UniqueIdentifier and \
+                         AcceptedTimestamp"
+                            .into(),
+                    ));
+                }
+                (
+                    Some(sent_hash),
+                    Some((unique_identifier, accepted_timestamp)),
+                    None,
+                )
+            }
+            VatFilingEvidence::Reconciled { sent_hash } => {
+                if blank(sent_hash) {
+                    return Err(LedgerError::Store(
+                        "a reconciled replacement requires sent_hash".into(),
+                    ));
+                }
+                (Some(sent_hash), None, None)
+            }
+            VatFilingEvidence::Manual {
+                channel,
+                evidence_ref,
+                remote_status_evidence_ref,
+            } => {
+                if !matches!(channel, "omavero" | "ilmoitin") || evidence_ref.is_empty() {
+                    return Err(LedgerError::Store(
+                        "manual VAT filing requires channel omavero|ilmoitin and evidence_ref"
+                            .into(),
+                    ));
+                }
+                (
+                    None,
+                    None,
+                    Some((channel, evidence_ref, remote_status_evidence_ref)),
+                )
+            }
+        };
+        let filings = self.fiscal.period_filings(&period.to_string())?;
+        if sent_hash.is_some()
+            && filings.len() as u64 == authority.replaces() + 1
+            && filings.last().and_then(|f| f.sent_hash.as_deref()) == sent_hash
+        {
+            return self.period_view(period);
+        }
+        let row = self.fiscal.transition_period(&TransitionRequest {
+            period_id: period.to_string(),
+            from: PeriodState::Sealed,
+            to: PeriodState::Sealed,
+            run_id: authority.run_id().to_string(),
+            match_owner: false,
+            require_unfiled: false,
+            set_filed: false,
+            replaces_filings: Some(authority.replaces()),
+            sent_hash: sent_hash.map(str::to_string),
+            receipt_unique_identifier: receipt.map(|value| value.0.to_string()),
+            receipt_accepted_timestamp: receipt.map(|value| value.1.to_string()),
+            manual_channel: manual.map(|value| value.0.to_string()),
+            manual_evidence_ref: manual.map(|value| value.1.to_string()),
+            remote_status_evidence_ref: manual.and_then(|value| value.2.map(str::to_string)),
+            actor: actor.to_string(),
+        })?;
+        Ok(row_to_view(row))
+    }
+
+    /// Every VAT filing recorded for the period, oldest first: the first return
+    /// and each replacement. The last one is the return in force.
+    pub fn vat_filings(&self, period: &PeriodId) -> Result<Vec<VatFilingRecord>, LedgerError> {
+        Ok(self
+            .fiscal
+            .period_filings(&period.to_string())?
+            .into_iter()
+            .enumerate()
+            .map(|(index, t)| VatFilingRecord {
+                filing: index as u32 + 1,
+                recorded_at: t.ts,
+                run_id: t.owning_run_id,
+                sent_hash: t.sent_hash,
+                receipt: t
+                    .receipt_unique_identifier
+                    .zip(t.receipt_accepted_timestamp)
+                    .map(|(unique_identifier, accepted_timestamp)| VatFilingReceipt {
+                        unique_identifier,
+                        accepted_timestamp,
+                    }),
+                manual: t.manual_channel.zip(t.manual_evidence_ref).map(
+                    |(channel, evidence_ref)| ManualVatFilingEvidence {
+                        channel,
+                        evidence_ref,
+                        remote_status_evidence_ref: t.remote_status_evidence_ref,
+                    },
+                ),
+            })
+            .collect())
+    }
+
+    /// The manual evidence of the return in force, when it was filed manually.
     pub fn manual_vat_filing_evidence(
         &self,
         period: &PeriodId,
     ) -> Result<Option<ManualVatFilingEvidence>, LedgerError> {
-        Ok(self
-            .fiscal
-            .last_manual_filing_evidence(&period.to_string())?
-            .map(
-                |(channel, evidence_ref, remote_status_evidence_ref)| ManualVatFilingEvidence {
-                    channel,
-                    evidence_ref,
-                    remote_status_evidence_ref,
-                },
-            ))
+        Ok(self.vat_filings(period)?.pop().and_then(|f| f.manual))
     }
 
+    /// The API receipt of the return in force, when it has one.
     pub fn vat_filing_receipt(
         &self,
         period: &PeriodId,
     ) -> Result<Option<VatFilingReceipt>, LedgerError> {
-        Ok(self.fiscal.last_filing_receipt(&period.to_string())?.map(
-            |(unique_identifier, accepted_timestamp)| VatFilingReceipt {
-                unique_identifier,
-                accepted_timestamp,
-            },
-        ))
+        Ok(self.vat_filings(period)?.pop().and_then(|f| f.receipt))
     }
 
     /// A `ClosingAuthority` is only valid for the period it was minted against.
@@ -2603,10 +2794,10 @@ fn verify_periods(snapshot: &store::FiscalSnapshot) -> Result<u64, LedgerError> 
                     t.period_seq, t.from_state, t.to_state
                 )));
             }
-            // Filing is irreversible: nothing may follow the filing self-edge, and
-            // there is at most one filing per period. A forged second filing edge or
-            // any post-filing transition (e.g. a reopen) is a broken chain.
-            if folded_filed {
+            // Filing is irreversible: only a further filing self-edge (a replacement
+            // return) may follow a filing. Any other post-filing transition (e.g. a
+            // reopen) is a broken chain.
+            if folded_filed && !(t.from_state == "Sealed" && t.to_state == "Sealed") {
                 return Err(LedgerError::HashChainBroken(format!(
                     "period {pid} transition {} follows an irreversible VAT filing",
                     t.period_seq

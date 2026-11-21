@@ -104,8 +104,10 @@ period "2026-03" — "sealed" (…, vat_filed true)
   sen vastapuoli on velkatili maksun puolella, kuten saatu ennakko. Ohjelma ei
   erota sitä viivästyskorosta. Kirjaa hyvitykset omille tositteilleen ja
   ALV-merkinnällä.
-- Korjattua tai korvaavaa ilmoitusta aggountant ei tee. Jos ilmoitettuihin
-  lukuihin tulee korjaus, tee korvaava ilmoitus OmaVerossa.
+- Jo annetun ilmoituksen korjaus on korvaava ilmoitus
+  ([Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)).
+  OmaVerossa tehty korvaava ilmoitus kirjataan kuitteineen
+  (`file-vat complete-manual --replacement`).
 
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
 
@@ -128,7 +130,8 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
     Suljettua kuukautta ei voi avata, eikä suora ilmoitus lähetä näitä lukuja.
     Älä kirjaa samaa veroa enää ALV-merkinnällä seuraavalle kuukaudelle, koska
     se ilmoitettaisiin silloin toiseen kertaan. Jos kuukausi on jo ilmoitettu
-    liian pienillä luvuilla, tee korvaava ilmoitus OmaVerossa.
+    liian pienillä luvuilla, anna korvaava ilmoitus
+    ([Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)).
   - Jos vienti ei kuulu ilmoitukseen, esimerkiksi Verohallinnon palautus on
     kirjattu tilille 2939 tai vienti on avaavan tositteen ALV-saldo, luvut
     ovat oikein, ja voit ilmoittaa ne. Suorassa ilmoituksessa syy kirjataan

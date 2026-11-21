@@ -501,6 +501,7 @@ pub(super) fn vat_expand_resolved_with_roles(
         postings,
         attachment_ref: input.attachment_ref,
         buyer_vat_id: None,
+        corrects_vat_period: None,
     })?
     .with_vat_expansion(expansion)
     .map_err(Into::into)

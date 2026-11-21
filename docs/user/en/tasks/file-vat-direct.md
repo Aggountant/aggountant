@@ -86,6 +86,73 @@ ask the Tax Administration for its status without sending anything. **Do not
 send it again because it does not show yet:**
 [When something goes wrong](../troubleshooting.md#the-return-does-not-show-in-omavero).
 
+## Correct a return that has been filed
+
+A filed return cannot be withdrawn, but it can be replaced. A replacement
+return gives all the figures of the period again, corrected, and the Tax
+Administration uses it from then on.
+
+1. **Correct the books first.** The filed month is locked, so the correcting
+   voucher is recorded in the next open month
+   ([Correct a sealed voucher](correct-voucher.md)). Tell the agent that the
+   voucher corrects the VAT return of the filed month. The agent marks that
+   on the voucher when it is sealed (`corrects_vat_period`), and the
+   voucher's tax is then counted in the corrected month's figures and not in
+   the return of the month the voucher is recorded in. The mark cannot be
+   added after sealing.
+
+   According to the Tax Administration's instructions, a financially minor
+   error may also be corrected in the current period's return. In that case
+   the mark is left out and no replacement return is made. The choice is
+   yours.
+
+2. **Ask for the replacement return.**
+
+   > Make a replacement return for October's VAT return.
+
+   The agent previews the month's new figures and prepares the replacement.
+   Tell it the reason for the correction: a calculation error or an error in
+   filling in the return, a change in legal practice, guidance received in a
+   tax audit, or an error in interpreting the law.
+
+3. **Check and approve.** The agent shows the whole return and which figures
+   change compared with the return the Tax Administration holds now. The
+   approval covers exactly this content, as with the first return.
+
+4. **The program sends the replacement return** and stores its
+   acknowledgement next to the original's. Both are kept, and the latest is
+   in force.
+
+5. **Check the tax account in OmaVero.** A replacement return changes the
+   period's tax by the difference. The program neither pays nor calculates
+   the difference: pay what is due yourself, or wait for the refund.
+
+<details>
+<summary>Commands the agent runs</summary>
+
+```sh
+aggountant voucher seal < correction-seal.json
+aggountant file-vat preview --period 2026-10
+aggountant file-vat replace < replacement.json
+aggountant file-vat approve-filing --run-id fv-… --answer approve
+aggountant file-vat status --period 2026-10
+```
+
+`file-vat replace` takes the same input as `file-vat start` plus the field
+`replacement_reasons`. `replacement.changes` in the answer lists the fields
+that change. `file-vat status` and `file-vat preview` show every filing of
+the period with its acknowledgement in the field `filings`.
+</details>
+
+A replacement return cannot be sent before the Tax Administration has
+processed the return in force (`VERO_VAT_RETURN_NOT_PROCESSED`); try again
+later. If the outcome of the submission stays uncertain, it is resolved as
+for a first return: another replacement is never sent on a guess
+([When something goes wrong](../troubleshooting.md)).
+
+If you have already made the replacement return in OmaVero, ask the agent to
+record it with its receipt (`file-vat complete-manual --replacement`).
+
 ## Limitations
 
 - When there is tax to pay, the run finally opens a payment approval.
@@ -93,7 +160,7 @@ send it again because it does not show yet:**
   run keeps showing a waiting state. The return has still been filed. A
   return that gives a refund ends without a payment step.
 - Direct filing has been tried with monthly periods.
-- aggountant does not make replacement returns.
+- A replacement return neither pays nor calculates the difference to pay.
 
 More detail: [What is ready and what is not](../reference/status.md#vat-return).
 

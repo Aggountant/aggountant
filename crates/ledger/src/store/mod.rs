@@ -16,7 +16,7 @@ pub(crate) mod sqlite_fiscal;
 pub(crate) mod sqlite_pii;
 
 use aggountant_model::{
-    Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Money, VoucherBody,
+    Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Money, PeriodId, VoucherBody,
 };
 
 use crate::employee::EmployeeState;
@@ -94,6 +94,9 @@ pub(crate) struct PeriodGate<'a> {
     pub posting_date: Date,
     /// A close-run's Closing-write capability, or `None` for an ordinary seal.
     pub authority: Option<&'a ClosingAuthority>,
+    /// The filed VAT period the voucher corrects, if it is such a correction. The
+    /// period must be Sealed with its return filed when the voucher seals.
+    pub corrects_vat_period: Option<&'a PeriodId>,
 }
 
 /// The authoritative `period` state row (ADR-6 §1): the O(1) indexed lookup the
@@ -152,6 +155,11 @@ pub(crate) struct TransitionRequest {
     /// S3/RF3). The event is co-transacted with the flag in one writer lock, so the
     /// filing fact is tamper-evident (`fold(period_transition).vat_filed == row`).
     pub set_filed: bool,
+    /// A replacement return (a further `Sealed→Sealed` filing event on a filed
+    /// period): require exactly this many filing events so far in the CAS. The
+    /// replacement names the filing it replaces, so two replacements prepared
+    /// against the same filing cannot both be recorded.
+    pub replaces_filings: Option<u64>,
     /// The `sent_hash` of the approved+submitted envelope, bound into the filing
     /// event's hash pre-image (`None` for a plain state transition).
     pub sent_hash: Option<String>,
@@ -359,19 +367,9 @@ pub(crate) trait FiscalStore {
     /// `req.set_filed` (S3 folds filing into the same audited hash-chained log).
     fn transition_period(&self, req: &TransitionRequest) -> Result<PeriodRow, LedgerError>;
 
-    /// The `sent_hash` of a period's latest VAT-filing self-edge (`Sealed→Sealed`),
-    /// for the idempotent-refile check. `Ok(None)` = no filing edge; `Ok(Some(h))` =
-    /// filed, with `h` the stored `sent_hash` (itself `None` for a manual mark).
-    fn last_filing_sent_hash(&self, period_id: &str)
-        -> Result<Option<Option<String>>, LedgerError>;
-
-    fn last_filing_receipt(&self, period_id: &str)
-        -> Result<Option<(String, String)>, LedgerError>;
-
-    fn last_manual_filing_evidence(
-        &self,
-        period_id: &str,
-    ) -> Result<Option<(String, String, Option<String>)>, LedgerError>;
+    /// A period's VAT-filing events (the `Sealed→Sealed` self-edges), oldest
+    /// first: the first return and every replacement. The last one is in force.
+    fn period_filings(&self, period_id: &str) -> Result<Vec<StoredPeriodTransition>, LedgerError>;
 
     /// Read the authoritative `fiscal_year` row (S6). A year with no row is
     /// implicitly `Open`.

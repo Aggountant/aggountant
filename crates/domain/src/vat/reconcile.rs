@@ -299,10 +299,7 @@ fn tagged_legs_unexplained(
             None => {}
         }
     }
-    let own = derive_vat_figures(
-        &PeriodId::containing(voucher.posting_date()),
-        std::slice::from_ref(voucher),
-    )?;
+    let own = derive_vat_figures(&voucher.own_vat_period(), std::slice::from_ref(voucher))?;
     let derived = [own.sales_vat.amount(), own.purchase_vat.amount()];
     Ok(Some(std::array::from_fn(|d| {
         !legs[d].is_zero() && (legs[d] - derived[d]).abs() > Decimal::new(lines[d], 2)
@@ -341,7 +338,7 @@ pub fn reconcile_vat_accounts(
     let mut settlement_roles_missing = Vec::new();
 
     for voucher in vouchers {
-        if !period.contains(voucher.posting_date()) {
+        if !voucher.in_vat_period(period) {
             continue;
         }
         let roles = role_table

@@ -70,6 +70,7 @@ fn eu_sale_buyer_vat_id_is_visible_from_the_sealed_body() {
         ],
         attachment_ref: None,
         buyer_vat_id: Some("se 556677889901".into()),
+        corrects_vat_period: None,
     })
     .unwrap();
 

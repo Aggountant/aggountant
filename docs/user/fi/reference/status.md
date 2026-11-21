@@ -114,8 +114,12 @@ lähdekoodista Rust-työkaluilla. Tee näin:
 - **Verohallinnon tilinumero annetaan joka kerta.** Agentti antaa
   ilmoitusajolle OmaVerossa näkyvän tilinumeron. Maksun viitettä ohjelma ei
   tiedä (`tax-payment-references`).
-- **Korvaavia ilmoituksia ei tehdä.** Kun ilmoitettuihin lukuihin tulee
-  korjaus, tee korvaava ilmoitus OmaVerossa.
+- **Korvaava ilmoitus ei maksa.** Jo annetun ilmoituksen korjaus tehdään
+  aggountantilla
+  ([Korjaa jo annettu ilmoitus](../tasks/file-vat-direct.md#korjaa-jo-annettu-ilmoitus)),
+  mutta lisää maksettavaa tai palautuvaa erotusta ohjelma ei laske: se näkyy
+  OmaVeron verotilillä. Korvaavaa ilmoitusta ei ole vielä lähetetty
+  Verohallinnon tuotantoon.
 - **EU-myynnin ja verottoman myynnin kentät 309–311 eivät tule
   kirjanpidosta.** Jos yritykselläsi on EU-myyntiä tai vientiä, tee ilmoitus
   OmaVerossa ja syötä nämä kentät itse. Yhteenvetoilmoitusta aggountant ei

@@ -56,9 +56,10 @@ tunnisteen. Pyydä siksi agenttia näyttämään tositteen viennit.
 ## Rajoitukset
 
 - Omaa korjauskomentoa ei ole. Korjaus on tavallinen erikoiskirjaus.
-- Jos virhe koskee jo ilmoitettua ALV-kuukautta ja haluat korjata sen
-  korvaavalla ilmoituksella, tee se OmaVerossa. aggountant ei tee korvaavia
-  ilmoituksia.
+- Kirjanpidon korjaus ei korjaa jo annettua ALV-ilmoitusta. Jos virhe koskee
+  ilmoitettua ALV-kuukautta, kerro se agentille ennen sinetöintiä ja anna
+  korvaava ilmoitus
+  ([Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)).
 
 ## Katso myös
 

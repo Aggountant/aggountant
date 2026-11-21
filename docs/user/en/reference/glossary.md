@@ -170,8 +170,8 @@ to use the interface for real returns after the acceptance tests.
 readiness is in order (`ready`).
 
 **Replacement return (korvaava ilmoitus).** A new return that replaces one
-already filed. aggountant does not make replacement returns. They are made in
-OmaVero or in Tulorekisteri's e-service.
+already filed, in full. aggountant makes it as a submission with its own
+approval and keeps the earlier acknowledgement next to the new one.
 
 **Reverse charge (käännetty verovelvollisuus).** A VAT procedure in which the
 buyer, not the seller, accounts for the tax, for example when buying services

@@ -296,6 +296,8 @@ struct CliFileVatInput {
     payee_iban: String,
     #[serde(default)]
     vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
+    #[serde(default)]
+    replacement_reasons: Option<Vec<aggountant_broker::VatReplacementReason>>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -611,6 +613,11 @@ enum FileVatCmd {
         /// Required when a Vero API attempt for this period is OutcomeUnknown.
         #[arg(long)]
         remote_status_evidence_ref: Option<String>,
+        /// The operator replaced an already filed return (OmaVero): record it as
+        /// a further filing of the period. Without this flag a filed period is
+        /// refused; with it, a period that is not filed is (VAT_PERIOD_NOT_FILED).
+        #[arg(long)]
+        replacement: bool,
     },
     /// Start a `file-vat` Run from stdin JSON (period + sales_vat/purchase_vat +
     /// payee_iban); reconciles and parks on the `ApproveFiling` preview gate.
@@ -618,6 +625,14 @@ enum FileVatCmd {
     /// `vat_reconciliation_acknowledgement` {reason, vouchers} names exactly them.
     #[command(after_help = input_help::FILE_VAT_START)]
     Start,
+    /// Start a `file-vat` Run that replaces the period's filed return, from the
+    /// `file-vat start` stdin JSON plus `replacement_reasons`. The whole return is
+    /// sent again from the sealed vouchers, including later vouchers sealed with
+    /// `corrects_vat_period` for this period. Parks on `ApproveFiling` with the
+    /// amounts the replacement changes; approve, reconcile and status work as for
+    /// a first return. The Run pays nothing.
+    #[command(after_help = input_help::FILE_VAT_REPLACE)]
+    Replace,
     /// Approve (or reject) the filing preview gate: `--answer approve|reject`.
     /// The submit-filing effect's `outcome` carries the Vero receipt
     /// (`unique_identifier`, `accepted_timestamp`) once accepted, or names
@@ -941,6 +956,7 @@ fn classify_ledger_error(error: &aggountant_ledger::LedgerError) -> ErrorClass {
         | VoucherNotInRun(_)
         | PeriodTransitionConflict(_)
         | PeriodNotSealed(_)
+        | VatPeriodNotFiled(_)
         | ArtifactNotFound(_)
         | IdempotencyKeyReuse(_)
         | AlreadyInitialized(_)
@@ -1846,12 +1862,22 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     channel,
                     evidence_ref,
                     remote_status_evidence_ref,
-                } => Ok(serde_json::to_value(engine.complete_manual_vat(
-                    period,
-                    channel.as_str(),
-                    evidence_ref,
-                    remote_status_evidence_ref.as_deref(),
-                )?)
+                    replacement,
+                } => Ok(serde_json::to_value(if *replacement {
+                    engine.complete_manual_vat_replacement(
+                        period,
+                        channel.as_str(),
+                        evidence_ref,
+                        remote_status_evidence_ref.as_deref(),
+                    )?
+                } else {
+                    engine.complete_manual_vat(
+                        period,
+                        channel.as_str(),
+                        evidence_ref,
+                        remote_status_evidence_ref.as_deref(),
+                    )?
+                })
                 .expect("manual VAT completion serializes")),
                 FileVatCmd::Start => {
                     let input: CliFileVatInput = read_stdin_json()?;
@@ -1860,6 +1886,17 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     let started =
                         engine.start_file_vat(&input, &operation.broker, &PolicySet::default())?;
                     Ok(serde_json::to_value(started).expect("file-vat start serializes"))
+                }
+                FileVatCmd::Replace => {
+                    let input: CliFileVatInput = read_stdin_json()?;
+                    let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
+                    let input = resolve_file_vat_input(input, operation.profile.as_ref())?;
+                    let started = engine.start_file_vat_replacement(
+                        &input,
+                        &operation.broker,
+                        &PolicySet::default(),
+                    )?;
+                    Ok(serde_json::to_value(started).expect("file-vat replace serializes"))
                 }
                 FileVatCmd::ApproveFiling { run_id, answer } => {
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
@@ -2289,6 +2326,7 @@ fn resolve_file_vat_input(
         contact_phone,
         payee_iban: input.payee_iban,
         vat_reconciliation_acknowledgement: input.vat_reconciliation_acknowledgement,
+        replacement_reasons: input.replacement_reasons,
     })
 }
 

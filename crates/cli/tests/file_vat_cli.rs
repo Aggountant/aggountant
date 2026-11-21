@@ -608,3 +608,248 @@ fn file_vat_timeout_reconciles_without_resubmitting() {
         "awaiting_gate"
     );
 }
+
+// --- Replacement return (issue `vat-replacement-return`) ---------------------
+
+/// A correction voucher posted in April for the filed Q1 return: a missing sale
+/// of 100.00 (25,50 output VAT) with the original document date.
+const Q1_CORRECTION: &str = r#"{
+  "draft": {
+    "document_date": "2026-02-20",
+    "posting_date": "2026-04-10",
+    "description": "Fictional sales invoice missing from Q1",
+    "corrects_vat_period": "2026-Q1",
+    "postings": [
+      { "account": "3000", "amount": { "amount": "100.00", "currency": "EUR" }, "side": "credit", "vat_code": "sales-domestic-standard" },
+      { "account": "1700", "amount": { "amount": "100.00", "currency": "EUR" }, "side": "debit" }
+    ]
+  },
+  "natural_key": "q1-correction"
+}"#;
+
+const REPLACEMENT_INPUT: &str = r#"{
+  "period": "2026-Q1",
+  "sales_vat": { "amount": "2575.50", "currency": "EUR" },
+  "purchase_vat": { "amount": "1020.00", "currency": "EUR" },
+  "business_id": "1572860-0",
+  "contact_name": "Ada Operator",
+  "contact_phone": "+358401234567",
+  "payee_iban": "FI2112345600000785",
+  "replacement_reasons": ["calculation-error"]
+}"#;
+
+fn replacement_script() -> String {
+    json!({
+      "vero-vat-periods": [{"status": 200, "body": {"FilingPeriod":[{
+          "Period":"2026-03-31", "Frequency":"VATQTR",
+          "StartDate":"2026-01-01", "EndDate":"2026-03-31",
+          "Status":"Processed", "DueDate":"2026-05-12"
+      }]}}],
+      "vero-filed-vat-return": [{"status": 200, "body": {
+          "Status": "Processed", "SubmittedDate": "2026-05-01",
+          "VATOnDomesticSales": {"HighVATRate": 2550.00, "MediumVATRate": 0, "LowVATRate": 0},
+          "DeductibleTax": {"DeductibleVAT": 1020.00}
+      }}],
+      "vero-file-vat-return": [{"status": 200, "body": {
+          "UniqueIdentifier":"VERO-R2", "AcceptedTimestamp":"2026-06-02T10:00:00Z"
+      }}]
+    })
+    .to_string()
+}
+
+/// Q1 filed through the CLI (receipt VERO-R1) and paid.
+fn file_q1(home: &std::path::Path) {
+    seal_q1(home);
+    let script = home.join("first_script.json");
+    std::fs::write(&script, happy_script()).unwrap();
+    let (code, stdout, err) = run(home, Some(&script), &["file-vat", "start"], FILE_VAT_INPUT);
+    assert_eq!(code, 0, "{err}");
+    let started: Value = serde_json::from_str(&stdout).unwrap();
+    let run_id = started["run_id"].as_str().unwrap().to_string();
+    for gate in ["approve-filing", "approve-payment"] {
+        let (code, _, err) = run(
+            home,
+            Some(&script),
+            &["file-vat", gate, "--run-id", &run_id],
+            "",
+        );
+        assert_eq!(code, 0, "{err}");
+    }
+}
+
+#[test]
+fn a_filed_return_is_replaced_end_to_end_via_cli() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    file_q1(home);
+
+    // The correction is posted in an open period and names the return it corrects.
+    let (code, _, err) = run(home, None, &["voucher", "validate"], Q1_CORRECTION);
+    assert_eq!(code, 0, "{err}");
+    let (code, stdout, err) = run(home, None, &["voucher", "seal"], Q1_CORRECTION);
+    assert_eq!(code, 0, "{err}");
+    let correction: Value = serde_json::from_str(&stdout).unwrap();
+
+    // The preview of the filed period carries the correction and says what to do.
+    let (code, stdout, err) = run(
+        home,
+        None,
+        &["file-vat", "preview", "--period", "2026-Q1"],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["sales_vat"], "2575.50");
+    assert_eq!(preview["filings"].as_array().unwrap().len(), 1);
+    let due = preview["attention"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["code"] == "VAT_REPLACEMENT_DUE")
+        .expect("a replacement is due");
+    assert_eq!(due["vouchers"], json!([correction["number"]]));
+
+    // A first filing stays refused, and names the replacement.
+    let first = home.join("first_script.json");
+    let (code, _, err) = run(home, Some(&first), &["file-vat", "start"], FILE_VAT_INPUT);
+    assert_ne!(code, 0);
+    let error: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(error["error_code"], "PERIOD_TRANSITION_CONFLICT");
+    assert!(error["message"]
+        .as_str()
+        .unwrap()
+        .contains("file-vat replace"));
+
+    // Replace: previewed with the changed amount, approved, receipted.
+    let script = home.join("replacement_script.json");
+    std::fs::write(&script, replacement_script()).unwrap();
+    let (code, stdout, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "replace"],
+        REPLACEMENT_INPUT,
+    );
+    assert_eq!(code, 0, "{err}");
+    let started: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(started["status"], "awaiting_gate");
+    assert_eq!(started["bank_payment_required"], "0.00");
+    assert_eq!(started["replacement"]["replaces_filing"], 1);
+    assert_eq!(
+        started["replacement"]["reasons"],
+        json!(["calculation-error"])
+    );
+    assert_eq!(started["replacement"]["changes"][0]["return_field"], 301);
+    let request: Value = serde_json::from_str(started["filing_request"].as_str().unwrap()).unwrap();
+    assert_eq!(request["ReplacementReturn"], true);
+    assert_eq!(request["ReplacementReason"], "CLC");
+    let run_id = started["run_id"].as_str().unwrap().to_string();
+
+    let (code, stdout, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "approve-filing", "--run-id", &run_id],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let done: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(done["status"], "completed");
+    let filing = done["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|effect| effect["key"] == "submit-filing")
+        .unwrap();
+    assert_eq!(filing["outcome"]["receipt"]["unique_identifier"], "VERO-R2");
+
+    // Both receipts are kept; the replacement is in force and nothing is due.
+    let (code, stdout, err) = run(
+        home,
+        None,
+        &["file-vat", "preview", "--period", "2026-Q1"],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    let filings = preview["filings"].as_array().unwrap();
+    assert_eq!(filings.len(), 2);
+    assert_eq!(filings[0]["receipt"]["unique_identifier"], "VERO-R1");
+    assert_eq!(filings[1]["receipt"]["unique_identifier"], "VERO-R2");
+    assert!(preview["attention"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|item| item["code"] != "VAT_REPLACEMENT_DUE"));
+    let (code, _, _) = run(home, None, &["voucher", "verify"], "");
+    assert_eq!(code, 0);
+}
+
+#[test]
+fn replace_and_manual_replacement_refuse_what_they_cannot_record() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    seal_q1(home);
+    let script = home.join("replacement_script.json");
+    std::fs::write(&script, replacement_script()).unwrap();
+    let error_code = |err: &str| -> String {
+        let error: Value = serde_json::from_str(err).unwrap();
+        error["error_code"].as_str().unwrap().to_string()
+    };
+
+    // Nothing is filed yet: there is nothing to replace, by either route.
+    let (code, _, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "replace"],
+        REPLACEMENT_INPUT,
+    );
+    assert_ne!(code, 0);
+    assert_eq!(error_code(&err), "VAT_PERIOD_NOT_FILED");
+    let manual = [
+        "file-vat",
+        "complete-manual",
+        "--period",
+        "2026-Q1",
+        "--channel",
+        "omavero",
+        "--evidence-ref",
+        "archive/vero/2026-Q1-replacement.pdf",
+    ];
+    let with_flag: Vec<&str> = manual.iter().copied().chain(["--replacement"]).collect();
+    let (code, _, err) = run(home, None, &with_flag, "");
+    assert_ne!(code, 0);
+    assert_eq!(error_code(&err), "VAT_PERIOD_NOT_FILED");
+    // A correction voucher has no filed return to correct either.
+    let (code, _, err) = run(home, None, &["voucher", "seal"], Q1_CORRECTION);
+    assert_ne!(code, 0);
+    assert_eq!(error_code(&err), "VAT_PERIOD_NOT_FILED");
+
+    // Once filed manually, a second plain completion is refused and names the
+    // flag; with the flag the OmaVero replacement is recorded beside the first.
+    let (code, _, err) = run(home, None, &manual, "");
+    assert_eq!(code, 0, "{err}");
+    let (code, _, err) = run(home, None, &manual, "");
+    assert_ne!(code, 0);
+    assert_eq!(error_code(&err), "PERIOD_TRANSITION_CONFLICT");
+    let (code, stdout, err) = run(home, None, &with_flag, "");
+    assert_eq!(code, 0, "{err}");
+    let recorded: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(recorded["vat_filed"], true);
+    let (_, stdout, _) = run(
+        home,
+        None,
+        &["file-vat", "status", "--period", "2026-Q1"],
+        "",
+    );
+    let status: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(status["status"], "filed_without_receipt");
+    assert_eq!(status["filings"].as_array().unwrap().len(), 2);
+    // `replace` without a reason is refused before any Run is created.
+    let (code, _, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "replace"],
+        FILE_VAT_INPUT,
+    );
+    assert_ne!(code, 0);
+    assert!(err.contains("VAT_REPLACEMENT_REASON_REQUIRED"), "{err}");
+}

@@ -182,3 +182,46 @@ fn get_filed_return_can_be_a_processed_mismatch() {
         submitted_return()["VATDetails"]["VATOnDomesticSalesByTaxRate"]
     );
 }
+
+#[test]
+fn a_later_return_must_be_a_replacement_with_a_valid_reason() {
+    let server = MockVeroVatServer::start(Scenario::file_receipt("replacement")).unwrap();
+    let replacement = |reason: Option<&str>| {
+        let mut request = submitted_return();
+        request["ReplacementReturn"] = json!(true);
+        request["VATDetails"]["VATOnDomesticSalesByTaxRate"]["HighVATRate"] = json!(280.5);
+        if let Some(reason) = reason {
+            request["ReplacementReason"] = json!(reason);
+        }
+        request
+    };
+
+    // No return exists yet: a replacement is refused, the first return accepted.
+    let (status, body) = post(&server, FILE_VAT_RETURN_PATH, &replacement(Some("CLC"))).unwrap();
+    assert_eq!(
+        (status, body["ErrorCode"].as_str()),
+        (400, Some("MOCK_REPLACEMENT_SEQUENCE"))
+    );
+    let (status, _) = post(&server, FILE_VAT_RETURN_PATH, &submitted_return()).unwrap();
+    assert_eq!(status, 200);
+
+    // After it, a second "first" return and a replacement without a valid reason
+    // are refused; nothing they carried becomes the filed return.
+    let (status, _) = post(&server, FILE_VAT_RETURN_PATH, &submitted_return()).unwrap();
+    assert_eq!(status, 400);
+    for reason in [None, Some("OTHER")] {
+        let (status, body) = post(&server, FILE_VAT_RETURN_PATH, &replacement(reason)).unwrap();
+        assert_eq!((status, body["ErrorCode"].as_str()), (400, Some("VAT106")));
+    }
+    let query = json!({"BusinessId":"1234567-8","FilingPeriod":"2026-07-31"});
+    let (_, filed) = post(&server, GET_FILED_VAT_RETURN_PATH, &query).unwrap();
+    assert_eq!(filed["VATOnDomesticSales"]["HighVATRate"], 255.0);
+
+    // A replacement with reasons replaces the whole return.
+    let (status, body) =
+        post(&server, FILE_VAT_RETURN_PATH, &replacement(Some("CLC,LAW"))).unwrap();
+    assert_eq!(status, 200);
+    assert!(body["UniqueIdentifier"].is_string());
+    let (_, filed) = post(&server, GET_FILED_VAT_RETURN_PATH, &query).unwrap();
+    assert_eq!(filed["VATOnDomesticSales"]["HighVATRate"], 280.5);
+}

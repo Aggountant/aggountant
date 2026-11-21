@@ -53,4 +53,5 @@ Kahdessa tapauksessa ohjelma ei nimeä komentoa, koska ratkaisu ei ole sen:
 - Ajo ei lähettänyt mitään, mutta Verohallinnolla on samat luvut käsiteltyinä.
   Ilmoitus on silloin annettu muuta kautta. Ohjelma ei ota sitä ajon omaksi: käyttäjä
   vahvistaa, että hän tai joku muu antoi sen, ja se kirjataan käsin annettuna
-  (`file-vat complete-manual`, Verohallinnon vastaus näyttönä).
+  (`file-vat complete-manual`, Verohallinnon vastaus näyttönä; korvaavalle
+  ilmoitukselle valitsin `--replacement`).

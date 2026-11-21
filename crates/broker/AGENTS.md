@@ -53,7 +53,22 @@ the adapter passes one when configured, but nothing fetches it.
 - **After an accepted return, every later filing for the period is a
   replacement return** with all values and a reason, and needs a new explicit
   approval. A blind second "first" filing would silently become an unintended
-  replacement.
+  replacement. The reason is one or more of `CLC`, `LGL`, `TXA`, `LAW`,
+  comma-separated, and a replacement answers with its own `UniqueIdentifier`
+  and `AcceptedTimestamp` (Vero API developer portal, SelfAssessedTaxes,
+  FileVATReturn v2, read 2026-11-21).
+- **GetFiledVATReturn shows only the latest return, and the last accepted one
+  while a newer is being processed** (same portal, GetFiledVATReturn v2). So
+  for a replacement the answer that means "not shown" is the unchanged return
+  that was in force before it was sent, not `Missing`. A replacement is
+  therefore started only against a `Processed` return, whose answer the Run
+  keeps, and only when it changes at least one amount: otherwise a later match
+  could not tell the replacement from the return it replaced.
+- **A replacement has its own outbox key**, per the filing it replaces and the
+  request it sends, so the first return's recorded outcome is never replayed
+  as the replacement's. The key is not what prevents a second send: an open
+  outcome blocks every dispatch for the period, and the Ledger refuses a
+  replacement of a filing that has already been replaced.
 - **Filing is not paying.** `ApproveFiling` never approves a payment; a payment
   is a separate approval, effect and receipt.
 - **The manual fallback (OmaVero, Ilmoitin.fi) is never started silently or by

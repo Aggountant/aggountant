@@ -60,9 +60,10 @@ ask the agent to show you the voucher's postings.
 
 - There is no separate correction command. A correction is an ordinary manual
   entry.
-- If the mistake concerns a VAT month that has already been filed and you want
-  to fix it with a replacement return, do that in OmaVero. aggountant does not
-  make replacement returns.
+- Correcting the books does not correct a VAT return that has been filed. If
+  the mistake concerns a filed VAT month, tell the agent before the voucher
+  is sealed and make a replacement return
+  ([Correct a return that has been filed](file-vat-direct.md#correct-a-return-that-has-been-filed)).
 
 ## See also
 

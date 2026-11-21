@@ -84,6 +84,27 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   [ADR-5](../../docs/site/adr-5-seal-timing.md).) If the affected period's
   VAT return was already filed, the correction also needs a VAT replacement
   return; correcting the books does not correct the filing.
+- **Which VAT return a correction belongs to is sealed into the voucher.**
+  `corrects_vat_period` on a voucher posted in a later period puts its VAT in
+  the named period's return and takes it out of the return of the period it is
+  posted in; every VAT derivation selects vouchers through
+  `VoucherBody::in_vat_period`, never by posting date alone, or the amount
+  would be reported twice or not at all. It is part of the hashed body, set
+  only at the seal and only for a period whose return is filed, and there is
+  deliberately no way to attribute a voucher afterwards: by then the posting
+  period's own return may have counted it. A voucher without it stays in its
+  posting period's return, which is also the lawful route for a financially
+  minor error. Bookkeeping reports and statements go by posting date and do
+  not read it.
+- **A period's VAT filings are a sequence, and the last is in force.** The
+  first return and each replacement are `Sealed→Sealed` events of the period's
+  transition chain; nothing else may follow a filing. A replacement is taken
+  with `ReplacementAuthority`, which names how many filings it replaces and is
+  checked in the CAS, so the first-filing path can never record a second
+  return and a replacement prepared against an older state is refused. Earlier
+  receipts are never overwritten. A binary older than replacement returns
+  reports a home with two filing events as `HASH_CHAIN_BROKEN`; binaries only
+  move forward.
 - **Period state is authoritative in fiscal and co-transacted with the seal.**
   `Open → Closing → Sealed` transitions are CAS updates of the period row under
   the same writer lock as `voucher seal`, so no voucher can slip into a period

@@ -75,6 +75,39 @@ pub struct VatFilingReceipt {
     pub accepted_timestamp: String,
 }
 
+/// One recorded VAT filing of a period: the first return or a replacement.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct VatFilingRecord {
+    /// 1 for the first return, 2 for its first replacement, and so on.
+    pub filing: u32,
+    pub recorded_at: String,
+    pub run_id: Option<String>,
+    /// Hash of the FileVATReturn request, absent for a manual filing.
+    pub sent_hash: Option<String>,
+    pub receipt: Option<VatFilingReceipt>,
+    pub manual: Option<ManualVatFilingEvidence>,
+}
+
+/// What proves a replacement return, as recorded in its filing event.
+#[derive(Debug, Clone, Copy)]
+pub enum VatFilingEvidence<'a> {
+    /// Accepted through the API with a receipt.
+    Receipt {
+        sent_hash: &'a str,
+        unique_identifier: &'a str,
+        accepted_timestamp: &'a str,
+    },
+    /// The authority shows the approved values processed; that read returns no
+    /// receipt fields and none are invented.
+    Reconciled { sent_hash: &'a str },
+    /// Made by the operator in the e-service.
+    Manual {
+        channel: &'a str,
+        evidence_ref: &'a str,
+        remote_status_evidence_ref: Option<&'a str>,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ManualVatFilingEvidence {
     pub channel: String,
@@ -227,5 +260,37 @@ impl FilingAuthority {
     /// Read-only view of the filing run (for logging / display).
     pub fn owning_run_id(&self) -> &str {
         &self.run_id
+    }
+}
+
+/// Non-serialisable capability authorising one replacement return for a filed
+/// period. Minted only by the Ledger (`acquire_replacement_authority`) and bound
+/// to the number of filings it replaces, which the recording CAS re-checks.
+#[derive(Debug, Clone)]
+pub struct ReplacementAuthority {
+    run_id: String,
+    period: PeriodId,
+    replaces: u64,
+}
+
+impl ReplacementAuthority {
+    pub(crate) fn mint(run_id: String, period: PeriodId, replaces: u64) -> Self {
+        ReplacementAuthority {
+            run_id,
+            period,
+            replaces,
+        }
+    }
+
+    pub(crate) fn run_id(&self) -> &str {
+        &self.run_id
+    }
+
+    pub(crate) fn period(&self) -> &PeriodId {
+        &self.period
+    }
+
+    pub(crate) fn replaces(&self) -> u64 {
+        self.replaces
     }
 }

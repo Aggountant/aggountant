@@ -26,12 +26,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use aggountant_broker::{
-    project_file_vat_return, Broker, Envelope, FileVatReceipt, FileVatReturn,
-    GetVatPeriodsResponse, RemoteOutcome, SVC_PANKKI_MAKSU, SVC_VERO_FILED_VAT_RETURN,
-    SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
+    project_file_vat_return, Broker, Envelope, FileVatReceipt, FileVatReturn, FiledVatReturn,
+    GetVatPeriodsResponse, RemoteOutcome, VatReplacementReason, VatValueDifference,
+    SVC_PANKKI_MAKSU, SVC_VERO_FILED_VAT_RETURN, SVC_VERO_FILE_VAT_RETURN, SVC_VERO_VAT_PERIODS,
 };
 use aggountant_domain::{compute_derived_vat_filing, PolicySet, VatFiling};
-use aggountant_ledger::{Ledger, ManualVatFilingEvidence, PeriodState, PeriodView};
+use aggountant_ledger::{
+    Ledger, ManualVatFilingEvidence, PeriodState, PeriodView, VatFilingEvidence, VatFilingRecord,
+};
 use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Money, PeriodId};
 use sha2::{Digest, Sha256};
 
@@ -74,6 +76,10 @@ pub struct FileVatInput {
     /// Required only when the period has untagged VAT-account postings.
     #[serde(default)]
     pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
+    /// Why the filed return is corrected. Only for `file-vat replace`, which
+    /// requires it; `file-vat start` refuses an input that carries it.
+    #[serde(default)]
+    pub replacement_reasons: Option<Vec<VatReplacementReason>>,
 }
 
 /// Run-scoped state persisted at reconcile time so `answer`/`retry`/`resume` can
@@ -96,6 +102,52 @@ struct FileVatState {
     vero_period: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
+    /// Present when the Run files a replacement return for a filed period.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    replacement: Option<ReplacementState>,
+}
+
+/// What a replacement Run was prepared against.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ReplacementState {
+    /// The number of filings recorded for the period when the Run started (the
+    /// first return and every replacement so far). The Run's own filing is the
+    /// next one; the Ledger refuses it if another was recorded in between.
+    replaces_filings: usize,
+    reasons: Vec<VatReplacementReason>,
+    /// GetFiledVATReturn's answer before anything was sent: the processed return
+    /// this Run replaces. An identical answer after sending means the authority
+    /// does not show the replacement.
+    prior_filed_return: FiledVatReturn,
+}
+
+impl FileVatState {
+    /// How many filings the period had when this Run started: 0 for a first
+    /// return. The Run's filing has reached the books once there are more.
+    fn replaces_filings(&self) -> usize {
+        self.replacement
+            .as_ref()
+            .map_or(0, |replacement| replacement.replaces_filings)
+    }
+
+    /// The Run's FileVATReturn outbox key. A first return is keyed by the period,
+    /// so two Runs filing it dedupe. A replacement is a different payload and gets
+    /// its own key (the filing it replaces and the request it sends), so the
+    /// first return's recorded outcome is never replayed as the replacement's and
+    /// a rejected replacement can be followed by a corrected one. What keeps two
+    /// replacements from both being sent is not the key: an open outcome blocks
+    /// every new dispatch, and the Ledger refuses a replacement of a filing that
+    /// has already been replaced.
+    fn filing_outbox_key(&self) -> String {
+        match self.replaces_filings() {
+            0 => format!("{EFFECT_SUBMIT_FILING}:{}", self.period),
+            n => format!(
+                "{EFFECT_SUBMIT_FILING}:{}:replaces-{n}:{}",
+                self.period,
+                self.filing_sent_hash.get(..16).unwrap_or_default()
+            ),
+        }
+    }
 }
 
 struct VerifiedFilingSnapshot {
@@ -117,7 +169,29 @@ pub struct FileVatStart {
     pub vero_period: serde_json::Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
+    /// Present for `file-vat replace`: what the approval replaces.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replacement: Option<ReplacementPreview>,
 }
+
+/// What a replacement return replaces, shown before the approval.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReplacementPreview {
+    /// The filing being replaced: 1 is the first return.
+    pub replaces_filing: usize,
+    pub reasons: Vec<VatReplacementReason>,
+    /// The return the Tax Administration shows now (GetFiledVATReturn/v2).
+    pub authority_return: FiledVatReturn,
+    /// Every amount the replacement changes: `approved` is the replacement's
+    /// value, `authority` the value in force now.
+    pub changes: Vec<VatValueDifference>,
+    pub payment_note: &'static str,
+}
+
+const REPLACEMENT_PAYMENT_NOTE: &str =
+    "A replacement return changes the tax of the period by the difference to the return in \
+     force. This Run does not pay: check the tax account in OmaVero for the amount due or \
+     refunded, and pay a difference separately.";
 
 /// Read-only manual filing view. The numbered fields are the same Domain projection
 /// used by direct Vero filing; this type adds only operator-facing instructions.
@@ -138,6 +212,8 @@ pub struct OfflineVatPreview {
     pub payment_amount: String,
     pub vat_reconciliation: aggountant_domain::VatAccountReconciliation,
     pub attention: Vec<VatAttentionItem>,
+    /// Every filing recorded for the period, oldest first; the last is in force.
+    pub filings: Vec<VatFilingRecord>,
     pub filing_instruction: &'static str,
     pub payment_instruction: &'static str,
 }
@@ -225,8 +301,42 @@ impl ProcessEngine {
         let ledger = Ledger::open(&self.home)?;
         let period_state = ledger.period_view(period)?.state;
         let verified = derive_verified_filing(&ledger, period, policy_set)?;
+        let filings = ledger.vat_filings(period)?;
+        // A filed period is fileable again only as a replacement return.
         let fileable = period_state == PeriodState::Sealed;
         let filing = verified.filing;
+        let mut attention = attention_items(&verified.reconciliation, period_state);
+        let unfiled_corrections = ledger.unfiled_vat_corrections(period)?;
+        if !unfiled_corrections.is_empty() {
+            attention.push(VatAttentionItem {
+                code: "VAT_REPLACEMENT_DUE",
+                severity: "info",
+                message: format!(
+                    "These figures include correction voucher(s) sealed for {period} after \
+                     its latest filing, so the return in force is not these figures. File a \
+                     replacement return with `file-vat replace`."
+                ),
+                vouchers: unfiled_corrections,
+            });
+        }
+        let corrects_elsewhere: Vec<u64> = ledger
+            .period_vouchers(period)?
+            .iter()
+            .filter(|voucher| voucher.corrects_vat_period().is_some())
+            .map(|voucher| voucher.number())
+            .collect();
+        if !corrects_elsewhere.is_empty() {
+            attention.push(VatAttentionItem {
+                code: "VAT_CORRECTIONS_OF_OTHER_PERIODS",
+                severity: "info",
+                message: format!(
+                    "Voucher(s) posted in {period} correct the filed VAT return of an earlier \
+                     period (`corrects_vat_period`). Their VAT is left out of these figures \
+                     and belongs to that period's replacement return."
+                ),
+                vouchers: corrects_elsewhere,
+            });
+        }
         let payment_amount = if filing.net_vat.amount().is_sign_negative() {
             "0.00".to_string()
         } else {
@@ -235,6 +345,10 @@ impl ProcessEngine {
         const NOT_YET_PAYABLE: &str =
             "Nothing to pay yet: the amount is known once the closed period is previewed.";
         let (filing_instruction, payment_instruction) = match period_state {
+            PeriodState::Sealed if !filings.is_empty() => (
+                "The return of this period is filed. Changed figures are filed as a replacement return with `file-vat replace` (all values again, with a reason); a replacement made in OmaVero is recorded with `file-vat complete-manual --replacement`.",
+                "A replacement changes the tax by the difference to the return in force; check the tax account in OmaVero for what is due or refunded.",
+            ),
             PeriodState::Sealed => (
                 "Enter these numbered VAT fields manually in OmaVero, or use an independently prepared Ilmoitin.fi file; aggountant does not create or upload that file.",
                 "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
@@ -257,8 +371,9 @@ impl ProcessEngine {
             purchase_vat: filing.purchase_vat.amount_str(),
             net_vat: filing.net_vat.amount_str(),
             payment_amount,
-            attention: attention_items(&verified.reconciliation, period_state),
+            attention,
             vat_reconciliation: verified.reconciliation,
+            filings,
             filing_instruction,
             payment_instruction,
         })
@@ -273,6 +388,43 @@ impl ProcessEngine {
         channel: &str,
         evidence_ref: &str,
         remote_status_evidence_ref: Option<&str>,
+    ) -> Result<ManualVatCompletion, ProcessError> {
+        self.record_manual_vat(
+            period,
+            channel,
+            evidence_ref,
+            remote_status_evidence_ref,
+            false,
+        )
+    }
+
+    /// As [`Self::complete_manual_vat`], for a replacement the operator made of
+    /// an already filed return: recorded as a further filing of the period, and
+    /// refused for a period that is not filed, as a first filing is for one that
+    /// is.
+    pub fn complete_manual_vat_replacement(
+        &self,
+        period: &PeriodId,
+        channel: &str,
+        evidence_ref: &str,
+        remote_status_evidence_ref: Option<&str>,
+    ) -> Result<ManualVatCompletion, ProcessError> {
+        self.record_manual_vat(
+            period,
+            channel,
+            evidence_ref,
+            remote_status_evidence_ref,
+            true,
+        )
+    }
+
+    fn record_manual_vat(
+        &self,
+        period: &PeriodId,
+        channel: &str,
+        evidence_ref: &str,
+        remote_status_evidence_ref: Option<&str>,
+        replacement: bool,
     ) -> Result<ManualVatCompletion, ProcessError> {
         if !matches!(channel, "omavero" | "ilmoitin") {
             return Err(ProcessError::InvalidAnswer(
@@ -289,15 +441,32 @@ impl ProcessEngine {
             ));
         }
         let ledger = Ledger::open(&self.home)?;
-        let authority = ledger.acquire_filing_authority(period, "manual-file-vat")?;
-        let period_view = ledger.file_vat_manually(
-            period,
-            &authority,
-            channel,
-            evidence_ref,
-            remote_status_evidence_ref,
-            "process:file-vat-manual",
-        )?;
+        const MANUAL_ACTOR: &str = "process:file-vat-manual";
+        let period_view = if replacement {
+            let replaces = ledger.vat_filings(period)?.len();
+            let authority =
+                ledger.acquire_replacement_authority(period, "manual-file-vat", replaces)?;
+            ledger.replace_vat_filing(
+                period,
+                &authority,
+                VatFilingEvidence::Manual {
+                    channel,
+                    evidence_ref,
+                    remote_status_evidence_ref,
+                },
+                MANUAL_ACTOR,
+            )?
+        } else {
+            let authority = ledger.acquire_filing_authority(period, "manual-file-vat")?;
+            ledger.file_vat_manually(
+                period,
+                &authority,
+                channel,
+                evidence_ref,
+                remote_status_evidence_ref,
+                MANUAL_ACTOR,
+            )?
+        };
         let manual_filing = ledger.manual_vat_filing_evidence(period)?.ok_or_else(|| {
             ProcessError::Store("manual VAT filing evidence missing after commit".into())
         })?;
@@ -313,6 +482,72 @@ impl ProcessEngine {
     pub fn start_file_vat(
         &self,
         input: &FileVatInput,
+        broker: &Broker,
+        policy_set: &PolicySet,
+    ) -> Result<FileVatStart, ProcessError> {
+        if input.replacement_reasons.is_some() {
+            return Err(ProcessError::InvalidAnswer(
+                "VAT_REPLACEMENT_NOT_A_FIRST_FILING: `replacement_reasons` belongs to a \
+                 replacement return; start it with `file-vat replace`"
+                    .into(),
+            ));
+        }
+        // A filed period is refused before a Run exists and before its figures are
+        // compared: whatever the input says, the answer is a replacement return.
+        if Ledger::open(&self.home)?
+            .period_view(&input.period)?
+            .vat_filed
+        {
+            return Err(ProcessError::Ledger(
+                aggountant_ledger::LedgerError::PeriodTransitionConflict(format!(
+                    "period {} is already filed — filing is irreversible; a filed return is \
+                     corrected with a replacement return (`file-vat replace`)",
+                    input.period
+                )),
+            ));
+        }
+        self.start_filing(input, None, broker, policy_set)
+    }
+
+    /// Start a `file-vat` Run that replaces the filed return of a period: the
+    /// whole return again from the sealed vouchers (the period's own and the later
+    /// correction vouchers sealed for it), marked as a replacement with its
+    /// reasons. Same gates, outbox and recovery as a first return. Refused for a
+    /// period that is not filed, while the Tax Administration has not processed
+    /// the return in force, and when it already shows these values.
+    pub fn start_file_vat_replacement(
+        &self,
+        input: &FileVatInput,
+        broker: &Broker,
+        policy_set: &PolicySet,
+    ) -> Result<FileVatStart, ProcessError> {
+        let Some(reasons) = input.replacement_reasons.as_deref() else {
+            return Err(ProcessError::InvalidAnswer(
+                "VAT_REPLACEMENT_REASON_REQUIRED: a replacement return needs \
+                 `replacement_reasons` (calculation-error, legal-practice, \
+                 tax-audit-guidance, law-interpretation)"
+                    .into(),
+            ));
+        };
+        // Refused before a Run exists: a period without a filed return has nothing
+        // to replace, and a replacement Run for it could never be approved.
+        let replaces_filings = Ledger::open(&self.home)?.vat_filings(&input.period)?.len();
+        if replaces_filings == 0 {
+            return Err(ProcessError::Ledger(
+                aggountant_ledger::LedgerError::VatPeriodNotFiled(format!(
+                    "period {} has no VAT return filed, so there is nothing to replace; file \
+                     the first return with `file-vat start`",
+                    input.period
+                )),
+            ));
+        }
+        self.start_filing(input, Some((replaces_filings, reasons)), broker, policy_set)
+    }
+
+    fn start_filing(
+        &self,
+        input: &FileVatInput,
+        replacement: Option<(usize, &[VatReplacementReason])>,
         broker: &Broker,
         policy_set: &PolicySet,
     ) -> Result<FileVatStart, ProcessError> {
@@ -405,7 +640,7 @@ impl ProcessEngine {
         // ADR-9 preflight: read the authority's exact period before opening approval.
         // A failed or refused read ends the reconcile effect terminally (the Run
         // shows NeedsAttention in `run show`); nothing retries it automatically.
-        let vero_period = match read_fileable_vero_period(input, broker) {
+        let vero_period = match read_fileable_vero_period(input, broker, replacement.is_some()) {
             Ok(vero_period) => vero_period,
             Err(PreflightFailure { code, detail }) => {
                 journal.append(EventPayload::EffectRejected {
@@ -432,6 +667,10 @@ impl ProcessEngine {
                 &input.contact_phone,
             )
             .map_err(map_adapter)?;
+            let request = match replacement {
+                Some((_, reasons)) => request.into_replacement(reasons).map_err(map_adapter)?,
+                None => request,
+            };
             let request_bytes = request.bytes().map_err(map_adapter)?;
             let request_string = String::from_utf8(request_bytes).map_err(|e| {
                 ProcessError::Store(format!("FileVATReturn bytes are not UTF-8: {e}"))
@@ -439,9 +678,9 @@ impl ProcessEngine {
             let filing_sent_hash = request.sent_hash().map_err(map_adapter)?;
             let filing_body = json!({ "request_bytes": request_string });
             let filing_approval_hash = filing_approval_hash(&filing_body, &vero_period)?;
-            Ok::<_, ProcessError>((filing_body, filing_sent_hash, filing_approval_hash))
+            Ok::<_, ProcessError>((request, filing_body, filing_sent_hash, filing_approval_hash))
         })();
-        let (filing_body, filing_sent_hash, filing_approval_hash) = match projection {
+        let (request, filing_body, filing_sent_hash, filing_approval_hash) = match projection {
             Ok(projection) => projection,
             Err(error) => {
                 journal.append(EventPayload::EffectRejected {
@@ -452,14 +691,43 @@ impl ProcessEngine {
             }
         };
 
+        // A replacement is prepared against the return the authority shows now.
+        let replacement = match replacement {
+            None => None,
+            Some((replaces_filings, reasons)) => {
+                match read_replaced_return(&request, &input.period, broker) {
+                    Ok((prior_filed_return, changes)) => Some((
+                        ReplacementState {
+                            replaces_filings,
+                            reasons: reasons.to_vec(),
+                            prior_filed_return,
+                        },
+                        changes,
+                    )),
+                    Err(PreflightFailure { code, detail }) => {
+                        journal.append(EventPayload::EffectRejected {
+                            effect_key: EFFECT_RECONCILE.to_string(),
+                            error_code: code.to_string(),
+                        })?;
+                        return Err(ProcessError::Store(format!(
+                            "{code}: {detail}; Run {run_id} needs attention, nothing was sent"
+                        )));
+                    }
+                }
+            }
+        };
+
         // Payment remains a separate approval/effect. GetVATPeriods does not expose
         // tax-account credit, so this slice displays the filing net without pretending
-        // it has reconciled a bank balance.
-        let bank_payment_required = if filing.net_vat.amount().is_sign_negative() {
-            "0.00".to_string()
-        } else {
-            filing.net_vat.amount_str()
-        };
+        // it has reconciled a bank balance. A replacement changes the tax by its
+        // difference to the return in force, which this Run does not know as a
+        // payable amount (the earlier return may be paid, or not), so it pays nothing.
+        let bank_payment_required =
+            if replacement.is_some() || filing.net_vat.amount().is_sign_negative() {
+                "0.00".to_string()
+            } else {
+                filing.net_vat.amount_str()
+            };
         let payment_body = json!({
             "period": input.period.to_string(),
             "amount": bank_payment_required,
@@ -476,13 +744,30 @@ impl ProcessEngine {
         // Acquire the local filing authority only after the read-only remote preflight
         // and all projection validation have succeeded. An authority outage or invalid
         // response must not strand an undiscoverable Run as the period's filing owner.
-        if let Err(error) = ledger.acquire_filing_authority(&input.period, &run_id) {
+        let authority = match &replacement {
+            None => ledger
+                .acquire_filing_authority(&input.period, &run_id)
+                .map(drop),
+            Some((state, _)) => ledger
+                .acquire_replacement_authority(&input.period, &run_id, state.replaces_filings)
+                .map(drop),
+        };
+        if let Err(error) = authority {
             journal.append(EventPayload::EffectRejected {
                 effect_key: EFFECT_RECONCILE.to_string(),
                 error_code: error.error_code().to_string(),
             })?;
             return Err(error.into());
         }
+        let replacement_preview = replacement
+            .as_ref()
+            .map(|(state, changes)| ReplacementPreview {
+                replaces_filing: state.replaces_filings,
+                reasons: state.reasons.clone(),
+                authority_return: state.prior_filed_return.clone(),
+                changes: changes.clone(),
+                payment_note: REPLACEMENT_PAYMENT_NOTE,
+            });
 
         self.write_file_vat_state(
             &run_id,
@@ -502,6 +787,7 @@ impl ProcessEngine {
                 net_vat: filing.net_vat.amount_str(),
                 vero_period: vero_period.clone(),
                 vat_reconciliation_acknowledgement: acknowledgement.cloned(),
+                replacement: replacement.map(|(state, _)| state),
             },
         )?;
 
@@ -539,6 +825,7 @@ impl ProcessEngine {
                 .to_string(),
             vero_period,
             vat_reconciliation_acknowledgement: acknowledgement.cloned(),
+            replacement: replacement_preview,
             run,
         })
     }
@@ -756,7 +1043,7 @@ impl ProcessEngine {
         let period = PeriodId::parse(&state.period)
             .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
         let ledger = Ledger::open(&self.home)?;
-        let fiscal = ledger.period_view(&period)?;
+        let landed = filing_landed(&ledger, &period, &state)?;
 
         // --- Reconcile the filing ---
         // A filing closed as not filed (`file-vat reconcile`) is finished: the Run
@@ -764,7 +1051,7 @@ impl ProcessEngine {
         let closed = f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status)
             == Some(EffectStatus::Skipped);
         if !closed && !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
-            if fiscal.vat_filed && f.gate_approved(GATE_APPROVE_FILING) {
+            if landed && f.gate_approved(GATE_APPROVE_FILING) {
                 // Fiscal COMMIT landed but the process never recorded the success. Adopt
                 // fiscal (fiscal wins) — no authority round-trip. Gate-approval is required
                 // so a run that never authorised *its* filing cannot claim the fiscal one
@@ -777,9 +1064,9 @@ impl ProcessEngine {
                         "fiscal shows period {period} vat_filed — reconciled (fiscal wins)"
                     ),
                 })?;
-            } else if !fiscal.vat_filed
+            } else if !landed
                 && f.gate_approved(GATE_APPROVE_FILING)
-                && filing_resume_safe(broker, &f, &period)?
+                && filing_resume_safe(broker, &f, &state)?
             {
                 // A Planned effect has not dispatched; an Executing effect is resumed
                 // only when the outbox already has a terminal receipt and will replay
@@ -856,13 +1143,23 @@ impl ProcessEngine {
         let env = rebuild_filing_env(period, &state.filing_body);
         // The outbox key is period-scoped so two Runs filing the *same* period
         // dedupe (never a double filing), while different periods stay independent.
-        let outbox_key = format!("{EFFECT_SUBMIT_FILING}:{period}");
+        let outbox_key = state.filing_outbox_key();
         if f.effect(EFFECT_SUBMIT_FILING)
             .is_none_or(|effect| effect.status == EffectStatus::Planned)
         {
             // A first dispatch needs a period that is still unfiled: a manual filing
             // or another Run may have filed it since this Run started.
-            Ledger::open(&self.home)?.acquire_filing_authority(period, run_id)?;
+            let ledger = Ledger::open(&self.home)?;
+            match &state.replacement {
+                None => drop(ledger.acquire_filing_authority(period, run_id)?),
+                // A replacement needs the period exactly as it was previewed: the
+                // filing it replaces must still be the latest.
+                Some(replacement) => drop(ledger.acquire_replacement_authority(
+                    period,
+                    run_id,
+                    replacement.replaces_filings,
+                )?),
+            }
             // The Broker binds every attempt under the period's key to the bytes of
             // the first. A Run re-filing after an earlier attempt was closed as not
             // filed can only send the same bytes; refuse here rather than leave the
@@ -909,7 +1206,7 @@ impl ProcessEngine {
                 // sent_hash — but we must not re-`acquire_filing_authority` (which
                 // refuses an already-filed period), so guard on `vat_filed`.
                 let receipt = FileVatReceipt::decode(&receipt).map_err(map_adapter)?;
-                self.record_vat_receipt(period, run_id, state, &receipt)?;
+                self.record_filing(period, run_id, state, Some(&receipt))?;
                 // Crash seam: the fiscal COMMIT landed (`vat_filed` is now set) but we
                 // die before journalling `EffectSucceeded`. Fiscal is authoritative;
                 // `resume_file_vat` adopts it without re-hitting the authority.
@@ -953,28 +1250,54 @@ impl ProcessEngine {
         }
     }
 
-    /// Record an accepted filing's receipt as the audited, irreversible Ledger event
-    /// bound to the approved bytes. Idempotent: a period already filed (by a crashed
-    /// earlier attempt of this Run) is left as it is, because `acquire_filing_authority`
-    /// refuses a filed period.
-    fn record_vat_receipt(
+    /// Record the Run's filing as the audited, irreversible Ledger event bound to
+    /// the approved bytes: with the authority's receipt, or without one when
+    /// `file-vat reconcile` matched the processed return (that read returns no
+    /// receipt fields and none are invented). Idempotent: a filing that already
+    /// reached the books (a crashed earlier attempt of this Run) is left as it is.
+    fn record_filing(
         &self,
         period: &PeriodId,
         run_id: &str,
         state: &FileVatState,
-        receipt: &FileVatReceipt,
+        receipt: Option<&FileVatReceipt>,
     ) -> Result<(), ProcessError> {
         let ledger = Ledger::open(&self.home)?;
-        if !ledger.period_view(period)?.vat_filed {
-            let auth = ledger.acquire_filing_authority(period, run_id)?;
-            ledger.file_vat_with_receipt(
-                period,
-                &auth,
-                &state.filing_sent_hash,
-                &receipt.unique_identifier,
-                &receipt.accepted_timestamp,
-                ACTOR,
-            )?;
+        if filing_landed(&ledger, period, state)? {
+            return Ok(());
+        }
+        let sent_hash = &state.filing_sent_hash;
+        match &state.replacement {
+            None => {
+                let auth = ledger.acquire_filing_authority(period, run_id)?;
+                match receipt {
+                    Some(receipt) => ledger.file_vat_with_receipt(
+                        period,
+                        &auth,
+                        sent_hash,
+                        &receipt.unique_identifier,
+                        &receipt.accepted_timestamp,
+                        ACTOR,
+                    )?,
+                    None => ledger.file_vat(period, &auth, sent_hash, ACTOR)?,
+                };
+            }
+            Some(replacement) => {
+                let auth = ledger.acquire_replacement_authority(
+                    period,
+                    run_id,
+                    replacement.replaces_filings,
+                )?;
+                let evidence = match receipt {
+                    Some(receipt) => VatFilingEvidence::Receipt {
+                        sent_hash,
+                        unique_identifier: &receipt.unique_identifier,
+                        accepted_timestamp: &receipt.accepted_timestamp,
+                    },
+                    None => VatFilingEvidence::Reconciled { sent_hash },
+                };
+                ledger.replace_vat_filing(period, &auth, evidence, ACTOR)?;
+            }
         }
         Ok(())
     }
@@ -1104,9 +1427,17 @@ impl ProcessEngine {
             if !f.effect_succeeded(EFFECT_SUBMIT_PAYMENT) {
                 journal.append(EventPayload::EffectSucceeded {
                     effect_key: EFFECT_SUBMIT_PAYMENT.to_string(),
-                    note:
-                        "no bank payment required (refund or fully covered by tax-account credit)"
-                            .to_string(),
+                    note: match state.replacement {
+                        Some(_) => {
+                            "replacement return: this Run pays nothing; the difference \
+                                    to the replaced return is settled on the tax account"
+                        }
+                        None => {
+                            "no bank payment required (refund or fully covered by \
+                                 tax-account credit)"
+                        }
+                    }
+                    .to_string(),
                 })?;
             }
         } else if f.gate(GATE_APPROVE_PAYMENT).is_none() {
@@ -1118,6 +1449,16 @@ impl ProcessEngine {
         }
         Ok(())
     }
+}
+
+/// Whether the Run's filing has reached the books: the period has more filings
+/// than when the Run started. For a first return that is `vat_filed`.
+fn filing_landed(
+    ledger: &Ledger,
+    period: &PeriodId,
+    state: &FileVatState,
+) -> Result<bool, ProcessError> {
+    Ok(ledger.vat_filings(period)?.len() > state.replaces_filings())
 }
 
 /// Refuse a period that is not sealed, then derive its filing: only a sealed
@@ -1150,7 +1491,7 @@ fn derive_verified_filing(
     policy_set: &PolicySet,
 ) -> Result<VerifiedFilingSnapshot, ProcessError> {
     ledger.verify()?;
-    let sealed_vouchers = ledger.period_vouchers(period)?;
+    let sealed_vouchers = ledger.vat_period_vouchers(period)?;
     let mut source_hash = Sha256::new();
     source_hash.update(b"aggountant:file-vat:voucher-source:v1");
     source_hash.update((sealed_vouchers.len() as u64).to_be_bytes());
@@ -1237,14 +1578,15 @@ fn is_zero_eur(amount: &str) -> bool {
 /// submit), not a *parked* terminal state. A `Rejected` effect (a genuine `Unknown` or a
 /// remote rejection) is deliberately excluded: re-driving it would be the blind retry the
 /// M3 invariant forbids — only the explicit `retry_file_vat_submit` may re-drive that.
-fn filing_resume_safe(broker: &Broker, f: &Fold, period: &PeriodId) -> Result<bool, ProcessError> {
+fn filing_resume_safe(
+    broker: &Broker,
+    f: &Fold,
+    state: &FileVatState,
+) -> Result<bool, ProcessError> {
     match f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status) {
         Some(EffectStatus::Planned) => Ok(true),
         Some(EffectStatus::Executing) => Ok(broker
-            .outbox_entry(
-                SVC_VERO_FILE_VAT_RETURN,
-                &format!("{EFFECT_SUBMIT_FILING}:{period}"),
-            )
+            .outbox_entry(SVC_VERO_FILE_VAT_RETURN, &state.filing_outbox_key())
             .map_err(map_broker)?
             .is_some_and(|entry| entry.terminal_success().is_some())),
         _ => Ok(false),
@@ -1359,10 +1701,13 @@ struct PreflightFailure {
 }
 
 /// Read the authority's period list and return the exact period of `input`, only
-/// if the Tax Administration still treats it as fileable (`Unfiled`/`Missing`).
+/// if the Tax Administration still treats it as fileable: `Unfiled`/`Missing`
+/// for a first return, and for a replacement any status but `Expired` (outside
+/// the adjustment period), since the return in force is read separately.
 fn read_fileable_vero_period(
     input: &FileVatInput,
     broker: &Broker,
+    replacement: bool,
 ) -> Result<serde_json::Value, PreflightFailure> {
     let local = |detail: String| PreflightFailure {
         code: "PROCESS_STORE",
@@ -1397,7 +1742,11 @@ fn read_fileable_vero_period(
             code: "VERO_VAT_PERIOD_MISSING",
             detail: format!("authority did not offer period {period_start}..{period_end}"),
         })?;
-    if !matches!(vero_period.status.as_str(), "Unfiled" | "Missing") {
+    let fileable = match (replacement, vero_period.status.as_str()) {
+        (false, status) => matches!(status, "Unfiled" | "Missing"),
+        (true, status) => status != "Expired",
+    };
+    if !fileable {
         return Err(PreflightFailure {
             code: "VERO_VAT_PERIOD_NOT_FILEABLE",
             detail: format!(
@@ -1407,6 +1756,54 @@ fn read_fileable_vero_period(
         });
     }
     serde_json::to_value(vero_period).map_err(|e| local(e.to_string()))
+}
+
+/// Read the return the Tax Administration holds for the period a replacement is
+/// about to replace, and how the replacement changes it. A replacement is offered
+/// only against a processed return: while the return in force is still being
+/// processed, a later answer could not be told from it. A replacement that changes
+/// no amount is refused, because the authority then already shows these values and
+/// a later match would prove nothing about this filing.
+fn read_replaced_return(
+    request: &FileVatReturn,
+    period: &PeriodId,
+    broker: &Broker,
+) -> Result<(FiledVatReturn, Vec<VatValueDifference>), PreflightFailure> {
+    let envelope = filed_vat_return_envelope(request, format!("replace-preflight:{period}"))
+        .map_err(|e| PreflightFailure {
+            code: "PROCESS_STORE",
+            detail: e.to_string(),
+        })?;
+    let body = broker.fetch(&envelope).map_err(|e| PreflightFailure {
+        code: e.error_code(),
+        detail: format!("GetFiledVATReturn read failed: {e}"),
+    })?;
+    let filed: FiledVatReturn = serde_json::from_value(body).map_err(|e| PreflightFailure {
+        code: "VERO_FILED_VAT_RETURN_MALFORMED",
+        detail: format!("GetFiledVATReturn response malformed: {e}"),
+    })?;
+    if filed.status.as_deref() != Some("Processed") {
+        return Err(PreflightFailure {
+            code: "VERO_VAT_RETURN_NOT_PROCESSED",
+            detail: format!(
+                "the Tax Administration answers with status {} for {period}; a replacement is \
+                 sent only once the return in force is processed, so try again later",
+                filed.status.as_deref().unwrap_or("(none)")
+            ),
+        });
+    }
+    let changes = filed.value_differences(request);
+    if changes.is_empty() {
+        return Err(PreflightFailure {
+            code: "VAT_REPLACEMENT_CHANGES_NOTHING",
+            detail: format!(
+                "the Tax Administration already shows these values for {period}, so there is \
+                 nothing to replace. If the return was replaced in OmaVero, record that with \
+                 `file-vat complete-manual --replacement`"
+            ),
+        });
+    }
+    Ok((filed, changes))
 }
 
 fn period_dates(period: &PeriodId) -> (String, String) {

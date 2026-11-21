@@ -97,6 +97,64 @@ impl FileVatReturn {
     }
 }
 
+/// Why a filed VAT return is corrected: the `ReplacementReason` codes
+/// FileVATReturn/v2 accepts (Vero API developer portal, SelfAssessedTaxes, "Valid
+/// ReplacementReason values"). Several reasons are sent separated by a comma.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum VatReplacementReason {
+    /// A calculation error or an error in filling in the return (`CLC`).
+    CalculationError,
+    /// A change in legal practice (`LGL`).
+    LegalPractice,
+    /// Guidance received in a tax audit (`TXA`).
+    TaxAuditGuidance,
+    /// An error in interpreting the law (`LAW`).
+    LawInterpretation,
+}
+
+impl VatReplacementReason {
+    fn api_code(self) -> &'static str {
+        match self {
+            Self::CalculationError => "CLC",
+            Self::LegalPractice => "LGL",
+            Self::TaxAuditGuidance => "TXA",
+            Self::LawInterpretation => "LAW",
+        }
+    }
+}
+
+impl FileVatReturn {
+    /// Turn a projected return into the replacement of the period's filed return:
+    /// the same complete values (a replacement gives the whole return again, not a
+    /// difference), `ReplacementReturn: true` and the reason codes.
+    pub fn into_replacement(
+        mut self,
+        reasons: &[VatReplacementReason],
+    ) -> Result<Self, AdapterError> {
+        let duplicate = reasons
+            .iter()
+            .enumerate()
+            .any(|(index, reason)| reasons[..index].contains(reason));
+        if reasons.is_empty() || duplicate {
+            return Err(AdapterError::Malformed(
+                "VERO_VAT_REPLACEMENT_REASON: a replacement return needs at least one \
+                 reason, each given once"
+                    .into(),
+            ));
+        }
+        let codes: Vec<&str> = reasons.iter().map(|reason| reason.api_code()).collect();
+        self.replacement_return = Some(true);
+        self.replacement_reason = Some(codes.join(","));
+        Ok(self)
+    }
+
+    /// Whether this request replaces a filed return.
+    pub fn is_replacement(&self) -> bool {
+        self.replacement_return == Some(true)
+    }
+}
+
 /// Project sealed, numbered fields exactly once into FileVATReturn/v2.
 pub fn project_file_vat_return(
     period: &PeriodId,

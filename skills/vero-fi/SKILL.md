@@ -16,13 +16,10 @@ Lue ensin [SOUL.md](../aggountant-init/SOUL.md), joka kuvaa roolisi kirjanpitoav
 ja `aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
 
 Aggountant lähettää yrityksen oman ALV-ilmoituksen Vero API:n kautta. Se ei asioi
-toisen organisaation puolesta eikä maksa veroa. Annettua ilmoitusta ei voi perua, eikä
-aggountant vielä tee korvaavaa ilmoitusta, vaikka Vero API sen sallii: lähetyksen
-jälkeen löytyneen virheen käyttäjä korjaa toistaiseksi OmaVerossa. Ohjelma ei myöskään
-kirjaa sitä korjausta: `file-vat complete-manual` kieltäytyy jo ilmoitetulta kaudelta
-(`PERIOD_TRANSITION_CONFLICT`) eikä tallenna mitään, joten korjauksen kuitti
-arkistoidaan ja asia merkitään kodin muistiin. Siksi avoimet kysymykset selvitetään
-ennen lähetystä ja käyttäjä hyväksyy juuri ne luvut, jotka lähtevät.
+toisen organisaation puolesta eikä maksa veroa. Annettua ilmoitusta ei voi perua:
+lähetyksen jälkeen löytynyt virhe korjataan korvaavalla ilmoituksella (alla), joka on
+oma hyväksyttävä lähetyksensä. Siksi avoimet kysymykset selvitetään ennen lähetystä ja
+käyttäjä hyväksyy juuri ne luvut, jotka lähtevät.
 
 ## Tavallinen kuukausi
 
@@ -79,8 +76,9 @@ eräpäivä ja se, milloin tila kysytään uudelleen.
 Aikakatkaisu, keskeytynyt ajo tai ilmoitus, joka ei näy OmaVerossa, ei kerro, onko
 ilmoitus perillä. Verohallinto noutaa rajapinnan vastaanottamat ilmoitukset käsittelyyn
 viiveellä, joten sen "ei löydy" -vastaus (`Missing`) tai tyhjä OmaVero ei todista,
-ettei ilmoitusta ole. Toinen lähetys päätyisi Verohallinnolle korvaavana ilmoituksena,
-jota kukaan ei tarkoittanut.
+ettei ilmoitusta ole. Toinen lähetys olisi kaksoisilmoitus tai korvaava ilmoitus, jota
+kukaan ei tarkoittanut. Korvaavan ilmoituksen kohdalla Verohallinto näyttää aiempaa
+ilmoitusta, kunnes korvaava on käsitelty, joten sekään ei kerro, että korvaava puuttuu.
 
 Kysy tila komennolla `file-vat status` ja seuraa vastauksen `message`- ja
 `next_command`-kenttiä: ohjelma tietää, mitä ajolle tapahtui, kysyy Verohallinnolta
@@ -93,6 +91,32 @@ tiedostossa [hairiot.md](hairiot.md).
 Jos vastauksessa on kenttä `test_seam`, Verohallinnon vastaukset tulivat testiskriptistä
 (`AGGOUNTANT_BROKER_SCRIPT`): ohjelma on voinut merkitä kauden ilmoitetuksi, vaikka
 mitään ei lähetetty. Kerro se käyttäjälle heti.
+
+## Jo annetun ilmoituksen korjaus
+
+Ilmoitettu kausi on kirjanpidossa lukittu, joten korjaustosite kirjataan seuraavalle
+avoimelle kaudelle. Se ei vielä korjaa ilmoitusta, ja ilman merkintää sen vero menisi
+kirjauskauden ilmoitukseen. Kun virhe kuuluu korjata sille kaudelle, jolla se tapahtui,
+tosite sinetöidään kentällä `corrects_vat_period` (ks. `aggountant voucher seal --help`):
+sen vero lasketaan silloin korjattavan kauden lukuihin eikä kirjauskauden. Kentän voi
+antaa vain sinetöitäessä, joten ratkaise kohdistus käyttäjän kanssa ennen sinetöintiä.
+Verohallinnon ohjeen mukaan taloudellisesti vähäisen virheen saa korjata myös kuluvan
+kauden ilmoituksella; silloin kenttä jätetään pois. Kumpi tapa on oikea, on käyttäjän
+ratkaisu, ei summasta pääteltävä.
+
+Korjatun kauden `aggountant file-vat preview` näyttää uudet luvut ja sanoo, että
+korvaava ilmoitus on antamatta. Se annetaan komennolla `aggountant file-vat replace`:
+koko ilmoitus uudelleen ja korjauksen syy, jonka käyttäjä valitsee. Esikatselu näyttää,
+mitkä luvut muuttuvat Verohallinnolla nyt olevaan ilmoitukseen nähden; käyttäjä hyväksyy
+sen kuten ensimmäisen ilmoituksen, ja epävarma lopputulos selvitetään samoin (alla).
+Ajo ei maksa mitään: lisää maksettava tai palautuva erotus näkyy OmaVeron verotilillä,
+ja käyttäjä maksaa sen itse. Korvaavaa ei voi antaa ennen kuin Verohallinto on
+käsitellyt voimassa olevan ilmoituksen; odota ja yritä uudelleen.
+
+Jos käyttäjä on jo tehnyt korvaavan ilmoituksen OmaVerossa, se kirjataan näyttöineen
+komennolla `aggountant file-vat complete-manual` valitsimella `--replacement`.
+Aiemmat kuittaukset säilyvät; `aggountant file-vat status` näyttää kauden kaikki
+ilmoitukset ja sen, mikä on voimassa.
 
 ## Käsin annettu ilmoitus
 

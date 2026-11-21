@@ -18,7 +18,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use aggountant_broker::{Broker, FileVatReturn, FiledVatReturn, VatValueDifference};
-use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt};
+use aggountant_ledger::{Ledger, ManualVatFilingEvidence, VatFilingReceipt, VatFilingRecord};
 use aggountant_model::PeriodId;
 
 use super::recovery::{
@@ -80,6 +80,13 @@ pub struct FileVatStatus {
     pub remote_status: Option<String>,
     pub submitted_date: Option<String>,
     pub manual_filing: Option<ManualVatFilingEvidence>,
+    /// Every filing recorded for the period, oldest first: the first return and
+    /// each replacement. The last is the return in force; `receipt` and
+    /// `manual_filing` above are its evidence.
+    pub filings: Vec<VatFilingRecord>,
+    /// Correction vouchers sealed for this period after its latest filing: the
+    /// return in force does not cover them, so a replacement return is due.
+    pub unfiled_corrections: Vec<u64>,
     /// Where a processed return's amounts differ from the approved request;
     /// empty unless the authority shows one that differs.
     pub differences: Vec<VatValueDifference>,
@@ -104,6 +111,8 @@ pub struct FiledVatQuery {
     run_id: String,
     expected: FileVatReturn,
     kind: QueryKind,
+    filings: Vec<VatFilingRecord>,
+    unfiled_corrections: Vec<u64>,
 }
 
 #[derive(Debug)]
@@ -147,6 +156,8 @@ impl ProcessEngine {
         let ledger = Ledger::open(&self.home)?;
         let view = ledger.period_view(period)?;
         let runs = self.file_vat_filing_runs(period)?;
+        let filings = ledger.vat_filings(period)?;
+        let unfiled_corrections = ledger.unfiled_vat_corrections(period)?;
         let local = |status, run_id: Option<String>, next_command, message| FileVatStatus {
             period: period.to_string(),
             status,
@@ -156,6 +167,8 @@ impl ProcessEngine {
             remote_status: None,
             submitted_date: None,
             manual_filing: None,
+            filings: filings.clone(),
+            unfiled_corrections: unfiled_corrections.clone(),
             differences: Vec::new(),
             next_command,
             message,
@@ -164,9 +177,43 @@ impl ProcessEngine {
             FileVatStatusPlan::Answered(local(status, run_id, next_command, message))
         };
 
+        // An unresolved filing comes first: on a filed period it is a replacement
+        // whose outcome is open, and the return in force says nothing about it.
+        match self.unresolved_filing(period, None)? {
+            Some((run_id, Unresolved::OutcomeUnknown)) => {
+                return Ok(answer(
+                    FileVatFilingStatus::OutcomeUnknown,
+                    Some(run_id.clone()),
+                    Some(format!("aggountant file-vat reconcile --run-id {run_id}")),
+                    "A direct filing was sent but its outcome is unknown (no timely answer, or \
+                     an answer that was neither a receipt nor a rejection). It may have been \
+                     received. Resolve it with `file-vat reconcile`: it adopts the filing if \
+                     the Tax Administration has it, and two answers that it does not show \
+                     it, at least one bank day apart, close the Run so the return can be \
+                     sent again. Do not file again before that."
+                        .into(),
+                ));
+            }
+            Some((run_id, Unresolved::Interrupted)) => {
+                let state = self.read_file_vat_state(&run_id)?;
+                let expected = approved_filing_request(&state)?;
+                return Ok(FileVatStatusPlan::Query(FiledVatQuery {
+                    period: state.period,
+                    run_id,
+                    expected,
+                    kind: QueryKind::Interrupted,
+                    filings,
+                    unfiled_corrections,
+                }));
+            }
+            None => {}
+        }
         if view.vat_filed {
-            if let Some(receipt) = ledger.vat_filing_receipt(period)? {
-                let (run_id, state) = self.filing_run_with_receipt(&runs)?.ok_or_else(|| {
+            let in_force = filings.last().cloned();
+            if let Some(receipt) = in_force.as_ref().and_then(|f| f.receipt.clone()) {
+                let sent_hash = in_force.and_then(|f| f.sent_hash).unwrap_or_default();
+                let holder = self.filing_run_with_receipt(&runs, &sent_hash)?;
+                let (run_id, state) = holder.ok_or_else(|| {
                     ProcessError::JournalCorrupt(format!(
                         "period {period} has VAT receipt {} but no single file-vat Run holds \
                          the approved request; {NO_REFILE}",
@@ -182,15 +229,18 @@ impl ProcessEngine {
                     run_id,
                     expected,
                     kind: QueryKind::Receipted { receipt, run_lags },
+                    filings,
+                    unfiled_corrections,
                 }));
             }
             if let Some(manual) = ledger.manual_vat_filing_evidence(period)? {
-                let message = format!(
+                let mut message = format!(
                     "Filed manually through {} (evidence {}). There is no API receipt, so \
                      aggountant has nothing to ask the Tax Administration about; check OmaVero. \
                      Do not file this period again.",
                     manual.channel, manual.evidence_ref
                 );
+                note_unfiled_corrections(&mut message, &unfiled_corrections);
                 // A Run interrupted before the manual filing is closed by reconcile.
                 let interrupted = runs
                     .iter()
@@ -206,48 +256,21 @@ impl ProcessEngine {
                 status.manual_filing = Some(manual);
                 return Ok(FileVatStatusPlan::Answered(status));
             }
-            let run_id = runs
-                .iter()
-                .find(|run| run.status == EffectStatus::Succeeded)
-                .map(|run| run.run_id.clone());
+            let run_id = filings.last().and_then(|filing| filing.run_id.clone());
+            let mut message = "Filed: `file-vat reconcile` matched the Tax Administration's \
+                               processed return to the approved request. That path returns no \
+                               receipt to ask about; check OmaVero. Do not file this period \
+                               again."
+                .to_string();
+            note_unfiled_corrections(&mut message, &unfiled_corrections);
             return Ok(answer(
                 FileVatFilingStatus::FiledWithoutReceipt,
                 run_id,
                 None,
-                "Filed: `file-vat reconcile` matched the Tax Administration's processed return \
-                 to the approved request. That path returns no receipt to ask about; check \
-                 OmaVero. Do not file this period again."
-                    .into(),
+                message,
             ));
         }
 
-        match self.unresolved_filing(period, None)? {
-            Some((run_id, Unresolved::OutcomeUnknown)) => {
-                return Ok(answer(
-                    FileVatFilingStatus::OutcomeUnknown,
-                    Some(run_id.clone()),
-                    Some(format!("aggountant file-vat reconcile --run-id {run_id}")),
-                    "A direct filing was sent but its outcome is unknown (no timely answer, or \
-                     an answer that was neither a receipt nor a rejection). It may have been \
-                     received. Resolve it with `file-vat reconcile`: it adopts the filing if \
-                     the Tax Administration has it, and two answers that it has none, at \
-                     least one bank day apart, close the Run so the period can be filed again. \
-                     Do not file again before that."
-                        .into(),
-                ));
-            }
-            Some((run_id, Unresolved::Interrupted)) => {
-                let state = self.read_file_vat_state(&run_id)?;
-                let expected = approved_filing_request(&state)?;
-                return Ok(FileVatStatusPlan::Query(FiledVatQuery {
-                    period: state.period,
-                    run_id,
-                    expected,
-                    kind: QueryKind::Interrupted,
-                }));
-            }
-            None => {}
-        }
         let rejected = runs.iter().rev().find(|run| run.rejected_code.is_some());
         let message = match rejected {
             Some(run) => format!(
@@ -295,6 +318,7 @@ impl ProcessEngine {
             "Accepted by the Tax Administration with receipt {} at {}. {detail} {NO_REFILE}",
             receipt.unique_identifier, receipt.accepted_timestamp
         );
+        note_unfiled_corrections(&mut message, &query.unfiled_corrections);
         let next_command = run_lags.then(|| {
             message.push_str(
                 " The Run was interrupted before it recorded the filing; `file-vat reconcile` \
@@ -311,6 +335,8 @@ impl ProcessEngine {
             remote_status: filed.status.clone(),
             submitted_date,
             manual_filing: None,
+            filings: query.filings.clone(),
+            unfiled_corrections: query.unfiled_corrections.clone(),
             differences,
             next_command,
             message,
@@ -350,6 +376,8 @@ impl ProcessEngine {
                 remote_status: filed.and_then(|f| f.status.clone()),
                 submitted_date: filed.and_then(submitted_date),
                 manual_filing: None,
+                filings: query.filings.clone(),
+                unfiled_corrections: query.unfiled_corrections.clone(),
                 differences: Vec::new(),
                 next_command,
                 message,
@@ -379,107 +407,115 @@ impl ProcessEngine {
         };
         let filed = read_filed_return(query, broker).map_err(unknown)?;
         let remote = filed.status.as_deref().unwrap_or("(none)");
-        Ok(match (judge(&filed, &query.expected, &reach), &reach) {
-            (Finding::Matches, Reach::Refused { .. }) => status(
-                FileVatFilingStatus::FilingInterrupted,
-                Some(&filed),
-                None,
-                filed_elsewhere(&period_id),
-            ),
-            (Finding::Matches, Reach::MayHaveArrived { .. }) => status(
-                FileVatFilingStatus::InterruptedFiled,
-                Some(&filed),
-                reconcile,
-                "The Run was interrupted while sending the return, and the Tax Administration \
-                 shows the approved return processed. Record it with `file-vat reconcile`; \
-                 nothing will be sent. Do not file this period again."
-                    .into(),
-            ),
-            (Finding::NotFound, Reach::Refused { .. }) => status(
-                FileVatFilingStatus::InterruptedNotFiled,
-                Some(&filed),
-                reconcile,
-                format!(
-                    "The Run was interrupted before the Tax Administration accepted its \
-                     request, and it has no return for {period}. `file-vat reconcile` records \
-                     this answer and closes the Run as not filed; then start a new file-vat \
-                     Run to file the period."
-                ),
-            ),
-            (Finding::NotFound, Reach::MayHaveArrived { .. }) => status(
-                FileVatFilingStatus::FilingInterrupted,
-                Some(&filed),
-                reconcile,
-                format!(
-                    "The Run was interrupted after its request may have reached the Tax \
-                     Administration, which shows no return for {period} yet; a return can take \
-                     days to show. `file-vat reconcile` records the answer, and two such \
-                     answers at least one bank day apart close the Run so the period can be \
-                     filed again. Do not file before that."
-                ),
-            ),
-            (Finding::Other { differences }, _) => {
-                let mut answered = status(
+        let replacement = state.replacement.is_some();
+        let (absent, refile) = if replacement {
+            (
+                format!("it does not show the replacement return for {period}"),
+                "then start a new `file-vat replace` Run to send the replacement",
+            )
+        } else {
+            (
+                format!("it has no return for {period}"),
+                "then start a new file-vat Run to file the period",
+            )
+        };
+        Ok(
+            match (judge(&filed, &query.expected, &reach, &state), &reach) {
+                (Finding::Matches, Reach::Refused { .. }) => status(
                     FileVatFilingStatus::FilingInterrupted,
                     Some(&filed),
                     None,
+                    filed_elsewhere(&period_id, replacement),
+                ),
+                (Finding::Matches, Reach::MayHaveArrived { .. }) => status(
+                    FileVatFilingStatus::InterruptedFiled,
+                    Some(&filed),
+                    reconcile,
+                    "The Run was interrupted while sending the return, and the Tax Administration \
+                 shows the approved return processed. Record it with `file-vat reconcile`; \
+                 nothing will be sent. Do not file this period again."
+                        .into(),
+                ),
+                (Finding::NotFound, Reach::Refused { .. }) => status(
+                    FileVatFilingStatus::InterruptedNotFiled,
+                    Some(&filed),
+                    reconcile,
                     format!(
-                        "The Run was interrupted while sending the return, and the Tax \
+                        "The Run was interrupted before the Tax Administration accepted its \
+                     request, and {absent}. `file-vat reconcile` records this answer and \
+                     closes the Run as not filed; {refile}."
+                    ),
+                ),
+                (Finding::NotFound, Reach::MayHaveArrived { .. }) => status(
+                    FileVatFilingStatus::FilingInterrupted,
+                    Some(&filed),
+                    reconcile,
+                    format!(
+                        "The Run was interrupted after its request may have reached the Tax \
+                     Administration, and {absent} yet; a return can take days to show. \
+                     `file-vat reconcile` records the answer, and two such answers at least \
+                     one bank day apart close the Run so the return can be sent again. Do \
+                     not file before that."
+                    ),
+                ),
+                (Finding::Other { differences }, _) => {
+                    let mut answered = status(
+                        FileVatFilingStatus::FilingInterrupted,
+                        Some(&filed),
+                        None,
+                        format!(
+                            "The Run was interrupted while sending the return, and the Tax \
                          Administration answers with status {remote}, which neither matches \
                          the approved return nor says it has none.{} Compare the return in \
                          OmaVero and check again later; do not file again.",
-                        describe_differences(&differences)
-                    ),
-                );
-                answered.differences = differences;
-                answered
-            }
-        })
+                            describe_differences(&differences)
+                        ),
+                    );
+                    answered.differences = differences;
+                    answered
+                }
+            },
+        )
     }
 
-    /// The period's VAT receipt, when it belongs to `run_id`'s approved request:
-    /// the Run is the one [`Self::filing_run_with_receipt`] picks, or bound the
-    /// same request bytes. `None` when the period has no receipt, or when a resume
-    /// adopted a filing another Run sent with different bytes, so that the receipt
-    /// is never shown on a Run whose request it does not acknowledge.
+    /// The receipt of the filing that recorded `run_id`'s approved request: the
+    /// filing whose `sent_hash` the Run bound. `None` when no receipted filing
+    /// carries those bytes (a filing adopted without a receipt, another Run's
+    /// request, a manual filing), so a receipt is never shown on a Run whose
+    /// request it does not acknowledge. A first return and its replacement each
+    /// keep their own.
     pub(crate) fn vat_receipt_of_run(
         &self,
         run_id: &str,
         period: &PeriodId,
     ) -> Result<Option<VatFilingReceipt>, ProcessError> {
-        let Some(receipt) = Ledger::open(&self.home)?.vat_filing_receipt(period)? else {
+        let filings = Ledger::open(&self.home)?.vat_filings(period)?;
+        if filings.iter().all(|filing| filing.receipt.is_none()) {
             return Ok(None);
-        };
-        let runs = self.file_vat_filing_runs(period)?;
-        let Some((holder, state)) = self.filing_run_with_receipt(&runs)? else {
-            return Ok(None);
-        };
-        let ours = holder == run_id
-            || self.read_file_vat_state(run_id)?.filing_sent_hash == state.filing_sent_hash;
-        Ok(ours.then_some(receipt))
+        }
+        let sent_hash = self.read_file_vat_state(run_id)?.filing_sent_hash;
+        Ok(filings
+            .into_iter()
+            .rev()
+            .find(|filing| filing.sent_hash.as_deref() == Some(sent_hash.as_str()))
+            .and_then(|filing| filing.receipt))
     }
 
-    /// The Run that holds the approved request of a receipted filing: one whose
-    /// filing effect succeeded (a resume can also adopt a filing another Run made),
-    /// or, after a crash between the fiscal record and the journal, the one still
-    /// executing it. Several candidates are accepted only when they bound identical
-    /// request bytes; otherwise the request is ambiguous and `None` is returned.
+    /// The Run that holds the approved request of the receipted filing in force
+    /// (the one that bound `sent_hash`): one whose filing effect succeeded, or,
+    /// after a crash between the fiscal record and the journal, the one still
+    /// executing it.
     fn filing_run_with_receipt(
         &self,
         runs: &[FilingRun],
+        sent_hash: &str,
     ) -> Result<Option<(String, FileVatState)>, ProcessError> {
         for wanted in [EffectStatus::Succeeded, EffectStatus::Executing] {
-            let mut found: Option<(String, FileVatState)> = None;
             for run in runs.iter().filter(|run| run.status == wanted) {
                 let state = self.read_file_vat_state(&run.run_id)?;
-                match &found {
-                    None => found = Some((run.run_id.clone(), state)),
-                    Some((_, first)) if first.filing_sent_hash == state.filing_sent_hash => {}
-                    Some(_) => return Ok(None),
+                if state.filing_sent_hash == sent_hash {
+                    return Ok(Some((run.run_id.clone(), state)));
                 }
-            }
-            if found.is_some() {
-                return Ok(found);
             }
         }
         Ok(None)
@@ -522,6 +558,16 @@ impl ProcessEngine {
             });
         }
         Ok(runs)
+    }
+}
+
+/// Say in a filed period's status that the return in force is short of the books.
+fn note_unfiled_corrections(message: &mut String, vouchers: &[u64]) {
+    if !vouchers.is_empty() {
+        message.push_str(&format!(
+            " Correction voucher(s) {vouchers:?} were sealed for this period after its latest \
+             filing, so a replacement return is due: `file-vat replace`."
+        ));
     }
 }
 
