@@ -14,6 +14,10 @@ labels:
 assessment_classification: CONFIRMED
 assessment_outcome: SPIN_OFF
 review_target: skills/aggountant-init/SOUL.md
+lane: agent-surface
+lane_seq: 4
+collision: [crates/process/src/lib.rs]
+preparation: ready
 ---
 
 # Month close approval gate shows a hash, not what the user approves
