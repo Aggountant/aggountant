@@ -41,7 +41,16 @@ use aggountant_process::{
     SystemClock, VatReconciliationAcknowledgement,
 };
 
+/// The Vero transport note, a macro so `input_help` can `concat!` it into the
+/// `file-vat start` INPUT section.
+macro_rules! vero_transport_help {
+    () => {
+        "Vero transport: Broker reliability uses an outbox and OutcomeUnknown reconciliation. Production uses the fixed Vero.fi target only after `aggountant vero-fi status` reports ready. The credential bundle path is platform-local (AGGOUNTANT_VERO_CREDENTIALS_FILE is only a path override). AGGOUNTANT_BROKER_SCRIPT selects the scripted test seam only and never establishes production readiness."
+    };
+}
+
 mod home;
+mod input_help;
 mod knowledge;
 mod reports;
 mod skill;
@@ -53,7 +62,7 @@ use knowledge::KnowledgeCmd;
 use reports::ReportCmd;
 use vero_fi::resolve_credential_path;
 
-const VERO_TRANSPORT_HELP: &str = "Vero transport: Broker reliability uses an outbox and OutcomeUnknown reconciliation. Production uses the fixed Vero.fi target only after `aggountant vero-fi status` reports ready. The credential bundle path is platform-local (AGGOUNTANT_VERO_CREDENTIALS_FILE is only a path override). AGGOUNTANT_BROKER_SCRIPT selects the scripted test seam only and never establishes production readiness.";
+const VERO_TRANSPORT_HELP: &str = vero_transport_help!();
 
 #[derive(Parser, Debug)]
 #[command(
@@ -223,6 +232,7 @@ enum VeroFiCmd {
     /// Inspect local production readiness without making a network request.
     Status,
     /// Validate and store non-secret filing facts plus a platform-local credential path.
+    #[command(after_help = input_help::VERO_FI_CONFIGURE)]
     Configure {
         /// Validate and report the resulting readiness without writing either file.
         #[arg(long)]
@@ -351,6 +361,7 @@ enum Camt053Cmd {
     /// date. Untagged/zero-rate imports may omit it. Sales VAT expansion is
     /// unsupported here; do not import such an assignment. The original XML is
     /// retained once (KPL 2:5).
+    #[command(after_help = input_help::IMPORT_CAMT053_SEAL)]
     Seal {
         #[arg(long)]
         file: PathBuf,
@@ -361,6 +372,7 @@ enum Camt053Cmd {
 enum CloseYearCmd {
     /// Start a `close-year` Run from stdin JSON (`CloseYearInput`: year + assets +
     /// accruals + corrections); computes poistot and parks on `ApproveAdjustments`.
+    #[command(after_help = input_help::CLOSE_YEAR_START)]
     Start,
     /// Answer a check-gate (`--gate ApproveAdjustments|ApproveTaseErittelyt|
     /// ApproveLiitetiedot|ApproveStatements --answer approve|reject`).
@@ -429,6 +441,7 @@ enum CaptureReceiptCmd {
     /// Project or record an ordinary receipt from strict stdin JSON
     /// (`StructuredReceiptInput`). First run with `--dry-run`; after one user approval,
     /// re-run with the returned hash as `--approved-preparation-hash`.
+    #[command(after_help = input_help::CAPTURE_RECEIPT_RECORD)]
     Record {
         #[arg(long, conflicts_with = "approved_preparation_hash")]
         dry_run: bool,
@@ -437,6 +450,7 @@ enum CaptureReceiptCmd {
     },
     /// Start a non-routine consult run from stdin JSON (`CaptureReceiptInput`); parks on
     /// the `ApproveConsultDisclosure` preview gate.
+    #[command(after_help = input_help::CAPTURE_RECEIPT_START)]
     Start,
     /// Answer a gate (`--gate ApproveConsultDisclosure|ApproveVoucher|ApproveKnowledgePR
     /// --answer approve|reject`).
@@ -458,6 +472,7 @@ enum CaptureReceiptCmd {
 #[derive(Subcommand, Debug)]
 enum HuntReceiptsCmd {
     /// Start a run from stdin JSON (`HuntReceiptsInput`); drives the targeted pulls.
+    #[command(after_help = input_help::HUNT_RECEIPTS_START)]
     Start,
     /// Answer a hunt gate (`--gate ApproveMatch:<txn>|Clarify:<txn> --answer
     /// approve|discard|acknowledge`).
@@ -498,6 +513,7 @@ enum EmployeeCmd {
     /// Add (or replace) an employee from stdin JSON (`EmployeeState`: id, name,
     /// hetu, iban, tax_card). PII lands only in the encrypted store. YTD is derived
     /// from the earnings ledger, not part of the record — re-adding never resets it.
+    #[command(after_help = input_help::EMPLOYEE_ADD)]
     Add,
     /// Show one employee's master data (`--employee <id>`). Pass `--tax-year <YYYY>`
     /// to include that year's derived year-to-date gross (`ytd_gross`).
@@ -515,6 +531,7 @@ enum EmployeeCmd {
 enum RunPayrollCmd {
     /// Start a run from stdin JSON (`PayrollIntent`: payment_date + per-employee
     /// gross/tulolaji); computes every payslip and parks on the `ApproveRun` gate.
+    #[command(after_help = input_help::RUN_PAYROLL_START)]
     Start,
     /// Approve (or reject) the batch: `--answer approve|reject`. Approve drives every
     /// employee's payment + report.
@@ -572,7 +589,7 @@ enum FileVatCmd {
     /// payee_iban); reconciles and parks on the `ApproveFiling` preview gate.
     /// Untagged VAT-account postings refuse with VAT_ACCOUNTS_UNRECONCILED unless
     /// `vat_reconciliation_acknowledgement` {reason, vouchers} names exactly them.
-    #[command(after_long_help = VERO_TRANSPORT_HELP)]
+    #[command(after_help = input_help::FILE_VAT_START)]
     Start,
     /// Approve (or reject) the filing preview gate: `--answer approve|reject`.
     /// The submit-filing effect's `outcome` carries the Vero receipt
@@ -699,49 +716,6 @@ enum ChartCmd {
     },
 }
 
-const VOUCHER_DRAFT_INPUT_HELP: &str = r#"INPUT (JSON on stdin)
-  Required draft fields: document_date and posting_date (ISO YYYY-MM-DD), a
-  non-empty description, and postings (at least two balanced entries).
-  Each posting requires account, amount, and side. amount is exactly
-  {"amount":"decimal string","currency":"EUR"}; side is "debit" or "credit".
-  Account IDs must come from the active chart; after initializing the example
-  home, inspect them with:
-    aggountant --home ./accounting --json chart list
-  Optional draft fields: attachment_ref (singular sha256 returned for an existing
-  file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
-  buyer_vat_id.
-  Each posting may also carry optional vat_code. Omit optional fields when absent.
-
-Example JSON (input-shape demonstration only, not VAT or classification advice):
-```json
-{"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]}
-```
-Run the printed example after selecting account IDs from the active chart:
-  aggountant --home ./accounting --json voucher draft < draft.json"#;
-
-const VOUCHER_VALIDATE_INPUT_HELP: &str = r#"INPUT (JSON on stdin), one of two shapes
-  1. The `voucher seal` envelope: {"draft":{...},"natural_key":"...","actor":"..."}.
-     Validate the same file you seal. It is read exactly as `voucher seal` reads
-     it (see `voucher seal --help`) and checked as seal checks it, including the
-     fiscal calendar and period state (PERIOD_CLOSING, PERIOD_SEALED). A
-     natural_key that already sealed this same content gives the warning
-     NATURAL_KEY_ALREADY_SEALED (seal will replay that voucher); a natural_key
-     bound to different content is refused with IDEMPOTENCY_KEY_REUSE, as seal
-     would refuse it.
-  2. A bare draft, the object under "draft" above (see `voucher draft --help`).
-     Checked against the chart and artifacts only, not period state.
-  Both shapes check that every posting account exists in the active chart, VAT
-  rate-class mistags, and that a referenced attachment is stored. Warnings do
-  not stop a seal; each carries a code and a message.
-
-Example JSON (input-shape demonstration only, not VAT or classification advice):
-```json
-{"draft":{"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]},"natural_key":"fictional-service-2026-01-15","actor":"example-agent"}
-```
-Run it after `aggountant --home ./accounting --json init`, then seal the same file:
-  aggountant --home ./accounting --json voucher validate < seal.json
-  aggountant --home ./accounting --json voucher seal < seal.json"#;
-
 const VOUCHER_SHOW_HELP: &str = r#"EXAMPLE
   aggountant --home ./accounting --json voucher show 1
 
@@ -761,41 +735,16 @@ use AND semantics. Results are always number ASC and limited to 1..=100 (default
 `count` is the number of returned rows; `truncated` reports further matches. A row is
 only a possible source match, never an automatic duplicate decision."#;
 
-const VOUCHER_SEAL_INPUT_HELP: &str = r#"INPUT (JSON on stdin)
-  Required fields: draft (the complete draft-input object described below) and
-  natural_key (a non-empty caller-chosen idempotency key). Optional actor defaults
-  to "cli". Do not add ledger-output fields or a policy_set field.
-  Draft fields: document_date and posting_date (ISO YYYY-MM-DD), non-empty
-  description, and at least two balanced postings. Each posting requires account,
-  amount {"amount":"decimal string","currency":"EUR"}, and side "debit" or
-  "credit". Account IDs must come from the active chart; after initializing the
-  example home, inspect them with:
-    aggountant --home ./accounting --json chart list
-  Optional draft fields: attachment_ref (singular sha256 returned for an existing
-  file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
-  buyer_vat_id.
-  Each posting may also carry optional vat_code. Omit optional fields when absent.
-
-Example JSON (input-shape demonstration only, not VAT or classification advice):
-```json
-{"draft":{"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]},"natural_key":"fictional-service-2026-01-15","actor":"example-agent"}
-```
-Run the printed example after `aggountant --home ./accounting --json init` and
-after selecting account IDs from the active chart. Dry-run the same file with
-`voucher validate` first; it accepts this envelope unchanged:
-  aggountant --home ./accounting --json voucher validate < seal.json
-  aggountant --home ./accounting --json voucher seal < seal.json"#;
-
 #[derive(Subcommand, Debug)]
 enum VoucherCmd {
     /// Build + locally validate a draft from stdin JSON (Σ=0, ≥2 postings).
-    #[command(after_help = VOUCHER_DRAFT_INPUT_HELP)]
+    #[command(after_help = input_help::VOUCHER_DRAFT)]
     Draft,
     /// Ledger dry-run of a bare draft or the `voucher seal` envelope. No write.
-    #[command(after_help = VOUCHER_VALIDATE_INPUT_HELP)]
+    #[command(after_help = input_help::VOUCHER_VALIDATE)]
     Validate,
     /// Commit: atomic gapless numbering, hash-chain advance, provenance, idempotency.
-    #[command(after_help = VOUCHER_SEAL_INPUT_HELP)]
+    #[command(after_help = input_help::VOUCHER_SEAL)]
     Seal,
     /// Show one sealed voucher by its positive voucher number (read-only).
     #[command(after_help = VOUCHER_SHOW_HELP)]

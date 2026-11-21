@@ -13,11 +13,13 @@ use aggountant_process::{EmployerReportInput, EmployerReportReceipt, Registratio
 #[derive(Subcommand, Debug)]
 pub enum WageCmd {
     /// Read report JSON on stdin. Offline; returns lines, explicit period/ownership, deadline and unsigned canonical record hash. Example: file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
+    #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
     Preview {
         #[arg(long)]
         timestamp: Instant,
     },
     /// Persist the offline proposal and open approval gate. Use the preview timestamp. Example: file-wage start --timestamp 2026-10-25T12:00:00Z < report.json
+    #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
     Start {
         #[arg(long)]
         timestamp: Instant,
@@ -125,7 +127,8 @@ pub enum EmployerReportCmd {
         #[arg(long)]
         as_of: Option<Date>,
     },
-    /// Write the employer_report block of .aggountant/tulorekisteri.json (registered_from, contact_name, contact_phone, pension_insurances), keeping every other byte of the profile, and print the block before and after. Give all four with flags, or none and the block as stdin JSON ({"registered_from":"2020-02","contact_name":"...","contact_phone":"...","pension_insurances":[{"provider_code":46,"policy_number":"..."}]}). registered_from is checked against the employer register in PRH/YTJ open data: a disagreement is refused (EMPLOYER_REGISTER_MISMATCH, with the comparison) unless --accept-register-mismatch, and a YTJ failure (YTJ_UNAVAILABLE) writes nothing unless --offline skips the check. Examples: file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --pension-insurance 46:12-3456789 --dry-run; file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --no-pension-insurance; file-wage employer-report configure --offline < employer-report.json
+    /// Write the employer_report block of .aggountant/tulorekisteri.json (registered_from, contact_name, contact_phone, pension_insurances), keeping every other byte of the profile, and print the block before and after. Give all four with flags, or none and the block as stdin JSON (INPUT below). registered_from is checked against the employer register in PRH/YTJ open data: a disagreement is refused (EMPLOYER_REGISTER_MISMATCH, with the comparison) unless --accept-register-mismatch, and a YTJ failure (YTJ_UNAVAILABLE) writes nothing unless --offline skips the check. Examples: file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --pension-insurance 46:12-3456789 --dry-run; file-wage employer-report configure --registered-from 2020-02 --contact-name "Maija Meikäläinen" --contact-phone "+358 40 1234567" --no-pension-insurance; file-wage employer-report configure --offline < employer-report.json
+    #[command(after_help = crate::input_help::EMPLOYER_REPORT_CONFIGURE)]
     Configure {
         /// First month of the employer-register entry, YYYY-MM (2019-01 or later).
         #[arg(long, value_parser = parse_month)]

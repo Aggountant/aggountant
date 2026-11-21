@@ -11,26 +11,6 @@ use aggountant_process::{
 
 use crate::{read_stdin_json, CliError};
 
-const ADD_HELP: &str = r#"EXAMPLE
-  echo '{"id":"bank-fees-practice","statement":"Bank service fees are booked to 8490.","scope":"All bank accounts.","source":{"reference":"user decision 2026-09-12","date":"2026-09-12"}}' \
-    | aggountant --json knowledge company add"#;
-
-const UPDATE_HELP: &str = r#"FACT ID
-  Give the id positionally, with --id, or as "id" in the stdin JSON. When the
-  JSON id and the argument are both given they must be the same id.
-
-EXAMPLE
-  echo '{"statement":"Bank service fees are booked to 8490.","scope":"All bank accounts.","source":{"reference":"user decision 2026-10-01","date":"2026-10-01"},"reason":"Scope widened."}' \
-    | aggountant --json knowledge company update bank-fees-practice"#;
-
-const RETIRE_HELP: &str = r#"FACT ID
-  Give the id positionally, with --id, or as "id" in the stdin JSON. When the
-  JSON id and the argument are both given they must be the same id.
-
-EXAMPLE
-  echo '{"source":{"reference":"user decision 2026-11-01","date":"2026-11-01"},"reason":"Bank account closed."}' \
-    | aggountant --json knowledge company retire bank-fees-practice"#;
-
 #[derive(Subcommand, Debug)]
 pub(crate) enum KnowledgeCmd {
     /// List consult-generated knowledge documents.
@@ -50,7 +30,7 @@ pub(crate) enum KnowledgeCmd {
 #[derive(Subcommand, Debug)]
 pub(crate) enum CompanyKnowledgeCmd {
     /// Add a fact from stdin JSON: {id, statement, scope, source:{reference,date}}.
-    #[command(after_help = ADD_HELP)]
+    #[command(after_help = crate::input_help::KNOWLEDGE_COMPANY_ADD)]
     Add,
     /// Show the latest or a numbered revision.
     Show {
@@ -72,13 +52,13 @@ pub(crate) enum CompanyKnowledgeCmd {
         include_retired: bool,
     },
     /// Update a fact from stdin JSON: {[id], statement, scope, source:{reference,date}, reason}.
-    #[command(after_help = UPDATE_HELP)]
+    #[command(after_help = crate::input_help::KNOWLEDGE_COMPANY_UPDATE)]
     Update {
         #[command(flatten)]
         id: FactIdArg,
     },
     /// Retire a fact from stdin JSON: {[id], source:{reference,date}, reason}.
-    #[command(after_help = RETIRE_HELP)]
+    #[command(after_help = crate::input_help::KNOWLEDGE_COMPANY_RETIRE)]
     Retire {
         #[command(flatten)]
         id: FactIdArg,
@@ -105,7 +85,7 @@ pub(crate) struct FactIdArg {
 /// directly (not through `serde_json::Value`) so duplicate keys stay refused.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct UpdateInput {
+pub(crate) struct UpdateInput {
     id: Option<String>,
     statement: String,
     scope: String,
@@ -116,7 +96,7 @@ struct UpdateInput {
 /// stdin JSON of `retire`: the engine's input plus an optional `id`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RetireInput {
+pub(crate) struct RetireInput {
     id: Option<String>,
     source: CompanyKnowledgeSource,
     reason: String,

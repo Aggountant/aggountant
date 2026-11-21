@@ -418,7 +418,8 @@ fn update_and_retire_help_show_examples() {
             .unwrap();
         assert!(output.status.success());
         let help = String::from_utf8(output.stdout).unwrap();
-        assert!(help.contains("EXAMPLE"), "{sub}: {help}");
+        assert!(help.contains("INPUT (JSON on stdin"), "{sub}: {help}");
+        assert!(help.contains("Example JSON"), "{sub}: {help}");
         assert!(help.contains("bank-fees-practice"), "{sub}: {help}");
     }
 }

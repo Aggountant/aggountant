@@ -3,7 +3,8 @@
 Tämä sivu näyttää, mihin tehtävään kukin aggountantin komentoryhmä liittyy,
 jotta tunnistat, mitä agentti ajaa. Valitsimia ja syötteiden muotoa tässä ei
 ole: ne kertoo ohjelma itse, `aggountant --help` ja esimerkiksi
-`aggountant voucher seal --help`. Jokainen komento hyväksyy valitsimet
+`aggountant voucher seal --help`. JSON-syötettä lukeva komento näyttää sen
+kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsimet
 `--home` (mikä koti) ja `--json` (koneluettava tuloste agentille).
 
 | Komento | Mitä se tekee | Missä oppaassa |

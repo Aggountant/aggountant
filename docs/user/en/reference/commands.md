@@ -3,7 +3,8 @@
 This page shows which task each of aggountant's command groups belongs to, so
 you can recognise what the agent runs. Options and input formats are not here:
 the program tells you those itself, with `aggountant --help` and, for example,
-`aggountant voucher seal --help`. Every command accepts the options `--home`
+`aggountant voucher seal --help`. A command that reads JSON input shows its
+fields and an example in the INPUT section of its help. Every command accepts the options `--home`
 (which home) and `--json` (machine-readable output for the agent).
 
 | Command | What it does | Where in the guide |
