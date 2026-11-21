@@ -63,7 +63,13 @@ of repeating it. The fixed homes:
   `status.md` and the affected task pages change in the same commit as the
   code.
 - error codes: `reference/error-codes.md`; Vero.fi readiness blockers and
-  warnings: `reference/vero-fi-blockers.md`.
+  warnings: `reference/vero-fi-blockers.md`. The binary bundles the
+  error-code table and prints it as `aggountant explain <CODE>` and as the
+  error JSON's `hint` (the Finnish "Mitä tehdään" cell), so the agent reads
+  this table too: keep one three-cell row per code with the code in
+  backticks in the first cell and no `|` inside a cell, the same codes in
+  the same order in both languages, and only codes some crate's source
+  names. The tests in `crates/cli/src/explain.rs` fail otherwise.
 - why a sealed voucher cannot be edited and what needs approval:
   `concepts/sealing-and-approval.md`; period and run states:
   `concepts/periods.md`; the company-home layout and home resolution:

@@ -49,6 +49,7 @@ macro_rules! vero_transport_help {
     };
 }
 
+mod explain;
 mod home;
 mod input_help;
 mod knowledge;
@@ -93,6 +94,17 @@ enum Command {
     Config {
         #[command(subcommand)]
         cmd: ConfigCmd,
+    },
+    /// Explain an error code from the user guide's error-code reference, bundled
+    /// with this binary (offline): what happened and what to do. Without CODE,
+    /// list the codes the guide explains. Error JSON already carries the
+    /// guide's Finnish "what to do" as `hint` for these codes.
+    Explain {
+        /// The `error_code` of a failed command, e.g. PERIOD_SEALED.
+        code: Option<String>,
+        /// Language of the guide entry.
+        #[arg(long, value_enum, default_value = "fi")]
+        lang: explain::Lang,
     },
     /// List, install, or print the companion AI operating manuals bundled with this binary.
     Skill {
@@ -1547,6 +1559,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 }
             }
         }
+        Command::Explain { code, lang } => explain::execute(code.as_deref(), *lang),
         Command::Skill { cmd } => match cmd {
             SkillCmd::List => Ok(skill::list()),
             SkillCmd::Install { name, target } => {
@@ -2666,6 +2679,7 @@ fn human_line(command: &Command, value: &Value) -> String {
             VeroFiCmd::Verify { .. } => "Vero.fi test verification passed".into(),
             VeroFiCmd::VerifyPortal => "Vero.fi API Portal verification passed".into(),
         },
+        Command::Explain { .. } => explain::human(value),
         Command::Skill { cmd } => match cmd {
             SkillCmd::List => value["skills"]
                 .as_array()
@@ -2967,11 +2981,16 @@ fn write_stderr_line(line: &str) -> std::io::Result<()> {
 }
 
 fn emit_error(error: &CliError) -> std::io::Result<()> {
-    let payload = json!({
+    let mut payload = json!({
         "error_code": error.code,
         "error_kind": error.class.as_str(),
         "message": error.message,
     });
+    // The user guide's Finnish "what to do" for codes it explains;
+    // `aggountant explain <CODE>` prints the whole entry.
+    if let Some(hint) = explain::hint(&error.code) {
+        payload["hint"] = Value::String(hint);
+    }
     write_stderr_line(&serde_json::to_string(&payload).expect("error payload serializes"))
 }
 

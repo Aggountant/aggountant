@@ -9,7 +9,7 @@ tulosteessa.
 Kun komento epäonnistuu, se tulostaa virheen koodeineen, esimerkiksi:
 
 ```json
-{"error_code":"PERIOD_SEALED","error_kind":"user","message":"PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period"}
+{"error_code":"PERIOD_SEALED","error_kind":"user","message":"PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period","hint":"kirjaa seuraavalle avoimelle kaudelle"}
 ```
 
 - `error_code` on pysyvä koodi, jonka perusteella agentti tietää, mitä tehdä.
@@ -17,6 +17,12 @@ Kun komento epäonnistuu, se tulostaa virheen koodeineen, esimerkiksi:
   voi korjata (paluuarvo 1), tai `system`, kun syy on ympäristössä, kuten
   tiedostossa tai yhteydessä (paluuarvo 2).
 - `message` kertoo syyn sanallisesti.
+- `hint` on tämän sivun taulukon "Mitä tehdään"-sarake suomeksi. Se on
+  mukana vain koodeilla, jotka taulukossa on.
+
+Agentti voi pyytää koko selityksen komennolla `aggountant explain KOODI`
+(englanniksi `--lang en`). Ohjelma lukee selitykset tältä sivulta, joten
+ne ovat samat kuin alla.
 
 Useimmat virheet ovat tarkoituksellisia pysäytyksiä: ohjelma kieltäytyy
 tekemästä jotain, mikä tekisi kirjanpidosta väärän. Kieltäytyminen jättää

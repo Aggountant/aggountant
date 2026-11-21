@@ -13,6 +13,7 @@ kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsim
 | `home upgrade` | lisää olemassa olevaan kotiin perustiedot, joita uusi versio tarvitsee | [Päivitä aggountant](../tasks/upgrade.md) |
 | `config` | näyttää, mikä koti on käytössä ja mistä tieto tuli; asetustiedoston paikka | [Yrityskoti](../concepts/company-home.md) |
 | `skill` | listaa, asentaa ja näyttää agentin skillit | [Asenna aggountant ja skillit](../start/install.md) |
+| `explain` | selittää virhekoodin: mitä tapahtui ja mitä tehdään | [Virhekoodit](error-codes.md) |
 | `chart` | listaa tilikartan tilit | [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md) |
 | `knowledge` | yrityksen tallennetut faktat ja käytännöt (`knowledge company`) | [Yrityskoti](../concepts/company-home.md#yrityksen-tietovarasto) |
 | `import camt053` | lukee pankin tiliotteen ja sinetöi sen kirjaukset (myös camt.052) | [Tuo pankin tiliote](../tasks/import-bank-statement.md) |

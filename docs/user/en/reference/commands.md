@@ -13,6 +13,7 @@ fields and an example in the INPUT section of its help. Every command accepts th
 | `home upgrade` | adds the master data a new version needs to an existing home | [Upgrade aggountant](../tasks/upgrade.md) |
 | `config` | shows which home is in use and where that came from; the configuration file's location | [The company home](../concepts/company-home.md) |
 | `skill` | lists, installs and prints the agent's skills | [Install aggountant and its skills](../start/install.md) |
+| `explain` | explains an error code: what happened and what is done | [Error codes](error-codes.md) |
 | `chart` | lists the accounts in the chart of accounts | [Set up your company's books](../start/set-up-company.md) |
 | `knowledge` | the company's saved facts and practices (`knowledge company`) | [The company home](../concepts/company-home.md#the-company-knowledge-store) |
 | `import camt053` | reads a bank statement and seals its entries (also camt.052) | [Import the bank statement](../tasks/import-bank-statement.md) |

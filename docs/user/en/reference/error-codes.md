@@ -9,7 +9,7 @@ agent's output.
 When a command fails, it prints the error with its code, for example:
 
 ```json
-{"error_code":"PERIOD_SEALED","error_kind":"user","message":"PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period"}
+{"error_code":"PERIOD_SEALED","error_kind":"user","message":"PERIOD_SEALED: period 2026-03 is Sealed; corrections go to the next open period","hint":"kirjaa seuraavalle avoimelle kaudelle"}
 ```
 
 - `error_code` is a stable code that tells the agent what to do.
@@ -17,6 +17,12 @@ When a command fails, it prints the error with its code, for example:
   books and can be fixed (exit code 1), or `system` when the cause is in the
   environment, such as a file or a connection (exit code 2).
 - `message` describes the cause in words.
+- `hint` is the "Mitä tehdään" (what is done) column of this page's table
+  in Finnish. It is present only for codes the table lists.
+
+The agent can ask for the whole explanation with `aggountant explain CODE`
+(`--lang en` for English). The program reads the explanations from this
+page, so they are the same as below.
 
 Most errors are deliberate stops: the program refuses to do something that
 would make the books wrong. A refusal leaves the books as they were. The

@@ -2,12 +2,14 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: feature
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: agent-surface
 lane_seq: 2
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # Error hints and aggountant explain <CODE> from the guide's error-code reference
@@ -25,3 +27,9 @@ error JSON for codes that have one, and/or `aggountant explain <CODE>`
 printing the guide's entry (bundled, offline). One source: generate from or
 test against `error-codes.md` so the two cannot drift. Then the skills can drop
 their code explanations.
+
+## Resolution
+
+### 2026-11-21T07:46:39Z · @claude-opus-5-5
+
+Implemented: aggountant explain and the error JSON hint, both read from the bundled error-code guide page. See result.md.
