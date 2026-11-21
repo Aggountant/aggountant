@@ -355,24 +355,31 @@ Run it:
   aggountant --home ./accounting --json import camt053 seal --file statement.xml < assignments.json"#;
 
 pub(crate) const VERO_FI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
-  The whole vero-filing.json profile; it replaces the stored profile, it is not
-  merged. Carry over the attestation evidence blocks from the current profile
-  (its path is `vero-fi status`'s profile_path): leaving out
-  attestations.portal_verification drops the evidence and blocks production.
-  Unknown fields are refused.
-  schema_version  required, 1.
-  mode            required, "disabled" or "production". Production is written
-                  only when readiness is ready (otherwise VERO_NOT_READY).
+  The fields to change in vero-filing.json. They are merged into the stored
+  profile (JSON merge patch): a field left out keeps its stored value, null
+  clears it, and members of attestations merge one by one. The output lists
+  every changed field under changes, before and after; check them with
+  --dry-run first. A whole profile is accepted as well.
+  The evidence the verify commands record (attestations.test_verification,
+  attestations.portal_verification) is kept: an input that would clear or
+  change it is refused (VERO_EVIDENCE_WOULD_BE_DROPPED). --replace writes the
+  input as the whole profile instead, dropping every field it leaves out; it
+  is also the way to overwrite a stored profile that is not valid
+  (VERO_PROFILE_INVALID). Unknown fields are refused.
+  schema_version  1. Required when there is no stored profile (or --replace).
+  mode            "disabled" or "production"; required when there is no stored
+                  profile (or --replace). A production profile is written only
+                  when readiness is ready (otherwise VERO_NOT_READY).
   business_id     optional, Business ID 1234567-8 with a valid check digit.
   contact_name    optional, 1..70 characters.
   contact_phone   optional, 5..15 digits with phone punctuation (+ - space ()).
-  attestations    optional object, every member optional (false or absent):
+  attestations    optional object, every member optional (false when unset):
                   software_registered, api_agreement_active,
                   production_verification_completed,
                   production_permission_active (booleans),
                   activation_certificate_fingerprint_sha256 (64 hex),
                   test_verification and portal_verification (evidence the
-                  verify commands record; copy them unchanged).
+                  verify commands record; leave them out).
   credential_path optional. Platform-local credential bundle path, stored in
                   the platform configuration, not in the profile.
 
@@ -394,7 +401,9 @@ Example JSON (input-shape demonstration only; fictional company):
 ```
 Check first, then write:
   aggountant --home ./accounting --json vero-fi configure --dry-run < vero-filing.json
-  aggountant --home ./accounting --json vero-fi configure < vero-filing.json"#;
+  aggountant --home ./accounting --json vero-fi configure < vero-filing.json
+Change one field of a stored profile:
+  echo '{"contact_phone":"+358 40 7654321"}' | aggountant --home ./accounting --json vero-fi configure --dry-run"#;
 
 pub(crate) const FILE_VAT_START: &str = concat!(
     r#"INPUT (JSON on stdin)
@@ -592,9 +601,9 @@ mod tests {
             ),
             ("import camt053 seal", parses::<crate::ImportSealInput>),
             ("vero-fi configure", |json| {
-                let input: crate::VeroConfigureInput =
-                    serde_json::from_str(json).map_err(|e| e.to_string())?;
-                input.profile().validate()
+                crate::vero_fi::apply_configure_input(None, json, false)
+                    .map(drop)
+                    .map_err(|e| e.message)
             }),
             ("file-vat start", parses::<crate::CliFileVatInput>),
             ("file-wage preview", parse_wage_report),

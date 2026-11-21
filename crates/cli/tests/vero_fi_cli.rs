@@ -260,3 +260,285 @@ fn configure_is_strict_and_dry_run_writes_nothing() {
     assert!(stderr.contains("INVALID_INPUT"));
     assert!(!accounting.path().join("vero-filing.json").exists());
 }
+
+/// A production profile shaped like one a company keeps after onboarding:
+/// every attestation given, the activation bound to the certificate, and both
+/// verify commands' evidence recorded. Values are synthetic.
+fn onboarded_profile(fingerprint: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "mode": "production",
+        "business_id": "1572860-0",
+        "contact_name": "Ada Operator",
+        "contact_phone": "+358401234567",
+        "attestations": {
+            "software_registered": true,
+            "api_agreement_active": true,
+            "production_verification_completed": true,
+            "production_permission_active": true,
+            "activation_certificate_fingerprint_sha256": fingerprint,
+            "test_verification": {
+                "observed_at": "2026-09-12T08:15:30.123Z",
+                "certificate_fingerprint_sha256": fingerprint
+            },
+            "portal_verification": {
+                "observed_at": "2026-09-13T09:00:00Z",
+                "certificate_fingerprint_sha256": fingerprint,
+                "operations": ["GetVATPeriods/v1", "FileVATReturn/v2", "GetFiledVATReturn/v2"],
+                "file_vat_return_receipt": "{\"UniqueIdentifier\":\"verification\",\"AcceptedTimestamp\":\"2026-09-13T09:00:00Z\"}"
+            }
+        }
+    })
+}
+
+/// An onboarded home: the credential path configured and the stored profile
+/// written as the verify commands and an earlier configure left it.
+fn onboarded_home() -> (
+    tempfile::TempDir,
+    tempfile::TempDir,
+    tempfile::TempDir,
+    Value,
+) {
+    let accounting = tempfile::tempdir().unwrap();
+    let platform = tempfile::tempdir().unwrap();
+    let secrets = tempfile::tempdir().unwrap();
+    let credential = secrets.path().join("vero.json");
+    write_credential(&credential, "production");
+    let (code, _, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &disabled_input(&credential).to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let (_, stdout, _) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "status"],
+        "",
+    );
+    let status: Value = serde_json::from_str(&stdout).unwrap();
+    let fingerprint = status["certificate"]["fingerprint_sha256"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let profile = onboarded_profile(&fingerprint);
+    std::fs::write(
+        accounting.path().join("vero-filing.json"),
+        serde_json::to_string_pretty(&profile).unwrap(),
+    )
+    .unwrap();
+    (accounting, platform, secrets, profile)
+}
+
+fn stored(accounting: &std::path::Path) -> Value {
+    serde_json::from_slice(&std::fs::read(accounting.join("vero-filing.json")).unwrap()).unwrap()
+}
+
+#[test]
+fn partial_configure_merges_and_keeps_stored_evidence() {
+    let (accounting, platform, _secrets, profile) = onboarded_home();
+    let before = std::fs::read(accounting.path().join("vero-filing.json")).unwrap();
+
+    let patch = json!({"contact_phone": "+358 50 7654321"}).to_string();
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure", "--dry-run"],
+        &patch,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let output: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(output["written"], false);
+    assert_eq!(output["merged"], true);
+    assert_eq!(output["ready"], true);
+    assert_eq!(
+        output["changes"],
+        json!([{"field": "contact_phone", "before": "+358401234567", "after": "+358 50 7654321"}])
+    );
+    assert_eq!(
+        std::fs::read(accounting.path().join("vero-filing.json")).unwrap(),
+        before
+    );
+
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &patch,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["written"],
+        true
+    );
+    let mut expected = profile.clone();
+    expected["contact_phone"] = json!("+358 50 7654321");
+    assert_eq!(stored(accounting.path()), expected);
+
+    // The skill's earlier pattern, an empty attestations object, keeps every
+    // attestation instead of resetting them.
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &json!({"schema_version": 1, "mode": "production", "attestations": {}}).to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["changes"],
+        json!([])
+    );
+    assert_eq!(stored(accounting.path()), expected);
+
+    let (_, stdout, _) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "status"],
+        "",
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["ready"],
+        true
+    );
+}
+
+#[test]
+fn a_whole_profile_input_with_its_evidence_changes_nothing() {
+    let (accounting, platform, _secrets, profile) = onboarded_home();
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &profile.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["changes"],
+        json!([])
+    );
+    assert_eq!(stored(accounting.path()), profile);
+}
+
+#[test]
+fn clearing_or_changing_recorded_evidence_is_refused_without_replace() {
+    let (accounting, platform, _secrets, profile) = onboarded_home();
+    let before = std::fs::read(accounting.path().join("vero-filing.json")).unwrap();
+    let inputs = [
+        json!({"attestations": {"portal_verification": null}}),
+        json!({"attestations": {"test_verification": {"observed_at": "2026-10-01T00:00:00Z"}}}),
+        json!({"attestations": null}),
+    ];
+    for input in inputs {
+        let (code, _, stderr) = invoke(
+            accounting.path(),
+            platform.path(),
+            &["vero-fi", "configure"],
+            &input.to_string(),
+        );
+        assert_eq!(code, 1, "{input}");
+        assert!(
+            stderr.contains("VERO_EVIDENCE_WOULD_BE_DROPPED"),
+            "{stderr}"
+        );
+        assert_eq!(
+            std::fs::read(accounting.path().join("vero-filing.json")).unwrap(),
+            before
+        );
+    }
+
+    // An explicit null clears an ordinary field; production readiness then
+    // refuses it because the activation is no longer bound.
+    let (code, _, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &json!({"attestations": {"activation_certificate_fingerprint_sha256": null}}).to_string(),
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("VERO_NOT_READY"), "{stderr}");
+
+    // --replace writes the input as the whole profile, dropping what it omits.
+    let mut whole = profile.clone();
+    whole["mode"] = json!("disabled");
+    whole["attestations"]
+        .as_object_mut()
+        .unwrap()
+        .remove("portal_verification");
+    let (code, stdout, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure", "--replace"],
+        &whole.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let output: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(output["merged"], false);
+    assert!(output["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(
+            |change| change["field"] == "attestations.portal_verification.observed_at"
+                && change["after"].is_null()
+        ));
+    assert_eq!(stored(accounting.path()), whole);
+}
+
+#[test]
+fn merge_input_stays_strict_and_an_invalid_stored_profile_needs_replace() {
+    let (accounting, platform, _secrets, profile) = onboarded_home();
+    let before = std::fs::read(accounting.path().join("vero-filing.json")).unwrap();
+    for input in [
+        json!({"attestations": {"unexpected": true}}),
+        json!({"contact_phone": "not a phone"}),
+        json!(["not", "an", "object"]),
+    ] {
+        let (code, _, stderr) = invoke(
+            accounting.path(),
+            platform.path(),
+            &["vero-fi", "configure"],
+            &input.to_string(),
+        );
+        assert_eq!(code, 1, "{input}");
+        assert!(stderr.contains("INVALID_INPUT"), "{stderr}");
+    }
+    assert_eq!(
+        std::fs::read(accounting.path().join("vero-filing.json")).unwrap(),
+        before
+    );
+
+    std::fs::write(accounting.path().join("vero-filing.json"), "{\"mode\":").unwrap();
+    let (code, _, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &json!({"contact_phone": "+358401234567"}).to_string(),
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("VERO_PROFILE_INVALID"), "{stderr}");
+    let (code, _, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure", "--replace"],
+        &profile.to_string(),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(stored(accounting.path()), profile);
+}
+
+#[test]
+fn a_first_configure_without_mode_is_refused() {
+    let accounting = tempfile::tempdir().unwrap();
+    let platform = tempfile::tempdir().unwrap();
+    let (code, _, stderr) = invoke(
+        accounting.path(),
+        platform.path(),
+        &["vero-fi", "configure"],
+        &json!({"contact_phone": "+358401234567"}).to_string(),
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("INVALID_INPUT"), "{stderr}");
+    assert!(stderr.contains("mode"), "{stderr}");
+    assert!(!accounting.path().join("vero-filing.json").exists());
+}

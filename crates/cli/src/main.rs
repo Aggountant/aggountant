@@ -20,7 +20,7 @@ use aggountant_broker::{
     EmailPullAdapter, KauppatiliPullAdapter, PankkiMaksuAdapter, RawResponse, Registry,
     RemoteOutcome, ScriptedTransport, ScriptedVeroFileVatReturnAdapter,
     ScriptedVeroFiledVatReturnAdapter, ScriptedVeroVatPeriodsAdapter, SyntheticSubmitAdapter,
-    Transport, TransportError, TulorekisteriAdapter, Vault, VeroAttestations, VeroCredentialTarget,
+    Transport, TransportError, TulorekisteriAdapter, Vault, VeroCredentialTarget,
     VeroFileVatReturnAdapter, VeroFiledVatReturnAdapter, VeroFilingMode, VeroFilingProfile,
     VeroReadinessPurpose, VeroVatPeriodsAdapter, VeroVerotiliAdapter, SVC_CONSULT_LLM,
     SVC_EMAIL_PULL, SVC_KAUPPATILI_PULL, SVC_PANKKI_MAKSU, SVC_SYNTHETIC_SUBMIT, SVC_TULOREKISTERI,
@@ -231,12 +231,15 @@ enum ConfigCmd {
 enum VeroFiCmd {
     /// Inspect local production readiness without making a network request.
     Status,
-    /// Validate and store non-secret filing facts plus a platform-local credential path.
+    /// Merge non-secret filing facts into the stored profile and store a platform-local credential path.
     #[command(after_help = input_help::VERO_FI_CONFIGURE)]
     Configure {
-        /// Validate and report the resulting readiness without writing either file.
+        /// Validate and report the changes and the resulting readiness without writing either file.
         #[arg(long)]
         dry_run: bool,
+        /// Write the input as the whole profile instead of merging it; drops any stored field the input leaves out, including verification evidence.
+        #[arg(long)]
+        replace: bool,
     },
     /// Perform an explicitly requested safe test-environment verification read.
     Verify {
@@ -254,36 +257,6 @@ enum VeroFiCmd {
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
 enum VeroVerifyTarget {
     Test,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct VeroConfigureInput {
-    schema_version: u32,
-    mode: VeroFilingMode,
-    #[serde(default)]
-    business_id: Option<BusinessId>,
-    #[serde(default)]
-    contact_name: Option<FilingContactName>,
-    #[serde(default)]
-    contact_phone: Option<FilingContactPhone>,
-    #[serde(default)]
-    attestations: VeroAttestations,
-    #[serde(default)]
-    credential_path: Option<PathBuf>,
-}
-
-impl VeroConfigureInput {
-    fn profile(&self) -> VeroFilingProfile {
-        VeroFilingProfile {
-            schema_version: self.schema_version,
-            mode: self.mode,
-            business_id: self.business_id.clone(),
-            contact_name: self.contact_name.clone(),
-            contact_phone: self.contact_phone.clone(),
-            attestations: self.attestations.clone(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1437,15 +1410,25 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     value["schema_version"] = json!(1);
                     Ok(value)
                 }
-                VeroFiCmd::Configure { dry_run } => {
-                    let input: VeroConfigureInput = read_stdin_json()?;
-                    let profile = input.profile();
-                    profile
-                        .validate()
-                        .map_err(|message| CliError::user("INVALID_VERO_PROFILE", message))?;
+                VeroFiCmd::Configure { dry_run, replace } => {
+                    let input = read_stdin_text()?;
+                    let profile_file = aggountant_broker::vero_profile_path(&home);
+                    let stored = match std::fs::read(&profile_file) {
+                        Ok(bytes) => Some(bytes),
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                        Err(_) => {
+                            return Err(CliError::system(
+                                "VERO_PROFILE_READ_ERROR",
+                                format!("{} could not be read", profile_file.display()),
+                            ))
+                        }
+                    };
+                    let outcome =
+                        vero_fi::apply_configure_input(stored.as_deref(), &input, *replace)?;
+                    let profile = outcome.profile;
                     let credential_path = resolve_credential_path(
                         &platform_config,
-                        input.credential_path.as_deref(),
+                        outcome.credential_path.as_deref(),
                     )?;
                     let report = evaluate_vero_readiness(
                         &home,
@@ -1463,8 +1446,8 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         })?;
                     }
                     if !dry_run {
-                        if input.credential_path.is_some() {
-                            platform_config.vero_credentials_file = input.credential_path.clone();
+                        if outcome.credential_path.is_some() {
+                            platform_config.vero_credentials_file = outcome.credential_path.clone();
                             write_config(&platform_path, &platform_config)?;
                         }
                         write_vero_profile(&home, &profile).map_err(|message| {
@@ -1477,13 +1460,15 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     value["schema_version"] = json!(1);
                     value["dry_run"] = json!(dry_run);
                     value["written"] = json!(!dry_run);
+                    value["merged"] = json!(!replace);
+                    value["changes"] = json!(outcome.changes);
                     if *dry_run {
                         let mut would = vec![json!({
                             "action": "update",
                             "resource": "vero_filing_profile",
-                            "path": aggountant_broker::vero_profile_path(&home),
+                            "path": profile_file,
                         })];
-                        if input.credential_path.is_some() {
+                        if outcome.credential_path.is_some() {
                             would.push(json!({
                                 "action": "update",
                                 "resource": "platform_config",

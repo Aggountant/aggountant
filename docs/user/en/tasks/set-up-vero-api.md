@@ -91,9 +91,12 @@ aggountant vero-fi configure < settings.json
 aggountant vero-fi verify-portal
 ```
 
-`configure` replaces the whole settings file. The agent must carry the earlier
-evidence along, or the test evidence is lost and production is blocked. The
-`vero-fi` skill guides the agent in this.
+`configure` merges the given fields into the stored settings: what the input
+leaves out stays as it was, and `--dry-run` lists every field that would
+change. The verification evidence that `verify-portal` records is kept; an
+input that would clear or change it is refused. `--replace` writes the input
+as the whole settings file instead, and is needed only to drop evidence on
+purpose or to overwrite a broken settings file.
 
 `aggountant vero-fi verify --target test` is optional troubleshooting against
 the test environment with separate test credentials. It is not needed for

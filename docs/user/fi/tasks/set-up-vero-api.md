@@ -85,9 +85,12 @@ aggountant vero-fi configure < asetukset.json
 aggountant vero-fi verify-portal
 ```
 
-`configure` korvaa koko asetustiedoston. Agentin pitää kuljettaa aiemmat
-näyttötiedot mukana, tai muuten testinäyttö katoaa ja tuotanto estyy.
-`vero-fi`-skilli ohjaa agenttia tässä.
+`configure` yhdistää annetut kentät tallennettuihin asetuksiin: mitä syöte
+ei mainitse, pysyy ennallaan, ja `--dry-run` luettelee jokaisen kentän, joka
+muuttuisi. `verify-portal`-ajon tallentama varmennusnäyttö säilyy; syöte, joka
+poistaisi tai muuttaisi sen, hylätään. `--replace` kirjoittaa syötteen koko
+asetustiedostoksi, ja sitä tarvitaan vain näytön tarkoitukselliseen
+poistamiseen tai rikkinäisen asetustiedoston korvaamiseen.
 
 `aggountant vero-fi verify --target test` on vapaaehtoinen vianetsintä
 testiympäristöstä erillisillä testitunnuksilla. Sitä ei tarvita tuotantoon.
