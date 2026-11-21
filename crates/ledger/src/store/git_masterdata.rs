@@ -281,7 +281,15 @@ impl GitMasterDataRefStore {
     /// `chart_version` from the chart bytes and cross-checks it against the
     /// stored `chart_version` file, so a hand-edit that changes chart content
     /// without updating the version (or vice versa) is caught, not trusted.
+    ///
+    /// When the home only lacks a bundled file that `home upgrade` would add (a
+    /// home written by an older `init`), the error names that command, so the
+    /// agent upgrades instead of restoring or hand-writing the file.
     pub(crate) fn open(dir: &Path) -> Result<Self, LedgerError> {
+        Self::open_unhinted(dir).map_err(|e| with_upgrade_hint(dir, e))
+    }
+
+    fn open_unhinted(dir: &Path) -> Result<Self, LedgerError> {
         let reference = dir.join("reference");
         let (chart, chart_version) = read_active_chart(&reference)?;
 
@@ -536,6 +544,41 @@ impl GitMasterDataRefStore {
     pub(crate) fn settlement_roles(&self) -> &SettlementAccountRoleTable {
         &self.settlement_roles
     }
+}
+
+/// Add the remedy to a `MASTERDATA_CORRUPT` from `open` when the upgrade planner
+/// would create a file `open` needs (a chart snapshot or the VAT roles). The plan
+/// is the one `home upgrade --dry-run` shows, so the message never promises a
+/// file the upgrade would refuse to add (`Unavailable`). The optional settlement
+/// roles do not make `open` fail, so their absence alone adds no hint.
+fn with_upgrade_hint(dir: &Path, error: LedgerError) -> LedgerError {
+    let LedgerError::MasterDataCorrupt(message) = error else {
+        return error;
+    };
+    let missing: Vec<String> = match GitMasterDataRefStore::upgrade(dir, false) {
+        Ok(plan) => plan
+            .items
+            .into_iter()
+            .filter(|item| {
+                item.state == UpgradeState::Create
+                    && matches!(
+                        item.resource,
+                        UpgradeResource::ChartSnapshot | UpgradeResource::VatAccountRoles
+                    )
+            })
+            .map(|item| item.path)
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    if missing.is_empty() {
+        return LedgerError::MasterDataCorrupt(message);
+    }
+    LedgerError::MasterDataCorrupt(format!(
+        "{message} — the home lacks bundled masterdata an older `init` did not write \
+         ({}); run `aggountant home upgrade --dry-run` to see the plan, then \
+         `aggountant home upgrade --apply`; do not restore or write the file by hand",
+        missing.join(", ")
+    ))
 }
 
 /// Read the active chart and cross-check it against the stored `chart_version`, so a
@@ -1262,6 +1305,29 @@ mod tests {
 
         let err = GitMasterDataRefStore::open(&md).unwrap_err();
         assert_eq!(err.error_code(), "MASTERDATA_CORRUPT");
+    }
+
+    #[test]
+    fn missing_bundled_vat_roles_name_home_upgrade_but_a_hand_edit_does_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let md = dir.path().join("masterdata");
+        GitMasterDataRefStore::init(&md).unwrap();
+        let reference = md.join("reference");
+        fs::remove_file(reference.join(VAT_ROLES_FILE)).unwrap();
+        let err = GitMasterDataRefStore::open(&md).unwrap_err();
+        assert_eq!(err.error_code(), "MASTERDATA_CORRUPT");
+        assert!(err.to_string().contains("home upgrade --dry-run"), "{err}");
+
+        // Only the optional settlement roles missing: open succeeds, nothing to hint.
+        GitMasterDataRefStore::upgrade(&md, true).unwrap();
+        fs::remove_file(reference.join(SETTLEMENT_ROLES_FILE)).unwrap();
+        GitMasterDataRefStore::open(&md).unwrap();
+
+        // A VAT role file that is present but broken is not an upgrade case.
+        fs::write(reference.join(VAT_ROLES_FILE), "{}").unwrap();
+        let err = GitMasterDataRefStore::open(&md).unwrap_err();
+        assert_eq!(err.error_code(), "MASTERDATA_CORRUPT");
+        assert!(!err.to_string().contains("home upgrade"), "{err}");
     }
 
     #[test]

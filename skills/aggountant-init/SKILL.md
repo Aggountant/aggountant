@@ -130,7 +130,7 @@ Suora ilmoittaminen Verolle otetaan käyttöön `vero-fi`-skillillä, kun yritys
 haluaa; käyttöönotto ei edellytä sitä.
 
 `init` kieltäytyy olemassa olevasta kodista, joten vanhaa kotia ei korjata sillä. Kun
-aggountant on päivitetty, tai koti antaa virheen `MASTERDATA_CORRUPT`, koti tarvitsee
-`aggountant home upgrade`n; sen ohje kertoo loput. Se, minkä päivitys jättää
-lisäämättä, kerrotaan käyttäjälle eikä korjata käsin: tilikartan versio on sen
-sisällöstä laskettu tiiviste, johon sinetöidyt tositteet viittaavat.
+aggountant on päivitetty, koti tarvitsee `aggountant home upgrade`n; sen ohje kertoo
+loput. Se, minkä päivitys jättää lisäämättä, kerrotaan käyttäjälle eikä korjata käsin:
+tilikartan versio on sen sisällöstä laskettu tiiviste, johon sinetöidyt tositteet
+viittaavat.

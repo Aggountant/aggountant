@@ -34,6 +34,18 @@ fn home_upgrade_plans_applies_and_is_idempotent() {
     std::fs::remove_file(reference.join("settlement-account-roles.json")).unwrap();
     std::fs::remove_dir_all(reference.join("chart-snapshots")).unwrap();
 
+    // Every command that opens masterdata names the remedy, not just the file.
+    let (code, _, stderr) = run(&home, &["chart", "list"]);
+    assert_eq!(code, 1, "{stderr}");
+    let error: Value = serde_json::from_str(stderr.trim()).unwrap();
+    assert_eq!(error["error_code"], "MASTERDATA_CORRUPT");
+    let message = error["message"].as_str().unwrap();
+    assert!(
+        message.contains("aggountant home upgrade --dry-run")
+            && message.contains("vat-account-roles.json"),
+        "{message}"
+    );
+
     let (code, _, stderr) = run(&home, &["home", "upgrade"]);
     assert_eq!(code, 1, "a mode is required: {stderr}");
 
