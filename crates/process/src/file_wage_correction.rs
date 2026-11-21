@@ -323,7 +323,12 @@ impl ProcessEngine {
                 match &state.filing {
                     Filing::Sent { correction, .. } => {
                         report = correction.report.clone();
-                        report_is_current = true;
+                        // E-service evidence that settled an unknown send shows a
+                        // newer version exists, not that it has this content.
+                        report_is_current = !matches!(
+                            &filing.outcome,
+                            EmployerRunOutcome::Accepted { receipt } if receipt.source == "e_service"
+                        );
                     }
                     Filing::External { .. } => report_is_current = false,
                 }
@@ -355,6 +360,22 @@ impl ProcessEngine {
             Some((_, receipt)) => Some(receipt),
         };
         Ok(status)
+    }
+
+    /// Whether correction Run `correction_run` is still the latest accepted
+    /// filing of its report, with nothing in doubt after it. Returns the report's
+    /// Run id with the answer.
+    pub(crate) fn wage_correction_in_force(
+        &self,
+        correction_run: &str,
+    ) -> Result<(String, bool), ProcessError> {
+        let original = self.wage_correction_original(correction_run)?;
+        let status = self.wage_report_status(&original)?;
+        let in_force = status.in_doubt().is_none()
+            && status
+                .latest()
+                .is_some_and(|(filing, _)| filing.run_id == correction_run);
+        Ok((original, in_force))
     }
 
     /// Whether the report has a correction sent without a definitive answer.
@@ -468,6 +489,21 @@ impl ProcessEngine {
                 let hetu = Ledger::open(&self.home)?
                     .get_employee(&correction.report.employee_id)?
                     .hetu;
+                // The income earner must be the one in the previous version
+                // (Earnings payment reports 2026, §2.13). Process state holds no
+                // identity code, so the first send's outbox hash is the witness.
+                match self.wage_sent_with_hetu(run_id, &hetu)? {
+                    Some(true) => {}
+                    Some(false) => {
+                        return Err(refused(
+                            "WAGE_CORRECTION_REPLACEMENT_NOT_ALLOWED",
+                            "the income earner's stored identity code is not the one the report was sent with, and a replacement cannot change the income earner; cancel the report (--action cancel) and send a new one with `file-wage start`",
+                        ))
+                    }
+                    None => warnings.push(
+                        "the report was not sent through aggountant, so it cannot be checked that the income earner's stored identity code is the one in the register; a replacement must name the same income earner".to_string(),
+                    ),
+                }
                 let xml =
                     wage_replacement_record(&correction, &hetu, timestamp).map_err(invalid)?;
                 (xml, hetu)
@@ -811,6 +847,14 @@ impl ProcessEngine {
         }
         let correction_run = external_run_id(run_id, action, &receipt);
         let dir = self.run_dir(&correction_run);
+        // The Run id is the evidence itself. Without a version the check above
+        // cannot tell a repeat from a newer correction, and a second recording
+        // would rewrite the first one's state and journal.
+        if dir.join(STATE_FILE).exists() {
+            return Err(invalid(format!(
+                "{correction_run} already records exactly this evidence; a further correction made in the e-service is told apart by its --report-version"
+            )));
+        }
         let _lease = self.acquire_lease(&correction_run)?;
         write_state(
             &dir.join(STATE_FILE),

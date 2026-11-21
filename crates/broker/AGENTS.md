@@ -81,7 +81,10 @@ outbox, approval and reconcile-only rules as the report it corrects.
 - **What a replacement may not change is the caller's check, not the
   register's rejection to wait for.** The pay period, the payer and the income
   earner must repeat the previous version; the process refuses such a
-  replacement before anything is sent and points to cancel-and-new.
+  replacement before anything is sent and points to cancel-and-new. Process
+  state holds no personal identity code, so the income earner is checked
+  against the first send's outbox hash; for a report that was given in the
+  e-service there is nothing to check against, and the preview says so.
 - The rules come from the register's "Data delivery – Schemas" documents
   (earnings payment reports, cancellation data, processing feedback) and the
   vendored XSDs under `schemas/tulorekisteri/`; cite the section when a rule

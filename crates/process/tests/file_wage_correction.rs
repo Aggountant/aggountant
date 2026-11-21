@@ -790,3 +790,145 @@ fn e_service_evidence_settles_an_unknown_correction_only_with_a_newer_version() 
     );
     assert_eq!(sends(&seen), 1);
 }
+
+#[test]
+fn the_same_unversioned_evidence_is_not_recorded_twice() {
+    let h = home();
+    let (e, run) = accepted(h.path());
+    let manual = || {
+        e.complete_wage_correction_manual(&run, WageCorrectionAction::Replacement, evidence(None))
+    };
+    let first = manual().unwrap();
+    let correction_run = first.filings[1].run_id.clone();
+    let journal = e.journal(&correction_run).unwrap().len();
+    let err = manual().unwrap_err();
+    assert_eq!(err.error_code(), "WAGE_CORRECTION_INVALID_EVIDENCE");
+    assert!(err.to_string().contains("--report-version"), "{err}");
+    assert_eq!(e.journal(&correction_run).unwrap().len(), journal);
+    let status = e.wage_report_status(&run).unwrap();
+    assert_eq!(status.filings.len(), 2);
+    assert_eq!(status.filings[1].sequence, 2);
+}
+
+#[test]
+fn an_earlier_correction_run_is_superseded_by_a_later_one() {
+    let h = home();
+    let (e, run) = accepted(h.path());
+    let (b, _) = broker(h.path(), Answer::Accept);
+    let preview = e
+        .preview_wage_correction(&run, &replace(corrected()), later())
+        .unwrap();
+    let status = e
+        .submit_wage_correction(
+            &run,
+            &replace(corrected()),
+            later(),
+            &preview.record_hash,
+            &b,
+            later(),
+        )
+        .unwrap();
+    let replacement_run = status.filings[1].run_id.clone();
+    let outcome = |id: &str| e.show(id).unwrap().effects[0].outcome.clone();
+    assert!(matches!(
+        outcome(&replacement_run),
+        Some(AuthorityOutcome::Accepted { .. })
+    ));
+    let preview = e.preview_wage_correction(&run, &cancel(), later()).unwrap();
+    let status = e
+        .submit_wage_correction(&run, &cancel(), later(), &preview.record_hash, &b, later())
+        .unwrap();
+    let Some(AuthorityOutcome::Superseded { next_command, .. }) = outcome(&replacement_run) else {
+        panic!("the replaced version's receipt must not read as current")
+    };
+    assert_eq!(
+        next_command,
+        format!("aggountant file-wage correction status {run}")
+    );
+    // The cancellation is the last word and reads as accepted.
+    assert!(matches!(
+        outcome(&status.filings[2].run_id),
+        Some(AuthorityOutcome::Accepted { .. })
+    ));
+}
+
+#[test]
+fn evidence_that_settles_a_sent_replacement_does_not_prove_its_content() {
+    let h = home();
+    let (e, run) = accepted(h.path());
+    let (b, _) = broker(
+        h.path(),
+        Answer::Timeout {
+            status: StatusAnswer::Pending,
+        },
+    );
+    let preview = e
+        .preview_wage_correction(&run, &replace(corrected()), later())
+        .unwrap();
+    e.submit_wage_correction(
+        &run,
+        &replace(corrected()),
+        later(),
+        &preview.record_hash,
+        &b,
+        later(),
+    )
+    .unwrap();
+    let status = e
+        .complete_wage_correction_manual(&run, WageCorrectionAction::Replacement, evidence(Some(2)))
+        .unwrap();
+    assert_eq!(status.state, WageReportState::Replaced);
+    assert!(!status.report_is_current);
+    // The content sent may not be what the register holds, so sending it is allowed
+    // and the preview warns.
+    let other_time: Instant = "2026-11-02T09:00:00Z".parse().unwrap();
+    let again = e
+        .preview_wage_correction(&run, &replace(corrected()), other_time)
+        .unwrap();
+    assert!(
+        again.warnings[0].contains("e-service"),
+        "{:?}",
+        again.warnings
+    );
+}
+
+#[test]
+fn a_replacement_cannot_name_another_income_earner() {
+    let h = home();
+    let (e, run) = accepted(h.path());
+    // The stored identity code is corrected after the report was accepted.
+    let ledger = Ledger::open(h.path()).unwrap();
+    let mut employee = ledger.get_employee("emp-1").unwrap();
+    employee.hetu = "131052-308T".into();
+    ledger.upsert_employee(&employee).unwrap();
+    drop(ledger);
+    let err = e
+        .preview_wage_correction(&run, &replace(corrected()), later())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "WAGE_CORRECTION_REPLACEMENT_NOT_ALLOWED");
+    assert!(err.to_string().contains("identity code"), "{err}");
+    assert!(!err.to_string().contains("131052"));
+    // The way to change the income earner is to cancel, which names no person.
+    e.preview_wage_correction(&run, &cancel(), later()).unwrap();
+
+    // A report given in the e-service has no send to compare with: the preview
+    // says so instead of refusing or staying silent.
+    let h = home();
+    let e = ProcessEngine::open(h.path());
+    let run = e.start_wage(&report(), time()).unwrap().run_id;
+    e.complete_wage_manual(&run, IR_DELIVERY, IR_REPORT)
+        .unwrap();
+    assert!(!h.path().join("integration").exists());
+    let preview = e
+        .preview_wage_correction(&run, &replace(corrected()), later())
+        .unwrap();
+    assert!(
+        preview.warnings.iter().any(|w| w.contains("identity code")),
+        "{:?}",
+        preview.warnings
+    );
+    assert!(
+        !h.path().join("integration").exists(),
+        "a preview writes nothing"
+    );
+}

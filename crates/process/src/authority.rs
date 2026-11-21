@@ -168,6 +168,18 @@ impl ProcessEngine {
         receipt: file_employer_report::EmployerReportReceipt,
     ) -> Result<AuthorityOutcome, ProcessError> {
         let receipt = Some(AuthorityReceipt::Tulorekisteri(receipt));
+        if f.workflow == file_wage_correction::WORKFLOW_NAME {
+            let (original, in_force) = self.wage_correction_in_force(&f.run_id)?;
+            if !in_force {
+                return Ok(AuthorityOutcome::Superseded {
+                    receipt,
+                    next_command: format!("aggountant file-wage correction status {original}"),
+                    message: "a later correction of the report followed this one; the receipt \
+                              is not of what the Incomes Register holds now"
+                        .to_string(),
+                });
+            }
+        }
         if f.workflow == "file-wage" {
             let message = match self.wage_report_status(&f.run_id)?.state {
                 WageReportState::Replaced => Some(

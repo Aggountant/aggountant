@@ -200,6 +200,43 @@ impl ProcessEngine {
         }
         Ok(state)
     }
+    /// Whether `hetu` is the identity code the accepted report of `run_id` was
+    /// sent with: the accepted outbox attempt's hash covers the whole request,
+    /// the code included. `None` when no accepted send is recorded (a report
+    /// given in the e-service, also after a rejected send whose identity code
+    /// may be the very thing that was wrong). Read-only; a home without an
+    /// outbox is left without one.
+    pub(crate) fn wage_sent_with_hetu(
+        &self,
+        run_id: &str,
+        hetu: &str,
+    ) -> Result<Option<bool>, ProcessError> {
+        let state = self.read_wage(run_id)?;
+        if !self.home.join("integration/outbox/outbox.db").exists() {
+            return Ok(None);
+        }
+        let stored = |e: aggountant_broker::BrokerError| ProcessError::Store(e.to_string());
+        let Some(first) = aggountant_broker::Outbox::open(&self.home)
+            .map_err(stored)?
+            .load(SVC_WAGE, &state.report.delivery_id())
+            .map_err(stored)?
+            .and_then(|entry| entry.terminal_success().cloned())
+        else {
+            return Ok(None);
+        };
+        let envelope = wage_envelope(
+            &WageRequest {
+                report: state.report,
+                hetu: hetu.to_string(),
+                timestamp: state.timestamp,
+            },
+            false,
+        )
+        .map_err(|_| invalid("invalid wage request"))?;
+        Ok(Some(
+            envelope.sent_hash().map_err(stored)? == first.sent_hash,
+        ))
+    }
     fn bound_wage(
         &self,
         run_id: &str,
