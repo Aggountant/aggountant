@@ -386,9 +386,18 @@ enum Camt053Cmd {
 enum CloseYearCmd {
     /// Start a year-end close from stdin JSON (year, assets, accruals, corrections).
     /// Puts nothing in the books: it computes the depreciation and stops at the first
-    /// gate, `ApproveAdjustments`.
+    /// gate, `ApproveAdjustments`. Assets of the previous sealed year are carried
+    /// from its register at their closing book value. `--dry-run` shows the same
+    /// computation without starting a run.
     #[command(after_help = input_help::CLOSE_YEAR_START)]
-    Start,
+    Start {
+        /// Compute and show the assets, their depreciation method, rate and amount,
+        /// and what would block the start, without creating a run or writing
+        /// anything. Takes the same stdin JSON; `{"year": N}` alone shows the
+        /// carried assets.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Answer the run's open gate with an explicit `--answer approve|reject`; there
     /// is no default. The gates open in this order: `ApproveAdjustments` (approving
     /// seals the depreciation and accrual vouchers into the books, permanently: a
@@ -2139,8 +2148,13 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         }
         Command::CloseYear { cmd } => {
             let engine = ProcessEngine::open(&home_path(cli)?);
+            if let CloseYearCmd::Start { dry_run: true } = cmd {
+                let input: CloseYearInput = read_stdin_json()?;
+                let preview = engine.preview_close_year(&input, &PolicySet::default())?;
+                return Ok(serde_json::to_value(preview).expect("close-year preview serializes"));
+            }
             let (value, run_id, reported_by) = match cmd {
-                CloseYearCmd::Start => {
+                CloseYearCmd::Start { .. } => {
                     let input: CloseYearInput = read_stdin_json()?;
                     let started = engine.start_close_year(&input, &PolicySet::default())?;
                     let run_id = started.run.run_id.clone();
@@ -3183,6 +3197,13 @@ fn human_line(command: &Command, value: &Value) -> String {
             };
             format!("{line}\n{}", close_year_next_human(value))
         }
+        Command::CloseYear {
+            cmd: CloseYearCmd::Start { dry_run: true },
+        } => format!(
+            "{}\n{}",
+            value["message"].as_str().unwrap_or(""),
+            serde_json::to_string_pretty(value).expect("preview serializes")
+        ),
         Command::CloseYear { .. } => format!(
             "close-year run {} — {} [{}]\n{}",
             value["run_id"],

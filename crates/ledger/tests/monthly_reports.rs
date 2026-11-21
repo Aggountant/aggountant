@@ -55,6 +55,7 @@ fn seal_year(ledger: &Ledger, year: i32) {
         .seal_year(
             year,
             &format!("{year:064x}"),
+            &Default::default(),
             &format!("year-{year}"),
             "test",
         )

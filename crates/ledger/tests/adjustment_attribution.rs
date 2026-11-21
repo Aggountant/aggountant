@@ -146,7 +146,7 @@ fn seal_whole_year(ledger: &Ledger, year: i32) {
         ledger.seal_period(&p, &auth, "test").unwrap();
     }
     ledger
-        .seal_year(year, &"a".repeat(64), "cy", "test")
+        .seal_year(year, &"a".repeat(64), &Default::default(), "cy", "test")
         .unwrap();
 }
 
@@ -274,7 +274,9 @@ fn full_close_sequence_seals_then_refuses_a_late_attribution() {
         let auth = ledger.begin_close(&p, "cy", "test").unwrap();
         ledger.seal_period(&p, &auth, "test").unwrap();
     }
-    let view = ledger.seal_year(2025, &sh, "cy", "test").unwrap();
+    let view = ledger
+        .seal_year(2025, &sh, &Default::default(), "cy", "test")
+        .unwrap();
     assert_eq!(view.statements_hash.as_deref(), Some(sh.as_str()));
 
     // A second adjustment posted into 2026, attributed back to the now-Sealed 2025, is refused.
@@ -316,7 +318,7 @@ fn an_intermediate_year_cannot_seal_over_an_open_prior_year() {
         ledger.seal_period(&p, &auth, "test").unwrap();
     }
     let err = ledger
-        .seal_year(2026, &"a".repeat(64), "cy", "test")
+        .seal_year(2026, &"a".repeat(64), &Default::default(), "cy", "test")
         .unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED", "{err}");
     assert!(err.to_string().contains("2025"), "{err}");

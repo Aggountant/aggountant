@@ -49,7 +49,8 @@ pub use close_period::{
 };
 pub use close_year::{
     AdjustmentsContent, CloseYearGateView, CloseYearInput, CloseYearNext, CloseYearNextFor,
-    CloseYearShow, CloseYearStart, CorrectionInput, CorrectionStatus, GateContent,
+    CloseYearPreview, CloseYearShow, CloseYearStart, CorrectionInput, CorrectionStatus,
+    GateContent,
 };
 pub use company_knowledge::{
     AddCompanyKnowledge, CompanyKnowledgeDocument, CompanyKnowledgeItem, CompanyKnowledgeRevision,

@@ -30,9 +30,9 @@ use serde::{Deserialize, Serialize};
 
 use aggountant_domain::{
     accrual_voucher, compute_depreciation, compute_statements, depreciation_policy_version,
-    depreciation_rate_table, depreciation_voucher, kpa_policy, kpa_policy_version, tase_erittelyt,
-    AccrualInput, AssetInput, DepreciationLine, Liitetiedot, PolicySet, StatementProvenance,
-    Statements, TaseErittelyt,
+    depreciation_rate_table, depreciation_voucher, kpa_policy, kpa_policy_version, plan_asset_year,
+    tase_erittelyt, AccrualInput, AssetInput, AssetRegister, DepreciationLine, Liitetiedot,
+    PolicySet, StatementProvenance, Statements, TaseErittelyt,
 };
 use aggountant_ledger::{FiscalYearState, Ledger, PeriodState};
 use aggountant_model::{AccountId, Date, Money, PeriodId};
@@ -90,9 +90,14 @@ pub struct CorrectionInput {
 #[serde(deny_unknown_fields)]
 pub struct CloseYearInput {
     pub year: i32,
-    /// Assets to depreciate (poistot). Amounts are Domain-computed, never here.
+    /// Assets to depreciate (poistot) that the previous sealed year's register does
+    /// not carry. Amounts are Domain-computed, never here.
     #[serde(default)]
     pub assets: Vec<AssetInput>,
+    /// Ids of carried assets that leave the register in this year (sold, scrapped,
+    /// or depreciated by hand from now on). They are not depreciated by the Run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub removed_assets: Vec<String>,
     /// Accruals to book (jaksotukset).
     #[serde(default)]
     pub accruals: Vec<AccrualInput>,
@@ -119,6 +124,11 @@ struct CloseYearState {
     /// persisted; such a Run recomputes them from `input.assets`.
     #[serde(default)]
     depreciation: Option<Vec<DepreciationLine>>,
+    /// The year's fixed-asset register planned at start: `ApproveAdjustments` binds
+    /// it and `SealYear` stores it. Absent in a Run started before the register
+    /// existed; such a Run plans it when it is needed.
+    #[serde(default)]
+    asset_register: Option<AssetRegister>,
     /// The computed statements, once `compute-statements` has run.
     statements: Option<Statements>,
     /// The tase-erittelyt built when `ApproveTaseErittelyt` opened: the gate's hash
@@ -137,6 +147,31 @@ pub struct CloseYearStart {
     #[serde(flatten)]
     pub run: RunView,
     pub depreciation: Vec<DepreciationLine>,
+    /// The year's fixed assets: opening book value, depreciation and closing book
+    /// value of each, and the assets removed.
+    pub asset_register: AssetRegister,
+    /// The sealed year whose register the carried assets open from, if any.
+    pub opening_register_year: Option<i32>,
+}
+
+/// `close-year start --dry-run`: what a start with this input would compute, and
+/// what would block it. Nothing is written.
+#[derive(Debug, Clone, Serialize)]
+pub struct CloseYearPreview {
+    pub dry_run: bool,
+    pub year: i32,
+    /// True when `close-year start` with the same input would start a Run now.
+    pub would_start: bool,
+    /// What blocks the start (same items `close-year start` reports).
+    pub blockers: Vec<String>,
+    pub opening_register_year: Option<i32>,
+    pub asset_register: AssetRegister,
+    pub depreciation: Vec<DepreciationLine>,
+    pub accruals: Vec<AccrualInput>,
+    pub corrections: Vec<CorrectionInput>,
+    /// The next open period the adjustments would be posted in, when there is one.
+    pub adjustment_period: Option<String>,
+    pub message: String,
 }
 
 /// `close-year show`: the Run plus the content of its open gate, so an approval is
@@ -214,6 +249,10 @@ pub enum GateContent {
 pub struct AdjustmentsContent {
     pub depreciation: Vec<DepreciationLine>,
     pub accruals: Vec<AccrualInput>,
+    /// The year's fixed-asset register, which the year seal stores for the next
+    /// close. Absent (and outside the hash) in a Run started before it existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset_register: Option<AssetRegister>,
 }
 
 impl GateContent {
@@ -221,7 +260,9 @@ impl GateContent {
     /// defined, used both when the gate opens and when its content is shown.
     pub fn snapshot_hash(&self) -> String {
         match self {
-            Self::Adjustments(a) => adjustments_hash(&a.depreciation, &a.accruals),
+            Self::Adjustments(a) => {
+                adjustments_hash(&a.depreciation, &a.accruals, a.asset_register.as_ref())
+            }
             Self::TaseErittelyt(te) => te.statements_hash(),
             Self::Liitetiedot(lt) => lt.statements_hash(),
             Self::Statements(s) => s.statements_hash(),
@@ -271,48 +312,12 @@ impl ProcessEngine {
     ) -> Result<CloseYearStart, ProcessError> {
         let year = input.year;
         let ledger = Ledger::open(&self.home)?;
-
         // The year's dates come from the company's fiscal calendar; `year` is the
         // calendar year the fiscal year ends in.
         let fiscal_year = ledger.fiscal_year(year)?;
-
-        // Precondition A: the year must not already be sealed (idempotent refusal).
-        let fy = ledger.fiscal_year_view(year)?;
-        if fy.state == FiscalYearState::Sealed {
-            return Err(ProcessError::InvalidAnswer(format!(
-                "fiscal year {year} is already sealed — SealYear is irreversible"
-            )));
-        }
-
-        // Precondition B: every selected subperiod must be Sealed. Active monthly
-        // years require all twelve months; untouched legacy years retain four quarters.
+        assert_not_sealed(&ledger, year)?;
         let subperiods = ledger.year_close_periods(year)?;
-        let mut blockers = Vec::new();
-        for p in &subperiods {
-            if ledger.period_view(p)?.state != PeriodState::Sealed {
-                blockers.push(format!("subperiod-not-sealed:{p}"));
-            }
-        }
-        // Precondition C (must-seal, ADR-5): open obligations for any subperiod, and
-        // unresolved (Pending) intake candidates dated within the year, block the close.
-        let mut obligation_ids = std::collections::BTreeSet::new();
-        for p in &subperiods {
-            for obligation in self.obligations().open_for_period(p)? {
-                obligation_ids.insert(obligation.id);
-            }
-        }
-        blockers.extend(
-            obligation_ids
-                .into_iter()
-                .map(|id| format!("open-obligation:{id}")),
-        );
-        for c in crate::intake::Intake::open(&self.home).list()? {
-            if c.status == crate::intake::MatchStatus::Pending
-                && Date::parse(&c.date).is_ok_and(|date| fiscal_year.contains(date))
-            {
-                blockers.push(format!("unresolved-intake:{}", c.id));
-            }
-        }
+        let blockers = self.close_year_blockers(&ledger, &fiscal_year, &subperiods)?;
         if !blockers.is_empty() {
             return Err(ProcessError::CloseYearBlocked(format!(
                 "close-year for {year} is blocked by {} item(s): [{}]",
@@ -320,120 +325,23 @@ impl ProcessEngine {
                 blockers.join(", ")
             )));
         }
-
-        // Ids become natural keys / effect keys — a duplicate would silently
-        // idempotent-replay (dropping the second entry) or collide two effects. Reject
-        // empty or duplicate ids up front.
-        assert_unique_ids("asset_id", input.assets.iter().map(|a| a.asset_id.as_str()))?;
-        assert_unique_ids(
-            "accrual_id",
-            input.accruals.iter().map(|a| a.accrual_id.as_str()),
+        assert_input_ids(input)?;
+        let next_open = adjustment_period(&ledger, &fiscal_year, &subperiods)?;
+        let assets = plan_assets(&ledger, &fiscal_year, input)?;
+        let state = build_state(
+            input,
+            policy_set,
+            &fiscal_year,
+            &subperiods,
+            &next_open,
+            &assets,
         )?;
-        assert_unique_ids(
-            "correction_id",
-            input.corrections.iter().map(|c| c.correction_id.as_str()),
-        )?;
-
-        // Compute the actual first open period in the next fiscal year for adjustments.
-        // A calendar target year owns its granularity once active; otherwise it
-        // continues the closing year's mode (monthly books continue at January, legacy
-        // books at Q1). A non-calendar fiscal year is closed by its months only.
-        let next_year = ledger
-            .fiscal_calendar()?
-            .next(&fiscal_year)
-            .map_err(aggountant_ledger::LedgerError::from)?;
-        let target_year = next_year.year();
-        let target_periods = if next_year.is_calendar_year() {
-            let target_months = (1..=12)
-                .map(|month| PeriodId::new_month(target_year, month))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
-            let target_quarters = (1..=4)
-                .map(|quarter| PeriodId::new(target_year, quarter))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
-            let month_active = target_months.iter().try_fold(false, |active, period| {
-                Ok::<_, ProcessError>(
-                    active || ledger.period_view(period)?.state != PeriodState::Open,
-                )
-            })?;
-            let quarter_active = target_quarters.iter().try_fold(false, |active, period| {
-                Ok::<_, ProcessError>(
-                    active || ledger.period_view(period)?.state != PeriodState::Open,
-                )
-            })?;
-            if month_active && quarter_active {
-                return Err(ProcessError::CloseYearBlocked(format!(
-                    "close-year for {year} is blocked: target year {target_year} has mixed active month and quarter coverage"
-                )));
-            }
-            if month_active
-                || (!quarter_active && subperiods.first().is_some_and(PeriodId::is_month))
-            {
-                target_months
-            } else {
-                target_quarters
-            }
-        } else {
-            next_year
-                .month_periods()
-                .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?
-        };
-        let next_open = target_periods
-            .into_iter()
-            .find_map(|period| match ledger.period_view(&period) {
-                Ok(view) if view.state == PeriodState::Open => Some(Ok(period)),
-                Ok(_) => None,
-                Err(error) => Some(Err(ProcessError::from(error))),
-            })
-            .transpose()?
-            .ok_or_else(|| {
-                ProcessError::CloseYearBlocked(format!(
-                    "close-year for {year} is blocked: target year {target_year} has no open adjustment period"
-                ))
-            })?;
-
-        // Compute poistot (Domain) — a bad asset class / unresolvable rate fails here.
-        let doc_date = fiscal_year.end();
-        let posting_date =
-            Date::from_ymd(next_open.year(), u32::from(next_open.month_bounds().0), 1)
-                .map_err(|e| ProcessError::Store(format!("bad next-open date: {e}")))?;
-        // A depreciation refusal (unknown class, a fiscal year that is not 12 months)
-        // is something the caller must resolve before the close can start.
-        let depreciation =
-            compute_depreciation(&fiscal_year, &input.assets, depreciation_rate_table()).map_err(
-                |e| {
-                    ProcessError::CloseYearBlocked(format!(
-                        "close-year for {year} is blocked: {}: {e}",
-                        e.error_code()
-                    ))
-                },
-            )?;
-        // Validate every adjustment + correction draft assembles now (fail fast).
-        for line in &depreciation {
-            depreciation_voucher(line, doc_date, posting_date).map_err(map_domain)?;
-        }
-        for a in &input.accruals {
-            accrual_voucher(a, doc_date, posting_date).map_err(map_domain)?;
-        }
-        for c in &input.corrections {
-            build_correction_draft(c, doc_date, posting_date)?;
-        }
-
-        let state = CloseYearState {
-            year,
-            policy_set: policy_set.id.clone(),
-            subperiods: subperiods.iter().map(|p| p.to_string()).collect(),
-            next_open_period: next_open.to_string(),
-            doc_date: doc_date.to_string(),
-            posting_date: posting_date.to_string(),
-            input: input.clone(),
-            depreciation: Some(depreciation.clone()),
-            statements: None,
-            tase_erittelyt: None,
-            liitetiedot: None,
-        };
         self.assert_no_unplanned_close_year_vouchers(&state)?;
+        let AssetPlan {
+            opening_register_year,
+            register,
+            depreciation,
+        } = assets;
 
         let run_id = crate::new_run_id_with("cy");
         let run_dir = self.run_dir(&run_id);
@@ -490,12 +398,133 @@ impl ProcessEngine {
             snapshot_hash: GateContent::Adjustments(AdjustmentsContent {
                 depreciation: depreciation.clone(),
                 accruals: input.accruals.clone(),
+                asset_register: Some(register.clone()),
             })
             .snapshot_hash(),
         })?;
 
         let run = fold(&run_id, &journal.read_all()?)?.to_view();
-        Ok(CloseYearStart { run, depreciation })
+        Ok(CloseYearStart {
+            run,
+            depreciation,
+            asset_register: register,
+            opening_register_year,
+        })
+    }
+
+    /// `close-year start --dry-run`: compute what a start with `input` would, and
+    /// collect what would block it, without creating a Run or writing anything. A
+    /// malformed input is an error here exactly as it is for the start.
+    pub fn preview_close_year(
+        &self,
+        input: &CloseYearInput,
+        policy_set: &PolicySet,
+    ) -> Result<CloseYearPreview, ProcessError> {
+        let year = input.year;
+        let ledger = Ledger::open(&self.home)?;
+        let fiscal_year = ledger.fiscal_year(year)?;
+        assert_not_sealed(&ledger, year)?;
+        assert_input_ids(input)?;
+        let assets = plan_assets(&ledger, &fiscal_year, input)?;
+        let subperiods = ledger.year_close_periods(year)?;
+        let mut blockers = self.close_year_blockers(&ledger, &fiscal_year, &subperiods)?;
+        // The remaining checks need the period the adjustments would be posted in.
+        let mut adjustment_period_id = None;
+        match adjustment_period(&ledger, &fiscal_year, &subperiods) {
+            Ok(next_open) => {
+                let state = build_state(
+                    input,
+                    policy_set,
+                    &fiscal_year,
+                    &subperiods,
+                    &next_open,
+                    &assets,
+                )?;
+                if let Err(error) = self.assert_no_unplanned_close_year_vouchers(&state) {
+                    blockers.push(blocked_message(error)?);
+                }
+                adjustment_period_id = Some(next_open.to_string());
+            }
+            Err(error) => blockers.push(blocked_message(error)?),
+        }
+        let would_start = blockers.is_empty();
+        let message = if would_start {
+            format!(
+                "dry run: nothing was written; `close-year start` with this input would \
+                 start the close of {year} and open ApproveAdjustments on these figures"
+            )
+        } else {
+            format!(
+                "dry run: nothing was written; `close-year start` for {year} is blocked by \
+                 {} item(s), listed in `blockers`",
+                blockers.len()
+            )
+        };
+        Ok(CloseYearPreview {
+            dry_run: true,
+            year,
+            would_start,
+            blockers,
+            opening_register_year: assets.opening_register_year,
+            asset_register: assets.register,
+            depreciation: assets.depreciation,
+            accruals: input.accruals.clone(),
+            corrections: input.corrections.clone(),
+            adjustment_period: adjustment_period_id,
+            message,
+        })
+    }
+
+    /// What blocks a close of `fiscal_year` from starting, as stable ids.
+    fn close_year_blockers(
+        &self,
+        ledger: &Ledger,
+        fiscal_year: &aggountant_model::FiscalYear,
+        subperiods: &[PeriodId],
+    ) -> Result<Vec<String>, ProcessError> {
+        // Precondition B: every selected subperiod must be Sealed. Active monthly
+        // years require all twelve months; untouched legacy years retain four quarters.
+        let mut blockers = Vec::new();
+        for p in subperiods {
+            if ledger.period_view(p)?.state != PeriodState::Sealed {
+                blockers.push(format!("subperiod-not-sealed:{p}"));
+            }
+        }
+        // The previous fiscal year must be sealed (or be a boundary cut-over) before
+        // this one is closed: the statements open from its closing position and the
+        // assets from its register, and an open year can still change both. Checked
+        // here so that it stops the start, not the statements after the adjustment
+        // vouchers are already sealed.
+        if let Err(aggountant_ledger::LedgerError::PeriodNotSealed(_)) =
+            ledger.fiscal_year_data(fiscal_year.year())
+        {
+            let previous = ledger
+                .fiscal_calendar()?
+                .previous(fiscal_year)
+                .map_err(aggountant_ledger::LedgerError::from)?;
+            blockers.push(format!("previous-year-not-sealed:{}", previous.year()));
+        }
+        // Precondition C (must-seal, ADR-5): open obligations for any subperiod, and
+        // unresolved (Pending) intake candidates dated within the year, block the close.
+        let mut obligation_ids = std::collections::BTreeSet::new();
+        for p in subperiods {
+            for obligation in self.obligations().open_for_period(p)? {
+                obligation_ids.insert(obligation.id);
+            }
+        }
+        blockers.extend(
+            obligation_ids
+                .into_iter()
+                .map(|id| format!("open-obligation:{id}")),
+        );
+        for c in crate::intake::Intake::open(&self.home).list()? {
+            if c.status == crate::intake::MatchStatus::Pending
+                && Date::parse(&c.date).is_ok_and(|date| fiscal_year.contains(date))
+            {
+                blockers.push(format!("unresolved-intake:{}", c.id));
+            }
+        }
+        Ok(blockers)
     }
 
     /// Seal one D7 correction on its own approval (the thin commit boundary). The
@@ -618,6 +647,8 @@ impl ProcessEngine {
                 GATE_APPROVE_ADJ => {
                     self.assert_corrections_sealed(&f)?;
                     self.assert_no_unplanned_close_year_vouchers(&state)?;
+                    // Before the depreciation is sealed on it.
+                    self.asset_register_to_seal(&state)?;
                     self.gate_view(run_id, &f, gate_id)?;
                 }
                 // The approval is given on the shown content, so it is refused when
@@ -1049,11 +1080,12 @@ impl ProcessEngine {
         // close-year Run may have attributed a voucher that the approved statements
         // leave out.
         self.assert_statements_binding(run_id, &f, GATE_APPROVE_STMT)?;
+        let asset_register = self.asset_register_to_seal(&state)?;
         journal.append(EventPayload::EffectExecuting {
             effect_key: EFFECT_SEAL_YEAR.to_string(),
         })?;
         let ledger = Ledger::open(&self.home)?;
-        match ledger.seal_year(state.year, &statements_hash, run_id, ACTOR) {
+        match ledger.seal_year(state.year, &statements_hash, &asset_register, run_id, ACTOR) {
             Ok(_) => {
                 // The archive is written before the success is journalled so the note
                 // records whether it was; a crash in between is reconciled on resume,
@@ -1169,6 +1201,9 @@ impl ProcessEngine {
                 }
             }
         }
+        // The year seal stores the register and refuses one that does not continue the
+        // previous year's; refuse here, while the gate can still be rejected.
+        self.asset_register_to_seal(&state)?;
         // Checked last so that a change the hashes above already catch is reported as
         // that change; an entry outside the plan that left every hash equal is still
         // one no gate showed.
@@ -1364,6 +1399,50 @@ impl ProcessEngine {
         .map_err(map_domain)
     }
 
+    /// The fixed-asset register `SealYear` stores for this Run's year: the one
+    /// planned at start, or, for a Run started before the register existed, one
+    /// planned now from the same input. Refused when it no longer continues the
+    /// previous year's register (that year was sealed after this Run started) or
+    /// when planning it now gives other depreciation than the Run approved; the year
+    /// would otherwise carry book values its own vouchers do not support.
+    fn asset_register_to_seal(
+        &self,
+        state: &CloseYearState,
+    ) -> Result<AssetRegister, ProcessError> {
+        let year = state.year;
+        let ledger = Ledger::open(&self.home)?;
+        let stale = |why: String| {
+            ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: {why} — reject the open gate and start a \
+                 new close-year run"
+            ))
+        };
+        match &state.asset_register {
+            Some(register) => {
+                register
+                    .check_continues(ledger.opening_asset_register(year)?.as_ref())
+                    .map_err(|e| {
+                        stale(format!(
+                            "the run's asset register no longer continues the previous \
+                             year's ({e})"
+                        ))
+                    })?;
+                Ok(register.clone())
+            }
+            None => {
+                let plan = plan_assets(&ledger, &ledger.fiscal_year(year)?, &state.input)?;
+                if plan.depreciation != self.depreciation_lines(state)? {
+                    return Err(stale(
+                        "the previous year's asset register gives other depreciation than \
+                         this run computed"
+                            .to_string(),
+                    ));
+                }
+                Ok(plan.register)
+            }
+        }
+    }
+
     /// The content gate `gate_id` binds, checked against the hash the gate recorded.
     /// A persisted value that no longer matches is corrupt; a fresh build (a Run
     /// started before content was persisted) that no longer matches means the books
@@ -1394,6 +1473,7 @@ impl ProcessEngine {
                     GateContent::Adjustments(AdjustmentsContent {
                         depreciation: self.depreciation_lines(&state)?,
                         accruals: state.input.accruals.clone(),
+                        asset_register: state.asset_register.clone(),
                     }),
                     state.depreciation.is_some(),
                 )
@@ -1525,6 +1605,8 @@ impl ProcessEngine {
             "statements": statements,
             "tase_erittelyt": te,
             "liitetiedot": lt,
+            // A copy for the reader; the next close opens from the fiscal store's.
+            "asset_register": Ledger::open(&self.home)?.asset_register(state.year)?,
         });
         let bytes =
             serde_json::to_vec_pretty(&bundle).map_err(|e| ProcessError::Store(e.to_string()))?;
@@ -1566,6 +1648,193 @@ fn gate_approval(gate_id: &str, year: i32) -> String {
              recorded in {year} afterwards, and this cannot be undone."
         ),
         other => format!("Gate {other} is not a close-year gate."),
+    }
+}
+
+/// The fixed assets of a closing year as a start plans them.
+struct AssetPlan {
+    opening_register_year: Option<i32>,
+    register: AssetRegister,
+    depreciation: Vec<DepreciationLine>,
+}
+
+/// Plan the year's assets: those the previous sealed year's register carries plus
+/// the input's, and their depreciation (Domain). A bad asset class, a figure that
+/// disagrees with the register or a fiscal year that is not 12 months is refused
+/// here; the caller must resolve it before the close can start.
+fn plan_assets(
+    ledger: &Ledger,
+    fiscal_year: &aggountant_model::FiscalYear,
+    input: &CloseYearInput,
+) -> Result<AssetPlan, ProcessError> {
+    let year = fiscal_year.year();
+    let opening = ledger.opening_asset_register(year)?;
+    let (register, depreciation) = plan_asset_year(
+        fiscal_year,
+        opening.as_ref(),
+        &input.assets,
+        &input.removed_assets,
+        depreciation_rate_table(),
+    )
+    .map_err(|e| {
+        ProcessError::CloseYearBlocked(format!(
+            "close-year for {year} is blocked: {}: {e}",
+            e.error_code()
+        ))
+    })?;
+    let opening_register_year = match opening {
+        Some(_) => Some(
+            ledger
+                .fiscal_calendar()?
+                .previous(fiscal_year)
+                .map_err(aggountant_ledger::LedgerError::from)?
+                .year(),
+        ),
+        None => None,
+    };
+    Ok(AssetPlan {
+        opening_register_year,
+        register,
+        depreciation,
+    })
+}
+
+/// Precondition: the year must not already be sealed (idempotent refusal).
+fn assert_not_sealed(ledger: &Ledger, year: i32) -> Result<(), ProcessError> {
+    if ledger.fiscal_year_view(year)?.state == FiscalYearState::Sealed {
+        return Err(ProcessError::InvalidAnswer(format!(
+            "fiscal year {year} is already sealed — SealYear is irreversible"
+        )));
+    }
+    Ok(())
+}
+
+/// Ids become natural keys / effect keys — a duplicate would silently
+/// idempotent-replay (dropping the second entry) or collide two effects. Reject
+/// empty or duplicate ids up front.
+fn assert_input_ids(input: &CloseYearInput) -> Result<(), ProcessError> {
+    assert_unique_ids("asset_id", input.assets.iter().map(|a| a.asset_id.as_str()))?;
+    assert_unique_ids(
+        "removed_assets id",
+        input.removed_assets.iter().map(String::as_str),
+    )?;
+    assert_unique_ids(
+        "accrual_id",
+        input.accruals.iter().map(|a| a.accrual_id.as_str()),
+    )?;
+    assert_unique_ids(
+        "correction_id",
+        input.corrections.iter().map(|c| c.correction_id.as_str()),
+    )
+}
+
+/// The first open period of the next fiscal year, where the adjustments are posted.
+/// A calendar target year owns its granularity once active; otherwise it continues
+/// the closing year's mode (monthly books continue at January, legacy books at Q1).
+/// A non-calendar fiscal year is closed by its months only.
+fn adjustment_period(
+    ledger: &Ledger,
+    fiscal_year: &aggountant_model::FiscalYear,
+    subperiods: &[PeriodId],
+) -> Result<PeriodId, ProcessError> {
+    let year = fiscal_year.year();
+    // Compute the actual first open period in the next fiscal year for adjustments.
+    // A calendar target year owns its granularity once active; otherwise it
+    // continues the closing year's mode (monthly books continue at January, legacy
+    // books at Q1). A non-calendar fiscal year is closed by its months only.
+    let next_year = ledger
+        .fiscal_calendar()?
+        .next(fiscal_year)
+        .map_err(aggountant_ledger::LedgerError::from)?;
+    let target_year = next_year.year();
+    let target_periods = if next_year.is_calendar_year() {
+        let target_months = (1..=12)
+            .map(|month| PeriodId::new_month(target_year, month))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
+        let target_quarters = (1..=4)
+            .map(|quarter| PeriodId::new(target_year, quarter))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?;
+        let month_active = target_months.iter().try_fold(false, |active, period| {
+            Ok::<_, ProcessError>(active || ledger.period_view(period)?.state != PeriodState::Open)
+        })?;
+        let quarter_active = target_quarters.iter().try_fold(false, |active, period| {
+            Ok::<_, ProcessError>(active || ledger.period_view(period)?.state != PeriodState::Open)
+        })?;
+        if month_active && quarter_active {
+            return Err(ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: target year {target_year} has mixed active month and quarter coverage"
+            )));
+        }
+        if month_active || (!quarter_active && subperiods.first().is_some_and(PeriodId::is_month)) {
+            target_months
+        } else {
+            target_quarters
+        }
+    } else {
+        next_year
+            .month_periods()
+            .map_err(|e| ProcessError::Store(format!("bad next-open year: {e}")))?
+    };
+    target_periods
+        .into_iter()
+        .find_map(|period| match ledger.period_view(&period) {
+            Ok(view) if view.state == PeriodState::Open => Some(Ok(period)),
+            Ok(_) => None,
+            Err(error) => Some(Err(ProcessError::from(error))),
+        })
+        .transpose()?
+        .ok_or_else(|| {
+            ProcessError::CloseYearBlocked(format!(
+                "close-year for {year} is blocked: target year {target_year} has no open adjustment period"
+            ))
+        })
+}
+
+/// Assemble the Run state of a start, validating that every adjustment and
+/// correction draft assembles (fail fast).
+fn build_state(
+    input: &CloseYearInput,
+    policy_set: &PolicySet,
+    fiscal_year: &aggountant_model::FiscalYear,
+    subperiods: &[PeriodId],
+    next_open: &PeriodId,
+    assets: &AssetPlan,
+) -> Result<CloseYearState, ProcessError> {
+    let doc_date = fiscal_year.end();
+    let posting_date = Date::from_ymd(next_open.year(), u32::from(next_open.month_bounds().0), 1)
+        .map_err(|e| ProcessError::Store(format!("bad next-open date: {e}")))?;
+    for line in &assets.depreciation {
+        depreciation_voucher(line, doc_date, posting_date).map_err(map_domain)?;
+    }
+    for a in &input.accruals {
+        accrual_voucher(a, doc_date, posting_date).map_err(map_domain)?;
+    }
+    for c in &input.corrections {
+        build_correction_draft(c, doc_date, posting_date)?;
+    }
+    Ok(CloseYearState {
+        year: input.year,
+        policy_set: policy_set.id.clone(),
+        subperiods: subperiods.iter().map(|p| p.to_string()).collect(),
+        next_open_period: next_open.to_string(),
+        doc_date: doc_date.to_string(),
+        posting_date: posting_date.to_string(),
+        input: input.clone(),
+        depreciation: Some(assets.depreciation.clone()),
+        asset_register: Some(assets.register.clone()),
+        statements: None,
+        tase_erittelyt: None,
+        liitetiedot: None,
+    })
+}
+
+/// The message of a start-blocking refusal; any other error is returned as it is.
+fn blocked_message(error: ProcessError) -> Result<String, ProcessError> {
+    match error {
+        ProcessError::CloseYearBlocked(message) => Ok(message),
+        other => Err(other),
     }
 }
 
@@ -1676,11 +1945,19 @@ fn build_correction_draft(
 
 /// The `ApproveAdjustments` snapshot hash — binds the review to the exact computed
 /// poistot/jaksotukset that are shown (an Approval gate, informational binding).
-fn adjustments_hash(depreciation: &[DepreciationLine], accruals: &[AccrualInput]) -> String {
+fn adjustments_hash(
+    depreciation: &[DepreciationLine],
+    accruals: &[AccrualInput],
+    asset_register: Option<&AssetRegister>,
+) -> String {
     use sha2::{Digest, Sha256};
     let mut h = Sha256::new();
     h.update(serde_json::to_vec(depreciation).unwrap_or_default());
     h.update(serde_json::to_vec(accruals).unwrap_or_default());
+    // Only when present, so a gate opened before the register existed keeps its hash.
+    if let Some(register) = asset_register {
+        h.update(serde_json::to_vec(register).unwrap_or_default());
+    }
     hex::encode(h.finalize())
 }
 

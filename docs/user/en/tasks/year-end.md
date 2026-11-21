@@ -44,6 +44,17 @@ hand it over and record the year-end entries.
    give you the assets to depreciate, the accruals and the corrections for
    the run.
 
+   Assets are given only once. When a year is sealed, aggountant stores its
+   assets and their book values at the end of the year, and the next year's
+   run continues from them: then give only new acquisitions and say which
+   assets were sold or taken out of use. In the first financial statements
+   you do with aggountant, give every asset and its book value at the start
+   of the year from the previous financial statements. If you give a carried
+   asset a figure other than the sealed year's, the run refuses. Ask the
+   agent to show the depreciation calculation before starting the run: the
+   assets, the method, the rate and the depreciation are shown without
+   anything being recorded.
+
    > Run the year-end close for 2026: one machine of 2,000.00 euros in
    > machinery and equipment, no accruals and no corrections.
 

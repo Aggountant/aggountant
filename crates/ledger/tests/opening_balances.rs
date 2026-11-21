@@ -79,6 +79,7 @@ fn seal_fiscal_year(ledger: &Ledger, year: i32) {
         .seal_year(
             year,
             &format!("{year:064x}"),
+            &Default::default(),
             &format!("close-year-{year}"),
             "test",
         )

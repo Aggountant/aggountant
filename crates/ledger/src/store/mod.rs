@@ -211,6 +211,8 @@ pub(crate) struct FiscalYearTransitionRequest {
     pub to: FiscalYearState,
     pub required_sealed_periods: Vec<String>,
     pub statements_hash: Option<String>,
+    /// The sealed year's fixed-asset register, stored in the same transaction.
+    pub asset_register_json: Option<String>,
     pub run_id: String,
     pub actor: String,
 }
@@ -385,6 +387,10 @@ pub(crate) trait FiscalStore {
         &self,
         req: &FiscalYearTransitionRequest,
     ) -> Result<FiscalYearRow, LedgerError>;
+
+    /// The fixed-asset register stored when `year` was sealed, as written; `None`
+    /// for an open year and for a year sealed before registers were stored.
+    fn read_asset_register_json(&self, year: i32) -> Result<Option<String>, LedgerError>;
 
     /// The fiscal calendar derived from the append-only definitions (calendar years
     /// when there are none).

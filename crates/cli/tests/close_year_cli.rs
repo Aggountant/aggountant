@@ -179,3 +179,90 @@ fn start_and_answer_name_the_open_gate_and_the_next_command() {
     assert!(answered["next_command"].is_null());
     assert!(answered["message"].as_str().unwrap().contains("rejected"));
 }
+
+fn invoke_with_stdin(args: &[&str], stdin: &str) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .args(args)
+        .env_remove("AGGOUNTANT_HOME")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
+#[test]
+fn start_dry_run_shows_rates_and_depreciation_without_starting_a_run() {
+    let home_dir = tempfile::tempdir().unwrap();
+    let home = home_dir.path().to_str().unwrap();
+    assert_eq!(invoke(&["--home", home, "init"]).status.code(), Some(0));
+    let input = r#"{"year": 2026, "assets": [{
+        "asset_id": "machine-1", "asset_class": "koneet-ja-kalusto",
+        "expense_account": "6000", "accumulated_account": "1160",
+        "acquisition_cost": {"amount": "10000.00", "currency": "EUR"},
+        "book_value_start": {"amount": "8000.00", "currency": "EUR"}}]}"#;
+
+    let output = invoke_with_stdin(
+        &["--home", home, "--json", "close-year", "start", "--dry-run"],
+        input,
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["dry_run"], true);
+    // The months of 2026 are open, so a start is blocked; the figures still show.
+    assert_eq!(value["would_start"], false);
+    assert!(value["blockers"].as_array().is_some_and(|b| !b.is_empty()));
+    let line = &value["depreciation"][0];
+    assert_eq!(line["method"], "reducing-balance");
+    assert_eq!(line["rate_percent"], "25.0");
+    assert_eq!(line["amount"]["amount"], "2000.00");
+    let asset = &value["asset_register"]["assets"][0];
+    assert_eq!(asset["source"], "input");
+    assert_eq!(asset["book_value_end"]["amount"], "6000.00");
+    assert!(value["opening_register_year"].is_null());
+    assert!(value["message"]
+        .as_str()
+        .unwrap()
+        .contains("nothing was written"));
+
+    // No run was created.
+    let runs = home_dir.path().join("process/runs");
+    assert_eq!(std::fs::read_dir(runs).map_or(0, |d| d.count()), 0);
+
+    // An unknown field is refused in a dry run as it is in a start.
+    let output = invoke_with_stdin(
+        &["--home", home, "--json", "close-year", "start", "--dry-run"],
+        r#"{"year": 2026, "asset": []}"#,
+    );
+    assert_ne!(output.status.code(), Some(0));
+}
+
+#[test]
+fn start_help_explains_the_register_and_the_dry_run() {
+    let output = invoke(&["close-year", "start", "--help"]);
+    assert_eq!(output.status.code(), Some(0));
+    let help = String::from_utf8_lossy(&output.stdout);
+    for needle in [
+        "--dry-run",
+        "removed_assets",
+        "THE ASSET REGISTER",
+        "opening_register_year",
+    ] {
+        assert!(
+            help.contains(needle),
+            "help does not mention {needle}:\n{help}"
+        );
+    }
+}

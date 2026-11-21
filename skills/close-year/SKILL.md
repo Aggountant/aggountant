@@ -47,17 +47,27 @@ poisto tai jaksotus jäisi uuden vuoden tulokseen. Siksi kaikki, mikä kuuluu
 päättyneelle vuodelle, annetaan käynnistyksen syötteessä; kesken ajon sitä ei voi
 täydentää.
 
-Käynnistys (`close-year start`) ei vielä kirjaa mitään. Se laskee poistot ja näyttää
-ne, joten voit tarkistaa laskelman tekijän lukuja vasten. Ajon, joka ei ole
-sinetöinyt mitään, voi hylätä jälkiä jättämättä.
+Aja syöte ensin kuivana (`close-year start --dry-run`). Se ei luo ajoa eikä kirjaa
+mitään, joten sen voi ajaa jo ennen kuin kuukaudet on suljettu ja niin monta kertaa
+kuin tekijän kanssa sopiminen vaatii: se näyttää hyödykkeet, poistot ja sen, mikä
+käynnistystä vielä estää. Käynnistyskään ei vielä kirjaa mitään, ja ajon, joka ei
+ole sinetöinyt mitään, voi hylätä jälkiä jättämättä.
 
 **Poistot.** Ohjelma laskee poiston itse hyödykeluokan enimmäisprosentilla, eikä
-määrää voi antaa. Jos yritys poistaa vähemmän tai muulla suunnitelmalla, jätä hyödyke
-pois hyödykkeistä ja anna sen poisto oikaisuna. Ohjelmassa ei ole käyttöomaisuuden
-rekisteriä: hyödykkeet ja niiden menojäännös vuoden alussa annetaan joka vuosi
-uudelleen, eikä ohjelma voi huomata väärää menojäännöstä. Ota ne edellisestä
-tilinpäätöksestä tai `knowledge company` -tietueesta, ja tallenna sinetöinnin
-jälkeen hyödykkeet ja niiden menojäännös vuoden lopussa sinne seuraavaa vuotta varten.
+määrää voi antaa. Sinetöity vuosi tallentaa hyödykkeet ja niiden menojäännöksen
+vuoden lopussa, ja seuraavan vuoden ajo jatkaa niistä itse. Syötteeseen kuuluvat
+siksi vain uudet hankinnat ja pois lähteneet hyödykkeet (`removed_assets`). Käsin annettu
+menojäännös voi olla väärä lähinnä yhdessä kohdassa: ensimmäisessä tilinpäätöksessä,
+jonka koti tekee, koska silloin rekisteriä ei vielä ole ja jokainen hyödyke annetaan
+menojäännöksineen käsin. Ota luvut edellisestä allekirjoitetusta tilinpäätöksestä ja
+näytä ne käyttäjälle kuivan ajon tuloksesta ennen käynnistystä, sillä sinetöinnin
+jälkeen ne ovat seuraavien vuosien poistojen pohja.
+
+Jos yritys poistaa jonakin vuonna vähemmän tai muulla suunnitelmalla, merkitse
+hyödyke sille vuodelle pois lähteneeksi ja anna sen poisto oikaisuna; seuraavana
+vuonna se annetaan uudelleen menojäännöksineen. Sama koskee tilikautta, joka ei ole
+12 kuukautta. Myyntiä tai romutusta ajo ei kirjaa: kirjaa se tavallisena tositteena
+sille kuukaudelle, jona se tapahtui, ja merkitse hyödyke pois lähteneeksi.
 
 **Jaksotukset.** Ajo ei pura jaksotusta seuraavana vuonna. Jaksotettu lasku tai
 maksu kirjataan uudella vuodella jaksotustiliä vasten, ei uudelleen kuluksi.

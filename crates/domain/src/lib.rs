@@ -28,8 +28,8 @@ pub mod vat;
 
 pub use closeyear::{
     accrual_voucher, compute_depreciation, depreciation_policy_version, depreciation_rate_table,
-    depreciation_voucher, AccrualInput, AssetInput, DepreciationEdition, DepreciationLine,
-    DepreciationMethod, DepreciationRateTable,
+    depreciation_voucher, plan_asset_year, AccrualInput, AssetInput, AssetRegister, AssetSource,
+    AssetYear, DepreciationEdition, DepreciationLine, DepreciationMethod, DepreciationRateTable,
 };
 pub use consult::{
     disclosure_source_hash, Advice, ConsultQuestion, DisclosureFact, DisclosureSafe,

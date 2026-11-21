@@ -5,7 +5,7 @@
 
 use std::fs;
 
-use aggountant_domain::{depreciation_voucher, AccrualInput, AssetInput, PolicySet};
+use aggountant_domain::{depreciation_voucher, AccrualInput, AssetInput, AssetSource, PolicySet};
 use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{
@@ -123,6 +123,7 @@ fn base_input(year: i32) -> CloseYearInput {
             credit_account: acct("2760"),
             amount: money("300.00"),
         }],
+        removed_assets: vec![],
         corrections: vec![],
     }
 }
@@ -712,6 +713,7 @@ fn depreciation_in_a_short_fiscal_year_is_refused() {
         year: 2026,
         assets: vec![],
         accruals: vec![],
+        removed_assets: vec![],
         corrections: vec![CorrectionInput {
             correction_id: "poisto-kone-1".into(),
             description: "lyhyen tilikauden poisto".into(),
@@ -794,6 +796,7 @@ fn the_sealed_result_includes_depreciation_and_the_next_year_does_not_count_it_a
             ..asset()
         }],
         accruals: vec![],
+        removed_assets: vec![],
         corrections: vec![],
     };
     let started = engine
@@ -1013,8 +1016,8 @@ fn a_resumed_run_does_not_seal_statements_another_run_has_made_stale() {
 }
 
 /// The gate's snapshot hash recomputed here, independently of the engine, from the
-/// shown content: sha256 over the depreciation JSON then the accrual JSON for the
-/// adjustments, and the type's `statements_hash()` for the rest.
+/// shown content: sha256 over the depreciation JSON, the accrual JSON and, when the
+/// Run has one, the asset-register JSON for the adjustments, and the type's `statements_hash()` for the rest.
 fn independent_hash(content: &GateContent) -> String {
     use sha2::{Digest, Sha256};
     match content {
@@ -1022,6 +1025,9 @@ fn independent_hash(content: &GateContent) -> String {
             let mut h = Sha256::new();
             h.update(serde_json::to_vec(&a.depreciation).unwrap());
             h.update(serde_json::to_vec(&a.accruals).unwrap());
+            if let Some(register) = &a.asset_register {
+                h.update(serde_json::to_vec(register).unwrap());
+            }
             hex::encode(h.finalize())
         }
         GateContent::TaseErittelyt(te) => te.statements_hash(),
@@ -1528,6 +1534,7 @@ fn only_asset_input(year: i32) -> CloseYearInput {
         year,
         assets: vec![asset()],
         accruals: vec![],
+        removed_assets: vec![],
         corrections: vec![],
     }
 }
@@ -2036,6 +2043,294 @@ fn a_failing_archive_rewrite_on_resume_is_an_error() {
     let err = engine.resume_close_year(&run_id).unwrap_err();
     assert!(
         err.to_string().contains("fiscal year 2026 is sealed"),
+        "{err}"
+    );
+}
+
+// --- fixed-asset register ---------------------------------------------------
+
+/// Seal the four quarters of `year` without any activity of its own.
+fn seal_quarters(ledger: &Ledger, year: i32) {
+    for q in 1..=4 {
+        let p = PeriodId::new(year, q).unwrap();
+        let auth = ledger
+            .begin_close(&p, &format!("cp-{year}-{q}"), "test")
+            .unwrap();
+        ledger.seal_period(&p, &auth, "test").unwrap();
+    }
+}
+
+/// Close 2026 with the machine of [`asset`] (8 000.00 → 6 000.00) and seal the
+/// quarters of 2027, so 2027 can be closed next.
+fn close_2026_with_the_machine(home: &std::path::Path) -> ProcessEngine {
+    setup_sealed_year(home, 2026);
+    let engine = ProcessEngine::open(home);
+    let started = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap();
+    assert_eq!(started.opening_register_year, None);
+    assert_eq!(
+        approve_all(&engine, &started.run.run_id).status,
+        RunStatus::Completed
+    );
+    seal_quarters(&Ledger::open(home).unwrap(), 2027);
+    engine
+}
+
+fn no_assets_input(year: i32) -> CloseYearInput {
+    CloseYearInput {
+        year,
+        assets: vec![],
+        accruals: vec![],
+        removed_assets: vec![],
+        corrections: vec![],
+    }
+}
+
+#[test]
+fn the_next_close_opens_each_asset_at_the_sealed_closing_book_value() {
+    let home = init_home();
+    let engine = close_2026_with_the_machine(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+
+    // The sealed year holds the register, and its archive a copy.
+    let sealed = ledger.asset_register(2026).unwrap().expect("2026 register");
+    assert_eq!(sealed.assets.len(), 1);
+    assert_eq!(sealed.assets[0].book_value_start, money("8000.00"));
+    assert_eq!(sealed.assets[0].depreciation, money("2000.00"));
+    assert_eq!(sealed.assets[0].book_value_end, money("6000.00"));
+    let archive: serde_json::Value = serde_json::from_slice(
+        &fs::read(home.path().join("archive/2026/tilinpaatos.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        archive["asset_register"],
+        serde_json::to_value(&sealed).unwrap()
+    );
+
+    // 2027 names no asset: the machine is carried and depreciated from 6 000.00.
+    let started = engine
+        .start_close_year(&no_assets_input(2027), &PolicySet::default())
+        .unwrap();
+    assert_eq!(started.opening_register_year, Some(2026));
+    assert_eq!(started.depreciation.len(), 1);
+    assert_eq!(started.depreciation[0].amount, money("1500.00"));
+    let line = &started.asset_register.assets[0];
+    assert_eq!(line.source, AssetSource::Carried);
+    assert_eq!(line.book_value_start, money("6000.00"));
+    assert_eq!(line.book_value_end, money("4500.00"));
+
+    // The gate shows and binds the register.
+    let shown = engine.show_close_year(&started.run.run_id).unwrap();
+    assert_eq!(assert_shown_content_is_bound(&shown), "ApproveAdjustments");
+    let GateContent::Adjustments(content) = &shown.open_gate.as_ref().unwrap().content else {
+        panic!("adjustments gate expected");
+    };
+    assert_eq!(
+        content.asset_register.as_ref(),
+        Some(&started.asset_register)
+    );
+
+    assert_eq!(
+        approve_all(&engine, &started.run.run_id).status,
+        RunStatus::Completed
+    );
+    let sealed = ledger.asset_register(2027).unwrap().expect("2027 register");
+    assert_eq!(sealed.assets[0].book_value_end, money("4500.00"));
+}
+
+#[test]
+fn a_typed_opening_value_that_disagrees_with_the_sealed_year_is_refused() {
+    let home = init_home();
+    let engine = close_2026_with_the_machine(home.path());
+
+    // Restating the carried asset exactly is accepted and changes nothing.
+    let mut input = no_assets_input(2027);
+    input.assets = vec![AssetInput {
+        book_value_start: money("6000.00"),
+        ..asset()
+    }];
+    let preview = engine
+        .preview_close_year(&input, &PolicySet::default())
+        .unwrap();
+    assert_eq!(preview.depreciation[0].amount, money("1500.00"));
+    assert_eq!(
+        preview.asset_register.assets[0].source,
+        AssetSource::Carried
+    );
+
+    // The value typed from last year's opening, not its closing, is refused.
+    input.assets[0].book_value_start = money("8000.00");
+    for err in [
+        engine
+            .preview_close_year(&input, &PolicySet::default())
+            .unwrap_err(),
+        engine
+            .start_close_year(&input, &PolicySet::default())
+            .unwrap_err(),
+    ] {
+        assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
+        let message = err.to_string();
+        assert!(message.contains("kone-1"), "{message}");
+        assert!(message.contains("6000.00"), "{message}");
+        assert!(message.contains("removed_assets"), "{message}");
+    }
+}
+
+#[test]
+fn a_removed_asset_leaves_the_register_and_can_be_given_again() {
+    let home = init_home();
+    let engine = close_2026_with_the_machine(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+
+    // Removing something the register does not hold is refused.
+    let mut input = no_assets_input(2027);
+    input.removed_assets = vec!["kone-9".into()];
+    let err = engine
+        .start_close_year(&input, &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
+    assert!(err.to_string().contains("kone-1"), "{err}");
+
+    // Removed and given again with a new book value: the input's value is used.
+    input.removed_assets = vec!["kone-1".into()];
+    input.assets = vec![AssetInput {
+        book_value_start: money("4000.00"),
+        ..asset()
+    }];
+    let preview = engine
+        .preview_close_year(&input, &PolicySet::default())
+        .unwrap();
+    assert_eq!(preview.depreciation[0].amount, money("1000.00"));
+    assert_eq!(preview.asset_register.assets[0].source, AssetSource::Input);
+
+    // Removed only: no depreciation, and the sealed register no longer carries it.
+    input.assets = vec![];
+    let started = engine
+        .start_close_year(&input, &PolicySet::default())
+        .unwrap();
+    assert!(started.depreciation.is_empty());
+    assert_eq!(
+        approve_all(&engine, &started.run.run_id).status,
+        RunStatus::Completed
+    );
+    let sealed = ledger.asset_register(2027).unwrap().unwrap();
+    assert!(sealed.assets.is_empty());
+    assert_eq!(sealed.removed, vec!["kone-1".to_string()]);
+    assert_eq!(ledger.opening_asset_register(2028).unwrap(), Some(sealed));
+}
+
+#[test]
+fn a_dry_run_shows_the_computation_and_the_blockers_and_writes_nothing() {
+    let home = init_home();
+    let runs = home.path().join("process/runs");
+    let run_count = |runs: &std::path::Path| fs::read_dir(runs).map_or(0, |d| d.count());
+    let engine = ProcessEngine::open(home.path());
+
+    // Months not sealed yet: the depreciation is still shown, with what blocks.
+    let preview = engine
+        .preview_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap();
+    assert!(preview.dry_run);
+    assert!(!preview.would_start);
+    assert!(
+        preview
+            .blockers
+            .iter()
+            .any(|b| b.starts_with("subperiod-not-sealed:")),
+        "{:?}",
+        preview.blockers
+    );
+    assert_eq!(preview.depreciation[0].amount, money("2000.00"));
+    assert_eq!(preview.depreciation[0].rate_percent, "25.0");
+    assert_eq!(preview.opening_register_year, None);
+    assert_eq!(run_count(&runs), 0);
+
+    // A malformed input is an error, as it is for the start.
+    let mut bad = base_input(2026);
+    bad.assets[0].asset_class = "ei-ole".into();
+    assert_eq!(
+        engine
+            .preview_close_year(&bad, &PolicySet::default())
+            .unwrap_err()
+            .error_code(),
+        "CLOSE_YEAR_BLOCKED"
+    );
+
+    // Once the year can be closed the dry run says so, and the start that follows
+    // computes the same figures.
+    setup_sealed_year(home.path(), 2026);
+    let preview = engine
+        .preview_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap();
+    assert!(preview.would_start, "{:?}", preview.blockers);
+    assert_eq!(preview.adjustment_period.as_deref(), Some("2027-Q1"));
+    assert_eq!(run_count(&runs), 0);
+    assert!(Ledger::open(home.path())
+        .unwrap()
+        .asset_register(2026)
+        .unwrap()
+        .is_none());
+    let started = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap();
+    assert_eq!(started.depreciation, preview.depreciation);
+    assert_eq!(started.asset_register, preview.asset_register);
+}
+
+#[test]
+fn a_run_started_before_the_register_existed_still_seals_one() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve(&engine, &run_id, "ApproveAdjustments");
+    // Such a Run's state has no register (its first gate, answered above, was
+    // hashed without one).
+    let path = state_path(home.path(), &run_id);
+    let mut state: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    state.as_object_mut().unwrap().remove("asset_register");
+    fs::write(&path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+
+    approve(&engine, &run_id, "ApproveTaseErittelyt");
+    approve(&engine, &run_id, "ApproveLiitetiedot");
+    let done = approve(&engine, &run_id, "ApproveStatements");
+    assert_eq!(done.status, RunStatus::Completed);
+    let sealed = Ledger::open(home.path())
+        .unwrap()
+        .asset_register(2026)
+        .unwrap()
+        .expect("register planned at the seal");
+    assert_eq!(sealed.assets[0].book_value_end, money("6000.00"));
+}
+
+#[test]
+fn a_close_does_not_start_while_the_previous_year_is_open() {
+    // 2025 has real activity and closed quarters but is not sealed, so 2026 has
+    // neither a frozen opening position nor a register to carry assets from.
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_voucher(&ledger, "2025-06-30", "7690", "1910", "100.00", "exp-2025");
+    seal_quarters(&ledger, 2025);
+    seal_quarters(&ledger, 2026);
+    let engine = ProcessEngine::open(home.path());
+
+    let preview = engine
+        .preview_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap();
+    assert!(!preview.would_start);
+    assert_eq!(preview.blockers, vec!["previous-year-not-sealed:2025"]);
+
+    let err = engine
+        .start_close_year(&only_asset_input(2026), &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_YEAR_BLOCKED");
+    assert!(
+        err.to_string().contains("previous-year-not-sealed:2025"),
         "{err}"
     );
 }

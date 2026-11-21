@@ -221,6 +221,18 @@ const MIGRATIONS: &[Migration] = &[
                  recorded_at TEXT NOT NULL
               );",
     },
+    // v8 (issue `fixed-asset-register`): the fixed-asset register of a sealed fiscal
+    // year, one row per year, written in the transaction that seals the year and
+    // never afterwards. The next year's close opens its assets from it, so it is
+    // authoritative data and lives here. A year sealed before this table existed has
+    // no row, which reads as "no register", not as an empty one.
+    Migration {
+        version: 8,
+        sql: "CREATE TABLE IF NOT EXISTS fiscal_year_asset_register(
+                 year INTEGER PRIMARY KEY REFERENCES fiscal_year(year),
+                 register_json TEXT NOT NULL
+              );",
+    },
 ];
 
 pub(crate) struct SqliteFiscalStore {
@@ -1001,8 +1013,26 @@ impl FiscalStore for SqliteFiscalStore {
             )?;
         }
 
+        if let Some(register_json) = &req.asset_register_json {
+            tx.execute(
+                "INSERT INTO fiscal_year_asset_register(year, register_json) VALUES(?1, ?2)",
+                params![req.year, register_json],
+            )?;
+        }
+
         tx.commit()?;
         Ok(new_row)
+    }
+
+    fn read_asset_register_json(&self, year: i32) -> Result<Option<String>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        Ok(guard
+            .query_row(
+                "SELECT register_json FROM fiscal_year_asset_register WHERE year = ?1",
+                params![year],
+                |r| r.get(0),
+            )
+            .optional()?)
     }
 
     fn fiscal_calendar(&self) -> Result<FiscalCalendar, LedgerError> {
@@ -2259,13 +2289,13 @@ mod migration_tests {
     }
 
     /// Opening a fresh fiscal DB runs the migrations and stamps it to the latest
-    /// version (v6 today), and the seed rows are present.
+    /// version, and the seed rows are present.
     #[test]
     fn fresh_fiscal_store_is_stamped_and_seeded() {
         let dir = tempfile::tempdir().unwrap();
         let store = SqliteFiscalStore::open(&dir.path().join("fiscal.sqlite")).unwrap();
         let conn = store.conn.lock().unwrap();
-        assert_eq!(user_version(&conn), 7);
+        assert_eq!(user_version(&conn), 8);
         let next: i64 = conn
             .query_row(
                 "SELECT next_number FROM counter WHERE series='main'",
@@ -2317,7 +2347,7 @@ mod migration_tests {
         let path = dir.path().join("fiscal.sqlite");
         drop(SqliteFiscalStore::open(&path).unwrap());
         let store = SqliteFiscalStore::open(&path).unwrap();
-        assert_eq!(user_version(&store.conn.lock().unwrap()), 7);
+        assert_eq!(user_version(&store.conn.lock().unwrap()), 8);
     }
 
     #[test]
@@ -2336,7 +2366,7 @@ mod migration_tests {
 
         migrations::apply(&mut conn, "fiscal", MIGRATIONS).unwrap();
 
-        assert_eq!(user_version(&conn), 7);
+        assert_eq!(user_version(&conn), 8);
         let version: String = conn
             .query_row(
                 "SELECT software_version FROM vouchers WHERE number = 1",

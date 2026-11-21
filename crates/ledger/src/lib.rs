@@ -29,7 +29,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use aggountant_domain::{
-    compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, PolicySet,
+    compute_statements, kpa_policy, kpa_policy_version, tase_erittelyt, AssetRegister, PolicySet,
     StatementProvenance,
 };
 use aggountant_model::{
@@ -1592,10 +1592,16 @@ impl Ledger {
     /// advances the authoritative row. Irreversible: a second seal fails the CAS
     /// (`PERIOD_TRANSITION_CONFLICT`); an unsealed subperiod fails with
     /// `PERIOD_NOT_SEALED`. Atomic against a concurrent voucher/period write.
+    ///
+    /// `assets` is the year's fixed-asset register. It is stored in the same
+    /// transaction, and the next year's close opens from it, so it must continue the
+    /// previous sealed year's register ([`AssetRegister::check_continues`]): a
+    /// carried asset opens at exactly the value the previous year closed it at.
     pub fn seal_year(
         &self,
         year: i32,
         statements_hash: &str,
+        assets: &AssetRegister,
         run_id: &str,
         actor: &str,
     ) -> Result<FiscalYearView, LedgerError> {
@@ -1613,6 +1619,9 @@ impl Ledger {
                 "seal_year: statements_hash must be 64 lowercase hex chars, got {statements_hash:?}"
             )));
         }
+        assets.check_continues(self.opening_asset_register(year)?.as_ref())?;
+        let asset_register_json = serde_json::to_string(assets)
+            .map_err(|e| LedgerError::Store(format!("asset register does not serialize: {e}")))?;
         let subperiods: Vec<String> = self
             .year_close_periods(year)?
             .into_iter()
@@ -1626,10 +1635,36 @@ impl Ledger {
                 to: FiscalYearState::Sealed,
                 required_sealed_periods: subperiods,
                 statements_hash: Some(statements_hash.to_string()),
+                asset_register_json: Some(asset_register_json),
                 run_id: run_id.to_string(),
                 actor: actor.to_string(),
             })?;
         Ok(row_to_year_view(row, &self.fiscal_year(year)?))
+    }
+
+    /// The fixed-asset register stored when `year` was sealed. `None` for an open
+    /// year and for a year sealed before registers were stored.
+    pub fn asset_register(&self, year: i32) -> Result<Option<AssetRegister>, LedgerError> {
+        self.fiscal
+            .read_asset_register_json(year)?
+            .map(|json| {
+                serde_json::from_str(&json).map_err(|e| {
+                    LedgerError::Store(format!("asset register of {year} is unreadable: {e}"))
+                })
+            })
+            .transpose()
+    }
+
+    /// The register the close of `year` opens its assets from: the previous fiscal
+    /// year's, when that year was sealed with one. `None` means the home has no
+    /// register for `year` to continue, and its close starts one from its input.
+    pub fn opening_asset_register(&self, year: i32) -> Result<Option<AssetRegister>, LedgerError> {
+        let calendar = self.fiscal_calendar()?;
+        match calendar.previous(&calendar.year(year)?) {
+            Ok(previous) => self.asset_register(previous.year()),
+            // No fiscal year before the first defined one.
+            Err(_) => Ok(None),
+        }
     }
 
     /// Attribute a sealed voucher to the **statement year** its postings belong to

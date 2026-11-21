@@ -44,7 +44,7 @@ fn seal_year_locks_the_year_when_all_subperiods_are_sealed() {
         FiscalYearState::Open
     );
     let view = ledger
-        .seal_year(2026, &hx(0xabc), "cy-run-1", "cli")
+        .seal_year(2026, &hx(0xabc), &Default::default(), "cy-run-1", "cli")
         .unwrap();
     assert_eq!(view.state, FiscalYearState::Sealed);
     assert_eq!(view.statements_hash.as_deref(), Some(hx(0xabc).as_str()));
@@ -96,7 +96,9 @@ fn seal_year_refuses_to_depend_on_an_unsealed_prior_year() {
         .unwrap();
     seal_all_quarters(&ledger, 2026);
 
-    let err = ledger.seal_year(2026, &hx(1), "cy", "test").unwrap_err();
+    let err = ledger
+        .seal_year(2026, &hx(1), &Default::default(), "cy", "test")
+        .unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
     assert!(err.to_string().contains("2025"));
 }
@@ -111,7 +113,9 @@ fn seal_year_refuses_an_unsealed_subperiod() {
         let auth = ledger.begin_close(&p, "r", "cli").unwrap();
         ledger.seal_period(&p, &auth, "cli").unwrap();
     }
-    let err = ledger.seal_year(2026, &hx(1), "cy-run", "cli").unwrap_err();
+    let err = ledger
+        .seal_year(2026, &hx(1), &Default::default(), "cy-run", "cli")
+        .unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
     assert!(
         err.to_string().contains("2026-Q4"),
@@ -129,9 +133,13 @@ fn a_second_seal_year_fails_the_cas_irreversibly() {
     let home = init_home();
     let ledger = Ledger::open(home.path()).unwrap();
     seal_all_quarters(&ledger, 2026);
-    ledger.seal_year(2026, &hx(1), "run-a", "cli").unwrap();
+    ledger
+        .seal_year(2026, &hx(1), &Default::default(), "run-a", "cli")
+        .unwrap();
 
-    let err = ledger.seal_year(2026, &hx(2), "run-b", "cli").unwrap_err();
+    let err = ledger
+        .seal_year(2026, &hx(2), &Default::default(), "run-b", "cli")
+        .unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT");
     // The bound statements_hash is unchanged — the first seal stands.
     assert_eq!(
@@ -163,7 +171,13 @@ fn concurrent_seal_year_lets_exactly_one_win() {
             thread::spawn(move || {
                 let ledger = Ledger::open(&path).unwrap();
                 barrier.wait();
-                ledger.seal_year(2026, &hx(i as u32), &format!("run-{i}"), "cli")
+                ledger.seal_year(
+                    2026,
+                    &hx(i as u32),
+                    &Default::default(),
+                    &format!("run-{i}"),
+                    "cli",
+                )
             })
         })
         .collect();
@@ -188,7 +202,9 @@ fn a_subperiod_cannot_be_reopened_after_the_year_is_sealed() {
     let home = init_home();
     let ledger = Ledger::open(home.path()).unwrap();
     seal_all_quarters(&ledger, 2026);
-    ledger.seal_year(2026, &hx(7), "cy", "cli").unwrap();
+    ledger
+        .seal_year(2026, &hx(7), &Default::default(), "cy", "cli")
+        .unwrap();
 
     let q4 = PeriodId::new(2026, 4).unwrap();
     // The close-period run that sealed Q4 can re-acquire its authority…
@@ -237,7 +253,9 @@ fn twelve_months_seal_a_year_but_four_months_do_not() {
         let authority = ledger.begin_close(&period, "monthly", "cli").unwrap();
         ledger.seal_period(&period, &authority, "cli").unwrap();
     }
-    let error = ledger.seal_year(2026, &hx(8), "cy", "cli").unwrap_err();
+    let error = ledger
+        .seal_year(2026, &hx(8), &Default::default(), "cy", "cli")
+        .unwrap_err();
     assert_eq!(error.error_code(), "PERIOD_NOT_SEALED");
     assert!(error.to_string().contains("2026-05"));
 
@@ -246,7 +264,9 @@ fn twelve_months_seal_a_year_but_four_months_do_not() {
         let authority = ledger.begin_close(&period, "monthly", "cli").unwrap();
         ledger.seal_period(&period, &authority, "cli").unwrap();
     }
-    ledger.seal_year(2026, &hx(9), "cy", "cli").unwrap();
+    ledger
+        .seal_year(2026, &hx(9), &Default::default(), "cy", "cli")
+        .unwrap();
     assert!(ledger.verify().unwrap().ok);
 }
 
@@ -265,7 +285,9 @@ fn reopened_month_remnant_allows_legacy_quarter_year() {
         ledger.year_close_periods(2026).unwrap()[0].to_string(),
         "2026-Q1"
     );
-    ledger.seal_year(2026, &hx(10), "cy", "cli").unwrap();
+    ledger
+        .seal_year(2026, &hx(10), &Default::default(), "cy", "cli")
+        .unwrap();
     assert!(ledger.verify().unwrap().ok);
 }
 
@@ -284,6 +306,78 @@ fn reopened_quarter_remnant_allows_monthly_year() {
         ledger.year_close_periods(2026).unwrap()[0].to_string(),
         "2026-01"
     );
-    ledger.seal_year(2026, &hx(11), "cy", "cli").unwrap();
+    ledger
+        .seal_year(2026, &hx(11), &Default::default(), "cy", "cli")
+        .unwrap();
+    assert!(ledger.verify().unwrap().ok);
+}
+
+// --- the fixed-asset register stored with the year seal -----------------------
+
+fn register(
+    year: i32,
+    opening: Option<&aggountant_domain::AssetRegister>,
+) -> aggountant_domain::AssetRegister {
+    use aggountant_domain::{depreciation_rate_table, plan_asset_year, AssetInput};
+    let eur = Currency::new("EUR").unwrap();
+    let input = if opening.is_some() {
+        vec![]
+    } else {
+        vec![AssetInput {
+            asset_id: "machine-1".into(),
+            asset_class: "koneet-ja-kalusto".into(),
+            expense_account: AccountId::new("6000").unwrap(),
+            accumulated_account: AccountId::new("1160").unwrap(),
+            acquisition_cost: Money::parse("10000.00", eur.clone()).unwrap(),
+            book_value_start: Money::parse("8000.00", eur).unwrap(),
+        }]
+    };
+    plan_asset_year(
+        &aggountant_model::FiscalYear::calendar(year).unwrap(),
+        opening,
+        &input,
+        &[],
+        depreciation_rate_table(),
+    )
+    .unwrap()
+    .0
+}
+
+#[test]
+fn seal_year_stores_the_asset_register_and_the_next_year_must_continue_it() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_all_quarters(&ledger, 2026);
+    seal_all_quarters(&ledger, 2027);
+    assert!(ledger.asset_register(2026).unwrap().is_none());
+    assert!(ledger.opening_asset_register(2027).unwrap().is_none());
+
+    let first = register(2026, None);
+    ledger
+        .seal_year(2026, &hx(1), &first, "cy-2026", "cli")
+        .unwrap();
+    assert_eq!(ledger.asset_register(2026).unwrap().as_ref(), Some(&first));
+    assert_eq!(
+        ledger.opening_asset_register(2027).unwrap().as_ref(),
+        Some(&first)
+    );
+
+    // 2027 sealed with a register that drops the machine: refused, year stays open.
+    let err = ledger
+        .seal_year(2027, &hx(2), &Default::default(), "cy-2027", "cli")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "DEPRECIATION");
+    assert_eq!(
+        ledger.fiscal_year_view(2027).unwrap().state,
+        FiscalYearState::Open
+    );
+
+    let second = register(2027, Some(&first));
+    ledger
+        .seal_year(2027, &hx(2), &second, "cy-2027", "cli")
+        .unwrap();
+    let stored = ledger.asset_register(2027).unwrap().unwrap();
+    assert_eq!(stored.assets[0].book_value_start.amount_str(), "6000.00");
+    assert_eq!(stored.assets[0].book_value_end.amount_str(), "4500.00");
     assert!(ledger.verify().unwrap().ok);
 }

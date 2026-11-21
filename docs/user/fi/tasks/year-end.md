@@ -40,6 +40,17 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
    Sovi tekijän kanssa, antaako hän poistettavat hyödykkeet, jaksotukset ja
    oikaisut ajoa varten.
 
+   Hyödykkeet annetaan vain kerran. Kun vuosi sinetöidään, aggountant
+   tallentaa sen hyödykkeet ja niiden menojäännöksen vuoden lopussa, ja
+   seuraavan vuoden ajo jatkaa niistä: anna silloin vain uudet hankinnat ja
+   kerro, mitkä hyödykkeet on myyty tai poistettu käytöstä. Ensimmäisessä
+   aggountantilla tehtävässä tilinpäätöksessä annat jokaisen hyödykkeen ja
+   sen menojäännöksen vuoden alussa edellisestä tilinpäätöksestä. Jos annat
+   siirtyneelle hyödykkeelle eri luvun kuin sinetöity vuosi, ajo kieltäytyy.
+   Pyydä agenttia näyttämään poistolaskelma ennen ajon käynnistämistä:
+   hyödykkeet, menetelmä, prosentti ja poisto näkyvät ilman, että mitään
+   kirjataan.
+
    > Tee vuoden 2026 tilinpäätösajo: kone 2 000,00 euroa koneisiin ja
    > kalustoon, ei jaksotuksia eikä oikaisuja.
 

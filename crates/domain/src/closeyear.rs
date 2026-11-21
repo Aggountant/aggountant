@@ -8,8 +8,12 @@
 //! Depreciation rates are dated policy data (`data/depreciation-rates.json`),
 //! resolved by the fiscal-year-end date — the same reviewable-data pattern as the
 //! VAT (`vat-rates.json`) and payroll rate tables, so a rate change never silently
-//! misfiles a historical close (Fork D: minimal per-asset input + policy rates, no
-//! full asset register).
+//! misfiles a historical close.
+//!
+//! The fixed-asset register ([`AssetRegister`]) is one year's assets with their
+//! opening and closing book values. [`plan_asset_year`] continues it from the
+//! previous sealed year, so an opening book value is given once, when an asset
+//! enters, and never again.
 
 use std::sync::OnceLock;
 
@@ -281,6 +285,269 @@ pub fn compute_depreciation(
     Ok(lines)
 }
 
+/// Where a closing year's asset came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AssetSource {
+    /// Carried from the previous sealed year's register; its opening book value is
+    /// that year's closing book value.
+    Carried,
+    /// Given in the close-year input: a new acquisition, an asset of a home that
+    /// has no register yet, or an asset removed and given again.
+    Input,
+}
+
+/// One asset's year in the fixed-asset register: what it opened at, what the year
+/// depreciated and what it closes at. The next year's close opens from
+/// `book_value_end`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetYear {
+    pub asset_id: String,
+    pub asset_class: String,
+    pub expense_account: AccountId,
+    pub accumulated_account: AccountId,
+    pub acquisition_cost: Money,
+    pub book_value_start: Money,
+    /// The year's computed depreciation (`0.00` when nothing is left to depreciate).
+    pub depreciation: Money,
+    pub book_value_end: Money,
+    pub source: AssetSource,
+}
+
+/// The fixed-asset register of one fiscal year: every asset the year's close
+/// depreciated or carried, and the assets it removed. A sealed year stores it, and
+/// the next year's close opens from it ([`plan_asset_year`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetRegister {
+    pub assets: Vec<AssetYear>,
+    /// Ids of previous-year assets that left the register in this year.
+    #[serde(default)]
+    pub removed: Vec<String>,
+}
+
+impl AssetRegister {
+    fn asset(&self, asset_id: &str) -> Option<&AssetYear> {
+        self.assets.iter().find(|a| a.asset_id == asset_id)
+    }
+
+    /// Check that this register is a lawful successor of `opening`, the previous
+    /// sealed year's register (`None` when that year has none): ids are unique,
+    /// every line's arithmetic holds, every asset of `opening` is either removed or
+    /// carried at exactly its closing book value, and nothing is removed that
+    /// `opening` does not hold. The year seal refuses a register that fails this, so
+    /// an opening book value can only come from the sealed previous year.
+    pub fn check_continues(&self, opening: Option<&AssetRegister>) -> Result<(), DomainError> {
+        let mut seen = std::collections::BTreeSet::new();
+        for a in &self.assets {
+            if !seen.insert(a.asset_id.as_str()) {
+                return Err(DomainError::Depreciation(format!(
+                    "asset register lists asset {:?} twice",
+                    a.asset_id
+                )));
+            }
+            require_nonneg_eur(&a.acquisition_cost, "acquisition_cost")?;
+            require_nonneg_eur(&a.book_value_start, "book_value_start")?;
+            require_nonneg_eur(&a.depreciation, "depreciation")?;
+            require_nonneg_eur(&a.book_value_end, "book_value_end")?;
+            if a.book_value_start.amount() - a.depreciation.amount() != a.book_value_end.amount() {
+                return Err(DomainError::Depreciation(format!(
+                    "asset {:?}: book_value_end {} is not book_value_start {} less depreciation {}",
+                    a.asset_id,
+                    a.book_value_end.amount_str(),
+                    a.book_value_start.amount_str(),
+                    a.depreciation.amount_str()
+                )));
+            }
+        }
+        let empty = AssetRegister::default();
+        let opening = opening.unwrap_or(&empty);
+        for id in &self.removed {
+            if opening.asset(id).is_none() {
+                return Err(DomainError::Depreciation(format!(
+                    "asset {id:?} cannot be removed: the previous year's register does not hold it"
+                )));
+            }
+        }
+        for prev in &opening.assets {
+            let removed = self.removed.contains(&prev.asset_id);
+            match self.asset(&prev.asset_id) {
+                None if removed => {}
+                None => {
+                    return Err(DomainError::Depreciation(format!(
+                        "asset {:?} of the previous year's register is neither carried nor removed",
+                        prev.asset_id
+                    )));
+                }
+                // Removed and given again: the input restates it on purpose.
+                Some(_) if removed => {}
+                Some(now) => {
+                    if now.source != AssetSource::Carried
+                        || now.book_value_start != prev.book_value_end
+                        || now.acquisition_cost != prev.acquisition_cost
+                        || now.asset_class != prev.asset_class
+                        || now.expense_account != prev.expense_account
+                        || now.accumulated_account != prev.accumulated_account
+                    {
+                        return Err(DomainError::Depreciation(format!(
+                            "asset {:?} does not continue the previous year's register \
+                             (closing book value {})",
+                            prev.asset_id,
+                            prev.book_value_end.amount_str()
+                        )));
+                    }
+                }
+            }
+        }
+        for a in &self.assets {
+            if a.source == AssetSource::Carried
+                && (opening.asset(&a.asset_id).is_none() || self.removed.contains(&a.asset_id))
+            {
+                return Err(DomainError::Depreciation(format!(
+                    "asset {:?} is marked carried, but the previous year's register does not \
+                     carry it",
+                    a.asset_id
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Plan a closing year's fixed assets and their depreciation.
+///
+/// The assets are those of `opening` (the previous sealed year's register), each
+/// opening at its closing book value, less `removed`, plus `input`. An input asset
+/// whose id `opening` still carries must restate it exactly (class, accounts,
+/// acquisition cost, and `book_value_start` equal to the carried closing value);
+/// a different figure is refused rather than taken, because a typed opening value
+/// that disagrees with the sealed year is the mistake the register exists to stop.
+/// To restate a carried asset on purpose, name it in `removed` and give it again.
+///
+/// Returns the year's register and the depreciation lines to book (assets with
+/// nothing left to depreciate have no line).
+pub fn plan_asset_year(
+    fiscal_year: &FiscalYear,
+    opening: Option<&AssetRegister>,
+    input: &[AssetInput],
+    removed: &[String],
+    table: &DepreciationRateTable,
+) -> Result<(AssetRegister, Vec<DepreciationLine>), DomainError> {
+    let empty = AssetRegister::default();
+    let opening_assets = &opening.unwrap_or(&empty).assets;
+    let mut seen_removed = std::collections::BTreeSet::new();
+    for id in removed {
+        if !seen_removed.insert(id.as_str()) {
+            return Err(DomainError::Depreciation(format!(
+                "removed_assets names asset {id:?} twice"
+            )));
+        }
+        if !opening_assets.iter().any(|a| &a.asset_id == id) {
+            return Err(DomainError::Depreciation(format!(
+                "removed_assets names asset {id:?}, which the previous year's register does \
+                 not hold (it holds: [{}])",
+                opening_assets
+                    .iter()
+                    .map(|a| a.asset_id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
+    }
+
+    let mut seen_input = std::collections::BTreeSet::new();
+    for given in input {
+        if !seen_input.insert(given.asset_id.as_str()) {
+            return Err(DomainError::Depreciation(format!(
+                "assets names asset {:?} twice",
+                given.asset_id
+            )));
+        }
+    }
+
+    // Carried assets first, in register order, then the input's own.
+    let mut effective: Vec<(AssetInput, AssetSource)> = Vec::new();
+    for prev in opening_assets {
+        if removed.contains(&prev.asset_id) {
+            continue;
+        }
+        let carried = AssetInput {
+            asset_id: prev.asset_id.clone(),
+            asset_class: prev.asset_class.clone(),
+            expense_account: prev.expense_account.clone(),
+            accumulated_account: prev.accumulated_account.clone(),
+            acquisition_cost: prev.acquisition_cost.clone(),
+            book_value_start: prev.book_value_end.clone(),
+        };
+        if let Some(given) = input.iter().find(|a| a.asset_id == prev.asset_id) {
+            if given != &carried {
+                return Err(DomainError::Depreciation(format!(
+                    "asset {:?} is carried from the previous sealed year with asset_class {:?}, \
+                     expense_account {}, accumulated_account {}, acquisition_cost {} and \
+                     book_value_start {}; the input gives it differently. Leave it out of \
+                     assets (it is carried automatically), or name it in removed_assets as \
+                     well to replace the carried values with the input's",
+                    prev.asset_id,
+                    carried.asset_class,
+                    carried.expense_account,
+                    carried.accumulated_account,
+                    carried.acquisition_cost.amount_str(),
+                    carried.book_value_start.amount_str()
+                )));
+            }
+        }
+        effective.push((carried, AssetSource::Carried));
+    }
+    for given in input {
+        if !effective.iter().any(|(a, _)| a.asset_id == given.asset_id) {
+            effective.push((given.clone(), AssetSource::Input));
+        }
+    }
+
+    let assets: Vec<AssetInput> = effective.iter().map(|(a, _)| a.clone()).collect();
+    let lines = compute_depreciation(fiscal_year, &assets, table).map_err(|e| match e {
+        DomainError::Depreciation(message)
+            if fiscal_year.months() != 12 && !opening_assets.is_empty() =>
+        {
+            DomainError::Depreciation(format!(
+                "{message}; assets carried from the previous year are named in removed_assets \
+                 for this year and given again, with their book value, in the next close"
+            ))
+        }
+        other => other,
+    })?;
+
+    let zero = Money::new(round_eur(Decimal::ZERO), eur());
+    let register = AssetRegister {
+        assets: effective
+            .into_iter()
+            .map(|(a, source)| {
+                let depreciation = lines
+                    .iter()
+                    .find(|l| l.asset_id == a.asset_id)
+                    .map_or_else(|| zero.clone(), |l| l.amount.clone());
+                let book_value_end =
+                    Money::new(a.book_value_start.amount() - depreciation.amount(), eur());
+                AssetYear {
+                    asset_id: a.asset_id,
+                    asset_class: a.asset_class,
+                    expense_account: a.expense_account,
+                    accumulated_account: a.accumulated_account,
+                    acquisition_cost: a.acquisition_cost,
+                    book_value_start: a.book_value_start,
+                    depreciation,
+                    book_value_end,
+                    source,
+                }
+            })
+            .collect(),
+        removed: removed.to_vec(),
+    };
+    register.check_continues(opening)?;
+    Ok((register, lines))
+}
+
 /// Build the balanced depreciation voucher for one line: debit the expense account,
 /// credit the accumulated-depreciation account. The caller supplies the dates
 /// (document/posting) — a zero-amount line is refused (nothing to book).
@@ -541,5 +808,154 @@ mod tests {
             ],
         };
         assert!(validate_depreciation_table(&table).is_err());
+    }
+
+    fn fy(year: i32) -> FiscalYear {
+        FiscalYear::calendar(year).unwrap()
+    }
+
+    fn plan(
+        year: i32,
+        opening: Option<&AssetRegister>,
+        input: &[AssetInput],
+        removed: &[&str],
+    ) -> Result<(AssetRegister, Vec<DepreciationLine>), DomainError> {
+        let removed: Vec<String> = removed.iter().map(|s| s.to_string()).collect();
+        plan_asset_year(
+            &fy(year),
+            opening,
+            input,
+            &removed,
+            depreciation_rate_table(),
+        )
+    }
+
+    #[test]
+    fn a_register_starts_from_the_input_and_carries_the_closing_value() {
+        let (first, lines) = plan(
+            2026,
+            None,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(lines[0].amount.amount_str(), "2000.00");
+        assert_eq!(first.assets[0].source, AssetSource::Input);
+        assert_eq!(first.assets[0].book_value_end.amount_str(), "6000.00");
+
+        // The next year names nothing: 25 % of the carried 6 000.00.
+        let (second, lines) = plan(2027, Some(&first), &[], &[]).unwrap();
+        assert_eq!(lines[0].amount.amount_str(), "1500.00");
+        assert_eq!(second.assets[0].source, AssetSource::Carried);
+        assert_eq!(second.assets[0].book_value_start.amount_str(), "6000.00");
+        assert_eq!(second.assets[0].book_value_end.amount_str(), "4500.00");
+        second.check_continues(Some(&first)).unwrap();
+    }
+
+    #[test]
+    fn a_carried_asset_cannot_be_given_other_figures() {
+        let (first, _) = plan(
+            2026,
+            None,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &[],
+        )
+        .unwrap();
+        // Restated exactly: accepted, still carried.
+        let (same, _) = plan(
+            2027,
+            Some(&first),
+            &[asset("koneet-ja-kalusto", "10000.00", "6000.00")],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(same.assets[0].source, AssetSource::Carried);
+        // Last year's opening value typed again: refused, naming the carried value.
+        let err = plan(
+            2027,
+            Some(&first),
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &[],
+        )
+        .unwrap_err();
+        assert_eq!(err.error_code(), "DEPRECIATION");
+        assert!(
+            err.to_string().contains("book_value_start 6000.00"),
+            "{err}"
+        );
+        // Removed and given again: the input's value stands.
+        let (restated, lines) = plan(
+            2027,
+            Some(&first),
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &["A1"],
+        )
+        .unwrap();
+        assert_eq!(restated.assets[0].source, AssetSource::Input);
+        assert_eq!(lines[0].amount.amount_str(), "2000.00");
+    }
+
+    #[test]
+    fn removal_takes_an_asset_out_and_only_a_held_one_can_be_removed() {
+        let (first, _) = plan(
+            2026,
+            None,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &[],
+        )
+        .unwrap();
+        let (second, lines) = plan(2027, Some(&first), &[], &["A1"]).unwrap();
+        assert!(lines.is_empty());
+        assert!(second.assets.is_empty());
+        assert_eq!(second.removed, vec!["A1".to_string()]);
+        assert!(plan(2027, Some(&first), &[], &["B7"]).is_err());
+        assert!(plan(2027, None, &[], &["A1"]).is_err());
+        assert!(plan(2027, Some(&first), &[], &["A1", "A1"]).is_err());
+    }
+
+    #[test]
+    fn a_fully_depreciated_asset_stays_in_the_register_without_a_line() {
+        let (register, lines) = plan(
+            2026,
+            None,
+            &[asset("aineettomat-oikeudet", "1000.00", "0.00")],
+            &[],
+        )
+        .unwrap();
+        assert!(lines.is_empty());
+        assert_eq!(register.assets[0].depreciation.amount_str(), "0.00");
+        assert_eq!(register.assets[0].book_value_end.amount_str(), "0.00");
+    }
+
+    #[test]
+    fn a_register_that_does_not_continue_the_previous_year_is_refused() {
+        let (first, _) = plan(
+            2026,
+            None,
+            &[asset("koneet-ja-kalusto", "10000.00", "8000.00")],
+            &[],
+        )
+        .unwrap();
+        let (good, _) = plan(2027, Some(&first), &[], &[]).unwrap();
+
+        // An asset silently dropped.
+        assert!(AssetRegister::default()
+            .check_continues(Some(&first))
+            .is_err());
+        // An opening value other than the sealed closing value.
+        let mut wrong = good.clone();
+        wrong.assets[0].book_value_start = eur_money("8000.00");
+        wrong.assets[0].book_value_end = eur_money("6500.00");
+        assert!(wrong.check_continues(Some(&first)).is_err());
+        // The same asset passed off as a new input one.
+        let mut relabelled = good.clone();
+        relabelled.assets[0].source = AssetSource::Input;
+        assert!(relabelled.check_continues(Some(&first)).is_err());
+        // Arithmetic that does not hold.
+        let mut bad_sum = good.clone();
+        bad_sum.assets[0].book_value_end = eur_money("5000.00");
+        assert!(bad_sum.check_continues(Some(&first)).is_err());
+        // A carried asset where there is nothing to carry from.
+        assert!(good.check_continues(None).is_err());
     }
 }

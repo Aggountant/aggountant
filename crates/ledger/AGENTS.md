@@ -154,6 +154,24 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   those vouchers become an `ExternalCutover` opening balance. Do not widen the
   test (to other dates, result accounts or kept years) without a decision;
   that would let a real year's activity reach the next year unfrozen.
+- **The fixed-asset register is part of the year seal.** The assets a close
+  depreciated or carried, with their opening and closing book values, are
+  written to the fiscal store in the transaction that seals the year, one row
+  per year, and never afterwards. The next close opens each carried asset at
+  that closing value, and `seal_year` refuses a register that does not
+  continue the previous year's, so a carried asset's opening book value is
+  never typed, and a retyped one that disagrees cannot reach a sealed year. A
+  value is typed only when an asset enters: a new acquisition, the first
+  close of a home, or an asset removed for a year (depreciated by hand, or a
+  year that is not 12 months) and given again; nothing checks that last one
+  against the year it left. It lives
+  here and not in masterdata, company knowledge or `archive/<year>/` because
+  it decides the next year's depreciation: the archive holds a copy for the
+  reader and is never read back. No row means "no register" (a year sealed
+  before registers, or kept in another system), and the close after it starts
+  one from its input; an empty register is a row. The register is not in the
+  year's transition hash, so `voucher verify` does not cover it; binding it
+  there changes the hash preimage and needs a decision.
 - **Nothing enters a year at or before a Sealed fiscal year.** A sealed year
   has carried forward the closing position of every earlier year, including a
   year kept in the old system that was never sealed here. So the seal refuses

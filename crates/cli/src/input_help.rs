@@ -287,14 +287,19 @@ Run it:
 pub(crate) const CLOSE_YEAR_START: &str = r#"INPUT (JSON on stdin)
   Unknown fields are refused.
   year         required. The calendar year the fiscal year ends in.
-  assets       optional list of assets to depreciate (poistot); the Domain
-               computes every amount. Each requires:
+  assets       optional list of assets to depreciate (poistot) that the previous
+               sealed year does not carry; the Domain computes every amount.
+               Each requires:
                  asset_id, asset_class (a class of the depreciation rate table:
                  koneet-ja-kalusto, rakennukset, aineettomat-oikeudet),
                  expense_account (debited), accumulated_account (credited),
                  acquisition_cost (straight-line base) and book_value_start
                  (reducing-balance base; equals the cost in the first year),
                  both {"amount":"...","currency":"EUR"}.
+  removed_assets
+               optional list of asset_ids that leave the register in this year
+               (sold, scrapped, or depreciated by hand from now on). They get
+               no depreciation from the run.
   accruals     optional list of accruals (jaksotukset). Each requires
                accrual_id, description, debit_account, credit_account, amount.
   corrections  optional list of entries for the closing year that the program
@@ -322,7 +327,26 @@ Example JSON (input-shape demonstration only, not accounting advice):
   "corrections": []
 }
 ```
+THE ASSET REGISTER
+  Sealing a year stores its assets and their closing book values. The next
+  year's close carries them from there: each opens at the value the sealed
+  year closed it at, and is depreciated without being named in `assets`. Give
+  in `assets` only what the register does not hold: new acquisitions, or, in
+  the first close of a home that has no register yet, every asset with its
+  book value at the start of the year. A carried asset given again must repeat
+  the carried figures exactly; anything else is refused. To replace a carried
+  asset's figures on purpose, name it in `removed_assets` and give it again.
+
+DRY RUN
+  `close-year start --dry-run` takes the same input and writes nothing. It
+  shows `asset_register` (per asset: source carried|input, book_value_start,
+  depreciation, book_value_end), `depreciation` (method and rate_percent per
+  asset), `opening_register_year` (the sealed year the carried assets come
+  from, null when there is none), `blockers` and `would_start`. `{"year": N}`
+  alone shows what the register carries into year N.
+
 Run it:
+  aggountant --home ./accounting --json close-year start --dry-run < close-year.json
   aggountant --home ./accounting --json close-year start < close-year.json"#;
 
 pub(crate) const EMPLOYEE_ADD: &str = r#"INPUT (JSON on stdin)

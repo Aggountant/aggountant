@@ -75,7 +75,13 @@ fn seal_year(ledger: &Ledger, year: i32) {
         }
     }
     let view = ledger
-        .seal_year(year, &format!("{year:064x}"), &format!("cy-{year}"), "test")
+        .seal_year(
+            year,
+            &format!("{year:064x}"),
+            &Default::default(),
+            &format!("cy-{year}"),
+            "test",
+        )
         .unwrap();
     assert_eq!(view.state, FiscalYearState::Sealed);
 }

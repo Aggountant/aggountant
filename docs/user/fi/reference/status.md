@@ -96,6 +96,9 @@ lähdekoodista Rust-työkaluilla. Tee näin:
 - **Poistoja ei lasketa tilikaudelle, joka ei ole 12 kuukautta.**
   Tilinpäätösajo kieltäytyy laskemasta niitä; laske sen tilikauden poistot
   itse ja anna ne ajolle oikaisuna, jolloin ne kohdistuvat oikealle vuodelle.
+  Edelliseltä vuodelta siirtyneet hyödykkeet merkitään sille vuodelle
+  poistuneiksi ja annetaan menojäännöksineen uudelleen seuraavassa
+  tilinpäätöksessä.
 - **Tilikauden määrittelyä ei voi muuttaa.** Sen perään voi määritellä uuden,
   mutta ei niin, että jo kirjattuja tositteita siirtyisi toiselle
   tilikaudelle.
@@ -191,6 +194,13 @@ jälkeen ajo käy läpi neljä hyväksyntää (oikaisukirjaukset, tase-erittelyt
 liitetiedot ja laskelmat) ja sinetöi tilikauden. Jokainen hyväksyntävaihe
 näyttää juuri sen, mitä hyväksyt.
 
+- **Poisto lasketaan aina hyödykeluokan enimmäisprosentilla.** Sinetöity
+  vuosi tallentaa hyödykkeet ja niiden menojäännöksen, ja seuraava
+  tilinpäätösajo poistaa ne siitä eteenpäin. Jos yritys poistaa jonakin
+  vuonna vähemmän tai muulla suunnitelmalla, merkitse hyödyke sille vuodelle
+  poistuneeksi, anna sen poisto oikaisuna ja anna hyödyke menojäännöksineen
+  uudelleen seuraavana vuonna. Myyntiä tai romutusta ajo ei kirjaa: kirjaa
+  se itse ja merkitse hyödyke poistuneeksi.
 - **Oikaisut annetaan ajon alussa.** Ajo kirjaa ne ennen kuin oikaisukirjaukset
   hyväksytään, ja vain ajon omat kirjaukset kohdistetaan suljettavalle
   vuodelle. Tosite, jonka kirjaat itse seuraavan vuoden kaudelle, näkyy

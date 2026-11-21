@@ -95,7 +95,9 @@ from source with the Rust toolchain. Do this:
 - **Depreciation is not calculated for a fiscal year that is not 12 months
   long.** The year-end run refuses to calculate it; calculate that year's
   depreciation yourself and give it to the run as a correction, so it is
-  attributed to the right year.
+  attributed to the right year. Assets carried from the previous year are
+  marked as removed for that year and given again, with their book values,
+  in the next year-end run.
 - **A fiscal-year definition cannot be changed.** It can only be followed by a
   new one, and not in a way that would move recorded vouchers to another
   fiscal year.
@@ -193,6 +195,13 @@ balances that include them. The run then goes through four approvals
 (adjusting entries, balance sheet breakdowns, notes and statements) and seals
 the fiscal year. Each approval step shows exactly what you approve.
 
+- **Depreciation is always calculated at the asset class's maximum rate.**
+  A sealed year stores the assets and their book values, and the next
+  year-end run depreciates them from there. If the company depreciates less
+  in some year, or follows another plan, mark the asset as removed for that
+  year, give its depreciation as a correction and give the asset again with
+  its book value the next year. The run does not record a sale or a
+  scrapping: record it yourself and mark the asset as removed.
 - **Corrections are given when the run starts.** The run records them before
   the adjusting entries are approved, and only the run's own entries are
   attributed to the closing year. A voucher you record yourself in a period
