@@ -1,12 +1,12 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-21
 type: task
 status: open
 priority: high
 lane: wage-reporting
 lane_seq: 10
-collision: [skills/vero-fi/SKILL.md, crates/cli/src/wage.rs]
+collision: [crates/cli/src/wage.rs, skills/tulorekisteri/SKILL.md]
 ---
 
 # Tulorekisteri onboarding facts and safe record-hash input for file-wage

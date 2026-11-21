@@ -2,13 +2,14 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: skills-rebuild
 lane_seq: 4
 collision: [skills/vero-fi/SKILL.md, crates/cli/src/skill.rs]
 blocked_by: ['@skill-soul-rebuild', '@cli-stdin-input-help', '@vero-configure-merge', '@cli-error-hints', '@filing-output-markers']
+closed: 2026-11-21
 ---
 
 # Skill rebuild: split vero-fi into VAT and a new tulorekisteri skill with reference files
@@ -42,3 +43,9 @@ a dated observation, `record_hash` sensitivity (if not already in the output),
 `Missing` proving nothing, report 630 ordering parameters, the test seam, the
 reconciliation acknowledgement not being a way past missing tax. Both link to
 `e-services`. Installs: `vero-fi` keeps working for existing users.
+
+## Resolution
+
+### 2026-11-21T08:17:24Z · @issuectl
+
+vero-fi is the VAT skill (body 723 words, references kayttoonotto.md and hairiot.md); the new tulorekisteri skill carries the Incomes Register (body 596 words, references kayttoonotto.md and kiinnikurominen.md). vero-fi requires tulorekisteri so existing installs receive it. Review, assessment and result are beside the issue; three product gaps filed unlaned.
