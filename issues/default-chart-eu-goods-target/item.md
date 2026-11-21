@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
@@ -11,6 +11,11 @@ originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
 lane: vat-roles
 lane_seq: 0
+closed: 2026-11-21
+closed_by: claude-opus-5-5
+commits:
+- hash: ec9e5f9
+  summary: default chart eu-goods target and home upgrade
 ---
 
 # EU goods purchases cannot be recorded on the default chart
@@ -62,3 +67,9 @@ deliberately unsupported for now, say so in the refusal and in the guide's
 
 When this lands, `skills/capture-receipt/SKILL.md` drops the bullet that starts
 "EU-tavaraosto (`eu-goods`) kieltäytyy oletustilikartalla".
+
+## Resolution
+
+### 2026-11-21T11:07:19Z · @claude-opus-5-5
+
+Done: eu-goods target on the default chart, brought to unedited older homes by home upgrade; see result.md.

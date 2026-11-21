@@ -456,8 +456,10 @@ impl Ledger {
     }
 
     /// Take the masterdata a newer binary needs into an existing home: plan
-    /// (`apply == false`, writes nothing) or add only the missing bundled chart
-    /// snapshots, VAT role metadata and settlement roles. Never rewrites an existing file and never
+    /// (`apply == false`, writes nothing) or add the missing bundled chart
+    /// snapshots, VAT role metadata and settlement roles. The only existing file it
+    /// rewrites is a VAT role file still byte-identical to an earlier release's,
+    /// which the bundled table only extends with reverse-charge targets; it never
     /// changes the active chart, so vouchers sealed under older masterdata verify
     /// as before. Touches only `masterdata/reference/`, and works on a home that
     /// [`Ledger::open`] refuses for lack of that masterdata.
