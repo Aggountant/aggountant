@@ -221,6 +221,35 @@ mod tests {
         assert_eq!(finnish_date(utc("2026-10-25T22:00:00Z")), d("2026-10-26"));
     }
 
+    /// Finnish local time as messages and notes write it (`%Y-%m-%d %H:%M`),
+    /// pinned around the summer-time switches, a leap day and the year ends.
+    #[test]
+    fn finnish_local_time_is_written_as_before() {
+        for (instant, local) in [
+            ("2026-03-29T00:59:59.999999999Z", "2026-03-29 02:59"),
+            ("2026-03-29T01:00:00Z", "2026-03-29 04:00"),
+            ("2026-10-25T00:59:59Z", "2026-10-25 03:59"),
+            ("2026-10-25T01:00:00Z", "2026-10-25 03:00"),
+            ("2024-02-28T22:00:00.120Z", "2024-02-29 00:00"),
+            ("2024-03-31T00:30:00Z", "2024-03-31 02:30"),
+            ("2024-03-31T01:30:00Z", "2024-03-31 04:30"),
+            ("2024-10-27T00:30:00Z", "2024-10-27 03:30"),
+            ("2024-10-27T01:30:00Z", "2024-10-27 03:30"),
+            ("2026-12-31T21:59:00Z", "2026-12-31 23:59"),
+            ("2026-12-31T22:00:00Z", "2027-01-01 00:00"),
+            ("2037-10-25T00:59:00Z", "2037-10-25 03:59"),
+            ("2000-01-01T00:00:00+02:00", "2000-01-01 00:00"),
+        ] {
+            assert_eq!(
+                finnish_local_time(utc(instant))
+                    .format("%Y-%m-%d %H:%M")
+                    .to_string(),
+                local,
+                "{instant}"
+            );
+        }
+    }
+
     #[test]
     fn finnish_date_follows_the_local_offset() {
         // Winter (UTC+2): 22:30 UTC is already the next day in Finland.

@@ -426,3 +426,24 @@ fn proposal_hash(report: &WageReport, timestamp: DateTime<Utc>) -> Result<String
         .map_err(|e| ProcessError::Store(e.to_string()))?;
     Ok(record_hash(&bytes))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The approval binds the hash of the report and its timestamp in serde
+    /// form; an approval stored before must still match the same proposal.
+    #[test]
+    fn proposal_hash_is_reproducible() {
+        let report: WageReport = serde_json::from_value(serde_json::json!({"business_id":"1234567-1","employee_id":"fictional-employee","source_reference":"fictional-expense-2026-09","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":true,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[{"income_type":"311","amount":"120.00","kilometers":218}]})).unwrap();
+        let hash = |t: &str| proposal_hash(&report, t.parse().unwrap()).unwrap();
+        assert_eq!(
+            hash("2026-10-25T12:00:00Z"),
+            "79e6126ea8413178ff53bd2c0329d794984371c3b3084c948e19c31934e3e996"
+        );
+        assert_eq!(
+            hash("2026-10-25T12:00:00.120Z"),
+            "a58223837d6f39ae630eaacc8bad68e6524ecc4d994c486d0f8800a0a0d2cecc"
+        );
+    }
+}

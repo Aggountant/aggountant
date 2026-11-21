@@ -925,6 +925,74 @@ mod tests {
     fn employer_item(item_id: &str, ir: &str, version: u32) -> String {
         format!("<ValidItems><Item><ItemId>{item_id}</ItemId><IRItemId>{ir}</IRItemId><ItemVersion>{version}</ItemVersion></Item></ValidItems>")
     }
+    /// Requests and records carry instants in two fixed forms: the request JSON
+    /// in serde form (`Z`) and the XML `<Timestamp>` in `+00:00` form, both with
+    /// 0, 3, 6 or 9 fractional digits. Pinned so that the delivery reference and
+    /// the bytes a preview approved stay reproducible.
+    #[test]
+    fn requests_and_records_write_instants_as_before() {
+        let mut wage = request();
+        wage.timestamp = "2026-10-25T12:00:00.120Z".parse().unwrap();
+        let value = serde_json::to_value(&wage).unwrap();
+        assert_eq!(value["timestamp"], "2026-10-25T12:00:00.120Z");
+        let back: WageRequest = serde_json::from_value(value).unwrap();
+        assert_eq!(back.timestamp, wage.timestamp);
+        let record = wage_record(&wage.report, &wage.hetu, wage.timestamp).unwrap();
+        assert!(
+            record.contains("<Timestamp>2026-10-25T12:00:00.120+00:00</Timestamp>"),
+            "{record}"
+        );
+
+        let mut employer = employer_request(EmployerReportAction::New);
+        employer.timestamp = "2026-11-02T08:00:00.000001Z".parse().unwrap();
+        employer.status_timestamp = Some("2026-11-03T09:30:00.123456789+00:00".parse().unwrap());
+        let value = serde_json::to_value(&employer).unwrap();
+        assert_eq!(value["timestamp"], "2026-11-02T08:00:00.000001Z");
+        assert_eq!(value["status_timestamp"], "2026-11-03T09:30:00.123456789Z");
+        let back: EmployerReportRequest = serde_json::from_value(value).unwrap();
+        assert_eq!(back.timestamp, employer.timestamp);
+        assert_eq!(back.status_timestamp, employer.status_timestamp);
+        let record = payer_summary_record(&employer.report, employer.timestamp).unwrap();
+        assert!(
+            record.contains("<Timestamp>2026-11-02T08:00:00.000001+00:00</Timestamp>"),
+            "{record}"
+        );
+        assert!(
+            record.contains("<ReportDate>2026-11-02</ReportDate>"),
+            "{record}"
+        );
+        assert!(record.contains("<DeliveryId>er-202610-"), "{record}");
+        let status = crate::tulorekisteri_xml::status_record(
+            "101",
+            "er-202610-x",
+            "1234567-1",
+            employer.status_timestamp.unwrap(),
+        );
+        assert!(
+            status.contains("<Timestamp>2026-11-03T09:30:00.123456789+00:00</Timestamp>"),
+            "{status}"
+        );
+        let whole = crate::tulorekisteri_xml::status_record(
+            "101",
+            "er-202610-x",
+            "1234567-1",
+            "2026-11-03T09:30:00Z".parse().unwrap(),
+        );
+        assert!(
+            whole.contains("<Timestamp>2026-11-03T09:30:00+00:00</Timestamp>"),
+            "{whole}"
+        );
+    }
+    #[test]
+    fn certificate_validity_is_written_as_before() {
+        let meta = VeroCredentials::parse(&secret())
+            .unwrap()
+            .validate_transport_material()
+            .unwrap();
+        let value = serde_json::to_value(&meta).unwrap();
+        assert_eq!(value["not_before"], "2026-10-24T19:13:18Z");
+        assert_eq!(value["not_after"], "2036-10-21T19:13:18Z");
+    }
     const IR_REPORT: &str = "44444444222233334444555555555555";
     #[test]
     fn employer_report_mtls_send_and_status_use_the_payer_summary_service() {

@@ -3205,7 +3205,18 @@ mod tests {
         let requests = server.requests();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].path, GET_VAT_PERIODS_PATH);
+        // FilingYear is the observation's UTC year as a string, and the evidence
+        // instant is written in serde form, both as before.
+        assert_eq!(
+            requests[0].json.as_ref().unwrap()["FilingYear"],
+            json!("2026")
+        );
+        assert_eq!(output["observed_at"], "2026-09-13T12:00:00Z");
         let stored = std::fs::read_to_string(home.path().join("vero-filing.json")).unwrap();
+        assert!(
+            stored.contains("\"observed_at\": \"2026-09-13T12:00:00Z\""),
+            "{stored}"
+        );
         assert!(!stored.contains("must-not-be-persisted"));
         assert!(!stored.contains("PRIVATE KEY"));
         assert!(read_vero_profile(home.path())

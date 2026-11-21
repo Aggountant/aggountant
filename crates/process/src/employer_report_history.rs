@@ -675,6 +675,39 @@ mod tests {
         "2026-11-18".parse().unwrap()
     }
 
+    /// A stored transcript record keeps its instant in serde form; records
+    /// written before must read back and rewrite byte for byte.
+    #[test]
+    fn transcript_import_records_round_trip_as_before() {
+        for imported_at in [
+            "2026-11-18T10:15:30Z",
+            "2026-11-18T10:15:30.120Z",
+            "2026-11-18T10:15:30.000001Z",
+            "2026-11-18T10:15:30.123456789Z",
+        ] {
+            let stored = format!(
+                r#"{{"schema_version":1,"artifact":"ab","imported_at":"{imported_at}","covers_from":"2025-01","covers_to":"2025-06","months":[{{"month":"2025-02","report_count":1,"health_insurance_contribution":"0.00","deductions":"0.00"}}]}}"#
+            );
+            let record: TranscriptImportRecord = serde_json::from_str(&stored).unwrap();
+            assert_eq!(serde_json::to_string(&record).unwrap(), stored);
+        }
+    }
+
+    /// YTJ dates and the check date are written as `YYYY-MM-DD`.
+    #[test]
+    fn register_dates_are_written_as_before() {
+        let period = RegisterPeriod {
+            from: "2020-02-01".parse().unwrap(),
+            to: Some("2026-01-31".parse().unwrap()),
+            state: RegisterPeriodState::Ended,
+            status: None,
+            entry_type: "41".into(),
+        };
+        let value = serde_json::to_value(&period).unwrap();
+        assert_eq!(value["from"], "2020-02-01");
+        assert_eq!(value["to"], "2026-01-31");
+    }
+
     #[test]
     fn several_entries_use_the_current_one_and_list_the_history() {
         let entries = vec![

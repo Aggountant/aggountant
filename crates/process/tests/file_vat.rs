@@ -1193,6 +1193,29 @@ fn two_not_found_answers_a_bank_day_apart_close_run_1_and_run_2_files_once() {
             "2026-11-23 Missing"
         ]
     );
+    // The note pins the answer's instant in whole seconds with `Z`; journals
+    // already written carry exactly this text and must keep parsing.
+    let notes: Vec<String> = engine
+        .journal(&run1)
+        .unwrap()
+        .iter()
+        .filter_map(|event| match &event.payload {
+            aggountant_process::EventPayload::EffectSucceeded { effect_key, note }
+                if effect_key.starts_with("authority-check:") =>
+            {
+                Some(note.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        notes,
+        [
+            "Missing checked_at=2026-11-20T08:00:00Z",
+            "Missing checked_at=2026-11-23T07:59:00Z",
+            "Missing checked_at=2026-11-23T08:00:00Z"
+        ]
+    );
     // The evidence is in Run 1's journal.
     assert!(engine.journal(&run1).unwrap().iter().any(|event| matches!(
         &event.payload,

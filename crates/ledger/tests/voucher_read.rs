@@ -234,3 +234,41 @@ fn corrupt_or_missing_canonical_fields_fail_as_source_invariants() {
         assert!(matches!(error, LedgerError::VoucherReadCorrupt(_)));
     }
 }
+
+/// `sealed_at` keeps the RFC 3339 form every sealed voucher already carries:
+/// whole seconds or 3, 6 or 9 fractional digits, and a `+00:00` offset.
+#[test]
+fn sealed_at_keeps_its_written_form() {
+    fn written_form(text: &str) -> bool {
+        let Some(rest) = text.strip_suffix("+00:00") else {
+            return false;
+        };
+        let (whole, fraction) = rest.split_once('.').unwrap_or((rest, ""));
+        let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
+        let shape = whole.len() == 19
+            && whole.as_bytes()[10] == b'T'
+            && digits(&whole[0..4])
+            && digits(&whole[11..13])
+            && digits(&whole[17..19]);
+        shape && digits(fraction) && matches!(fraction.len(), 0 | 3 | 6 | 9)
+    }
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    for n in 0..20 {
+        seal(
+            &ledger,
+            &format!("fictional:{n}"),
+            "2026-01-14",
+            "2026-01-14",
+            None,
+        );
+    }
+    for number in 1..=20 {
+        let shown = ledger.voucher(number).unwrap();
+        assert!(
+            written_form(&shown.provenance.sealed_at),
+            "{}",
+            shown.provenance.sealed_at
+        );
+    }
+}

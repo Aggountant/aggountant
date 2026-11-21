@@ -595,6 +595,27 @@ mod tests {
         assert_eq!(value["mode"], "disabled");
     }
 
+    /// Onboarding evidence is stored in the filing profile with its instant in
+    /// serde form; profiles written before must read back and rewrite unchanged.
+    #[test]
+    fn evidence_instants_are_written_as_before() {
+        let test =
+            r#"{"observed_at":"2026-09-13T12:00:00.120Z","certificate_fingerprint_sha256":"aa"}"#;
+        let evidence: TestVerificationEvidence = serde_json::from_str(test).unwrap();
+        assert_eq!(serde_json::to_string(&evidence).unwrap(), test);
+        let portal = r#"{"observed_at":"2026-09-13T12:00:00.123456789Z","certificate_fingerprint_sha256":"aa","operations":["GetVATPeriods/v1"],"file_vat_return_receipt":"{}"}"#;
+        let evidence: PortalVerificationEvidence = serde_json::from_str(portal).unwrap();
+        assert_eq!(serde_json::to_string(&evidence).unwrap(), portal);
+        let whole =
+            r#"{"observed_at":"2026-09-13T12:00:00Z","certificate_fingerprint_sha256":"aa"}"#;
+        let evidence: TestVerificationEvidence = serde_json::from_str(whole).unwrap();
+        assert_eq!(serde_json::to_string(&evidence).unwrap(), whole);
+        // `+00:00` input, as an older writer could have produced, reads as UTC.
+        let offset = whole.replace('Z', "+00:00");
+        let evidence: TestVerificationEvidence = serde_json::from_str(&offset).unwrap();
+        assert_eq!(serde_json::to_string(&evidence).unwrap(), whole);
+    }
+
     #[test]
     fn portal_evidence_is_non_secret_and_does_not_change_filing_mode() {
         let mut profile = VeroFilingProfile::default();

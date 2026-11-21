@@ -1041,6 +1041,14 @@ mod tests {
         assert_eq!(id.len(), 40);
         assert!(id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'));
         assert_ne!(id, r.delivery_id(t2));
+        // The reference hashes the serde form of the timestamp; a stored
+        // reference must stay reproducible for the same report and instant.
+        assert_eq!(id, "er-202610-771840898b96bde4b19133858396cf");
+        let fractional: chrono::DateTime<chrono::Utc> = "2026-11-02T08:00:00.120Z".parse().unwrap();
+        assert_eq!(
+            r.delivery_id(fractional),
+            "er-202610-ca3374b86b2a0300e765db2cee014d"
+        );
         assert_eq!(r.sent_pension_insurances().len(), 1);
         let mut zero = r.clone();
         zero.content =
