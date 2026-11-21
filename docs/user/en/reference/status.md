@@ -148,8 +148,9 @@ record the payroll voucher in aggountant:
 
 - **Only tax-free travel allowances.** aggountant reports mileage allowances
   (311) and per diems (331) for one income earner and one payment at a time.
-  Their replacement reports and cancellations are made in Tulorekisteri's
-  e-service.
+  The replacement report and the cancellation of an accepted report are also
+  made with aggountant
+  ([Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md#correct-an-accepted-report)).
 - **The employer's separate report only for months without wages.** aggountant
   files "No wages payable" and, for months in which only tax-free travel
   allowances were paid, a health insurance contribution of €0. It does not

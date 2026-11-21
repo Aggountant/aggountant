@@ -2,8 +2,9 @@
 //! payment report and the monthly employer's separate report. Separate from the
 //! synthetic payroll adapter, which remains deliberately offline.
 use crate::tulorekisteri_xml::{
-    payer_summary_record, sign_record, soap, status_record, wage_record, DELIVERY_TYPE_EMPLOYER,
-    DELIVERY_TYPE_WAGE,
+    invalidation_record, payer_summary_record, sign_record, soap, status_record, wage_record,
+    wage_replacement_record, DELIVERY_TYPE_EMPLOYER, DELIVERY_TYPE_WAGE,
+    DELIVERY_TYPE_WAGE_CANCELLATION,
 };
 use crate::vero_filing::{VeroCredentialTarget, VeroCredentials};
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
 };
 use aggountant_domain::{
     payroll::{EmployerReportAction, EmployerSeparateReport, PensionInsurance, ReportMonth},
-    WageReport,
+    WageCorrection, WageCorrectionAction, WageReport,
 };
 use aggountant_model::{BusinessId, Instant};
 use aggountant_model::{FilingContactName, FilingContactPhone};
@@ -24,6 +25,8 @@ pub const SVC_WAGE: &str = "tulorekisteri-wage";
 pub const SVC_STATUS: &str = "tulorekisteri-status";
 pub const SVC_EMPLOYER: &str = "tulorekisteri-employer-report";
 pub const SVC_EMPLOYER_STATUS: &str = "tulorekisteri-employer-status";
+pub const SVC_WAGE_CORRECTION: &str = "tulorekisteri-wage-correction";
+pub const SVC_WAGE_CORRECTION_STATUS: &str = "tulorekisteri-wage-correction-status";
 const BASE: &str = "https://ws.tulorekisteri.fi/20170526/";
 const RESPONSE_NS: &str = "http://www.tulorekisteri.fi/2017/1/StatusResponseFromIR";
 const SOAP_NS: &str = "http://schemas.xmlsoap.org/soap/envelope/";
@@ -213,6 +216,42 @@ pub fn wage_envelope(request: &WageRequest, status: bool) -> Result<Envelope, Ad
         secret_fields: vec!["hetu".into()],
     }))
 }
+/// One correction (replacement or cancellation) of an accepted travel report, as
+/// sent at `timestamp`. `hetu` is needed only to send a replacement; it is empty
+/// for a cancellation and for every status query. For a status query
+/// `status_timestamp` is the query time; the record identity still comes from the
+/// correction and its send `timestamp`. Never persist this request.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WageCorrectionRequest {
+    pub correction: WageCorrection,
+    pub hetu: String,
+    pub timestamp: Instant,
+    pub status_timestamp: Option<Instant>,
+}
+pub fn wage_correction_envelope(
+    request: &WageCorrectionRequest,
+    status: bool,
+) -> Result<Envelope, AdapterError> {
+    Ok(Envelope::new(
+        if status {
+            SVC_WAGE_CORRECTION_STATUS
+        } else {
+            SVC_WAGE_CORRECTION
+        },
+        match (status, request.correction.action) {
+            (true, _) => "GetDeliveryDataStatus",
+            (false, WageCorrectionAction::Replacement) => "SendWageReport",
+            (false, WageCorrectionAction::Cancellation) => "SendInvalidation",
+        },
+        request.correction.delivery_id(request.timestamp),
+        serde_json::to_value(request)
+            .map_err(|_| AdapterError::Malformed("invalid wage correction request".into()))?,
+    )
+    .with_redaction(crate::RedactionPolicy {
+        secret_fields: vec!["hetu".into()],
+    }))
+}
 /// One employer's separate report as sent at `timestamp`. Carries no PII.
 /// For a status query `status_timestamp` is the query time; the record identity
 /// still comes from the report and its send `timestamp`.
@@ -272,7 +311,7 @@ pub fn production_broker(
     }
     Ok(Broker::new(home, vault, registry))
 }
-/// The four operations of the own-organisation channel. Each is its own broker
+/// The operations of the own-organisation channel. Each is its own broker
 /// service so the outbox keys sends and status reads separately.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Op {
@@ -280,27 +319,37 @@ enum Op {
     WageStatus,
     Employer,
     EmployerStatus,
+    WageCorrection,
+    WageCorrectionStatus,
 }
+/// Service path and SOAPAction, from the official WSDLs.
+type Endpoint = (&'static str, &'static str);
+const WAGE_ENDPOINT: Endpoint = ("WageReportService.svc", "SendWageReport");
+const STATUS_ENDPOINT: Endpoint = ("StatusService.svc", "GetDeliveryDataStatus");
 impl Op {
-    const ALL: [Op; 4] = [Op::Wage, Op::WageStatus, Op::Employer, Op::EmployerStatus];
+    const ALL: [Op; 6] = [
+        Op::Wage,
+        Op::WageStatus,
+        Op::Employer,
+        Op::EmployerStatus,
+        Op::WageCorrection,
+        Op::WageCorrectionStatus,
+    ];
     fn service(self) -> &'static str {
         match self {
             Op::Wage => SVC_WAGE,
             Op::WageStatus => SVC_STATUS,
             Op::Employer => SVC_EMPLOYER,
             Op::EmployerStatus => SVC_EMPLOYER_STATUS,
+            Op::WageCorrection => SVC_WAGE_CORRECTION,
+            Op::WageCorrectionStatus => SVC_WAGE_CORRECTION_STATUS,
         }
     }
     fn is_status(self) -> bool {
-        matches!(self, Op::WageStatus | Op::EmployerStatus)
-    }
-    /// Service path and SOAPAction from the official WSDLs.
-    fn endpoint(self) -> (&'static str, &'static str) {
-        match self {
-            Op::Wage => ("WageReportService.svc", "SendWageReport"),
-            Op::Employer => ("PayerSummaryReportService.svc", "SendPayerSummaryReport"),
-            Op::WageStatus | Op::EmployerStatus => ("StatusService.svc", "GetDeliveryDataStatus"),
-        }
+        matches!(
+            self,
+            Op::WageStatus | Op::EmployerStatus | Op::WageCorrectionStatus
+        )
     }
 }
 struct TulorekisteriAdapter {
@@ -312,7 +361,10 @@ struct TulorekisteriAdapter {
 impl TulorekisteriAdapter {
     /// Rebuild the record from validated input (never sign caller-supplied XML)
     /// and say which feedback item would prove acceptance.
-    fn record(&self, envelope: &Envelope) -> Result<(String, ExpectedItem), AdapterError> {
+    fn record(
+        &self,
+        envelope: &Envelope,
+    ) -> Result<(String, ExpectedItem, Endpoint), AdapterError> {
         let mismatch = || AdapterError::Malformed("Tulorekisteri target identity mismatch".into());
         match self.op {
             Op::Wage | Op::WageStatus => {
@@ -324,17 +376,66 @@ impl TulorekisteriAdapter {
                     return Err(mismatch());
                 }
                 let expected = ExpectedItem::wage(&req.report);
-                let record = if self.op.is_status() {
-                    status_record(
+                Ok(if self.op.is_status() {
+                    let record = status_record(
                         DELIVERY_TYPE_WAGE,
                         &expected.delivery_id,
                         &expected.business_id,
                         req.timestamp,
-                    )
+                    );
+                    (record, expected, STATUS_ENDPOINT)
                 } else {
-                    wage_record(&req.report, &req.hetu, req.timestamp)?
-                };
-                Ok((record, expected))
+                    let record = wage_record(&req.report, &req.hetu, req.timestamp)?;
+                    (record, expected, WAGE_ENDPOINT)
+                })
+            }
+            Op::WageCorrection | Op::WageCorrectionStatus => {
+                let malformed =
+                    || AdapterError::Malformed("invalid wage correction request".into());
+                let req: WageCorrectionRequest =
+                    serde_json::from_value(envelope.body.clone()).map_err(|_| malformed())?;
+                let c = &req.correction;
+                if c.report.business_id != self.profile.business_id
+                    || envelope.natural_key != c.delivery_id(req.timestamp)
+                {
+                    return Err(mismatch());
+                }
+                c.validate(req.timestamp.utc_date())
+                    .map_err(|_| malformed())?;
+                let expected = ExpectedItem::wage_correction(c, req.timestamp);
+                Ok(
+                    match (self.op.is_status(), req.status_timestamp, c.action) {
+                        (true, Some(at), _) => {
+                            let record = status_record(
+                                expected.delivery_data_type,
+                                &expected.delivery_id,
+                                &expected.business_id,
+                                at,
+                            );
+                            (record, expected, STATUS_ENDPOINT)
+                        }
+                        (false, None, WageCorrectionAction::Replacement) => {
+                            let record = wage_replacement_record(c, &req.hetu, req.timestamp)?;
+                            (record, expected, WAGE_ENDPOINT)
+                        }
+                        (false, None, WageCorrectionAction::Cancellation) => {
+                            let record = invalidation_record(
+                                DELIVERY_TYPE_WAGE_CANCELLATION,
+                                &expected.delivery_id,
+                                &expected.business_id,
+                                &c.ir_report_id,
+                                c.corrects_version,
+                                req.timestamp,
+                            );
+                            (
+                                record,
+                                expected,
+                                ("InvalidationService.svc", "SendInvalidation"),
+                            )
+                        }
+                        _ => return Err(malformed()),
+                    },
+                )
             }
             Op::Employer | Op::EmployerStatus => {
                 let req: EmployerReportRequest = serde_json::from_value(envelope.body.clone())
@@ -347,21 +448,27 @@ impl TulorekisteriAdapter {
                     return Err(mismatch());
                 }
                 let expected = ExpectedItem::employer(&req.report, req.timestamp);
-                let record = match (self.op.is_status(), req.status_timestamp) {
-                    (true, Some(at)) => status_record(
-                        DELIVERY_TYPE_EMPLOYER,
-                        &expected.delivery_id,
-                        &expected.business_id,
-                        at,
+                Ok(match (self.op.is_status(), req.status_timestamp) {
+                    (true, Some(at)) => {
+                        let record = status_record(
+                            DELIVERY_TYPE_EMPLOYER,
+                            &expected.delivery_id,
+                            &expected.business_id,
+                            at,
+                        );
+                        (record, expected, STATUS_ENDPOINT)
+                    }
+                    (false, None) => (
+                        payer_summary_record(&req.report, req.timestamp)?,
+                        expected,
+                        ("PayerSummaryReportService.svc", "SendPayerSummaryReport"),
                     ),
-                    (false, None) => payer_summary_record(&req.report, req.timestamp)?,
                     _ => {
                         return Err(AdapterError::Malformed(
                             "invalid employer report request".into(),
                         ))
                     }
-                };
-                Ok((record, expected))
+                })
             }
         }
     }
@@ -390,7 +497,7 @@ impl RequestResponse for TulorekisteriAdapter {
         handle: &CredentialHandle,
     ) -> Result<AdapterResponse, AdapterError> {
         check_readiness(&self.profile, handle, Instant::now())?;
-        let (record, expected) = self.record(envelope)?;
+        let (record, expected, (path, action)) = self.record(envelope)?;
         let signed = sign_record(&record, handle)?;
         let cred = VeroCredentials::parse(handle.expose_secret())
             .map_err(|_| AdapterError::Unauthorized("invalid credential".into()))?;
@@ -402,7 +509,6 @@ impl RequestResponse for TulorekisteriAdapter {
             material.trust_certificate,
             self.timeout,
         )?;
-        let (path, action) = self.op.endpoint();
         let response = client
             .post(format!("{}{path}", self.base))
             .header("Content-Type", "text/xml;charset=UTF-8")
@@ -454,6 +560,27 @@ impl ExpectedItem {
             item_id: Some(report.report_id()),
             ir_item_id: None,
             version: VersionRule::Exactly(1),
+        }
+    }
+    /// A replacement keeps the register's report reference and becomes the
+    /// corrected version + 1. A cancellation answers the same way: the feedback
+    /// item carries the report reference and the version of the "Cancelled" report
+    /// the register generates, cancelled version + 1 (Data delivery – Schemas –
+    /// Processing feedback, ValidItems).
+    pub fn wage_correction(correction: &WageCorrection, timestamp: Instant) -> Self {
+        Self {
+            delivery_data_type: match correction.action {
+                WageCorrectionAction::Replacement => DELIVERY_TYPE_WAGE,
+                WageCorrectionAction::Cancellation => DELIVERY_TYPE_WAGE_CANCELLATION,
+            },
+            delivery_id: correction.delivery_id(timestamp),
+            business_id: correction.report.business_id.as_str().into(),
+            item_id: None,
+            ir_item_id: Some(correction.ir_report_id.clone()),
+            version: correction
+                .corrects_version
+                .map(|v| VersionRule::Exactly(v + 1))
+                .unwrap_or(VersionRule::AtLeast(2)),
         }
     }
     /// A new report becomes version 1. A replacement keeps the register's report
@@ -890,6 +1017,179 @@ mod tests {
             assert_eq!(signed, std::fs::read_to_string(path).unwrap());
             assert_eq!(record_hash(&unsigned).len(), 64);
         }
+    }
+    fn correction(action: WageCorrectionAction) -> WageCorrectionRequest {
+        WageCorrectionRequest {
+            correction: WageCorrection {
+                action,
+                report: report(),
+                ir_report_id: "22222222222233334444555555555555".into(),
+                corrects_version: Some(1),
+            },
+            hetu: match action {
+                WageCorrectionAction::Replacement => "010101A123N".into(),
+                WageCorrectionAction::Cancellation => String::new(),
+            },
+            timestamp: "2026-11-02T08:00:00Z".parse().unwrap(),
+            status_timestamp: None,
+        }
+    }
+    fn correction_feedback(r: &WageCorrectionRequest, item: &str) -> String {
+        let data_type = match r.correction.action {
+            WageCorrectionAction::Replacement => "100",
+            WageCorrectionAction::Cancellation => "105",
+        };
+        feedback(
+            "3",
+            &format!("<ValidItems><Item>{item}</Item></ValidItems>"),
+        )
+        .replace(
+            &report().delivery_id(),
+            &r.correction.delivery_id(r.timestamp),
+        )
+        .replace(
+            "<DeliveryDataType>100<",
+            &format!("<DeliveryDataType>{data_type}<"),
+        )
+    }
+    const CORRECTED_ITEM: &str = "<ItemId>r-any</ItemId><IRItemId>22222222222233334444555555555555</IRItemId><ItemVersion>2</ItemVersion>";
+    #[test]
+    fn wage_correction_sends_replacement_or_cancellation_once_and_reads_status() {
+        for (action, path, soap_action, ns) in [
+            (
+                WageCorrectionAction::Replacement,
+                "WageReportService.svc",
+                "\"SendWageReport\"",
+                WAGE_NS,
+            ),
+            (
+                WageCorrectionAction::Cancellation,
+                "InvalidationService.svc",
+                "\"SendInvalidation\"",
+                crate::tulorekisteri_xml::INVALIDATION_NS,
+            ),
+        ] {
+            let mut r = correction(action);
+            let mut s = Scenario::file_receipt("wage-soap");
+            s.soap = Some(SoapScenario {
+                send_body: correction_feedback(&r, CORRECTED_ITEM),
+                send_status: 200,
+                send_delay: Duration::ZERO,
+                status_body: correction_feedback(&r, CORRECTED_ITEM),
+            });
+            let m = MockVeroVatServer::start_wage_mtls(s).unwrap();
+            let h = tempfile::tempdir().unwrap();
+            let b = broker(h.path(), &m, Duration::from_secs(2));
+            let sent = b
+                .submit(
+                    "test",
+                    "effect",
+                    &wage_correction_envelope(&r, false).unwrap(),
+                )
+                .unwrap();
+            assert_eq!(
+                sent,
+                RemoteOutcome::Delivered {
+                    receipt: "11111111222233334444555555555555/22222222222233334444555555555555/2"
+                        .into()
+                }
+            );
+            // A status query carries no personal identity code.
+            r.hetu = String::new();
+            r.status_timestamp = Some("2026-11-02T09:00:00Z".parse().unwrap());
+            let status = b
+                .fetch(&wage_correction_envelope(&r, true).unwrap())
+                .unwrap();
+            assert_eq!(status["version"], 2);
+            let requests = m.requests();
+            assert_eq!(requests.len(), 2);
+            assert!(requests[0].path.ends_with(path));
+            assert_eq!(requests[0].headers["soapaction"], soap_action);
+            let body = std::str::from_utf8(&requests[0].body).unwrap();
+            assert!(body.contains(ns) && body.contains("<ds:Signature"));
+            assert_eq!(
+                body.contains("010101A123N"),
+                action == WageCorrectionAction::Replacement
+            );
+            assert!(requests[1].path.ends_with("StatusService.svc"));
+            let status_body = std::str::from_utf8(&requests[1].body).unwrap();
+            assert!(status_body.contains(&format!(
+                "<DeliveryDataType>{}</DeliveryDataType>",
+                if action == WageCorrectionAction::Replacement {
+                    "100"
+                } else {
+                    "105"
+                }
+            )));
+            let outbox = std::fs::read(h.path().join("integration/outbox/outbox.db")).unwrap();
+            assert!(!String::from_utf8_lossy(&outbox).contains("010101A123N"));
+        }
+    }
+    #[test]
+    fn wage_correction_feedback_must_name_the_corrected_report_and_next_version() {
+        for action in [
+            WageCorrectionAction::Replacement,
+            WageCorrectionAction::Cancellation,
+        ] {
+            let r = correction(action);
+            let expected = ExpectedItem::wage_correction(&r.correction, r.timestamp);
+            assert!(interpret_status(&correction_feedback(&r, CORRECTED_ITEM), &expected).is_ok());
+            for bad in [
+                // The version being corrected, not the corrected one.
+                CORRECTED_ITEM.replace("<ItemVersion>2", "<ItemVersion>1"),
+                // Another report.
+                CORRECTED_ITEM.replace("2222222222223333", "9999999999993333"),
+            ] {
+                assert!(matches!(
+                    interpret_status(&correction_feedback(&r, &bad), &expected),
+                    Err(AdapterError::AmbiguousDelivery { .. })
+                ));
+            }
+            // Feedback of the other record type is not this correction's answer.
+            let other = correction(match action {
+                WageCorrectionAction::Replacement => WageCorrectionAction::Cancellation,
+                WageCorrectionAction::Cancellation => WageCorrectionAction::Replacement,
+            });
+            assert!(
+                interpret_status(&correction_feedback(&other, CORRECTED_ITEM), &expected).is_err()
+            );
+            // Without the corrected version any later version is the answer.
+            let mut unversioned = correction(action);
+            unversioned.correction.corrects_version = None;
+            let expected =
+                ExpectedItem::wage_correction(&unversioned.correction, unversioned.timestamp);
+            let later = CORRECTED_ITEM.replace("<ItemVersion>2", "<ItemVersion>3");
+            assert!(
+                interpret_status(&correction_feedback(&unversioned, &later), &expected).is_ok()
+            );
+        }
+    }
+    #[test]
+    fn wage_correction_adapter_refuses_mismatched_requests() {
+        let m = mock(accepted(), 200, Duration::ZERO);
+        let h = tempfile::tempdir().unwrap();
+        let b = broker(h.path(), &m, Duration::from_secs(2));
+        // A send must not carry a status time, and a replacement needs the HETU.
+        let mut r = correction(WageCorrectionAction::Cancellation);
+        r.status_timestamp = Some(r.timestamp);
+        let mut no_hetu = correction(WageCorrectionAction::Replacement);
+        no_hetu.hetu = String::new();
+        let mut other_payer = correction(WageCorrectionAction::Cancellation);
+        other_payer.correction.report.business_id = BusinessId::parse("7654321-2").unwrap();
+        for (i, bad) in [r, no_hetu, other_payer].iter().enumerate() {
+            let outcome = b
+                .submit(
+                    "test",
+                    &format!("effect-{i}"),
+                    &wage_correction_envelope(bad, false).unwrap(),
+                )
+                .unwrap();
+            assert!(
+                matches!(outcome, RemoteOutcome::Rejected { .. }),
+                "{outcome:?}"
+            );
+        }
+        assert!(m.requests().is_empty());
     }
     #[test]
     fn official_references_are_32_hex_not_hyphenated_uuid() {

@@ -86,7 +86,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Tulorekisteri: tax-free travel earnings report (offline preview/start, explicit approval, reconcile-only recovery) and the monthly employer's separate report (`file-wage employer-report`).
+    /// Tulorekisteri: tax-free travel earnings report (offline preview/start, explicit approval, reconcile-only recovery), its corrections (`file-wage correction`: replacement or cancellation) and the monthly employer's separate report (`file-wage employer-report`).
     FileWage {
         #[command(subcommand)]
         cmd: wage::WageCmd,
@@ -931,8 +931,12 @@ impl From<aggountant_process::ProcessError> for CliError {
             | KnowledgeHistoryCorrupt(_)
             | Store(_)
             | VatStatusUnknown(_)
-            | EmployerReport {
-                code: "EMPLOYER_REPORT_STATUS_UNKNOWN" | "YTJ_UNAVAILABLE" | "YTJ_RESPONSE_INVALID",
+            | IncomesRegister {
+                code:
+                    "EMPLOYER_REPORT_STATUS_UNKNOWN"
+                    | "WAGE_CORRECTION_STATUS_UNKNOWN"
+                    | "YTJ_UNAVAILABLE"
+                    | "YTJ_RESPONSE_INVALID",
                 ..
             } => ErrorClass::System,
             Ledger(error) => classify_ledger_error(error),
@@ -955,7 +959,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | KnowledgeNotFound(_)
             | OpenObligation(_)
             | CloseYearBlocked(_)
-            | EmployerReport { .. } => ErrorClass::CallerActionable,
+            | IncomesRegister { .. } => ErrorClass::CallerActionable,
         };
         CliError {
             code: e.error_code().to_string(),

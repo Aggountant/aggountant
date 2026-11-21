@@ -115,10 +115,59 @@ Tulorekisteriltä.
 Agentti kertoo, että Tulorekisteri on vastaanottanut ilmoituksen. Voit
 tarkistaa sen myös Tulorekisterin asiointipalvelusta.
 
+## Korjaa hyväksytty ilmoitus
+
+Kun Tulorekisteri on jo hyväksynyt ilmoituksen ja siinä on virhe, korjaus
+tehdään aggountantilla samalla tavalla kuin ilmoitus: agentti esikatselee
+korjauksen, sinä hyväksyt sen ja agentti lähettää sen kerran.
+
+> Lokakuun matkalaskun kilometrit olivat väärin, oikea määrä on 160 km ja
+> korvaus 96,00 €. Korjaa Tulorekisteri-ilmoitus.
+
+Korjauksia on kahta lajia:
+
+- **Korvaava ilmoitus** antaa koko ilmoituksen uudelleen korjattuna. Sillä
+  korjataan rivit, yhteyshenkilö tai tieto pääomaosakkuudesta. Maksajaa,
+  tulonsaajaa, maksupäivää ja ansaintajaksoa se ei voi muuttaa, koska
+  Tulorekisteri vaatii niiden pysyvän samoina.
+- **Mitätöinti** poistaa ilmoituksen. Sitä käytetään, kun maksua ei ollutkaan
+  tai kun pitää muuttaa jotain, mitä korvaava ilmoitus ei saa muuttaa. Sen
+  jälkeen annetaan tarvittaessa uusi ilmoitus tavalliseen tapaan.
+
+Esikatselu näyttää Tulorekisterissä nyt olevan ilmoituksen ja korjatun
+ilmoituksen rinnakkain. Tarkista, että juuri se muuttuu, minkä pitikin, ja
+hyväksy vasta sitten. Korjaus on yhtä lopullinen kuin alkuperäinen ilmoitus.
+
+<details>
+<summary>Komennot, joita agentti ajaa</summary>
+
+```sh
+aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < korjattu.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash <tarkiste> < korjattu.json
+aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
+aggountant file-wage correction status  wr-…
+```
+
+`wr-…` on alkuperäisen ilmoituksen ajo. Korvaavan ilmoituksen syöte on koko
+ilmoitus korjattuna, ja sen tarkiste on arkaluonteinen kuten alkuperäisen.
+Mitätöinti ei lue syötettä. `correction status` näyttää, mitä Tulorekisterissä
+nyt on (`accepted`, `replaced`, `cancelled`), voimassa olevan kuittauksen ja
+ilmoituksen koko historian. Alkuperäisen ajon `run show` näyttää tilan
+`superseded`, kun sen kuittaus ei enää ole voimassa oleva. Mitätöinnin jälkeen
+uusi ilmoitus tarvitsee oman `source_reference`-arvonsa.
+
+Jos olet jo tehnyt korvaavan ilmoituksen tai mitätöinnin Tulorekisterin
+asiointipalvelussa, agentti kirjaa sen näytöstä:
+
+```sh
+aggountant file-wage correction complete-manual wr-… --action replace --ir-report-id <ilmoitusviite> --report-version 2
+```
+</details>
+
 ## Rajoitukset
 
-- Matkakorvausilmoituksen korvaavaa ilmoitusta ja mitätöintiä ei tehdä
-  aggountantilla. Ne tehdään Tulorekisterin asiointipalvelussa.
+- Korvaava ilmoitus ei voi muuttaa maksajaa, tulonsaajaa, maksupäivää eikä
+  ansaintajaksoa. Niitä varten ilmoitus mitätöidään ja annetaan uudelleen.
 - Työntekijärekisteriä ei vielä ole salattu. Pidä kotihakemisto ja sen
   varmuuskopiot vain omassa käytössäsi.
 
@@ -129,8 +178,11 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tulorekisteri-
 - **Lähetyksen tulos jäi epäselväksi** (aikakatkaisu, palvelun virhe):
   hyväksynnän toisto ei lähetä uudelleen.
   [Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
-- **Tulorekisteri hylkäsi ilmoituksen tai se pitää korjata.** Tee se
-  asiointipalvelussa: [Kun jokin menee vikaan](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
+- **Tulorekisteri hylkäsi ilmoituksen.** Katso syy asiointipalvelusta:
+  [Kun jokin menee vikaan](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
+- **Korjauksen tulos jäi epäselväksi.** `file-wage correction status` kysyy
+  tilan; korjausta ei lähetetä uudelleen eikä uutta korjausta voi tehdä ennen
+  kuin se on selvinnyt.
 - **Älä vaihda maksun tunnistetta tai maksupäivää** kiertääksesi hylkäyksen tai
   epävarmuuden. Silloin syntyisi huomaamatta uusi ilmoitus.
 

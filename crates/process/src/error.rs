@@ -101,10 +101,11 @@ pub enum ProcessError {
     /// unsealed. The message lists the blockers with stable ids (S6, ADR-5).
     #[error("CLOSE_YEAR_BLOCKED: {0}")]
     CloseYearBlocked(String),
-    /// The employer's separate report was refused before anything was sent, or its
-    /// status could not be settled. `code` is the machine-readable reason.
+    /// An Incomes Register filing (the employer's separate report, or a correction
+    /// of a travel report) was refused before anything was sent, or its status
+    /// could not be settled. `code` is the machine-readable reason.
     #[error("{code}: {message}")]
-    EmployerReport { code: &'static str, message: String },
+    IncomesRegister { code: &'static str, message: String },
 }
 
 impl ProcessError {
@@ -134,7 +135,7 @@ impl ProcessError {
             ProcessError::Store(_) => "PROCESS_STORE",
             ProcessError::OpenObligation(_) => "OPEN_OBLIGATION",
             ProcessError::CloseYearBlocked(_) => "CLOSE_YEAR_BLOCKED",
-            ProcessError::EmployerReport { code, .. } => code,
+            ProcessError::IncomesRegister { code, .. } => code,
         }
     }
 
@@ -144,8 +145,8 @@ impl ProcessError {
         match self {
             ProcessError::Store(_)
             | ProcessError::VatStatusUnknown(_)
-            | ProcessError::EmployerReport {
-                code: "EMPLOYER_REPORT_STATUS_UNKNOWN",
+            | ProcessError::IncomesRegister {
+                code: "EMPLOYER_REPORT_STATUS_UNKNOWN" | "WAGE_CORRECTION_STATUS_UNKNOWN",
                 ..
             }
             | ProcessError::KnowledgeHistoryCorrupt(_)

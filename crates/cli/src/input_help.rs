@@ -482,7 +482,13 @@ Example JSON (input-shape demonstration only; fictional company and person):
 ```
 Preview, then start with the same timestamp:
   aggountant --home ./accounting --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
-  aggountant --home ./accounting --json file-wage start --timestamp 2026-10-25T12:00:00Z < report.json"#;
+  aggountant --home ./accounting --json file-wage start --timestamp 2026-10-25T12:00:00Z < report.json
+A replacement of the accepted report (`file-wage correction ... --action
+replace`) reads the same shape: the whole report, corrected, with the accepted
+report's business_id, source_reference, employee_id, payment_date,
+period_start and period_end. `--action cancel` reads nothing:
+  aggountant --home ./accounting --json file-wage correction preview wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z < corrected.json
+  aggountant --home ./accounting --json file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash HASH < corrected.json"#;
 
 pub(crate) const EMPLOYER_REPORT_CONFIGURE: &str = r#"INPUT (JSON on stdin, only when no field flag is given)
   The employer_report block of .aggountant/tulorekisteri.json, which must
@@ -609,6 +615,8 @@ mod tests {
             ("file-vat start", parses::<crate::CliFileVatInput>),
             ("file-wage preview", parse_wage_report),
             ("file-wage start", parse_wage_report),
+            ("file-wage correction preview", parse_wage_report),
+            ("file-wage correction submit", parse_wage_report),
             ("file-wage employer-report configure", |json| {
                 let profile: aggountant_broker::tulorekisteri::EmployerReportProfile =
                     serde_json::from_str(json).map_err(|e| e.to_string())?;

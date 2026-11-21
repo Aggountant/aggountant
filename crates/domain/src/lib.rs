@@ -208,7 +208,7 @@ impl Default for PolicySet {
 }
 
 pub mod wage_report;
-pub use wage_report::{TravelLine, WageReport};
+pub use wage_report::{TravelLine, WageCorrection, WageCorrectionAction, WageReport};
 
 #[cfg(test)]
 mod tests {

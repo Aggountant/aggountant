@@ -17,10 +17,12 @@ ja `aggountant`-työvälineesi (`aggountant skill print aggountant-init --file S
 
 Aggountant lähettää yrityksen oman ALV-ilmoituksen Vero API:n kautta. Se ei asioi
 toisen organisaation puolesta eikä maksa veroa. Annettua ilmoitusta ei voi perua, eikä
-aggountant tee korvaavaa ilmoitusta: lähetyksen jälkeen löytyneen virheen käyttäjä
-korjaa OmaVerossa, eikä ohjelma kirjaa korjausta, joten sen kuitti arkistoidaan ja asia
-merkitään kodin muistiin. Siksi avoimet kysymykset selvitetään ennen lähetystä ja käyttäjä
-hyväksyy juuri ne luvut, jotka lähtevät.
+aggountant vielä tee korvaavaa ilmoitusta, vaikka Vero API sen sallii: lähetyksen
+jälkeen löytyneen virheen käyttäjä korjaa toistaiseksi OmaVerossa. Ohjelma ei myöskään
+kirjaa sitä korjausta: `file-vat complete-manual` kieltäytyy jo ilmoitetulta kaudelta
+(`PERIOD_TRANSITION_CONFLICT`) eikä tallenna mitään, joten korjauksen kuitti
+arkistoidaan ja asia merkitään kodin muistiin. Siksi avoimet kysymykset selvitetään
+ennen lähetystä ja käyttäjä hyväksyy juuri ne luvut, jotka lähtevät.
 
 ## Tavallinen kuukausi
 

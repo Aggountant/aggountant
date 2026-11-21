@@ -81,8 +81,11 @@ Tulorekisteri-ilmoituksessa on henkilötunnus. Siksi:
 ## Mitä aggountant ei tee
 
 - Se ei maksa veroa. ALV maksetaan OmaVeron viitteellä itse.
-- Se ei tee korvaavia ilmoituksia eikä mitätöintejä. Ne tehdään OmaVerossa tai
-  Tulorekisterin asiointipalvelussa.
+- Se ei tee korvaavaa ALV-ilmoitusta eikä mitätöi työnantajan
+  erillisilmoitusta. Ne tehdään OmaVerossa ja Tulorekisterin
+  asiointipalvelussa. Matkakorvausilmoituksen korvaava ilmoitus ja mitätöinti
+  sekä erillisilmoituksen korvaava ilmoitus tehdään aggountantilla, omalla
+  esikatselullaan ja hyväksynnällään.
 
 ## Mitä tämä tarkoittaa sinulle
 

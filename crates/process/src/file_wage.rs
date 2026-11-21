@@ -31,8 +31,8 @@ fn version() -> String {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct WageState {
-    report: WageReport,
+pub(crate) struct WageState {
+    pub(crate) report: WageReport,
     timestamp: Instant,
     proposal_hash: String,
     identity_hash: String,
@@ -53,12 +53,12 @@ pub struct WagePreview {
     pub sensitive: WagePreviewSensitive,
 }
 /// The preview's sensitive fields, each with the reason a caller must protect it.
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WagePreviewSensitive {
     pub record_hash: &'static str,
 }
 /// Why `record_hash` is sensitive; shown with every wage preview.
-const RECORD_HASH_SENSITIVE: &str = "derived from the employee's personal identity code (HETU): use it only to approve this report; do not store, log or share it";
+pub(crate) const RECORD_HASH_SENSITIVE: &str = "derived from the employee's personal identity code (HETU): use it only to approve this report; do not store, log or share it";
 impl ProcessEngine {
     fn wage_request(
         &self,
@@ -182,7 +182,7 @@ impl ProcessEngine {
         }
         Ok(months)
     }
-    fn read_wage(&self, run_id: &str) -> Result<WageState, ProcessError> {
+    pub(crate) fn read_wage(&self, run_id: &str) -> Result<WageState, ProcessError> {
         // Identity is a full digest, never a caller-controlled path.
         if !run_id.starts_with("wr-")
             || run_id.len() != 67
@@ -276,32 +276,12 @@ impl ProcessEngine {
         outcome: RemoteOutcome,
         reconciled: bool,
     ) -> Result<(), ProcessError> {
-        let journal = Journal::new(&self.run_dir(run_id));
-        journal.append(match outcome {
-            RemoteOutcome::Delivered { receipt }
-            | RemoteOutcome::RecoveredAlreadyProcessed { receipt } => {
-                if reconciled {
-                    EventPayload::EffectReconciled {
-                        effect_key: EFFECT.into(),
-                        note: receipt,
-                    }
-                } else {
-                    EventPayload::EffectSucceeded {
-                        effect_key: EFFECT.into(),
-                        note: receipt,
-                    }
-                }
-            }
-            RemoteOutcome::Unknown => EventPayload::EffectRejected {
-                effect_key: EFFECT.into(),
-                error_code: UNKNOWN_CODE.into(),
-            },
-            RemoteOutcome::Rejected { code, .. } => EventPayload::EffectRejected {
-                effect_key: EFFECT.into(),
-                error_code: code,
-            },
-        })?;
-        Ok(())
+        crate::file_employer_report::record_outcome(
+            &Journal::new(&self.run_dir(run_id)),
+            EFFECT,
+            outcome,
+            reconciled,
+        )
     }
     pub fn reconcile_wage(
         &self,
@@ -385,7 +365,9 @@ impl ProcessEngine {
         self.show(run_id)
     }
     /// No automatic fallback. Operator must check e-service for a possibly accepted
-    /// delivery FIRST and provide its remote delivery/report references.
+    /// delivery FIRST and provide its remote delivery/report references. Evidence
+    /// for a report that is already accepted is refused, never dropped: what the
+    /// register holds after a correction is recorded by a correction, not here.
     pub fn complete_wage_manual(
         &self,
         run_id: &str,
@@ -408,7 +390,16 @@ impl ProcessEngine {
                 EventPayload::EffectSucceeded { .. } | EventPayload::EffectReconciled { .. }
             )
         }) {
-            return self.show(run_id);
+            return Err(ProcessError::IncomesRegister {
+                code: "WAGE_REPORT_ALREADY_ACCEPTED",
+                message: format!(
+                    "{run_id} already holds an accepted report, so nothing was recorded: \
+                     complete-manual settles only a report with no recorded acceptance. \
+                     Correct an accepted report with `file-wage correction preview` and \
+                     `submit`; record a replacement or cancellation that was already made \
+                     in the e-service with `file-wage correction complete-manual`"
+                ),
+            });
         }
         let journal = Journal::new(&self.run_dir(run_id));
         if !events

@@ -55,7 +55,7 @@ fn version() -> String {
     record_hash(WORKFLOW)
 }
 fn refused(code: &'static str, message: impl Into<String>) -> ProcessError {
-    ProcessError::EmployerReport {
+    ProcessError::IncomesRegister {
         code,
         message: message.into(),
     }
@@ -114,7 +114,7 @@ pub struct EmployerReportReceipt {
 }
 
 impl EmployerReportReceipt {
-    fn note(&self) -> String {
+    pub(crate) fn note(&self) -> String {
         let d = self.ir_delivery_id.as_deref().unwrap_or("-");
         let v = self.version.map(|v| v.to_string()).unwrap_or("-".into());
         match self.source.as_str() {
@@ -308,7 +308,7 @@ impl ProcessEngine {
                     format!("{run_id} was started under another workflow version"),
                 ));
             }
-            let outcome = classify(&events);
+            let outcome = classify(&events, EmployerReportReceipt::parse);
             let (report, hash, delivery) = match state.filing {
                 Filing::Sent {
                     report,
@@ -684,7 +684,9 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(&run_id)?;
         let journal = Journal::new(&dir);
         if state_path.exists() {
-            if classify(&journal.read_all()?) != EmployerRunOutcome::Pending {
+            if classify(&journal.read_all()?, EmployerReportReceipt::parse)
+                != EmployerRunOutcome::Pending
+            {
                 return Err(refused(
                     "EMPLOYER_REPORT_ALREADY_SENT",
                     format!("{run_id} has already been sent; preview again with a new timestamp after correcting the cause of a rejection"),
@@ -756,7 +758,7 @@ impl ProcessEngine {
                 &envelope,
             )
             .map_err(store)?;
-        record_outcome(&journal, outcome, false)?;
+        record_outcome(&journal, EFFECT, outcome, false)?;
         self.employer_report_status(preview.month)
     }
 
@@ -796,6 +798,7 @@ impl ProcessEngine {
                 {
                     record_outcome(
                         &journal,
+                        EFFECT,
                         RemoteOutcome::Delivered {
                             receipt: receipt.clone(),
                         },
@@ -826,10 +829,15 @@ impl ProcessEngine {
                         "status answer lacked the register references; keep the month parked and ask again later",
                     ));
                 }
-                record_outcome(&journal, RemoteOutcome::Delivered { receipt }, true)?;
+                record_outcome(&journal, EFFECT, RemoteOutcome::Delivered { receipt }, true)?;
             }
             Err(BrokerError::Fetch { code, message }) if code == "TULOREKISTERI_REJECTED" => {
-                record_outcome(&journal, RemoteOutcome::Rejected { code, message }, true)?;
+                record_outcome(
+                    &journal,
+                    EFFECT,
+                    RemoteOutcome::Rejected { code, message },
+                    true,
+                )?;
             }
             Err(_) => {
                 return Err(refused(
@@ -1018,7 +1026,11 @@ fn external_hash(receipt: &EmployerReportReceipt) -> String {
     record_hash(&format!("external:{}", receipt.note()))
 }
 
-fn write_state(path: &std::path::Path, state: &RunState) -> Result<(), ProcessError> {
+/// Write a Run's state file durably: a crash leaves the old file or the new one.
+pub(crate) fn write_state(
+    path: &std::path::Path,
+    state: &impl Serialize,
+) -> Result<(), ProcessError> {
     let bytes = serde_json::to_vec_pretty(state).map_err(store)?;
     fs::create_dir_all(path.parent().expect("run dir")).map_err(store)?;
     let tmp = path.with_extension("tmp");
@@ -1028,13 +1040,18 @@ fn write_state(path: &std::path::Path, state: &RunState) -> Result<(), ProcessEr
     fs::rename(&tmp, path).map_err(store)
 }
 
-fn classify(events: &[crate::JournalEvent]) -> EmployerRunOutcome {
+/// The outcome of one Incomes Register send, from its Run's journal. `receipt`
+/// reads the register references out of an accepted effect's note.
+pub(crate) fn classify(
+    events: &[crate::JournalEvent],
+    receipt: fn(&str) -> Option<EmployerReportReceipt>,
+) -> EmployerRunOutcome {
     let mut outcome = EmployerRunOutcome::Pending;
     for e in events {
         match &e.payload {
             EventPayload::EffectSucceeded { note, .. }
             | EventPayload::EffectReconciled { note, .. } => {
-                return match EmployerReportReceipt::parse(note) {
+                return match receipt(note) {
                     Some(receipt) => EmployerRunOutcome::Accepted { receipt },
                     // An acceptance without readable references proves nothing new
                     // can be sent safely; treat it as unsettled.
@@ -1056,8 +1073,10 @@ fn classify(events: &[crate::JournalEvent]) -> EmployerRunOutcome {
     outcome
 }
 
-fn record_outcome(
+/// Journal the answer to one Incomes Register send on effect `effect`.
+pub(crate) fn record_outcome(
     journal: &Journal,
+    effect: &str,
     outcome: RemoteOutcome,
     reconciled: bool,
 ) -> Result<(), ProcessError> {
@@ -1066,22 +1085,22 @@ fn record_outcome(
         | RemoteOutcome::RecoveredAlreadyProcessed { receipt } => {
             if reconciled {
                 EventPayload::EffectReconciled {
-                    effect_key: EFFECT.into(),
+                    effect_key: effect.into(),
                     note: receipt,
                 }
             } else {
                 EventPayload::EffectSucceeded {
-                    effect_key: EFFECT.into(),
+                    effect_key: effect.into(),
                     note: receipt,
                 }
             }
         }
         RemoteOutcome::Unknown => EventPayload::EffectRejected {
-            effect_key: EFFECT.into(),
+            effect_key: effect.into(),
             error_code: UNKNOWN_CODE.into(),
         },
         RemoteOutcome::Rejected { code, .. } => EventPayload::EffectRejected {
-            effect_key: EFFECT.into(),
+            effect_key: effect.into(),
             error_code: code,
         },
     })?;
@@ -1161,8 +1180,8 @@ impl ProcessEngine {
                 let registration = compare_registration(
                     business_id.as_str().to_string(),
                     register_entries(lookup, business_id).map_err(|e| match e {
-                        ProcessError::EmployerReport { code, message } => {
-                            ProcessError::EmployerReport {
+                        ProcessError::IncomesRegister { code, message } => {
+                            ProcessError::IncomesRegister {
                                 code,
                                 message: format!("{message}; nothing was written (pass --offline to write without the check)"),
                             }

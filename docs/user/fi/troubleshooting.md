@@ -28,6 +28,7 @@ ennen kaatumista, ajo huomaa sen eikä tee mitään toiseen kertaan.
 | ALV-ilmoitus (`fv-…`), epävarma lähetys | `aggountant file-vat reconcile --run-id fv-…` |
 | ALV-ilmoitus (`fv-…`), keskeytyi lähetettäessä | `aggountant file-vat status --period VVVV-KK` ja sen nimeämä komento ([alla](#alv-ilmoitus-keskeytyi-lähetettäessä)) |
 | Tulorekisteri-ilmoitus (`wr-…`), epävarma lähetys | `aggountant file-wage reconcile wr-…` |
+| Tulorekisteri-ilmoituksen korjaus (`wc-…`), epävarma lähetys | `aggountant file-wage correction status wr-…` |
 | työnantajan erillisilmoitus (`er-…`), epävarma lähetys | `aggountant file-wage employer-report status --month VVVV-KK` |
 | tilinpäätös (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
 
@@ -224,11 +225,17 @@ Tulorekisterin virhetekstiä, koska siinä voi olla henkilötunnus.
 
 **Tarkista.** Katso tarkka virhe Tulorekisterin asiointipalvelusta.
 
-**Tee näin.** Tee ilmoitus tai korjaus Tulorekisterin asiointipalvelussa. Anna
-sen jälkeen agentille palvelun antamat aineiston ja ilmoituksen tunnisteet,
-niin agentti kirjaa ne aggountantiin
+**Tee näin.** Jos hylätty ilmoitus oli matkakorvausilmoitus, anna se
+Tulorekisterin asiointipalvelussa. Anna sen jälkeen agentille palvelun antamat
+aineiston ja ilmoituksen tunnisteet, niin agentti kirjaa ne aggountantiin
 (`aggountant file-wage complete-manual wr-… --ir-delivery-id … --ir-report-id …`).
-Sama varapolku käy, kun rajapintapolku ei muuten onnistu. Työnantajan
+Sama varapolku käy, kun rajapintapolku ei muuten onnistu. Komento kirjaa vain
+ilmoituksen, jota Tulorekisteri ei vielä ole aggountantin tietojen mukaan
+hyväksynyt; hyväksytylle ilmoitukselle se kieltäytyy
+(`WAGE_REPORT_ALREADY_ACCEPTED`), ja korjaus tehdään ohjelmalla
+([Ilmoita matkakorvaukset Tulorekisteriin](tasks/report-travel-allowances.md#korjaa-hyväksytty-ilmoitus)).
+Jos hylätty oli korjaus, alkuperäinen ilmoitus on rekisterissä ennallaan:
+korjaa syy ja pyydä agenttia esikatselemaan korjaus uudelleen. Työnantajan
 erillisilmoituksen voi myös korjatun syyn jälkeen esikatsella ja lähettää
 uudelleen, tai sen asiointipalvelussa annetun ilmoituksen viite kirjataan
 (`aggountant file-wage employer-report complete-manual --month … --ir-report-id …`).

@@ -147,8 +147,9 @@ palkkatosite aggountantiin:
 
 - **Vain verovapaat matkakorvaukset.** aggountant ilmoittaa
   kilometrikorvaukset (311) ja päivärahat (331) yhdelle tulonsaajalle ja
-  yhdestä maksusta kerrallaan. Niiden korvaava ilmoitus ja mitätöinti tehdään
-  Tulorekisterin asiointipalvelussa.
+  yhdestä maksusta kerrallaan. Hyväksytyn ilmoituksen korvaava ilmoitus ja
+  mitätöinti tehdään myös aggountantilla
+  ([Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md#korjaa-hyväksytty-ilmoitus)).
 - **Työnantajan erillisilmoitus vain kuukausilta ilman palkkaa.** aggountant
   antaa "Ei palkanmaksua" -ilmoituksen ja kuukausille, joilta maksettiin vain
   verovapaita matkakorvauksia, sairausvakuutusmaksun 0 €. Palkkakuukauden

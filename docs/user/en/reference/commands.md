@@ -28,7 +28,7 @@ fields and an example in the INPUT section of its help. Every command accepts th
 | `file-vat` | VAT return preview, direct submission, the status of a filed return, status reconciliation and recording a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [directly](../tasks/file-vat-direct.md) |
 | `vero-fi` | direct filing settings, the readiness check and the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | the employee register | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
-| `file-wage` | the travel allowance report to Tulorekisteri | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
+| `file-wage` | the travel allowance report to Tulorekisteri; `file-wage correction` for the replacement report and the cancellation of an accepted report | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `file-wage employer-report` | the employer's separate report, missing months, the registration check in YTJ and the transcript 630 import | [File the employer's separate report](../tasks/file-employer-report.md) |
 
 ## In the program, but not in use

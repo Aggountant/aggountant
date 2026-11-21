@@ -6,7 +6,7 @@
 use crate::{vero_filing::VeroCredentials, AdapterError, CredentialHandle};
 use aggountant_domain::{
     payroll::{EmployerReportAction, EmployerSeparateReport},
-    validate_hetu, TravelLine, WageReport,
+    validate_hetu, TravelLine, WageCorrection, WageCorrectionAction, WageReport,
 };
 use aggountant_model::Instant;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -24,6 +24,9 @@ pub const PSR_NS: &str = "http://www.tulorekisteri.fi/2017/1/PayerSummaryReports
 /// `DeliveryDataType` codes: earnings payment reports and employer's separate reports.
 pub const DELIVERY_TYPE_WAGE: &str = "100";
 pub const DELIVERY_TYPE_EMPLOYER: &str = "101";
+/// Cancellation of earnings payment reports.
+pub const DELIVERY_TYPE_WAGE_CANCELLATION: &str = "105";
+pub const INVALIDATION_NS: &str = "http://www.tulorekisteri.fi/2017/1/InvalidationsToIR";
 fn bad() -> AdapterError {
     AdapterError::Malformed("invalid Tulorekisteri signing material or record".into())
 }
@@ -55,13 +58,80 @@ pub fn wage_record(
     hetu: &str,
     timestamp: Instant,
 ) -> Result<String, AdapterError> {
+    let report_data = e("ActionCode", "1") + &e("ReportId", &report.report_id());
+    wage_report_record(report, hetu, timestamp, &report.delivery_id(), &report_data)
+}
+/// A replacement of the report the register holds as `ir_report_id` (`ActionCode`
+/// 2): the whole report again in its own record. The pay period, the payer and the
+/// income earner must repeat the previous version (Data delivery – Schemas –
+/// Earnings payment reports 2026, §2.1, §2.4 and §2.13); the caller checks that.
+pub fn wage_replacement_record(
+    correction: &WageCorrection,
+    hetu: &str,
+    timestamp: Instant,
+) -> Result<String, AdapterError> {
+    correction
+        .validate(timestamp.utc_date())
+        .map_err(|_| bad())?;
+    if correction.action != WageCorrectionAction::Replacement {
+        return Err(bad());
+    }
+    let report_data = e("ActionCode", "2")
+        + &e("IRReportId", &correction.ir_report_id)
+        + &correction
+            .corrects_version
+            .map(|v| e("ReportVersion", &v.to_string()))
+            .unwrap_or_default();
+    wage_report_record(
+        &correction.report,
+        hetu,
+        timestamp,
+        &correction.delivery_id(timestamp),
+        &report_data,
+    )
+}
+/// Cancellation of one report (`InvalidationRequestToIR`), found by the register's
+/// report reference and, when known, its latest version. `delivery_data_type` is
+/// the cancellation's own record type. Offline, no PII. Element order and the
+/// mandatory `Source` and `FaultyControl` follow InvalidationsToIRTypes.xsd and
+/// Data delivery – Schemas – Cancellation data 2026, §2.1–2.2.
+pub fn invalidation_record(
+    delivery_data_type: &str,
+    delivery_id: &str,
+    business_id: &str,
+    ir_report_id: &str,
+    version: Option<u32>,
+    timestamp: Instant,
+) -> String {
+    let item = e("IRItemId", ir_report_id)
+        + &version
+            .map(|v| e("ItemVersion", &v.to_string()))
+            .unwrap_or_default();
+    format!(
+        "<ir:InvalidationRequestToIR xmlns:ir=\"{INVALIDATION_NS}\"><DeliveryData>{}{}{}{}{}{}{}<Items><Item>{item}</Item></Items></DeliveryData></ir:InvalidationRequestToIR>",
+        e("Timestamp", &timestamp.to_string()),
+        e("Source", "aggountant"),
+        e("DeliveryDataType", delivery_data_type),
+        e("DeliveryId", delivery_id),
+        e("FaultyControl", "2"),
+        e("ProductionEnvironment", "true"),
+        actors(business_id)
+    )
+}
+fn wage_report_record(
+    report: &WageReport,
+    hetu: &str,
+    timestamp: Instant,
+    delivery_id: &str,
+    report_data: &str,
+) -> Result<String, AdapterError> {
     report.validate(timestamp.utc_date()).map_err(|_| bad())?;
     validate_hetu(hetu)
         .map_err(|_| AdapterError::Malformed("invalid income earner HETU in PII store".into()))?;
     let mut data = e("Timestamp", &timestamp.to_string());
     data += &e("Source", "aggountant");
     data += &e("DeliveryDataType", DELIVERY_TYPE_WAGE);
-    data += &e("DeliveryId", &report.delivery_id());
+    data += &e("DeliveryId", delivery_id);
     data += &e("FaultyControl", "2");
     data += &e("ProductionEnvironment", "true");
     data += &actors(report.business_id.as_str());
@@ -80,7 +150,10 @@ pub fn wage_record(
         "<Payer><PayerIds>{}</PayerIds></Payer>",
         id("1", report.business_id.as_str())
     );
-    data += &format!("<Reports><Report><ReportData>{}{}</ReportData><IncomeEarner><IncomeEarnerIds>{}</IncomeEarnerIds>",e("ActionCode","1"),e("ReportId",&report.report_id()), id("2",hetu));
+    data += &format!(
+        "<Reports><Report><ReportData>{report_data}</ReportData><IncomeEarner><IncomeEarnerIds>{}</IncomeEarnerIds>",
+        id("2", hetu)
+    );
     if report.joint_owner {
         data += "<IncomeEarnerOther><IncomeEarnerTypes><IncomeEarnerType>2</IncomeEarnerType></IncomeEarnerTypes></IncomeEarnerOther>";
     }

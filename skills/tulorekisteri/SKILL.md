@@ -85,15 +85,41 @@ kertoo, mitä seuraavaksi. Jos tila ei selviä, kysy myöhemmin uudelleen tai py
 käyttäjää katsomaan asiointipalvelusta. Ohjelma ei näytä Tulorekisterin virhetekstejä,
 koska niissä voi olla henkilötunnus; tarkan virheen näkee asiointipalvelusta.
 
-Hylätty tai korjattava matkakorvausilmoitus hoidetaan asiointipalvelussa, koska
-aggountant ei tee sille korvaavaa ilmoitusta eikä mitätöintiä. Selvitä ensin, onko
-aiempi lähetys jo rekisterissä, ettei samasta maksusta synny kahta ilmoitusta.
+Hylätty matkakorvausilmoitus hoidetaan asiointipalvelussa. Selvitä ensin, onko aiempi
+lähetys jo rekisterissä, ettei samasta maksusta synny kahta ilmoitusta.
 Asiointipalvelussa annettu ilmoitus, jota aggountant ei saanut perille, kirjataan
-viitteineen `complete-manual`-komennolla. Jo hyväksytyn ilmoituksen korjausta ohjelma
-ei kirjaa, vaikka komento onnistuu: arkistoi korjauksen kuitti ja merkitse asia kodin
-muistiin.
+viitteineen `complete-manual`-komennolla. Jo hyväksytylle ilmoitukselle komento
+kieltäytyy (`WAGE_REPORT_ALREADY_ACCEPTED`) eikä kirjaa mitään: hyväksytty ilmoitus
+korjataan alla kuvatulla tavalla.
 [e-services](../e-services/SKILL.md) kertoo, miten palvelun sivut toimivat ja missä
 selaimen raja kulkee.
+
+## Hyväksytyn matkakorvausilmoituksen korjaus
+
+Rekisterin hyväksymä ilmoitus korjataan aggountantilla, ei asiointipalvelussa. Korjaus
+on oma ilmoituksensa: se esikatsellaan, käyttäjä hyväksyy sen tarkisteen ja se
+lähetetään kerran (`aggountant file-wage correction preview` ja `submit`).
+
+- **Korvaava ilmoitus** (`--action replace`) antaa koko ilmoituksen uudelleen
+  korjattuna: rivit, yhteyshenkilön tai pääomaosakkuuden. Maksajaa, tulonsaajaa,
+  maksupäivää ja ansaintajaksoa sillä ei voi muuttaa, koska rekisteri vaatii niiden
+  pysyvän samoina. Tarkiste on johdettu henkilötunnuksesta kuten alkuperäisessä.
+- **Mitätöinti** (`--action cancel`) poistaa ilmoituksen. Sitä käytetään, kun maksua
+  ei ollutkaan tai kun pitää muuttaa jotain, mitä korvaava ei saa muuttaa. Uusi
+  ilmoitus annetaan sen jälkeen tavalliseen tapaan omalla `source_reference`-arvollaan,
+  koska mitätöidyn ilmoituksen tunniste on käytetty.
+
+Esikatselu näyttää rinnakkain rekisterissä olevan ja korjatun ilmoituksen sekä version,
+jota korjataan; näytä käyttäjälle, mikä muuttuu. `aggountant file-wage correction
+status` kertoo, mitä rekisterissä nyt on (hyväksytty, korvattu, mitätöity) ja
+ilmoituksen koko historian. Alkuperäisen ajon `run show` sanoo `superseded`, kun sen
+kuittaus ei enää ole voimassa oleva. Jos korjauksen lähetyksestä ei ole varmuutta, sama
+`status` kysyy tilan; mitään ei lähetetä uudelleen ennen kuin se on selvinnyt.
+
+Jos käyttäjä on jo tehnyt korvaavan ilmoituksen tai mitätöinnin asiointipalvelussa,
+kirjaa se komennolla `aggountant file-wage correction complete-manual`: ilmoitusviite
+pysyy samana, ja palvelun näyttämä uusi versio annetaan mukaan. Sen jälkeen ohjelma ei
+tunne ilmoituksen sisältöä, ja se sanoo niin seuraavassa esikatselussa.
 
 Kodin `TODO.md`:ssä määräaika poistetaan, kun ilmoitus on hyväksytty tai kirjattu
 käsin annettuna; selvittämättä jäänyt lähetys jää kohdaksi tunnisteineen.

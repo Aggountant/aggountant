@@ -13,7 +13,8 @@ use serde::Serialize;
 use aggountant_model::PeriodId;
 
 use crate::{
-    file_employer_report, file_vat, EffectStatus, EffectView, Fold, ProcessEngine, ProcessError,
+    file_employer_report, file_vat, file_wage_correction, EffectStatus, EffectView, Fold,
+    ProcessEngine, ProcessError, WageReportState,
 };
 
 use crate::file_employer_report::EmployerReportReceipt;
@@ -34,6 +35,14 @@ pub enum AuthorityOutcome {
     /// nothing may be sent again before `next_command` settles it.
     OutcomeUnknown {
         next_command: Option<String>,
+        message: String,
+    },
+    /// The authority accepted the filing, and a later correction changed what it
+    /// holds: `receipt` is the receipt of this filing, no longer of the current
+    /// one. `next_command` shows the filing's whole history.
+    Superseded {
+        receipt: Option<AuthorityReceipt>,
+        next_command: String,
         message: String,
     },
     /// The authority refused the filing.
@@ -85,6 +94,13 @@ impl ProcessEngine {
                         code == crate::file_wage::UNKNOWN_CODE
                     })
                 }
+                (file_wage_correction::WORKFLOW_NAME, file_wage_correction::EFFECT) => (
+                    format!(
+                        "aggountant file-wage correction status {}",
+                        self.wage_correction_original(run_id)?
+                    ),
+                    |code| code == file_wage_correction::UNKNOWN_CODE,
+                ),
                 (file_employer_report::WORKFLOW_NAME, file_employer_report::EFFECT) => (
                     format!(
                         "aggountant file-wage employer-report status --month {}",
@@ -106,10 +122,7 @@ impl ProcessEngine {
             EffectStatus::Succeeded => {
                 let note = f.notes.get(&effect.key).map(String::as_str).unwrap_or("");
                 match incomes_register_receipt(note) {
-                    Some(receipt) => Some(AuthorityOutcome::Accepted {
-                        receipt: Some(AuthorityReceipt::Tulorekisteri(receipt)),
-                        next_command: None,
-                    }),
+                    Some(receipt) => Some(self.incomes_register_accepted(f, receipt)?),
                     // An acceptance without readable references settles nothing; the
                     // employer's report reads such a Run the same way.
                     None => unsettled(
@@ -146,6 +159,45 @@ impl ProcessEngine {
         })
     }
 
+    /// An accepted Incomes Register effect. A travel report that was later
+    /// replaced or cancelled, or has a correction in doubt, says so: its own
+    /// receipt is no longer what the register holds.
+    fn incomes_register_accepted(
+        &self,
+        f: &Fold,
+        receipt: file_employer_report::EmployerReportReceipt,
+    ) -> Result<AuthorityOutcome, ProcessError> {
+        let receipt = Some(AuthorityReceipt::Tulorekisteri(receipt));
+        if f.workflow == "file-wage" {
+            let message = match self.wage_report_status(&f.run_id)?.state {
+                WageReportState::Replaced => Some(
+                    "this report was replaced later; the receipt is of the first version, \
+                     not of the report the Incomes Register holds now",
+                ),
+                WageReportState::Cancelled => Some(
+                    "this report was cancelled later; the Incomes Register holds no valid \
+                     report for it",
+                ),
+                WageReportState::CorrectionOutcomeUnknown => Some(
+                    "a correction of this report was sent without a definitive answer; what \
+                     the Incomes Register holds is not known until it is settled",
+                ),
+                _ => None,
+            };
+            if let Some(message) = message {
+                return Ok(AuthorityOutcome::Superseded {
+                    receipt,
+                    next_command: format!("aggountant file-wage correction status {}", f.run_id),
+                    message: message.to_string(),
+                });
+            }
+        }
+        Ok(AuthorityOutcome::Accepted {
+            receipt,
+            next_command: None,
+        })
+    }
+
     /// A succeeded VAT filing: the receipt the Ledger recorded for the period, when
     /// it acknowledges this Run's request.
     fn vat_accepted(&self, f: &Fold) -> Result<AuthorityOutcome, ProcessError> {
@@ -174,7 +226,7 @@ impl ProcessEngine {
 /// travel-expense report completed from e-service evidence records only the
 /// delivery and report ids (`manual-e-service:<delivery>/<report>`), without a
 /// version.
-fn incomes_register_receipt(note: &str) -> Option<EmployerReportReceipt> {
+pub(crate) fn incomes_register_receipt(note: &str) -> Option<EmployerReportReceipt> {
     EmployerReportReceipt::parse(note).or_else(|| {
         let rest = note.strip_prefix("manual-e-service:")?;
         (rest.split('/').count() == 2)

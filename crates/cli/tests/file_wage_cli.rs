@@ -129,6 +129,164 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     );
     assert_eq!(receipt["ir_report_id"], "22222222222233334444555555555555");
     assert_eq!(receipt["source"], "e_service");
+
+    // Evidence for an already accepted report is refused with its own code; the
+    // references are not dropped behind exit code 0.
+    let (code, out, err) = run(
+        home.path(),
+        &[
+            "file-wage",
+            "complete-manual",
+            id,
+            "--ir-delivery-id",
+            "33333333222233334444555555555555",
+            "--ir-report-id",
+            "22222222222233334444555555555555",
+        ],
+        "",
+    );
+    assert_eq!(code, 1, "{out}");
+    let refused: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(refused["error_code"], "WAGE_REPORT_ALREADY_ACCEPTED");
+    assert_eq!(refused["error_kind"], "user");
+    assert!(refused["message"]
+        .as_str()
+        .unwrap()
+        .contains("nothing was recorded"));
+
+    // A correction is previewed offline: a cancellation reads no stdin, a
+    // replacement reads the whole corrected report.
+    let at = "2026-11-02T08:00:00Z";
+    let (code, out, err) = run(
+        home.path(),
+        &[
+            "file-wage",
+            "correction",
+            "preview",
+            id,
+            "--action",
+            "cancel",
+            "--timestamp",
+            at,
+        ],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let cancel: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(cancel["schema_version"], 1);
+    assert_eq!(cancel["action"], "cancellation");
+    assert_eq!(cancel["ir_report_id"], "22222222222233334444555555555555");
+    assert!(cancel["corrects_version"].is_null());
+    assert!(cancel.get("sensitive").is_none());
+    let corrected = report.replace(
+        r#""amount":"120.00","income_type":"311","kilometers":200"#,
+        r#""amount":"96.00","income_type":"311","kilometers":160"#,
+    );
+    assert_ne!(corrected, report);
+    let replace = ["--action", "replace", "--timestamp", at];
+    let (code, out, err) = run(
+        home.path(),
+        &[&["file-wage", "correction", "preview", id], &replace[..]].concat(),
+        &corrected,
+    );
+    assert_eq!(code, 0, "{err}");
+    let preview: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(preview["action"], "replacement");
+    assert_eq!(preview["report"]["lines"][0]["kilometers"], 160);
+    assert_eq!(preview["previous_report"]["lines"][0]["kilometers"], 200);
+    assert!(preview["sensitive"]["record_hash"].is_string());
+    assert!(!out.contains("010101A123N"));
+    let hash = preview["record_hash"].as_str().unwrap();
+    let (code, _, err) = run(
+        home.path(),
+        &[&["file-wage", "correction", "preview", id], &replace[..]].concat(),
+        &report,
+    );
+    assert_eq!(code, 1);
+    assert!(err.contains("WAGE_CORRECTION_UNCHANGED"), "{err}");
+    let (code, out, err) = run(
+        home.path(),
+        &[
+            &["file-wage", "correction", "submit", id],
+            &replace[..],
+            &["--record-hash", hash, "--dry-run"],
+        ]
+        .concat(),
+        &corrected,
+    );
+    assert_eq!(code, 0, "{err}");
+    let dry: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(dry["would"][0]["matches_approval"], true);
+    // Without a profile and credential nothing is sent and nothing is recorded.
+    let (code, _, err) = run(
+        home.path(),
+        &[
+            &["file-wage", "correction", "submit", id],
+            &replace[..],
+            &["--record-hash", hash],
+        ]
+        .concat(),
+        &corrected,
+    );
+    assert_eq!(code, 1);
+    assert!(err.contains("TULOREKISTERI_NOT_READY"), "{err}");
+    let (code, out, err) = run(home.path(), &["file-wage", "correction", "status", id], "");
+    assert_eq!(code, 0, "{err}");
+    let status: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(status["state"], "accepted");
+    assert_eq!(status["filings"].as_array().unwrap().len(), 1);
+
+    // The e-service fallback: a replacement made there is recorded from evidence.
+    let manual = |version: &str| {
+        run(
+            home.path(),
+            &[
+                "file-wage",
+                "correction",
+                "complete-manual",
+                id,
+                "--action",
+                "replace",
+                "--ir-report-id",
+                "22222222222233334444555555555555",
+                "--report-version",
+                version,
+            ],
+            "",
+        )
+    };
+    let (code, out, err) = manual("2");
+    assert_eq!(code, 0, "{err}");
+    let status: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(status["state"], "replaced");
+    assert_eq!(status["current"]["version"], 2);
+    assert_eq!(status["current"]["source"], "e_service");
+    assert_eq!(status["report_is_current"], false);
+    assert_eq!(status["filings"][1]["kind"], "replacement");
+    assert_eq!(status["filings"][1]["sent_by_aggountant"], false);
+    let (code, _, err) = manual("2");
+    assert_eq!(code, 1);
+    assert!(err.contains("WAGE_CORRECTION_INVALID_EVIDENCE"), "{err}");
+    // `run show` of the report now says its receipt is not the current one.
+    let (code, out, err) = run(home.path(), &["run", "show", "--run-id", id], "");
+    assert_eq!(code, 0, "{err}");
+    let shown: Value = serde_json::from_str(&out).unwrap();
+    let outcome = &shown["effects"][0]["outcome"];
+    assert_eq!(outcome["state"], "superseded");
+    assert_eq!(
+        outcome["next_command"],
+        format!("aggountant file-wage correction status {id}")
+    );
+    let correction_run = status["filings"][1]["run_id"].as_str().unwrap();
+    let (code, out, err) = run(
+        home.path(),
+        &["run", "show", "--run-id", correction_run],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let shown: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(shown["status"], "completed");
+    assert_eq!(shown["effects"][0]["outcome"]["receipt"]["version"], 2);
 }
 
 #[test]

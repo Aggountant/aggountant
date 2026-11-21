@@ -121,10 +121,59 @@ and `run show` carries its receipt on the `submit-wage` effect:
 The agent tells you that Tulorekisteri has received the report. You can also
 check it in Tulorekisteri's e-service.
 
+## Correct an accepted report
+
+When Tulorekisteri has already accepted a report and it has an error, the
+correction is made with aggountant the same way as the report: the agent
+previews the correction, you approve it and the agent sends it once.
+
+> The kilometres in October's travel claim were wrong; the right figure is
+> 160 km and the allowance €96.00. Correct the Tulorekisteri report.
+
+There are two kinds of correction:
+
+- **A replacement report** gives the whole report again, corrected. It
+  corrects the lines, the contact person or the joint ownership detail. It
+  cannot change the payer, the income earner, the payment date or the earning
+  period, because Tulorekisteri requires them to stay the same.
+- **A cancellation** removes the report. It is used when there was no payment
+  after all, or when something must change that a replacement may not change.
+  A new report is then made in the usual way if one is needed.
+
+The preview shows the report Tulorekisteri holds now and the corrected report
+side by side. Check that exactly what should change does change, and approve
+only then. A correction is as final as the original report.
+
+<details>
+<summary>The commands the agent runs</summary>
+
+```sh
+aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < corrected.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash <checksum> < corrected.json
+aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
+aggountant file-wage correction status  wr-…
+```
+
+`wr-…` is the run of the original report. The input of a replacement is the
+whole report, corrected, and its checksum is sensitive like the original's. A
+cancellation reads no input. `correction status` shows what Tulorekisteri
+holds now (`accepted`, `replaced`, `cancelled`), the receipt in force and the
+report's whole history. `run show` of the original run shows the state
+`superseded` once its receipt is no longer the one in force. After a
+cancellation a new report needs its own `source_reference`.
+
+If you have already made the replacement or the cancellation in Tulorekisteri's
+e-service, the agent records it from the evidence:
+
+```sh
+aggountant file-wage correction complete-manual wr-… --action replace --ir-report-id <report reference> --report-version 2
+```
+</details>
+
 ## Limitations
 
-- Replacement reports and cancellations of a travel allowance report are not
-  made with aggountant. They are made in Tulorekisteri's e-service.
+- A replacement report cannot change the payer, the income earner, the payment
+  date or the earning period. For those the report is cancelled and made again.
 - The employee register is not yet encrypted. Keep the home directory and its
   backups for your own use only.
 
@@ -135,9 +184,11 @@ More detail: [What is ready and what is not](../reference/status.md#tulorekister
 - **The result of sending was left unclear** (a timeout, a service error):
   repeating the approval does not send again.
   [When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain).
-- **Tulorekisteri rejected the report, or it needs correcting.** Do it in the
-  e-service:
+- **Tulorekisteri rejected the report.** See the reason in the e-service:
   [When something goes wrong](../troubleshooting.md#tulorekisteri-rejected-the-report).
+- **The result of a correction was left unclear.** `file-wage correction
+  status` asks for the status; the correction is not sent again, and no new
+  correction can be made before it is settled.
 - **Do not change the payment identifier or the payment date** to get around
   a rejection or an uncertainty. That would quietly create a new report.
 

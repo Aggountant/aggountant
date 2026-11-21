@@ -1,6 +1,6 @@
 //! The deliberately narrow, tax-free travel-only earnings report. No salary mapping.
 use crate::{resolve_tulolaji, DomainError};
-use aggountant_model::{BusinessId, Date, FilingContactName, FilingContactPhone};
+use aggountant_model::{BusinessId, Date, FilingContactName, FilingContactPhone, Instant};
 use jiff::civil::Date as CivilDate;
 use jiff::ToSpan;
 use rust_decimal::Decimal;
@@ -138,6 +138,66 @@ impl WageReport {
     }
 }
 
+/// How an accepted travel report is corrected in the Incomes Register.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WageCorrectionAction {
+    /// A replacement report (`ActionCode` 2): the whole report again, corrected.
+    Replacement,
+    /// A cancellation (`InvalidationsToIR`, record type 105): the report is
+    /// withdrawn and nothing takes its place.
+    Cancellation,
+}
+
+/// One correction to the report the Incomes Register holds as `ir_report_id`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WageCorrection {
+    pub action: WageCorrectionAction,
+    /// A replacement: the report as it should read. A cancellation: the report
+    /// as last known; only its payer goes into the record.
+    pub report: WageReport,
+    pub ir_report_id: String,
+    /// The version being corrected, when known. It is sent, so the register
+    /// refuses to correct anything but the latest version.
+    pub corrects_version: Option<u32>,
+}
+
+impl WageCorrection {
+    pub fn validate(&self, today: CivilDate) -> Result<(), DomainError> {
+        let bad = |s: &str| DomainError::Payroll(s.into());
+        if self.action == WageCorrectionAction::Replacement {
+            self.report.validate(today)?;
+        }
+        if self.ir_report_id.len() != 32
+            || !self.ir_report_id.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(bad(
+                "a correction needs the 32-character Incomes Register report reference",
+            ));
+        }
+        if self.corrects_version == Some(0) {
+            return Err(bad("corrected report version must be positive"));
+        }
+        Ok(())
+    }
+    /// Digest of the whole correction and its creation time. It carries no
+    /// personal identity code, so it is safe in process state, and a changed
+    /// correction or a later attempt never shares it.
+    pub fn correction_hash(&self, timestamp: Instant) -> String {
+        let mut h = Sha256::new();
+        h.update(b"aggountant/wage-correction/v1");
+        let body = serde_json::to_vec(&(self, timestamp)).expect("correction serializes");
+        h.update((body.len() as u64).to_be_bytes());
+        h.update(&body);
+        hex::encode(h.finalize())
+    }
+    /// The record reference, unique per correction record (at most 40 characters).
+    pub fn delivery_id(&self, timestamp: Instant) -> String {
+        format!("c-{}", &self.correction_hash(timestamp)[..38])
+    }
+}
+
 mod decimal_string {
     use super::*;
     pub fn serialize<S: serde::Serializer>(d: &Decimal, s: S) -> Result<S::Ok, S::Error> {
@@ -191,6 +251,37 @@ mod tests {
         assert!(r.validate(today).is_err());
         r = report();
         assert!(r.validate(CivilDate::constant(2026, 1, 1)).is_err());
+    }
+    #[test]
+    fn correction_identity_is_per_record_and_needs_a_register_reference() {
+        let today = CivilDate::constant(2026, 10, 24);
+        let at: Instant = "2026-11-02T08:00:00Z".parse().unwrap();
+        let c = WageCorrection {
+            action: WageCorrectionAction::Replacement,
+            report: report(),
+            ir_report_id: "22222222222233334444555555555555".into(),
+            corrects_version: Some(1),
+        };
+        c.validate(today).unwrap();
+        assert_eq!(c.delivery_id(at).len(), 40);
+        assert_ne!(c.delivery_id(at), c.report.delivery_id());
+        let later: Instant = "2026-11-02T08:00:01Z".parse().unwrap();
+        assert_ne!(c.delivery_id(at), c.delivery_id(later));
+        let mut cancel = c.clone();
+        cancel.action = WageCorrectionAction::Cancellation;
+        assert_ne!(c.correction_hash(at), cancel.correction_hash(at));
+        // A cancellation does not judge the report it withdraws.
+        cancel.report.lines.clear();
+        cancel.validate(today).unwrap();
+        let mut bad = c.clone();
+        bad.report.lines.clear();
+        assert!(bad.validate(today).is_err());
+        bad = c.clone();
+        bad.ir_report_id = "not-a-guid".into();
+        assert!(bad.validate(today).is_err());
+        bad = c;
+        bad.corrects_version = Some(0);
+        assert!(bad.validate(today).is_err());
     }
     #[test]
     fn reject_missing_ownership_unknown_fields_and_non_decimal_strings() {

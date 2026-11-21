@@ -1,15 +1,21 @@
-//! The generated employer's separate report validates against the official,
-//! vendored `PayerSummaryReportsToIR` schema (`schemas/tulorekisteri/2025`).
+//! The generated Incomes Register records validate against the official,
+//! vendored schemas (`schemas/tulorekisteri/2025`): the employer's separate
+//! report (`PayerSummaryReportsToIR`), the travel report and its replacement
+//! (`WageReportsToIR`) and the cancellation (`InvalidationsToIR`).
 //!
 //! The validator below interprets the schema files themselves and supports only
 //! the XSD subset those files use: global elements, complex types made of one
 //! `xs:sequence` of `xs:element`s, and simple-type restrictions with length,
 //! enumeration and the two pattern forms present. Any other construct it meets
 //! fails the test instead of being skipped, so it cannot pass a record silently.
-use aggountant_broker::tulorekisteri_xml::{payer_summary_record, PSR_NS};
+use aggountant_broker::tulorekisteri_xml::{
+    invalidation_record, payer_summary_record, wage_record, wage_replacement_record,
+    DELIVERY_TYPE_WAGE_CANCELLATION, PSR_NS,
+};
 use aggountant_domain::payroll::{
     EmployerReportAction, EmployerReportContent, EmployerSeparateReport, MonthPayments,
 };
+use aggountant_domain::{WageCorrection, WageCorrectionAction, WageReport};
 use aggountant_model::{Date, Instant};
 use roxmltree::{Document, Node};
 use serde_json::json;
@@ -440,4 +446,75 @@ fn record_carries_the_documented_codes() {
     r.action = EmployerReportAction::New;
     let xml = payer_summary_record(&r, at()).unwrap();
     assert!(!xml.contains("PensionInsurances"));
+}
+
+const IR_REPORT: &str = "22222222222233334444555555555555";
+
+fn wage_report() -> WageReport {
+    serde_json::from_value(json!({"business_id":"1234567-1","employee_id":"fictional-employee","source_reference":"fictional-expense-2026-09","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":true,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[{"income_type":"311","amount":"96.00","kilometers":160},{"income_type":"331","amount":"54.00","allowance_code":3}]})).unwrap()
+}
+
+#[test]
+fn travel_report_replacement_and_cancellation_validate_against_the_official_schemas() {
+    let wage = Schema::load(&[
+        "IRCommonTypes.xsd",
+        "WageReportsToIRTypes.xsd",
+        "WageReportsToIR.xsd",
+    ]);
+    let hetu = "010101A123N";
+    let new = wage_record(&wage_report(), hetu, at()).unwrap();
+    wage.validate(&new).unwrap_or_else(|e| panic!("{e}\n{new}"));
+    for corrects_version in [Some(1), None] {
+        let correction = WageCorrection {
+            action: WageCorrectionAction::Replacement,
+            report: wage_report(),
+            ir_report_id: IR_REPORT.into(),
+            corrects_version,
+        };
+        let xml = wage_replacement_record(&correction, hetu, at()).unwrap();
+        assert!(xml.contains(&format!(
+            "<ActionCode>2</ActionCode><IRReportId>{IR_REPORT}</IRReportId>"
+        )));
+        assert_eq!(
+            xml.contains("<ReportVersion>1</ReportVersion>"),
+            corrects_version.is_some()
+        );
+        // A replacement is its own record: it never reuses the first record's reference.
+        assert!(xml.contains(&format!(
+            "<DeliveryId>{}</DeliveryId>",
+            correction.delivery_id(at())
+        )));
+        assert!(!xml.contains(&wage_report().delivery_id()));
+        assert!(!xml.contains("<ReportId>"));
+        wage.validate(&xml).unwrap_or_else(|e| panic!("{e}\n{xml}"));
+        // A cancellation is not a wage record.
+        let mut cancel = correction;
+        cancel.action = WageCorrectionAction::Cancellation;
+        assert!(wage_replacement_record(&cancel, hetu, at()).is_err());
+    }
+    let invalidation = Schema::load(&[
+        "IRCommonTypes.xsd",
+        "InvalidationsToIRTypes.xsd",
+        "InvalidationsToIR.xsd",
+    ]);
+    for version in [Some(2), None] {
+        let xml = invalidation_record(
+            DELIVERY_TYPE_WAGE_CANCELLATION,
+            "c-0123456789abcdef0123456789abcdef012345",
+            "1234567-1",
+            IR_REPORT,
+            version,
+            at(),
+        );
+        assert!(xml.contains("<DeliveryDataType>105</DeliveryDataType>"));
+        assert!(xml.contains("<Source>aggountant</Source>"));
+        assert!(xml.contains("<FaultyControl>2</FaultyControl>"));
+        assert!(!xml.contains("010101"));
+        invalidation
+            .validate(&xml)
+            .unwrap_or_else(|e| panic!("{e}\n{xml}"));
+        assert!(invalidation
+            .validate(&xml.replace("<Items>", "<Items><Extra>1</Extra>"))
+            .is_err());
+    }
 }

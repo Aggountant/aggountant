@@ -28,6 +28,7 @@ time.
 | VAT return (`fv-…`), uncertain submission | `aggountant file-vat reconcile --run-id fv-…` |
 | VAT return (`fv-…`), interrupted while sending | `aggountant file-vat status --period YYYY-MM`, then the command it names ([below](#a-vat-filing-was-interrupted-while-sending)) |
 | Tulorekisteri report (`wr-…`), uncertain submission | `aggountant file-wage reconcile wr-…` |
+| a correction of a Tulorekisteri report (`wc-…`), uncertain submission | `aggountant file-wage correction status wr-…` |
 | employer's separate report (`er-…`), uncertain submission | `aggountant file-wage employer-report status --month YYYY-MM` |
 | year-end (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
 
@@ -225,12 +226,18 @@ identity code.
 
 **Check.** See the exact error in Tulorekisteri's e-service.
 
-**Do this.** Make the report or the correction in Tulorekisteri's e-service.
-Then give the agent the delivery and report identifiers the service gave you,
-and the agent records them in aggountant
+**Do this.** If the rejected report was a travel allowance report, make it in
+Tulorekisteri's e-service. Then give the agent the delivery and report
+identifiers the service gave you, and the agent records them in aggountant
 (`aggountant file-wage complete-manual wr-… --ir-delivery-id … --ir-report-id …`).
 The same fallback works when the API route does not succeed for other
-reasons. An employer's separate report can also be previewed and sent again
+reasons. The command records only a report that, as far as aggountant knows,
+Tulorekisteri has not yet accepted; for an accepted report it refuses
+(`WAGE_REPORT_ALREADY_ACCEPTED`), and the correction is made with the program
+([Report travel allowances to Tulorekisteri](tasks/report-travel-allowances.md#correct-an-accepted-report)).
+If what was rejected was a correction, the original report is still in the
+register as it was: fix the cause and ask the agent to preview the correction
+again. An employer's separate report can also be previewed and sent again
 once the cause is fixed, or the reference of the report filed in the e-service
 is recorded
 (`aggountant file-wage employer-report complete-manual --month … --ir-report-id …`).

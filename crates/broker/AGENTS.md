@@ -62,3 +62,27 @@ the adapter passes one when configured, but nothing fetches it.
 - The three portal verification endpoints are fixed constants used only by
   `vero-fi verify-portal`; `file-vat` cannot select them, and no command takes a
   URL, target or mode for them.
+
+## Incomes Register corrections
+
+A correction of an accepted report is a filing of its own, with the same
+outbox, approval and reconcile-only rules as the report it corrects.
+
+- **A correction never reuses a record reference.** `DeliveryId` must be unique
+  per payer and record type, so a replacement or cancellation derives its own
+  from the correction and its creation time; the report's first reference
+  belongs to the first record only.
+- **A cancellation is a different record, service and type**, not a wage record
+  with another action code: `InvalidationRequestToIR` to `InvalidationService`,
+  record type 105 for earnings payment reports (106 for employer's separate
+  reports), with `Source` and `FaultyControl` mandatory. Its status query names
+  the same type, and its accepted feedback item carries the cancelled version
+  + 1, like a replacement.
+- **What a replacement may not change is the caller's check, not the
+  register's rejection to wait for.** The pay period, the payer and the income
+  earner must repeat the previous version; the process refuses such a
+  replacement before anything is sent and points to cancel-and-new.
+- The rules come from the register's "Data delivery – Schemas" documents
+  (earnings payment reports, cancellation data, processing feedback) and the
+  vendored XSDs under `schemas/tulorekisteri/`; cite the section when a rule
+  is added.

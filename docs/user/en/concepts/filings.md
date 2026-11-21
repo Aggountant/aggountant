@@ -84,8 +84,11 @@ A Tulorekisteri report contains a personal identity code. That is why:
 ## What aggountant does not do
 
 - It does not pay the tax. You pay VAT yourself with the OmaVero reference.
-- It does not make replacement returns or cancellations. They are made in
-  OmaVero or in Tulorekisteri's e-service.
+- It does not make a replacement VAT return or cancel an employer's separate
+  report. Those are made in OmaVero and in Tulorekisteri's e-service. The
+  replacement report and the cancellation of a travel allowance report, and
+  the replacement of an employer's separate report, are made with aggountant,
+  each with its own preview and approval.
 
 ## What this means for you
 

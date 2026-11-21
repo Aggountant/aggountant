@@ -25,9 +25,18 @@ ei tehdä samaa ilmoitusta sen ohi.
 
 Ilmoituksen, jonka käyttäjä antaa itse (käsin annettu ilmoitus tai korjaus, jota
 aggountant ei tuota), lomakkeen voit täyttää hänen nimenomaisesta pyynnöstään.
-Lähetys ja sen vahvistus ovat hänen tekojaan: pysähdy ennen lähetyspainiketta. Tulos
-kirjataan aggountantin manuaalisen ilmoituksen polulla (`complete-manual`), jotta
-kirjanpito tietää, mitä viranomaiselle on annettu.
+Lähetys ja sen vahvistus ovat hänen tekojaan: pysähdy ennen lähetyspainiketta. Käsin
+annettu ilmoitus kirjataan aggountantin manuaalisen ilmoituksen polulla
+(`complete-manual`), jotta kirjanpito tietää, mitä viranomaiselle on annettu.
+
+Jo hyväksytyn ilmoituksen korjaus ei kuulu selaimeen silloin, kun ohjelma osaa sen:
+matkakorvausilmoituksen korvaava ilmoitus ja mitätöinti tehdään komennolla
+`file-wage correction` ja erillisilmoituksen korvaava valitsimella `--replace`.
+Asiointipalvelussa jo tehty matkakorvausilmoituksen korjaus kirjataan komennolla
+`file-wage correction complete-manual`. ALV:n korvaavaa ilmoitusta ja erillisilmoituksen
+mitätöintiä ohjelma ei vielä tee eikä kirjaa: `complete-manual` kieltäytyy niistä, ja
+käyttäjän asiointipalvelussa tekemän korjauksen kuitti arkistoidaan ja asia merkitään
+kodin muistiin.
 
 Älä poimi evästeitä, tunnisteita tai istuntotunnuksia sivulta, äläkä tallenna
 tunnisteen sisältäviä osoitteita. Merkinnöissä polut ovat malleja (`./Retrieve/…`).

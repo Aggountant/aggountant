@@ -28,7 +28,7 @@ kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsim
 | `file-vat` | ALV-ilmoituksen esikatselu, suora lähetys, lähetetyn ilmoituksen tila, tilan selvitys ja käsin tehdyn ilmoituksen kirjaus | [Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md), [suoraan](../tasks/file-vat-direct.md) |
 | `vero-fi` | suoran ilmoittamisen asetukset, valmiuden tarkistus ja hyväksyntätestit | [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md) |
 | `employee` | työntekijärekisteri | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
-| `file-wage` | matkakorvausilmoitus Tulorekisteriin | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
+| `file-wage` | matkakorvausilmoitus Tulorekisteriin; `file-wage correction` hyväksytyn ilmoituksen korvaava ilmoitus ja mitätöinti | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `file-wage employer-report` | työnantajan erillisilmoitus, puuttuvat kuukaudet, rekisteröinnin tarkistus YTJ:stä ja raportin 630 tuonti | [Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md) |
 
 ## Ohjelmassa, mutta ei käytössä

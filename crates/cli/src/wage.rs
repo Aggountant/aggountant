@@ -5,10 +5,12 @@ use aggountant_broker::tulorekisteri::{
 use aggountant_broker::ytj::HttpYtj;
 use aggountant_domain::{
     payroll::{MonthPayments, PensionInsurance, ReportMonth},
-    WageReport,
+    WageCorrectionAction, WageReport,
 };
 use aggountant_model::{Date, FilingContactName, FilingContactPhone, Instant};
-use aggountant_process::{EmployerReportInput, EmployerReportReceipt, RegistrationCheck};
+use aggountant_process::{
+    EmployerReportInput, EmployerReportReceipt, RegistrationCheck, WageCorrectionInput,
+};
 
 #[derive(Subcommand, Debug)]
 pub enum WageCmd {
@@ -40,7 +42,7 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Explicit e-service fallback evidence; check for existing API delivery first. Example: file-wage complete-manual wr-DIGEST --ir-delivery-id GUID --ir-report-id GUID
+    /// Explicit e-service fallback evidence for a report with no recorded acceptance; check for existing API delivery first. On an already accepted report it is refused with WAGE_REPORT_ALREADY_ACCEPTED and records nothing: a correction goes through `file-wage correction`. Example: file-wage complete-manual wr-DIGEST --ir-delivery-id GUID --ir-report-id GUID
     CompleteManual {
         run_id: String,
         #[arg(long)]
@@ -50,9 +52,94 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Correct an accepted travel report: a replacement report or a cancellation, previewed, approved by record hash and sent once; settle an unknown outcome; record a correction that was made in the e-service.
+    #[command(subcommand)]
+    Correction(CorrectionCmd),
     /// Monthly employer's separate report (työnantajan erillisilmoitus): preview, approve-and-submit once, settle an unknown outcome, list missing months, check the employer-register start in YTJ, import transcript 630 of months reported elsewhere.
     #[command(subcommand)]
     EmployerReport(EmployerReportCmd),
+}
+
+/// How the accepted report is corrected.
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum CorrectionAction {
+    /// A replacement report: the whole report again on stdin, corrected. It keeps the payer, the income earner, the payment date and the pay period.
+    Replace,
+    /// A cancellation: the report is withdrawn. Needed to change the payer, the income earner, the payment date or the pay period, followed by a new `file-wage start`.
+    Cancel,
+}
+
+impl From<CorrectionAction> for WageCorrectionAction {
+    fn from(action: CorrectionAction) -> Self {
+        match action {
+            CorrectionAction::Replace => WageCorrectionAction::Replacement,
+            CorrectionAction::Cancel => WageCorrectionAction::Cancellation,
+        }
+    }
+}
+
+#[derive(clap::Args, Debug)]
+pub struct CorrectionArgs {
+    /// The file-wage Run of the accepted report (wr-DIGEST).
+    run_id: String,
+    #[arg(long, value_enum)]
+    action: CorrectionAction,
+    /// Record creation time. Use the same value in preview and submit.
+    #[arg(long)]
+    timestamp: Instant,
+}
+
+impl CorrectionArgs {
+    /// A replacement reads the corrected report on stdin; a cancellation reads nothing.
+    fn input(&self) -> Result<WageCorrectionInput, CliError> {
+        Ok(WageCorrectionInput {
+            action: self.action.into(),
+            report: match self.action {
+                CorrectionAction::Replace => Some(read_stdin_json()?),
+                CorrectionAction::Cancel => None,
+            },
+        })
+    }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CorrectionCmd {
+    /// Offline, writes nothing: the exact correction, the version it corrects and the record_hash an approval names. --action replace reads the whole corrected report on stdin (INPUT below) and its record_hash is sensitive like the one of `file-wage preview`; --action cancel reads nothing. Refused when the report is not accepted, is already cancelled, or has a correction without a definitive answer. Examples: file-wage correction preview wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z < report.json; file-wage correction preview wr-DIGEST --action cancel --timestamp 2026-11-02T08:00:00Z
+    #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
+    Preview {
+        #[command(flatten)]
+        args: CorrectionArgs,
+    },
+    /// Approve the previewed record_hash and send the correction once. The answer is the report's history with the new receipt, or an unknown outcome that only `file-wage correction status` settles; nothing is ever resent. Example: file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash HASH < report.json
+    #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
+    Submit {
+        #[command(flatten)]
+        args: CorrectionArgs,
+        #[arg(long)]
+        record_hash: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// What the Incomes Register holds for the report: state (accepted, replaced, cancelled, correction_outcome_unknown, ...), the current receipt and every filing. A correction with an unknown outcome is settled with the signed status query; otherwise offline. Example: file-wage correction status wr-DIGEST
+    Status {
+        /// The file-wage Run of the report (wr-DIGEST).
+        run_id: String,
+    },
+    /// Record e-service evidence of a correction: the answer to a correction sent without a definitive answer, or a replacement or cancellation that was made in the e-service. Sends nothing. The report reference stays the same in a correction; give the report's new version when the e-service shows it. Example: file-wage correction complete-manual wr-DIGEST --action cancel --ir-report-id GUID --report-version 2
+    CompleteManual {
+        /// The file-wage Run of the report (wr-DIGEST).
+        run_id: String,
+        #[arg(long, value_enum)]
+        action: CorrectionAction,
+        #[arg(long)]
+        ir_report_id: String,
+        #[arg(long)]
+        ir_delivery_id: Option<String>,
+        #[arg(long)]
+        report_version: Option<u32>,
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// What was paid in the month. A month with wages is refused: its contribution is not computed yet.
@@ -387,16 +474,84 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
     };
     value.map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))
 }
+fn correction(cmd: &CorrectionCmd, home: &Path) -> Result<Value, CliError> {
+    let engine = ProcessEngine::open(home);
+    let value = match cmd {
+        CorrectionCmd::Preview { args } => serde_json::to_value(engine.preview_wage_correction(
+            &args.run_id,
+            &args.input()?,
+            args.timestamp,
+        )?),
+        CorrectionCmd::Submit {
+            args,
+            record_hash,
+            dry_run,
+        } => {
+            let input = args.input()?;
+            let preview = engine.preview_wage_correction(&args.run_id, &input, args.timestamp)?;
+            if *dry_run {
+                return Ok(
+                    json!({"dry_run":true,"would":[{"action":"submit","resource":"file-wage correction","matches_approval":preview.record_hash == *record_hash,"preview":preview}]}),
+                );
+            }
+            serde_json::to_value(engine.submit_wage_correction(
+                &args.run_id,
+                &input,
+                args.timestamp,
+                record_hash,
+                &broker(home)?,
+                Instant::now(),
+            )?)
+        }
+        CorrectionCmd::Status { run_id } => {
+            if engine.wage_correction_in_doubt(run_id)? {
+                serde_json::to_value(engine.reconcile_wage_correction(
+                    run_id,
+                    &broker(home)?,
+                    Instant::now(),
+                )?)
+            } else {
+                serde_json::to_value(engine.wage_report_status(run_id)?)
+            }
+        }
+        CorrectionCmd::CompleteManual {
+            run_id,
+            action,
+            ir_report_id,
+            ir_delivery_id,
+            report_version,
+            dry_run,
+        } => {
+            refuse_dry_run(*dry_run)?;
+            serde_json::to_value(engine.complete_wage_correction_manual(
+                run_id,
+                (*action).into(),
+                EmployerReportReceipt {
+                    ir_delivery_id: ir_delivery_id.clone(),
+                    ir_report_id: ir_report_id.clone(),
+                    version: *report_version,
+                    source: "e_service".into(),
+                },
+            )?)
+        }
+    };
+    value.map_err(|e| CliError::system("INTERNAL_ERROR", e.to_string()))
+}
 pub fn execute(cmd: &WageCmd, home: &Path) -> Result<Value, CliError> {
-    if let WageCmd::EmployerReport(cmd) = cmd {
-        return employer_report(cmd, home).map(|mut v| {
+    let sub = match cmd {
+        WageCmd::EmployerReport(cmd) => Some(employer_report(cmd, home)),
+        WageCmd::Correction(cmd) => Some(correction(cmd, home)),
+        _ => None,
+    };
+    if let Some(result) = sub {
+        return result.map(|mut v| {
             v["schema_version"] = json!(1);
             v
         });
     }
     let engine = ProcessEngine::open(home);
     let value = match cmd {
-        WageCmd::EmployerReport(_) => unreachable!("handled above"),
+        WageCmd::EmployerReport(_) | WageCmd::Correction(_) => unreachable!("handled above"),
         WageCmd::Preview { timestamp } => serde_json::to_value(
             engine.preview_wage(&read_stdin_json::<WageReport>()?, *timestamp)?,
         ),

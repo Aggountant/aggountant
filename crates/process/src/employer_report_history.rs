@@ -37,7 +37,7 @@ const IMPORT_SCHEMA: u32 = 1;
 const MAX_TRANSCRIPT_BYTES: usize = 100 * 1024 * 1024;
 
 fn refused(code: &'static str, message: impl Into<String>) -> ProcessError {
-    ProcessError::EmployerReport {
+    ProcessError::IncomesRegister {
         code,
         message: message.into(),
     }
