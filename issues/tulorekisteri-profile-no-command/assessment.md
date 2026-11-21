@@ -17,9 +17,10 @@ FIX: 3   FIX (with care): 0   SPIN-OFF: 0   DISCUSS: 0   DROP: 0
 - F2: margin-scheme sales are uncommon among the companies using this, but a
   help text that gives the wrong formula is silently wrong VAT the first time
   it is followed. Fixed in the shared paragraph.
-- V1: pre-existing, found by the verifier while checking the gate. Certificates
-  from the Tax Administration are RSA, so the realistic trigger is a
-  hand-edited PEM. Fixed because it is small and makes `tulorekisteri status`
+- V1: pre-existing, found by the verifier while checking the gate. The
+  repository's own VAT test fixture carries an EC key that the VAT channel
+  accepts and Tulorekisteri signing refuses, so a bundle reused from VAT is
+  not automatically usable here. Fixed because it is small and makes `tulorekisteri status`
   truthful; the gate only became stricter.
 
 No confirmed finding remains open; no follow-up issue was filed.

@@ -76,7 +76,10 @@ None. Both finder candidates were confirmed locally.
 ## Coverage
 
 Read: the whole diff, the three issues, `derive.rs`, the margin tests, the
-old `check_readiness`. Tested: workspace tests, clippy, fmt and cargo-deny on
+old `check_readiness`. After rebasing onto main the `MASTERDATA_CORRUPT`
+hint was narrowed to plans whose additions would make the home open
+(`masterdata_check` empty), so a broken file that is present gets no hint even
+when the upgrade would also add a missing snapshot. Tested: workspace tests, clippy, fmt and cargo-deny on
 stable and 1.89 (`scripts/ci-local.sh`), the guide check, and the new CLI
 tests for `voucher vat-codes`, `tulorekisteri configure|status` and the
 `MASTERDATA_CORRUPT` hint. Outside scope: a real Incomes Register certificate
