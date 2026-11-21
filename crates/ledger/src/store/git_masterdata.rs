@@ -547,16 +547,18 @@ impl GitMasterDataRefStore {
 }
 
 /// Add the remedy to a `MASTERDATA_CORRUPT` from `open` when the upgrade planner
-/// would create a file `open` needs (a chart snapshot or the VAT roles). The plan
-/// is the one `home upgrade --dry-run` shows, so the message never promises a
-/// file the upgrade would refuse to add (`Unavailable`). The optional settlement
+/// would create a file `open` needs (a chart snapshot or the VAT roles) and the
+/// home would open after the planned additions. The plan is the one
+/// `home upgrade --dry-run` shows, so the message never promises a file the
+/// upgrade would refuse to add (`Unavailable`) or a repair it would not make. The optional settlement
 /// roles do not make `open` fail, so their absence alone adds no hint.
 fn with_upgrade_hint(dir: &Path, error: LedgerError) -> LedgerError {
     let LedgerError::MasterDataCorrupt(message) = error else {
         return error;
     };
     let missing: Vec<String> = match GitMasterDataRefStore::upgrade(dir, false) {
-        Ok(plan) => plan
+        // Only when the planned additions would make the home open again.
+        Ok(plan) if plan.masterdata_check.is_none() => plan
             .items
             .into_iter()
             .filter(|item| {
@@ -568,7 +570,7 @@ fn with_upgrade_hint(dir: &Path, error: LedgerError) -> LedgerError {
             })
             .map(|item| item.path)
             .collect(),
-        Err(_) => Vec::new(),
+        _ => Vec::new(),
     };
     if missing.is_empty() {
         return LedgerError::MasterDataCorrupt(message);
@@ -1323,8 +1325,10 @@ mod tests {
         fs::remove_file(reference.join(SETTLEMENT_ROLES_FILE)).unwrap();
         GitMasterDataRefStore::open(&md).unwrap();
 
-        // A VAT role file that is present but broken is not an upgrade case.
+        // A VAT role file that is present but broken is not an upgrade case, even
+        // when the upgrade would also add a missing chart snapshot.
         fs::write(reference.join(VAT_ROLES_FILE), "{}").unwrap();
+        fs::remove_dir_all(reference.join("chart-snapshots")).unwrap();
         let err = GitMasterDataRefStore::open(&md).unwrap_err();
         assert_eq!(err.error_code(), "MASTERDATA_CORRUPT");
         assert!(!err.to_string().contains("home upgrade"), "{err}");
