@@ -69,6 +69,24 @@ and local-development double, never a production path.
 - An open obligation blocks `close-period` for its period; closing a Run never
   drops obligations.
 
+## Dates and times
+
+- **Instants are written only through `model::Instant`.** Its `Display`
+  (`+00:00`), serde (`Z`) and `to_whole_seconds_z` reproduce, byte for byte,
+  the RFC 3339 text the chrono build wrote into sealed vouchers, journals, the
+  fiscal store, the outbox and authority payloads: 0, 3, 6 or 9 fractional
+  digits. jiff's own `Timestamp` output picks the fewest digits of any count, so
+  a `jiff::Timestamp` must never reach a stored or sent value through its own
+  `Display` or serde. `crates/model/tests/time_golden.rs` pins the forms; a
+  change in its expected strings is a format break, not a fixture update.
+- **`model::Date` is the one strict date parser.** jiff alone accepts
+  `2026-1-5` and `2026-01-05T00:00`; parse user and outside input through
+  `Date`, and use `jiff::civil::Date` only for arithmetic on dates already
+  parsed.
+- **Finnish local time is the hand-written EU rule in `domain::bank_days`, not
+  a time-zone database,** so the static binary carries no tz data. If the law
+  changes, bundling Europe/Helsinki into jiff is a contained change.
+
 ## Scope that is decided
 
 - **One trusted user, one company per data home.** Several companies are kept in

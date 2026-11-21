@@ -35,9 +35,6 @@ groups:
         children:
           - { slug: adr-8-chart-adoption-kirjanpitajalle, title: · Kirjanpitäjälle }
           - { slug: adr-8-chart-adoption-arkkitehdille, title: · Arkkitehdille }
-      - slug: adr-9-date-time-library
-        title: ADR-9 · Päivämääräkirjasto (chrono → jiff)
-        desc: Ehdotus chronon korvaamisesta jiffillä niin, että tallennetut ja viranomaisille lähetetyt aikaleimat säilyvät tavu tavulta samoina.
       - slug: adr-10-eservice-knowledge
         title: ADR-10 · Asiointipalvelujen käyttötieto
         desc: Ehdotus siitä, että viranomais- ja pankkipalvelujen käyttötieto on paketoitu skill, joka karttuu yritysten agenteilta synteettisinä julkisina issueina.

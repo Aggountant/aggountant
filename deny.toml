@@ -4,9 +4,6 @@
 [advisories]
 version = 2
 yanked = "deny"
-ignore = [
-    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained: an unmaintained-crate notice, not a vulnerability; migration to jiff or time is tracked in issue migrate-from-chrono" },
-]
 
 [licenses]
 version = 2
