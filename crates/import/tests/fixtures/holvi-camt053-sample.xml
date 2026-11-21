@@ -8,6 +8,10 @@
     <Stmt>
       <Id>2026-03</Id>
       <CreDtTm>2026-04-01T06:00:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-03-01T00:00:00</FrDtTm>
+        <ToDtTm>2026-03-31T23:59:59</ToDtTm>
+      </FrToDt>
       <Acct>
         <Id>
           <IBAN>FI2112345600000785</IBAN>
@@ -22,6 +26,12 @@
         <Amt Ccy="EUR">1000.00</Amt>
         <CdtDbtInd>CRDT</CdtDbtInd>
         <Dt><Dt>2026-03-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">3356.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-03-31</Dt></Dt>
       </Bal>
       <Ntry>
         <Amt Ccy="EUR">124.00</Amt>

@@ -22,7 +22,8 @@ pub(crate) struct FsArtifactStore {
     cipher: IdentityCipher,
 }
 
-fn sha256(bytes: &[u8]) -> Hash {
+/// The content address of an artifact: the sha256 of its plaintext.
+pub(crate) fn content_address(bytes: &[u8]) -> Hash {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let mut out = [0u8; 32];
@@ -48,7 +49,7 @@ impl FsArtifactStore {
 
 impl ArtifactStore for FsArtifactStore {
     fn put(&self, plaintext: &[u8]) -> Result<Hash, LedgerError> {
-        let addr = sha256(plaintext);
+        let addr = content_address(plaintext);
         let path = self.blob_path(&addr);
         if path.exists() {
             return Ok(addr); // content-addressed dedup
@@ -97,7 +98,7 @@ impl ArtifactStore for FsArtifactStore {
             fs::read(&path).map_err(|_| LedgerError::ArtifactNotFound(addr.to_hex()))?;
         let plaintext = self.cipher.open(&ciphertext);
         // Content-address integrity: what we return must hash to its address.
-        if sha256(&plaintext) != *addr {
+        if content_address(&plaintext) != *addr {
             return Err(LedgerError::Store(format!(
                 "artifact {} failed content-address check",
                 addr.to_hex()

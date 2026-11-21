@@ -59,6 +59,7 @@ Vero.fi readiness blocker codes (`VERO_…`) have their own page:
 | `FISCAL_YEAR_CONFLICT` | a fiscal-year definition would move recorded vouchers or a closed year to another fiscal year | read the message; a definition cannot change what has already been recorded |
 | `FISCAL_YEAR_UNDEFINED` | the date is before the company's first fiscal year, or no fiscal year ends in the given year | check the date or the year; `fiscal-year list` shows the definitions |
 | `GATE_NOT_OPEN` | the approval has already been answered or is not open | ask the agent to show the run's state |
+| `IMPORT_PREPARATION_CHANGED` | the bank statement, the proposed entries, the actor or the chart of accounts changed after the import preview; nothing was sealed | a new preview and a new approval ([Import the bank statement](../tasks/import-bank-statement.md)) |
 | `INVALID_FISCAL_YEAR` | the fiscal year is longer than 18 months, does not start on the first or end on the last day of a month, or does not follow the earlier fiscal years | correct the dates (Accounting Act 1:4) |
 | `INVALID_INPUT` | the input has the wrong shape or an unknown field | the agent fixes the input |
 | `MASTERDATA_CORRUPT` | the home's chart of accounts, its version or the VAT roles are missing or disagree with each other | after an upgrade: `home upgrade --dry-run` and `--apply` ([Upgrade aggountant](../tasks/upgrade.md)); otherwise a file was edited by hand, restore it from version control |

@@ -50,6 +50,7 @@ macro_rules! vero_transport_help {
     };
 }
 
+mod bank_import;
 mod explain;
 mod home;
 mod input_help;
@@ -335,7 +336,10 @@ enum ImportCmd {
 enum Camt053Cmd {
     /// Parse a camt.053 or camt.052 file into voucher intents (deterministic;
     /// **no** account or VAT assignment — that is the skill's judgment). Emits
-    /// the canonical bank-transaction rows + their stable dedup keys.
+    /// the canonical bank-transaction rows + their stable dedup keys, and under
+    /// `statements` each statement's period, opening and closing balances and
+    /// whether its booked entries carry the one to the other
+    /// (`balances_reconcile`).
     Parse {
         #[arg(long)]
         file: PathBuf,
@@ -347,11 +351,22 @@ enum Camt053Cmd {
     /// VAT-A legs using that source date while the bank date remains the posting
     /// date. Untagged/zero-rate imports may omit it. Sales VAT expansion is
     /// unsupported here; do not import such an assignment. The original XML is
-    /// retained once (KPL 2:5).
+    /// retained once (KPL 2:5). First run with `--dry-run`: it returns every
+    /// voucher it would seal and a `preparation_hash`, writing nothing; after the
+    /// user approves, seal with `--approved-preparation-hash`.
     #[command(after_help = input_help::IMPORT_CAMT053_SEAL)]
     Seal {
         #[arg(long)]
         file: PathBuf,
+        /// Prepare and validate every voucher and return them with the
+        /// preparation hash; write nothing.
+        #[arg(long, conflicts_with = "approved_preparation_hash")]
+        dry_run: bool,
+        /// The `preparation_hash` of the approved `--dry-run`. The seal is
+        /// refused (`IMPORT_PREPARATION_CHANGED`) unless it prepares exactly
+        /// those vouchers.
+        #[arg(long)]
+        approved_preparation_hash: Option<String>,
     },
 }
 
@@ -2108,75 +2123,16 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     let statement = parse_camt053(&xml)?;
                     Ok(serde_json::to_value(statement).expect("parsed statement serializes"))
                 }
-                Camt053Cmd::Seal { file } => {
-                    // Read the raw bytes once: the exact on-disk bytes are the
-                    // KPL 2:5 supporting source (a UTF-8 round-trip would strip a
-                    // BOM / normalize line endings and break byte-for-byte retention).
-                    let raw = read_file_bytes(file)?;
-                    let xml = decode_camt053(&raw, file)?;
-                    let statement = parse_camt053(&xml)?;
-                    let input: ImportSealInput = read_stdin_json()?;
-                    check_assignments_unique(&input.assignments)?;
-                    let ledger = Ledger::open(&home_path(cli)?)?;
-
-                    // Resolve every entry's assignment BEFORE any write (no
-                    // auto-assign — `phase4-imports` #2). A missing assignment
-                    // refuses the batch here, so it never leaves an orphan artifact.
-                    let assigned: Vec<(&_, &Assignment)> = statement
-                        .transactions
-                        .iter()
-                        .map(|txn| assignment_for(txn, &input.assignments).map(|a| (txn, a)))
-                        .collect::<Result<_, _>>()?;
-
-                    // Retain the original statement bytes as the supporting source
-                    // for every voucher it produces (KPL 2:5), attached once.
-                    let attachment = ledger.attach_artifact(&raw)?;
-
-                    // Pre-flight the drafts (build + dry-run validate) before
-                    // sealing any, so an unknown account refuses the batch with no
-                    // partial seals — full atomic batch numbering is SV-4+.
-                    let chart_version = ledger.chart_version()?;
-                    let mut drafts = Vec::new();
-                    for (txn, assignment) in &assigned {
-                        let draft = project_voucher_with_role_table(
-                            txn,
-                            assignment,
-                            Some(attachment),
-                            &chart_version,
-                            ledger.vat_role_table(),
-                        )?;
-                        ledger.validate(&draft)?;
-                        drafts.push((*txn, draft));
-                    }
-
-                    let mut sealed = Vec::new();
-                    let mut created = 0u64;
-                    let mut replayed = 0u64;
-                    for (txn, draft) in &drafts {
-                        let result = ledger.seal(
-                            draft,
-                            &SealRequest {
-                                natural_key: txn.natural_key.clone(),
-                                actor: input.actor.clone(),
-                                policy_set: PolicySet::default(),
-                            },
-                        )?;
-                        if result.replayed {
-                            replayed += 1;
-                        } else {
-                            created += 1;
-                        }
-                        sealed.push(serde_json::to_value(result).expect("sealed serializes"));
-                    }
-                    Ok(json!({
-                        "account_iban": statement.account_iban,
-                        "attachment_ref": attachment.to_hex(),
-                        "sealed_count": sealed.len(),
-                        "created_count": created,
-                        "replayed_count": replayed,
-                        "sealed": sealed,
-                    }))
-                }
+                Camt053Cmd::Seal {
+                    file,
+                    dry_run,
+                    approved_preparation_hash,
+                } => bank_import::seal_camt053(
+                    cli,
+                    file,
+                    *dry_run,
+                    approved_preparation_hash.as_deref(),
+                ),
             },
         },
     }
@@ -3007,6 +2963,10 @@ fn human_line(command: &Command, value: &Value) -> String {
                         .as_array()
                         .map(|a| a.len())
                         .unwrap_or(0)
+                ),
+                Camt053Cmd::Seal { dry_run: true, .. } => format!(
+                    "would seal {} vouchers from {} — preparation_hash {} (dry-run, no write)",
+                    value["voucher_count"], value["account_iban"], value["preparation_hash"]
                 ),
                 Camt053Cmd::Seal { .. } => format!(
                     "sealed {} vouchers from {} (attachment {})",

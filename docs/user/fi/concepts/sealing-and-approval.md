@@ -75,9 +75,9 @@ Viranomaisilmoituksissa sidonta on sama: ALV-ilmoituksen hyväksyntä koskee
 juuri sitä sisältöä, joka lähetetään, ja ohjelma laskee luvut vielä kerran
 kirjanpidosta ennen lähetystä.
 
-Pankin tiliotteen tuonnissa ei tässä versiossa ole erillistä esikatselun
-tunnistetta. Hyväksyntäsi on se, että katsot agentin kirjauslistan rivi riviltä
-ennen kuin se sinetöi tiliotteen.
+Pankin tiliotteen tuonti toimii samoin: sen esikatselu näyttää jokaisen
+tositteen, jonka tiliote tuottaisi, ja esikatselun tunnisteella sinetöinti
+hylkää kaiken, mikä muuttui välissä (`IMPORT_PREPARATION_CHANGED`).
 
 ## Mitä tämä tarkoittaa sinulle
 

@@ -129,7 +129,8 @@ impl BankTransaction {
     }
 }
 
-/// A parsed statement: the account it is for, its currency, and its entries.
+/// A parsed statement: the account it is for, its currency, its entries, and
+/// the period and balances of each report block in the document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ParsedStatement {
     /// The statement account's IBAN (`Acct/Id/IBAN`). The account-scoping
@@ -139,6 +140,59 @@ pub struct ParsedStatement {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub currency: Option<String>,
     pub transactions: Vec<BankTransaction>,
+    /// One summary per `<Stmt>` (camt.053) or `<Rpt>` (camt.052) block, in
+    /// document order: what the bank says the period and balances were, so the
+    /// month can be reconciled against the bank's own closing figure.
+    pub statements: Vec<StatementSummary>,
+}
+
+/// The period (`FrToDt`) and balances (`Bal`) of one report block, and whether
+/// its booked entries carry the opening balance to the closing balance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StatementSummary {
+    /// The bank's identifier for the block (`Id`), when present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// `FrToDt`, as calendar dates; `None` when the block does not declare it.
+    pub period: Option<StatementPeriod>,
+    /// The opening booked balance: `OPBD`, or `PRCD` (previously closed booked)
+    /// when the block has no `OPBD`.
+    pub opening_balance: Option<StatementBalance>,
+    /// The closing booked balance (`CLBD`). An interim camt.052 report may
+    /// carry only an interim balance (`ITBD`), in which case this is `None`.
+    pub closing_balance: Option<StatementBalance>,
+    /// Every `Bal` of the block in document order, including the two above.
+    pub balances: Vec<StatementBalance>,
+    /// How many booked entries of this block are in `transactions`.
+    pub entry_count: usize,
+    /// The signed sum of those entries (money in positive, money out
+    /// negative), in the account currency. `None` when no currency is known
+    /// (no `Acct/Ccy` and no entries).
+    pub entries_net: Option<Money>,
+    /// `opening_balance + entries_net == closing_balance`, in one currency.
+    /// `None` when the opening or closing balance is missing. `false` means
+    /// the entries read from the file do not explain the bank's own balances.
+    pub balances_reconcile: Option<bool>,
+}
+
+/// A statement period (`FrToDt`): the calendar dates of `FrDtTm` and `ToDtTm`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StatementPeriod {
+    pub from: Date,
+    pub to: Date,
+}
+
+/// One `Bal` element: its ISO type code, signed amount and date.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StatementBalance {
+    /// The ISO 20022 balance type (`Tp/CdOrPrtry/Cd`, e.g. `OPBD`, `CLBD`,
+    /// `ITBD`, `CLAV`), or the proprietary code (`Prtry`) verbatim.
+    #[serde(rename = "type")]
+    pub balance_type: String,
+    /// Signed: negative when the balance is a debit (`CdtDbtInd` `DBIT`,
+    /// an overdrawn account).
+    pub amount: Money,
+    pub date: Date,
 }
 
 /// First direct child element with the given local (namespace-stripped) name.
@@ -274,6 +328,7 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         .and_then(text);
 
     let mut transactions = Vec::new();
+    let mut statements = Vec::new();
     for report in &reports {
         // Refuse a multi-account document: every entry's natural_key is scoped by
         // the account IBAN, so mixing accounts under one label would corrupt dedup.
@@ -290,11 +345,17 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
                 "document mixes accounts ({account_iban} and {iban}) — import one account at a time"
             )));
         }
+        let first_entry = transactions.len();
         for ntry in children(*report, "Ntry") {
             if let Some(txn) = parse_entry(ntry, &account_iban, currency.as_deref())? {
                 transactions.push(txn);
             }
         }
+        statements.push(summarize_report(
+            *report,
+            currency.as_deref(),
+            &transactions[first_entry..],
+        )?);
     }
 
     // A stable dedup key must be unique within the batch. Two booked entries that
@@ -315,6 +376,130 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         account_iban,
         currency,
         transactions,
+        statements,
+    })
+}
+
+/// Read one report block's id, period and balances, and check its booked
+/// entries against them.
+fn summarize_report(
+    report: Node,
+    account_currency: Option<&str>,
+    entries: &[BankTransaction],
+) -> Result<StatementSummary, ImportError> {
+    let id = child(report, "Id").and_then(text);
+    let period = match child(report, "FrToDt") {
+        Some(fr_to) => {
+            let bound = |name: &str| -> Result<Date, ImportError> {
+                let raw = child(fr_to, name)
+                    .and_then(text)
+                    .ok_or_else(|| ImportError::Camt053(format!("<FrToDt> has no <{name}>")))?;
+                Ok(Date::parse(raw.split('T').next().unwrap_or(&raw))?)
+            };
+            Some(StatementPeriod {
+                from: bound("FrDtTm")?,
+                to: bound("ToDtTm")?,
+            })
+        }
+        None => None,
+    };
+    let balances = children(report, "Bal")
+        .map(parse_balance)
+        .collect::<Result<Vec<_>, _>>()?;
+    let find = |code: &str| balances.iter().find(|b| b.balance_type == code).cloned();
+    let opening_balance = find("OPBD").or_else(|| find("PRCD"));
+    let closing_balance = find("CLBD");
+
+    let currency = match account_currency {
+        Some(code) => Some(Currency::new(code)?),
+        None => entries.first().map(|e| e.amount.currency().clone()),
+    };
+    let entries_net = match currency {
+        Some(currency) => {
+            let mut net = rust_decimal::Decimal::ZERO;
+            for entry in entries {
+                let amount = entry.amount.amount();
+                net = match entry.direction {
+                    Direction::Credit => net.checked_add(amount),
+                    Direction::Debit => net.checked_sub(amount),
+                }
+                .ok_or_else(|| ImportError::Camt053("entry amounts overflow Decimal".into()))?;
+            }
+            Some(Money::new(net, currency))
+        }
+        None => None,
+    };
+    let balances_reconcile = match (&opening_balance, &closing_balance) {
+        (Some(opening), Some(closing)) => {
+            let currency = opening.amount.currency();
+            let same_currency = closing.amount.currency() == currency
+                && entries_net
+                    .as_ref()
+                    .is_none_or(|net| net.currency() == currency);
+            let net = entries_net
+                .as_ref()
+                .map_or(rust_decimal::Decimal::ZERO, Money::amount);
+            Some(
+                same_currency
+                    && opening.amount.amount().checked_add(net) == Some(closing.amount.amount()),
+            )
+        }
+        _ => None,
+    };
+
+    Ok(StatementSummary {
+        id,
+        period,
+        opening_balance,
+        closing_balance,
+        balances,
+        entry_count: entries.len(),
+        entries_net,
+        balances_reconcile,
+    })
+}
+
+/// Parse one `Bal`: type code, signed amount and date. A balance that lacks
+/// any of them is refused, because a reconciliation figure the parser cannot
+/// read correctly must not be shown at all.
+fn parse_balance(bal: Node) -> Result<StatementBalance, ImportError> {
+    let code_or_prtry = child(bal, "Tp").and_then(|tp| child(tp, "CdOrPrtry"));
+    let balance_type = code_or_prtry
+        .and_then(|c| {
+            child(c, "Cd")
+                .and_then(text)
+                .or_else(|| child(c, "Prtry").and_then(text))
+        })
+        .ok_or_else(|| ImportError::Camt053("<Bal> has no <Tp/CdOrPrtry> code".into()))?;
+    let amt_node = child(bal, "Amt")
+        .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has no <Amt>")))?;
+    let amt_str = text(amt_node)
+        .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has an empty <Amt>")))?;
+    let ccy = amt_node.attribute("Ccy").ok_or_else(|| {
+        ImportError::Camt053(format!("<Bal> {balance_type} <Amt> has no Ccy attribute"))
+    })?;
+    let magnitude = Money::parse(&amt_str, Currency::new(ccy)?)?;
+    let amount = match child(bal, "CdtDbtInd").and_then(text).as_deref() {
+        Some("CRDT") => magnitude,
+        // Negate only a non-zero amount: a debit zero stays `0.00`, never `-0.00`.
+        Some("DBIT") if !magnitude.amount().is_zero() => {
+            Money::new(-magnitude.amount(), magnitude.currency().clone())
+        }
+        Some("DBIT") => magnitude,
+        other => {
+            return Err(ImportError::Camt053(format!(
+                "<Bal> {balance_type} <CdtDbtInd> must be CRDT or DBIT, got {other:?}"
+            )))
+        }
+    };
+    let date = read_date(
+        child(bal, "Dt")
+            .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has no <Dt>")))?,
+    )?;
+    Ok(StatementBalance {
+        balance_type,
+        amount,
+        date,
     })
 }
 

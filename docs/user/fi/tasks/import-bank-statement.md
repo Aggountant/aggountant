@@ -21,7 +21,10 @@ koko tiliote sinetöidään kerralla tositteiksi.
 2. **Agentti lukee tiliotteen.** Lukeminen ei kirjaa mitään. Ohjelma listaa
    pankissa vahvistetut tapahtumat ja antaa jokaiselle pysyvän tunnisteen.
    Pankissa vielä vahvistamattomat tapahtumat (varaukset) jätetään pois, ja ne
-   kirjataan siltä tiliotteelta, jolla ne ovat toteutuneet.
+   kirjataan siltä tiliotteelta, jolla ne ovat toteutuneet. Ohjelma näyttää
+   myös tiliotteen jakson, alku- ja loppusaldon sekä sen, vievätkö luetut
+   tapahtumat alkusaldon loppusaldoon. Jos eivät vie, tiedostoa ei ole luettu
+   oikein, eikä sitä tuoda.
 
 3. **Agentti valmistelee ehdotuksen.** Ohjelma ei päätä tilejä eikä
    ALV-käsittelyä. Agentti etsii jokaiselle tapahtumalle kuitin tai laskun ja
@@ -33,8 +36,10 @@ koko tiliote sinetöidään kerralla tositteiksi.
    ja ostoissa ALV-käsittelyn. Sen, mitä se ei voi päätellä, se kysyy
    koottuna.
 
-4. **Tarkista ja hyväksy.** Pyydä lista nähtäväksi riveittäin, jos agentti ei
-   näytä sitä. Katso jokaiselta riviltä päivä, vastapuoli, summa, tili ja
+4. **Tarkista ja hyväksy.** Agentti esikatselee tuonnin: ohjelma tarkistaa
+   ehdotuksen kuten sinetöinnissä (tilit, summat, ALV-purku, kauden tila) ja
+   näyttää jokaisen tositteen, joka sinetöitäisiin, kirjaamatta mitään.
+   Pyydä lista nähtäväksi riveittäin, jos agentti ei näytä sitä. Katso jokaiselta riviltä päivä, vastapuoli, summa, tili ja
    ALV-käsittely. Tarkista erityisesti:
    - ALV-kanta on valittu **laskun päivästä**, ei maksupäivästä.
    - **Mikään osto ei tule kirjatuksi kahdesti.** Rivi, joka maksaa kuitin tai
@@ -42,8 +47,9 @@ koko tiliote sinetöidään kerralla tositteiksi.
      sinulle takaisin omalla rahallasi maksetun oston), ei kuluksi eikä
      ALV:lle. Kulu ja ALV ovat jo kuitin tositteella.
 
-   Tiliotteen tuonnissa ei ole erillistä esikatselun tunnistetta kuten kuittien
-   kirjauksessa. Hyväksyntäsi on se, että katsot listan ennen sinetöintiä.
+   Esikatselu antaa tunnisteen, kuten kuittien kirjauksessa. Hyväksyntäsi
+   sidotaan siihen: sinetöinti onnistuu vain, jos se tuottaa täsmälleen
+   esikatsellut tositteet.
 
    > Hyväksyn, kirjaa.
 
@@ -56,7 +62,9 @@ koko tiliote sinetöidään kerralla tositteiksi.
 ```sh
 aggountant import camt053 parse --file tiliote-2026-03.xml
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
-aggountant import camt053 seal --file tiliote-2026-03.xml < kohdistukset.json
+aggountant import camt053 seal --file tiliote-2026-03.xml --dry-run < kohdistukset.json
+aggountant import camt053 seal --file tiliote-2026-03.xml \
+  --approved-preparation-hash sha256:v1:… < kohdistukset.json
 ```
 
 Sama komento lukee myös camt.052-tiedostot (myös nimellä `import camt052`).
@@ -92,6 +100,9 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#pankin-tiliote
 - **Koko tiliote hylättiin.** Jokin tapahtuma jäi ilman kirjausta tai tili
   puuttuu tilikartasta. Mitään ei sinetöity, ja agentti korjaa ehdotuksen:
   [Virhekoodit](../reference/error-codes.md).
+- **Sinetöinti hylättiin koodilla `IMPORT_PREPARATION_CHANGED`.** Tiliote,
+  ehdotus tai tilikartta muuttui esikatselun jälkeen. Mitään ei sinetöity;
+  agentti esikatselee uudelleen ja pyytää hyväksyntäsi uudelle listalle.
 - **Pankkitilin saldo ei täsmää tiliotteeseen.** Jokin tapahtuma puuttuu tai on
   kirjattu kahdesti: [Kun jokin menee vikaan](../troubleshooting.md#pankkitilin-saldo-ei-täsmää-tiliotteeseen).
 

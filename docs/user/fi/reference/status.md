@@ -46,14 +46,17 @@ lähdekoodista Rust-työkaluilla. Tee näin:
   kirjatun kuitin maksurivi kirjataan: se kirjataan kuitin ostovelkaa
   vastaan ([Kun osto näkyy myös tiliotteella](../tasks/record-receipts.md#kun-osto-näkyy-myös-tiliotteella)).
 - **Vain Holvin tiliote on koeteltu.** Muiden pankkien camt-tiedostot voivat
-  toimia, mutta niitä ei ole koeteltu. Tarkista ensimmäisen tuonnin jälkeen,
-  että pankkitilin saldo vastaa tiliotetta.
+  toimia, mutta niitä ei ole koeteltu. Tiliotteen lukeminen näyttää, vievätkö
+  sen tapahtumat alkusaldon loppusaldoon; tarkista lisäksi ensimmäisen
+  tuonnin jälkeen, että pankkitilin saldo vastaa tiliotetta.
 - **Myynnin ALV:tä ei pureta tiliotteelta.** Myynti, johon sisältyy ALV,
   kirjataan erikoiskirjauksena ja asiakkaan maksu tiliotteelta
   myyntisaamisia vastaan (`vat-sales-expansion`).
-- **Tiliotteen tuonnissa ei ole esikatselun tunnistetta** kuten kuittien
-  kirjauksessa. Hyväksyntäsi on se, että katsot agentin kirjauslistan rivi
-  riviltä ennen sinetöintiä.
+- **Esikatselu sitoo hyväksynnän vain, kun agentti antaa sen tunnisteen
+  sinetöinnille.** Tunnisteen kanssa sinetöinti hylkää kaiken, mikä muuttui
+  esikatselun jälkeen (`IMPORT_PREPARATION_CHANGED`). Ilman tunnistetta
+  sinetöintiä ei verrata mihinkään esikatseluun, jotta aiemmat tavat ajaa
+  tuonti toimivat edelleen.
 - **Tyhjä tiliote tuodaan onnistuneena ilman tapahtumia** eikä ohjelma kerro
   siitä erikseen. Jos tuonti antaa nolla tapahtumaa, tarkista, että tiedosto
   on oikean kuukauden ja oikean tilin tiliote (`camt-empty-report-and-rename`).

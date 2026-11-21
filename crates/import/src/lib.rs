@@ -22,7 +22,10 @@
 pub mod camt053;
 mod error;
 
-pub use camt053::{parse_camt053, BankTransaction, Direction, ParsedStatement};
+pub use camt053::{
+    parse_camt053, BankTransaction, Direction, ParsedStatement, StatementBalance, StatementPeriod,
+    StatementSummary,
+};
 pub use error::ImportError;
 
 pub use aggountant_domain::{ReverseChargeScope, VatTreatment};
@@ -359,4 +362,47 @@ pub fn assignment_for<'a>(
                 txn.bank_ref, txn.natural_key
             ))
         })
+}
+
+/// One prepared voucher's contribution to an import's preparation hash.
+pub struct PreparedEntryBinding<'a> {
+    pub natural_key: &'a str,
+    pub source_fingerprint: &'a str,
+    /// The Ledger's canonical request hash of the exact draft that will seal.
+    pub draft_request_hash: &'a str,
+}
+
+/// The hash a bank-import preview returns for approval and the seal compares
+/// against. It binds the sealing actor, the active chart and policy set, the
+/// content address of the retained statement bytes, and every voucher in order
+/// (natural key, source fingerprint and draft request hash), so a seal can only
+/// produce the vouchers that were shown. Fields are name- and length-framed like
+/// [`BankTransaction::source_fingerprint`].
+pub fn import_preparation_hash(
+    actor: &str,
+    chart_version: &str,
+    policy_set: &str,
+    attachment_ref: &Hash,
+    entries: &[PreparedEntryBinding<'_>],
+) -> String {
+    use sha2::{Digest, Sha256};
+    fn field(hasher: &mut Sha256, name: &str, value: &str) {
+        hasher.update((name.len() as u64).to_be_bytes());
+        hasher.update(name.as_bytes());
+        hasher.update((value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(b"aggountant:bank-import-preparation:v1");
+    field(&mut hasher, "actor", actor);
+    field(&mut hasher, "chart_version", chart_version);
+    field(&mut hasher, "policy_set", policy_set);
+    field(&mut hasher, "attachment_ref", &attachment_ref.to_hex());
+    field(&mut hasher, "entry_count", &entries.len().to_string());
+    for entry in entries {
+        field(&mut hasher, "natural_key", entry.natural_key);
+        field(&mut hasher, "source_fingerprint", entry.source_fingerprint);
+        field(&mut hasher, "draft_request_hash", entry.draft_request_hash);
+    }
+    format!("sha256:v1:{}", hex::encode(hasher.finalize()))
 }

@@ -22,7 +22,10 @@ approval the whole statement is sealed into vouchers at once.
    lists the transactions the bank has confirmed and gives each a permanent
    identifier. Transactions the bank has not yet confirmed (reservations) are
    left out; they are recorded from the statement on which they have gone
-   through.
+   through. The program also shows the statement's period, its opening and
+   closing balance, and whether the transactions it read take the opening
+   balance to the closing balance. If they do not, the file was not read
+   correctly and is not imported.
 
 3. **The agent prepares a proposal.** The program does not decide accounts or
    VAT treatment. For every transaction the agent looks for a receipt or
@@ -35,8 +38,10 @@ approval the whole statement is sealed into vouchers at once.
    counter-account and, for purchases, the VAT treatment. What it cannot work
    out, it asks you all together.
 
-4. **Check and approve.** Ask to see the list row by row if the agent does not
-   show it. Look at each row's date, counterparty, amount, account and VAT
+4. **Check and approve.** The agent previews the import: the program checks
+   the proposal as sealing would (accounts, amounts, VAT split, period state)
+   and shows every voucher it would seal, without recording anything. Ask to
+   see the list row by row if the agent does not show it. Look at each row's date, counterparty, amount, account and VAT
    treatment. Check in particular:
    - The VAT rate was chosen from **the invoice date**, not the payment date.
    - **No purchase ends up recorded twice.** A row that pays a receipt or
@@ -45,9 +50,9 @@ approval the whole statement is sealed into vouchers at once.
      not to an expense account or VAT. The expense and VAT are already on the
      receipt's voucher.
 
-   The bank statement import has no separate preview hash as receipt
-   recording does. Your approval is that you look at the list before it is
-   sealed.
+   The preview returns an identifier, as receipt recording does. Your
+   approval is bound to it: sealing succeeds only if it produces exactly the
+   vouchers that were previewed.
 
    > I approve, record it.
 
@@ -61,7 +66,9 @@ approval the whole statement is sealed into vouchers at once.
 ```sh
 aggountant import camt053 parse --file tiliote-2026-03.xml
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
-aggountant import camt053 seal --file tiliote-2026-03.xml < assignments.json
+aggountant import camt053 seal --file tiliote-2026-03.xml --dry-run < assignments.json
+aggountant import camt053 seal --file tiliote-2026-03.xml \
+  --approved-preparation-hash sha256:v1:… < assignments.json
 ```
 
 The same command also reads camt.052 files (also under the name
@@ -102,6 +109,9 @@ More detail: [What is ready and what is not](../reference/status.md#bank-stateme
   entry, or an account is missing from the chart of accounts. Nothing was
   sealed, and the agent fixes the proposal:
   [Error codes](../reference/error-codes.md).
+- **Sealing was refused with `IMPORT_PREPARATION_CHANGED`.** The statement,
+  the proposal or the chart of accounts changed after the preview. Nothing
+  was sealed; the agent previews again and asks you to approve the new list.
 - **The bank account balance does not match the statement.** A transaction is
   missing or recorded twice:
   [When something goes wrong](../troubleshooting.md#the-bank-balance-does-not-match-the-statement).

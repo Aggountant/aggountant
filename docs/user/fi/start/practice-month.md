@@ -106,6 +106,9 @@ parsed "FI2112345600000785" — 2 transactions
 Tiliotteella on kolme riviä, mutta ohjelma ottaa niistä vain kaksi: 31.3.
 oleva 50 euron varaus on pankissa vielä vahvistamatta, eikä sitä kirjata ennen
 kuin se on toteutunut.
+Ohjelma näyttää agentille myös tiliotteen jakson (1.–31.3.), alkusaldon
+0,00 € ja loppusaldon 2 376,00 €, ja sen, että kaksi luettua tapahtumaa vievät
+alkusaldon loppusaldoon.
 
 Agentti tunnistaa 14.3. rivin juuri kirjaamasi laskun maksuksi. Toisesta
 rivistä se ei voi tietää kaikkea, joten se kysyy, esimerkiksi:
@@ -133,7 +136,10 @@ sano:
 
 > Hyväksyn, kirjaa.
 
-Agentti sinetöi koko tiliotteen kerralla, ja ohjelma vastaa:
+Lista, jonka hyväksyit, on ohjelman esikatselu: agentti ajoi tuonnin ensin
+kirjaamatta mitään, ja ohjelma tarkisti tilit ja summat ja antoi
+esikatselulle tunnisteen. Agentti sinetöi koko tiliotteen kerralla sillä
+tunnisteella, ja ohjelma vastaa:
 
 ```
 sealed 2 vouchers from "FI2112345600000785" (attachment "…")

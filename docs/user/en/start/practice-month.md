@@ -114,6 +114,9 @@ parsed "FI2112345600000785" — 2 transactions
 The statement has three rows, but the program takes only two of them: the
 €50.00 card reservation on 31 March has not yet been confirmed by the bank,
 and it is not recorded until it has gone through.
+The program also shows the agent the statement's period (1–31 March), the
+opening balance €0.00 and the closing balance €2,376.00, and that the two
+transactions it read take the opening balance to the closing balance.
 
 The agent recognises the row on 14 March as the payment of the invoice you
 just recorded. It cannot know everything about the second row, so it asks,
@@ -142,7 +145,10 @@ books twice. When everything is in order, say:
 
 > I approve, record it.
 
-The agent seals the whole statement at once, and the program replies:
+The list you approved is the program's preview: the agent first ran the
+import without recording anything, and the program checked the accounts and
+amounts and gave the preview an identifier. The agent seals the whole
+statement at once with that identifier, and the program replies:
 
 ```
 sealed 2 vouchers from "FI2112345600000785" (attachment "…")

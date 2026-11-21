@@ -102,23 +102,32 @@ puuttuva hylkää koko tiliotteen. Maksu, jonka kuitti puuttuu, kirjataan siksi
 suoritus tilille), kysytään käyttäjältä ennen tuontia, ja tuonti odottaa
 vastausta: arvattu tili olisi sinetöity arvaus.
 
-Katso `parse`n tuloksesta ennen sinetöintiä, että tili ja päivät ovat sen
-tiliotteen, jota olit tuomassa. Ohjelma tuo väärän kuukauden tiliotteen ja
-tyhjän tiedoston yhtä lailla onnistuneesti, joten nolla riviä kelpaa vain, kun
-tiliote itse näyttää, ettei tapahtumia ollut.
+Katso `parse`n tuloksesta ennen sinetöintiä, että tili ja jakso
+(`statements[].period`) ovat sen tiliotteen, jota olit tuomassa. Ohjelma tuo
+väärän kuukauden tiliotteen ja tyhjän tiedoston yhtä lailla onnistuneesti, joten
+nolla riviä kelpaa vain, kun tiliote itse näyttää, ettei tapahtumia ollut.
+`balances_reconcile: true` kertoo, että luetut rivit vievät pankin alkusaldon
+sen loppusaldoon. `false` tarkoittaa, että ohjelma ei lukenut tiedostoa niin
+kuin pankki sen tarkoitti: älä tuo sitä, vaan kerro käyttäjälle. `null` on
+tiliote, jossa ei ole alku- tai loppusaldoa.
 
-Tuonnissa ei ole esikatselua eikä hyväksynnän tiivistettä: komento sinetöi
-heti. Käyttäjän hyväksyntä on siis kohdistuslista, jonka näytät hänelle rivi
-riviltä ennen ajoa.
+Aja `seal` ensin `--dry-run`-valitsimella. Se tarkistaa kohdistukset samoin kuin
+sinetöinti (tilit, summat, ALV-purku, kauden tila) kirjoittamatta mitään ja
+palauttaa sinetöitävät tositteet ja `preparation_hash`-tiivisteen. Näytä
+tositteet käyttäjälle rivi riviltä. Hyväksynnän jälkeen sinetöi samalla
+tiedostolla ja syötteellä sekä `--approved-preparation-hash`-valitsimella. Jos
+jokin muuttui esikatselun jälkeen, sinetöinti hylätään
+(`IMPORT_PREPARATION_CHANGED`) ennen kuin mitään kirjoitetaan; tee silloin uusi
+esikatselu ja kysy hyväksyntä uudelleen.
 
 - Myynnin ALV:tä tuonti ei pura. Myyntilasku kirjataan erikoiskirjauksena ja
   asiakkaan maksu tiliotteelta myyntisaamisia vastaan.
 - ALV:n maksu tai palautus kirjataan ALV-tilille niin, että vastatilinä on vain
   pankkitili. Muu tase-erä samalla tositteella estää ALV-täsmäytystä
   tunnistamasta sitä maksuksi.
-- Vain Holvin tiliote on koeteltu (11/2026). Muun pankin ensimmäisen tuonnin
-  jälkeen saldon täsmäytys on ainoa näyttö siitä, että tuonti luki tiedoston
-  oikein.
+- Vain Holvin tiliote on koeteltu (11/2026). Muun pankin ensimmäisessä
+  tuonnissa `balances_reconcile` ja saldon täsmäytys ovat ainoa näyttö siitä,
+  että tuonti luki tiedoston oikein.
 
 ## Erikoiskirjaukset ja niiden ALV-merkintä
 
@@ -143,8 +152,8 @@ ALV-tarkistus (alla) ennen sulkua.
 `aggountant report statements` näyttää kuukauden tuloksen ja kuun lopun taseen.
 Kaksi lukua paljastaa tavallisimmat virheet:
 
-- Pankkitilin saldo on tiliotteen loppusaldo. Loppusaldo luetaan tiliotteesta
-  itsestään, sillä `parse` ei näytä sitä.
+- Pankkitilin saldo on tiliotteen loppusaldo, jonka `parse` ja esikatselu
+  näyttävät kohdassa `statements[].closing_balance`.
 - `2700`:n saldo on vielä maksamattomien laskujen summa. Ylimääräinen saldo,
   kun pankki täsmää, on merkki ostosta, joka on kirjattu kuitista ja lisäksi
   tiliotteen riviltä kuluksi. Debet-saldo on maksu, jonka kuittia ei ole vielä

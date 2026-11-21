@@ -587,9 +587,26 @@ impl Ledger {
         self.artifact.put(plaintext)
     }
 
+    /// The content address [`Self::attach_artifact`] would return for these bytes,
+    /// computed without storing them, so a preview can show and bind the exact
+    /// draft a later seal attaches.
+    pub fn artifact_address(&self, plaintext: &[u8]) -> Hash {
+        store::fs_artifact::content_address(plaintext)
+    }
+
     /// Dry-run validation (Ledger, no write): every posting account exists in the
     /// resolved chart version, and any referenced attachment is present.
     pub fn validate(&self, draft: &VoucherDraft) -> Result<ValidationReport, LedgerError> {
+        self.validate_inner(draft, None)
+    }
+
+    /// `validate`, where an attachment equal to `pending_artifact` counts as
+    /// present: the caller attaches exactly those bytes before it seals.
+    fn validate_inner(
+        &self,
+        draft: &VoucherDraft,
+        pending_artifact: Option<Hash>,
+    ) -> Result<ValidationReport, LedgerError> {
         let chart_version = self.masterdata.chart_version()?;
         for p in draft.postings() {
             if !self.masterdata.account_exists(&p.account)? {
@@ -608,7 +625,7 @@ impl Ledger {
             draft.postings(),
         )?;
         if let Some(attachment) = draft.attachment_ref() {
-            if !self.artifact.exists(&attachment)? {
+            if Some(attachment) != pending_artifact && !self.artifact.exists(&attachment)? {
                 return Err(LedgerError::ArtifactNotFound(attachment.to_hex()));
             }
         }
@@ -636,7 +653,28 @@ impl Ledger {
         draft: &VoucherDraft,
         natural_key: &str,
     ) -> Result<ValidationReport, LedgerError> {
-        let mut report = self.validate(draft)?;
+        self.validate_seal_inner(draft, natural_key, None)
+    }
+
+    /// [`Self::validate_seal`] for a draft whose attachment is not stored yet:
+    /// `pending_artifact` is the [`Self::artifact_address`] of the bytes the
+    /// caller will attach before sealing. Nothing is written.
+    pub fn validate_seal_with_pending_artifact(
+        &self,
+        draft: &VoucherDraft,
+        natural_key: &str,
+        pending_artifact: Hash,
+    ) -> Result<ValidationReport, LedgerError> {
+        self.validate_seal_inner(draft, natural_key, Some(pending_artifact))
+    }
+
+    fn validate_seal_inner(
+        &self,
+        draft: &VoucherDraft,
+        natural_key: &str,
+        pending_artifact: Option<Hash>,
+    ) -> Result<ValidationReport, LedgerError> {
+        let mut report = self.validate_inner(draft, pending_artifact)?;
         let Some(existing) = self.fiscal.read_voucher_by_natural_key(natural_key)? else {
             let gate = PeriodGate {
                 posting_date: draft.posting_date(),

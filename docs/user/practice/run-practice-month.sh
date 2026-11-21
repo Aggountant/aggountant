@@ -48,8 +48,10 @@ record_receipt "$invoice_json"
 
 # 3. Bank statement: two booked rows, the pending row is skipped. The invoice
 #    payment clears 2700 without VAT; the expense is already on voucher 1.
-rows="$(agj import camt053 parse --file "$statement" | jq '.transactions | length')"
-expect "parsed rows" "$rows" 2
+parsed="$(agj import camt053 parse --file "$statement")"
+expect "parsed rows" "$(jq '.transactions | length' <<<"$parsed")" 2
+expect "statement reconciles" "$(jq '.statements[0].balances_reconcile' <<<"$parsed")" true
+expect "closing balance" "$(jq -r '.statements[0].closing_balance.amount.amount' <<<"$parsed")" 2376.00
 assignments='{
   "actor": "agent",
   "assignments": [
@@ -59,8 +61,9 @@ assignments='{
      "contra_postings": [{"account": "2000", "amount": {"amount": "2500.00", "currency": "EUR"}}]}
   ]
 }'
-ag import camt053 seal --file "$statement" <<<"$assignments"
-ag import camt053 seal --file "$statement" <<<"$assignments" >/dev/null
+hash="$(agj import camt053 seal --file "$statement" --dry-run <<<"$assignments" | jq -er '.preparation_hash')"
+ag import camt053 seal --file "$statement" --approved-preparation-hash "$hash" <<<"$assignments"
+ag import camt053 seal --file "$statement" --approved-preparation-hash "$hash" <<<"$assignments" >/dev/null
 count="$(agj voucher verify | jq '.voucher_count')"
 expect "vouchers after re-import" "$count" 3
 

@@ -307,6 +307,157 @@ fn entry_with_multiple_ntrydtls_blocks_is_refused() {
 }
 
 #[test]
+fn statement_period_and_balances_are_reported_and_reconciled() {
+    let stmt = parse_camt053(SAMPLE).unwrap();
+    assert_eq!(stmt.statements.len(), 1);
+    let summary = &stmt.statements[0];
+    assert_eq!(summary.id.as_deref(), Some("2026-03"));
+    let period = summary.period.as_ref().unwrap();
+    assert_eq!(period.from.to_string(), "2026-03-01");
+    assert_eq!(period.to.to_string(), "2026-03-31");
+    let opening = summary.opening_balance.as_ref().unwrap();
+    assert_eq!(opening.balance_type, "OPBD");
+    assert_eq!(opening.amount.amount_str(), "1000.00");
+    let closing = summary.closing_balance.as_ref().unwrap();
+    assert_eq!(closing.balance_type, "CLBD");
+    assert_eq!(closing.amount.amount_str(), "3356.00");
+    assert_eq!(closing.date.to_string(), "2026-03-31");
+    assert_eq!(summary.balances.len(), 2);
+    // Two booked entries (-124.00 + 2480.00); the pending one is not counted.
+    assert_eq!(summary.entry_count, 2);
+    assert_eq!(
+        summary.entries_net.as_ref().unwrap().amount_str(),
+        "2356.00"
+    );
+    assert_eq!(summary.balances_reconcile, Some(true));
+
+    let json = serde_json::to_value(&stmt).unwrap();
+    assert_eq!(json["statements"][0]["closing_balance"]["type"], "CLBD");
+    assert_eq!(
+        json["statements"][0]["closing_balance"]["amount"]["amount"],
+        "3356.00"
+    );
+    assert_eq!(json["statements"][0]["period"]["from"], "2026-03-01");
+}
+
+fn bal(code: &str, amount: &str, indicator: &str) -> String {
+    format!(
+        r#"<Bal><Tp><CdOrPrtry><Cd>{code}</Cd></CdOrPrtry></Tp>
+      <Amt Ccy="EUR">{amount}</Amt><CdtDbtInd>{indicator}</CdtDbtInd>
+      <Dt><Dt>2026-03-31</Dt></Dt></Bal>"#
+    )
+}
+
+#[test]
+fn balances_that_the_entries_do_not_explain_do_not_reconcile() {
+    // Opening 10.00, one 1.00 debit, closing 8.00: one cent of the file is unread.
+    let body = format!(
+        "{}{}{}",
+        bal("OPBD", "10.00", "CRDT"),
+        bal("CLBD", "8.00", "CRDT"),
+        book_entry("EUR", "1.00", "REF-1")
+    );
+    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let summary = &stmt.statements[0];
+    assert!(summary.period.is_none());
+    assert_eq!(summary.entries_net.as_ref().unwrap().amount_str(), "-1.00");
+    assert_eq!(summary.balances_reconcile, Some(false));
+}
+
+#[test]
+fn a_debit_balance_is_negative_and_prcd_opens_when_opbd_is_absent() {
+    let body = format!(
+        "{}{}{}",
+        bal("PRCD", "5.00", "DBIT"),
+        bal("CLBD", "6.00", "DBIT"),
+        book_entry("EUR", "1.00", "REF-1")
+    );
+    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let summary = &stmt.statements[0];
+    let opening = summary.opening_balance.as_ref().unwrap();
+    assert_eq!(opening.balance_type, "PRCD");
+    assert_eq!(opening.amount.amount_str(), "-5.00");
+    assert_eq!(
+        summary
+            .closing_balance
+            .as_ref()
+            .unwrap()
+            .amount
+            .amount_str(),
+        "-6.00"
+    );
+    assert_eq!(summary.balances_reconcile, Some(true));
+}
+
+#[test]
+fn a_zero_debit_balance_is_not_negative_zero() {
+    let stmt = parse_camt053(&stmt_xml(
+        "FI2112345600000785",
+        &bal("OPBD", "0.00", "DBIT"),
+    ))
+    .unwrap();
+    let opening = stmt.statements[0].opening_balance.as_ref().unwrap();
+    assert_eq!(opening.amount.amount_str(), "0.00");
+}
+
+#[test]
+fn an_interim_report_without_a_closing_balance_has_no_reconciliation() {
+    let body = format!(
+        "{}{}",
+        bal("OPBD", "10.00", "CRDT"),
+        bal("ITBD", "9.00", "CRDT")
+    );
+    let stmt = parse_camt053(&rpt_xml(&body)).unwrap();
+    let summary = &stmt.statements[0];
+    assert!(summary.closing_balance.is_none());
+    assert_eq!(summary.balances.len(), 2);
+    assert_eq!(summary.balances_reconcile, None);
+}
+
+#[test]
+fn each_report_block_is_summarised_with_its_own_entries() {
+    let xml = format!(
+        r#"<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02">
+  <BkToCstmrAcctRpt>
+    <Rpt><Acct><Id><IBAN>FI2112345600000785</IBAN></Id><Ccy>EUR</Ccy></Acct>
+      {}
+    </Rpt>
+    <Rpt><Acct><Id><IBAN>FI2112345600000785</IBAN></Id><Ccy>EUR</Ccy></Acct>
+      {}{}
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>"#,
+        book_entry("EUR", "1.00", "REF-A"),
+        book_entry("EUR", "2.00", "REF-B"),
+        book_entry("EUR", "3.00", "REF-C"),
+    );
+    let stmt = parse_camt053(&xml).unwrap();
+    assert_eq!(stmt.statements.len(), 2);
+    assert_eq!(stmt.statements[0].entry_count, 1);
+    assert_eq!(stmt.statements[1].entry_count, 2);
+    assert_eq!(
+        stmt.statements[1]
+            .entries_net
+            .as_ref()
+            .unwrap()
+            .amount_str(),
+        "-5.00"
+    );
+}
+
+#[test]
+fn a_balance_without_a_type_or_indicator_is_refused() {
+    let no_type = r#"<Bal><Amt Ccy="EUR">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>
+      <Dt><Dt>2026-03-31</Dt></Dt></Bal>"#;
+    let err = parse_camt053(&stmt_xml("FI2112345600000785", no_type)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let bad_indicator = bal("CLBD", "1.00", "XXXX");
+    let err = parse_camt053(&stmt_xml("FI2112345600000785", &bad_indicator)).unwrap_err();
+    assert!(err.to_string().contains("CdtDbtInd"), "{err}");
+}
+
+#[test]
 fn parse_is_deterministic() {
     let a = parse_camt053(SAMPLE).unwrap();
     let b = parse_camt053(SAMPLE).unwrap();

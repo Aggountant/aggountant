@@ -44,14 +44,17 @@ from source with the Rust toolchain. Do this:
   is sealed. The payment row of a receipt already recorded is recorded too,
   against the receipt's payable ([When the purchase is also on the bank statement](../tasks/record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
 - **Only Holvi's statement has been tried.** Other banks' camt files may
-  work, but they have not been tried. After the first import, check that the
-  bank account balance matches the statement.
+  work, but they have not been tried. Reading a statement shows whether its
+  transactions take the opening balance to the closing balance; after the
+  first import, also check that the bank account balance matches the
+  statement.
 - **Sales VAT is not split out from the statement.** A sale that includes
   VAT is recorded as a manual entry, and the customer's payment from the
   statement against trade receivables (`vat-sales-expansion`).
-- **The bank statement import has no preview hash** as receipt recording
-  does. Your approval is that you look at the agent's list of entries row by
-  row before sealing.
+- **The preview binds the approval only when the agent passes it on.**
+  Sealing with the preview's identifier refuses anything that changed since
+  (`IMPORT_PREPARATION_CHANGED`); a seal run without it is not checked
+  against any preview, so earlier ways of running the import keep working.
 - **An empty statement imports successfully with no transactions**, and the
   program does not mention it separately. If an import gives zero
   transactions, check that the file is the statement for the right month and

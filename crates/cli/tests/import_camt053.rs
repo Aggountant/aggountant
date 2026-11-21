@@ -303,3 +303,209 @@ fn zero_rate_legacy_tag_remains_a_supported_transport_path() {
     let output: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(output["created_count"], 2);
 }
+
+/// Every `*.blob` under the home's artifact store.
+fn artifact_blobs(home: &std::path::Path) -> Vec<std::path::PathBuf> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|ext| ext == "blob") {
+                out.push(path);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&home.join("artifacts"), &mut out);
+    out
+}
+
+#[test]
+fn parse_reports_the_statement_period_and_balances() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    let file = write_sample(home);
+    let (code, stdout, stderr) = run(home, &["import", "camt053", "parse", "--file", &file], "");
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    let statement = &parsed["statements"][0];
+    assert_eq!(statement["period"]["from"], "2026-03-01");
+    assert_eq!(statement["period"]["to"], "2026-03-31");
+    assert_eq!(statement["opening_balance"]["amount"]["amount"], "1000.00");
+    assert_eq!(statement["closing_balance"]["type"], "CLBD");
+    assert_eq!(statement["closing_balance"]["amount"]["amount"], "3356.00");
+    assert_eq!(statement["entries_net"]["amount"], "2356.00");
+    assert_eq!(statement["balances_reconcile"], true);
+}
+
+#[test]
+fn dry_run_previews_every_voucher_and_writes_nothing() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 0, "dry-run failed: {stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["dry_run"], true);
+    assert_eq!(preview["voucher_count"], 2);
+    assert_eq!(preview["actor"], "importer");
+    assert_eq!(
+        preview["statements"][0]["closing_balance"]["amount"]["amount"],
+        "3356.00"
+    );
+    let hash = preview["preparation_hash"].as_str().unwrap().to_string();
+    assert!(hash.starts_with("sha256:v1:"), "{hash}");
+    let vouchers = preview["vouchers"].as_array().unwrap();
+    assert_eq!(vouchers[0]["bank_ref"], "HLV-2026-0314-001");
+    assert_eq!(vouchers[0]["would_replay"], false);
+    // The domestic-input treatment is expanded in the preview: bank, net and VAT legs.
+    assert_eq!(
+        vouchers[0]["draft"]["postings"].as_array().unwrap().len(),
+        3
+    );
+    assert_eq!(
+        vouchers[0]["draft"]["attachment_ref"].as_str().unwrap(),
+        preview["attachment_ref"].as_str().unwrap()
+    );
+    assert_no_fiscal_vouchers(home);
+    assert!(
+        artifact_blobs(home).is_empty(),
+        "dry-run attached the statement"
+    );
+
+    // The same input previews to the same hash, and seals with it.
+    let (_, stdout, _) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        ASSIGNMENTS,
+    );
+    let again: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(again["preparation_hash"], hash.as_str());
+
+    let (code, stdout, stderr) = run(
+        home,
+        &[
+            "import",
+            "camt053",
+            "seal",
+            "--file",
+            &file,
+            "--approved-preparation-hash",
+            &hash,
+        ],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 0, "approved seal failed: {stderr}");
+    let sealed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(sealed["dry_run"], false);
+    assert_eq!(sealed["created_count"], 2);
+    assert_eq!(sealed["preparation_hash"], hash.as_str());
+    assert_eq!(sealed["attachment_ref"], preview["attachment_ref"]);
+
+    // After the seal, a preview of the same statement shows the replay.
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let replay: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(replay["vouchers"][0]["would_replay"], true);
+    assert_eq!(
+        replay["vouchers"][0]["warnings"][0]["code"],
+        "NATURAL_KEY_ALREADY_SEALED"
+    );
+    assert_eq!(replay["preparation_hash"], hash.as_str());
+}
+
+#[test]
+fn a_changed_assignment_refuses_the_approved_seal_before_any_write() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let (_, stdout, _) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        ASSIGNMENTS,
+    );
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    let hash = preview["preparation_hash"].as_str().unwrap();
+
+    let changed = ASSIGNMENTS.replace("\"3000\"", "\"3010\"");
+    for input in [
+        changed.as_str(),
+        &ASSIGNMENTS.replace("importer", "someone-else"),
+    ] {
+        let (code, stdout, stderr) = run(
+            home,
+            &[
+                "import",
+                "camt053",
+                "seal",
+                "--file",
+                &file,
+                "--approved-preparation-hash",
+                hash,
+            ],
+            input,
+        );
+        assert_eq!(code, 1, "{stdout}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(error["error_code"], "IMPORT_PREPARATION_CHANGED");
+        assert_eq!(error["error_kind"], "user");
+    }
+    assert_no_fiscal_vouchers(home);
+    assert!(artifact_blobs(home).is_empty());
+}
+
+#[test]
+fn dry_run_refuses_an_unknown_account_as_the_seal_would() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let input = ASSIGNMENTS.replace("\"3000\"", "\"9999\"");
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &input,
+    );
+    assert_eq!(code, 1, "{stdout}");
+    let error: Value = serde_json::from_str(&stderr).unwrap();
+    assert_eq!(error["error_code"], "ACCOUNT_NOT_FOUND");
+    assert!(artifact_blobs(home).is_empty());
+}
+
+#[test]
+fn dry_run_and_an_approval_hash_together_are_a_usage_error() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    let file = write_sample(home);
+    let (code, _, stderr) = run(
+        home,
+        &[
+            "import",
+            "camt053",
+            "seal",
+            "--file",
+            &file,
+            "--dry-run",
+            "--approved-preparation-hash",
+            "sha256:v1:00",
+        ],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 1, "a usage error is caller-actionable");
+    assert!(stderr.contains("approved-preparation-hash"), "{stderr}");
+}

@@ -351,8 +351,20 @@ Example JSON (input-shape demonstration only, not VAT or classification advice):
   ]
 }
 ```
+PREVIEW AND APPROVAL
+  --dry-run prepares and validates every voucher exactly as the seal would
+  (accounts, split totals, VAT expansion, period state, natural keys) and writes
+  nothing. It returns the vouchers, the statement's period and balances, and a
+  preparation_hash that binds the actor, the chart, the statement bytes and every
+  voucher. Show the vouchers to the user; after approval, seal with
+  --approved-preparation-hash. Any change since the preview (statement file,
+  assignments, actor, chart) refuses the seal with IMPORT_PREPARATION_CHANGED
+  before anything is written. A seal without the flag is not bound to a preview.
+
 Run it:
-  aggountant --home ./accounting --json import camt053 seal --file statement.xml < assignments.json"#;
+  aggountant --home ./accounting --json import camt053 seal --file statement.xml --dry-run < assignments.json
+  aggountant --home ./accounting --json import camt053 seal --file statement.xml \
+    --approved-preparation-hash sha256:v1:... < assignments.json"#;
 
 pub(crate) const VERO_FI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
   The fields to change in vero-filing.json. They are merged into the stored

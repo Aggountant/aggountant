@@ -76,9 +76,9 @@ For filings the binding is the same: the approval of the VAT return covers
 exactly the content that is sent, and the program calculates the figures from
 the books once more before sending.
 
-The bank statement import has no separate preview hash in this version. Your
-approval is that you look at the agent's list of entries row by row before it
-seals the statement.
+The bank statement import works the same way: its preview shows every voucher
+the statement would produce, and sealing with the preview's hash refuses
+anything that changed in between (`IMPORT_PREPARATION_CHANGED`).
 
 ## What this means for you
 
