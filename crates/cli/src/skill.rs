@@ -344,6 +344,129 @@ mod tests {
         }
     }
 
+    fn is_command_word(token: &str) -> bool {
+        token.starts_with(|c: char| c.is_ascii_lowercase())
+            && token
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    }
+
+    /// The first word of `tokens` that names no command, walking down from
+    /// `command`. The walk ends at a leaf command, and at anything that is not
+    /// a bare word (an option, a placeholder, punctuation): what follows a
+    /// command path is arguments, which `--help` owns.
+    fn first_unknown_command(mut command: &clap::Command, tokens: &[&str]) -> Option<String> {
+        let mut path = command.get_name().to_string();
+        for token in tokens {
+            if !command.has_subcommands() || !is_command_word(token) {
+                break;
+            }
+            path = format!("{path} {token}");
+            command = match command.find_subcommand(token) {
+                Some(subcommand) => subcommand,
+                None => return Some(path),
+            };
+        }
+        None
+    }
+
+    /// Command paths in `text` that the binary does not have. A path is what
+    /// follows the word `aggountant` in a code span or a fenced block, and
+    /// also an inline code span that starts with two bare words, which is how
+    /// the skills name a command in running text (`voucher seal`).
+    fn unknown_command_paths(root: &clap::Command, text: &str) -> Vec<String> {
+        let mut unknown = Vec::new();
+        let mut check = |code: &str, inline: bool| {
+            let tokens: Vec<&str> = code.split_whitespace().collect();
+            if let Some(at) = tokens.iter().position(|token| *token == root.get_name()) {
+                let mut rest = &tokens[at + 1..];
+                // Global options may precede the command; skip them and the
+                // value of one that takes a value.
+                while let Some(option) = rest.first().and_then(|token| token.strip_prefix("--")) {
+                    let takes_value = root
+                        .get_arguments()
+                        .find(|arg| arg.get_long() == Some(option))
+                        .is_some_and(|arg| arg.get_action().takes_values());
+                    rest = &rest[(1 + usize::from(takes_value)).min(rest.len())..];
+                }
+                unknown.extend(first_unknown_command(root, rest));
+            } else if inline && tokens.len() >= 2 && tokens[..2].iter().all(|t| is_command_word(t))
+            {
+                unknown.extend(first_unknown_command(root, &tokens));
+            }
+        };
+        // Fenced blocks alternate with prose; an inline span may wrap a line.
+        for (index, block) in text.split("```").enumerate() {
+            if index % 2 == 1 {
+                block.lines().for_each(|line| check(line, false));
+            } else {
+                block
+                    .split('`')
+                    .skip(1)
+                    .step_by(2)
+                    .for_each(|span| check(span, true));
+            }
+        }
+        unknown
+    }
+
+    /// A command a skill names must exist: an agent that is told to run a
+    /// command the binary does not have is sent to a dead end.
+    #[test]
+    fn named_commands_exist_in_the_command_tree() {
+        let root = <crate::Cli as clap::CommandFactory>::command();
+        for skill in SKILLS {
+            for (file, content) in skill.files {
+                let unknown = unknown_command_paths(&root, content);
+                assert!(
+                    unknown.is_empty(),
+                    "{}/{file} names commands the binary does not have: {unknown:?}. \
+                     Write a command path from the top-level command down.",
+                    skill.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn made_up_and_partial_command_paths_are_reported() {
+        let root = <crate::Cli as clap::CommandFactory>::command();
+        let text = "\
+Hylkäys näkyy komennolla `journal show`, ei komennolla `aggountant journal`.
+Tila kysytään komennolla `aggountant --json --home /tmp/esimerkki file-vat tila --period 2026-08`.
+Polku kirjoitetaan juuresta: `employer-report missing` ei riitä, eikä rivin yli `run
+nayta` auta.
+
+```sh
+jq . receipt.json | aggountant --json capture-receipt tallenna \\
+  --dry-run
+```
+";
+        assert_eq!(
+            unknown_command_paths(&root, text),
+            [
+                "aggountant journal",
+                "aggountant journal",
+                "aggountant file-vat tila",
+                "aggountant employer-report",
+                "aggountant run nayta",
+                "aggountant capture-receipt tallenna",
+            ]
+        );
+
+        let fine = "\
+`aggountant`, `aggountant --help`, `aggountant file-vat --help`, `aggountant <komento>`,
+`aggountant --json run show --run-id fv-…`, `file-wage employer-report missing`,
+`voucher show <numero>`, `skill print aggountant-init --file SOUL.md`,
+`status --month`, `user statement: conversation 2026-09-12`, `aggountant-init`.
+
+```json
+{\"type\": \"unsupported\", \"reason\": \"journal show\"}
+```
+";
+        assert_eq!(unknown_command_paths(&root, fine), [] as [&str; 0]);
+    }
+
     #[test]
     fn requirements_are_transitive_and_listed_once() {
         let names = |name| {

@@ -4,6 +4,64 @@ Each directory is one skill that `aggountant skill install` writes into the
 user's agent. The skills are written in Finnish, for the user's agent, and are
 its manual; the user guide in `docs/user/` is for people.
 
+## What goes into a skill
+
+The reader is a capable agent with the binary at hand. It reads `--help`
+before it runs a command and reads the output afterwards, so a skill earns its
+words only with what the program cannot tell it: why a step exists, what a
+mistake costs and when it shows, the traps, and how the authorities behave in
+practice. A skill that also restates the program buries those sentences, and
+the restatement goes stale the first time the command changes. In November
+2026 one skill had grown to more than half of all skill text this way, slice by
+slice, while the month close, the work an agent does every month, was in no
+skill at all.
+
+**The program describes itself.** Commands' flags, input formats, field names,
+states and error codes belong to `--help` and the output. A skill names a
+command to say when and why to reach for it. Wanting to write an input format,
+a list of states or "the help does not show this" into a skill means the
+program is missing something: give the command an INPUT section in its help
+(`voucher seal --help` has one), or a `message` and `next_command` that say
+where the user stands and what settles it, or an error message that says what
+to do. Fix that in the slice, or file it as an issue; the copy in the skill is
+not the fix. The same goes for the program's state machine, which
+`crates/AGENTS.md` already keeps out of skills: the agent needs the principle
+behind the states (a filing is never resent on a guess), not their names.
+
+**One fact, one home.** `aggountant-init/SOUL.md` is read with every skill, so
+it holds what applies to every task and nothing else: the role; the house rules
+of the company home (what goes into its `AGENTS.md` and `TODO.md`, into
+`knowledge company` and `obligation`, and that secrets go into none of them);
+what in this work is permanent and why the user approves it first; and how to
+read the tool. Task skills rely on it and do not repeat it. A new feature's
+reminder goes into the task skill where the agent meets the feature, not into
+SOUL because everyone reads SOUL.
+
+**What is read every month is what is needed every month.** Setup, incidents
+and catching up history go into a reference file next to the skill, linked from
+the place where the need arises. A task skill whose body passes about a
+thousand words is carrying something that belongs elsewhere: split it or move
+material out before adding to it.
+
+**A boundary is stated once, with its reason.** The real limits here are few:
+what cannot be undone, and what the user approves. Bold type and a prohibition
+in every paragraph make them impossible to tell from the rest.
+
+**Only what works, and only how it is now.** A path that is built but not
+connected reads as usable to an agent; it belongs in the guide's
+`reference/status.md`. How the code used to behave and how it is implemented
+give the agent nothing to act on. A dated observation of how an authority
+behaves is knowledge and stays, with its date.
+
+**A changed command takes its skills along.** The slice that renames or
+changes a command updates the skills naming it in the same change, as it does
+the user guide. A test in `skill.rs` catches the crudest case, a command that
+does not exist. It reads a command path after the word `aggountant` in any
+code, and in an inline code span that starts with two bare words, so write a
+path from the top-level command down (`file-vat status`, not a bare
+subcommand pair). It does not check flags, fields or codes; those are the
+writer's to verify against the built binary.
+
 ## Bundling
 
 A skill ships only the files listed for it in `crates/cli/src/skill.rs`, with
