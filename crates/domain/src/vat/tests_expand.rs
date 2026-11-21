@@ -906,7 +906,7 @@ fn treatment_class_refusal_names_the_treatment_that_fits() {
     });
     assert!(
         eu_services.contains(
-            r#"{"type":"reverse-charge-partial","rate_class":"domestic-standard","scope":"eu-services"}"#
+            r#"{"type":"reverse-charge-partial","rate_class":"domestic-standard","scope":"eu-services"} plus the same deductibility member"#
         ),
         "{eu_services}"
     );
@@ -914,6 +914,7 @@ fn treatment_class_refusal_names_the_treatment_that_fits() {
         rate_class: "zero-rated".into(),
     });
     assert!(zero.contains(r#"{"type":"no-vat"}"#), "{zero}");
+    assert!(!eu_goods.contains("deductibility"), "{eu_goods}");
     let class_as_scope = message(VatTreatment::ReverseCharge {
         rate_class: "eu-services".into(),
         scope: ReverseChargeScope::EuServices,

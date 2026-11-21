@@ -396,17 +396,20 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
         treatment,
         VatTreatment::DomesticInputPartial { .. } | VatTreatment::ReverseChargePartial { .. }
     );
-    let reverse_type = if partial {
-        "reverse-charge-partial"
+    let (reverse_type, keep_deductibility) = if partial {
+        (
+            "reverse-charge-partial",
+            " plus the same deductibility member",
+        )
     } else {
-        "reverse-charge"
+        ("reverse-charge", "")
     };
     let domestic_classes = PURCHASE_RATE_CLASSES.join(", ");
     let fits = match (scope, rate_class.as_str()) {
         (None, eu @ ("eu-goods" | "eu-services")) => format!(
             "an EU {} purchase is a reverse charge, not a domestic purchase: use \
-             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{eu}\"}} \
-             with the domestic class whose Finnish rate applies ({domestic_classes}); \
+             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{eu}\"}}\
+             {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes}); \
              source.amount is then the net",
             if eu == "eu-goods" { "goods" } else { "services" }
         ),
@@ -418,8 +421,8 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
         (Some(scope), "eu-goods" | "eu-services") => format!(
             "rate_class is the Finnish rate the buyer self-assesses and scope already says \
              the acquisition is {}: use \
-             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{}\"}} \
-             with the domestic class whose Finnish rate applies ({domestic_classes})",
+             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{}\"}}\
+             {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes})",
             scope.label(),
             scope.label()
         ),
