@@ -2,12 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: normal
 preparation: ready
 lane: year-end-surface
 lane_seq: 5
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-21
 ---
 
 # close-year: a failed archive write after SealYear is silent
