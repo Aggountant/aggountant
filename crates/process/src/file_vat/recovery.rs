@@ -57,7 +57,7 @@ use aggountant_broker::{
     SVC_VERO_FILE_VAT_RETURN,
 };
 use aggountant_domain::bank_days::{finnish_date, finnish_local_time, one_bank_day_after};
-use aggountant_ledger::{Ledger, ManualVatFilingEvidence};
+use aggountant_ledger::Ledger;
 use aggountant_model::PeriodId;
 
 use super::{
@@ -94,8 +94,8 @@ pub enum FileVatReconcileOutcome {
     NotFound,
     /// The second qualifying "not found": the Run is closed as not filed.
     ClosedNotFiled,
-    /// An interrupted Run whose period was meanwhile filed manually: closed
-    /// without claiming the manual filing.
+    /// An interrupted Run whose period was meanwhile filed some other way
+    /// (manually, or by another Run): closed without claiming that filing.
     Superseded,
     /// Anything else. Nothing counts toward re-filing.
     Unresolved,
@@ -262,11 +262,28 @@ impl ProcessEngine {
                     .is_some_and(|code| filing_outcome_may_be_accepted(&code)),
             }
         } else if vat_filed {
-            // `complete-manual` may file the period while this Run is unresolved; that
-            // filing is not this Run's to claim.
-            match Ledger::open(&self.home)?.manual_vat_filing_evidence(&period)? {
-                Some(manual) => Route::FiledManually(manual),
-                None => Route::FiscalLanded,
+            // The filing that followed the ones this Run started from is the Run's
+            // own only when it carries the Run's request. `complete-manual` or
+            // another Run may have filed the period while this Run was unresolved;
+            // that filing, and any replacement after it, is not this Run's to claim.
+            let slot = Ledger::open(&self.home)?
+                .vat_filings(&period)?
+                .into_iter()
+                .nth(state.replaces_filings())
+                .ok_or_else(|| ProcessError::Store("the landed VAT filing is missing".into()))?;
+            if slot.sent_hash.as_deref() == Some(state.filing_sent_hash.as_str()) {
+                Route::FiscalLanded
+            } else {
+                Route::Superseded(match slot.manual {
+                    Some(manual) => format!(
+                        "manually through {} (evidence {})",
+                        manual.channel, manual.evidence_ref
+                    ),
+                    None => format!(
+                        "by Run {} with another request",
+                        slot.run_id.as_deref().unwrap_or("(unknown)")
+                    ),
+                })
             }
         } else {
             match self.interrupted_dispatch(broker, &events, &period, &state)? {
@@ -297,13 +314,12 @@ impl ProcessEngine {
                         .into(),
                 )?
             }
-            Route::FiledManually(manual) => {
+            Route::Superseded(how) => {
                 close_as_not_filed(
                     &journal,
                     &format!(
-                        "SUPERSEDED: period {period} was filed manually through {} (evidence \
-                         {}); this Run's filing is not recorded as filed",
-                        manual.channel, manual.evidence_ref
+                        "SUPERSEDED: period {period} was filed {how}; this Run's filing is \
+                         not recorded as filed"
                     ),
                 )?;
                 (
@@ -311,10 +327,8 @@ impl ProcessEngine {
                     None,
                     None,
                     format!(
-                        "{period} was filed manually through {} (evidence {}) while this Run \
-                         was interrupted. The Run is closed without claiming that filing; \
-                         nothing was sent.",
-                        manual.channel, manual.evidence_ref
+                        "{period} was filed {how} while this Run was interrupted. The Run is \
+                         closed without claiming that filing; nothing was sent."
                     ),
                 )
             }
@@ -674,8 +688,9 @@ enum Route {
     Parked { outcome_unknown: bool },
     /// Interrupted after the fiscal filing was written.
     FiscalLanded,
-    /// Interrupted, and the period has since been filed manually.
-    FiledManually(ManualVatFilingEvidence),
+    /// Interrupted, and the filing that followed was not this Run's: how the
+    /// period was filed instead (manually, or by another Run).
+    Superseded(String),
     /// Interrupted after the authority's receipt reached the outbox.
     OutboxReceipt(FileVatReceipt),
     /// Interrupted with nothing recorded locally.

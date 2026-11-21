@@ -448,10 +448,6 @@ fn a_replacement_is_previewed_approved_sent_and_receipted_beside_the_first() {
     );
     assert_eq!(recorded[1].run_id.as_deref(), Some(run_id.as_str()));
     assert!(ledger.verify().unwrap().ok);
-    assert!(ledger
-        .unfiled_vat_corrections(&october())
-        .unwrap()
-        .is_empty());
     let _ = correction;
 
     // Each Run shows the receipt of its own request.
@@ -902,6 +898,115 @@ fn a_replacement_interrupted_after_the_books_catches_up_without_a_second_filing(
     assert_eq!(replacement_attempts(home), 1);
 }
 
+fn replacement_due(engine: &ProcessEngine) -> Vec<u64> {
+    engine
+        .preview_offline_vat(&october(), &PolicySet::default())
+        .unwrap()
+        .attention
+        .into_iter()
+        .find(|item| item.code == "VAT_REPLACEMENT_DUE")
+        .map(|item| item.vouchers)
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_correction_sealed_while_a_replacement_was_unresolved_is_still_due_after_adoption() {
+    let (home, engine, _first, _correction) = corrected_home();
+    let home = home.path();
+    let run_id = replacement_with_unknown_outcome(&engine, home);
+    // The replacement was sent with 535.50. While its outcome is open, another
+    // missing October invoice is sealed: the sent return does not contain it.
+    let later = seal_sale(
+        &Ledger::open(home).unwrap(),
+        "october-correction-2",
+        "2026-10-21",
+        "2026-11-21",
+        "200.00",
+        Some(october()),
+    );
+
+    let adopted = reconcile_at(
+        &engine,
+        home,
+        &run_id,
+        "2026-12-04 10:00",
+        processed("535.50", "2099-01-01"),
+    );
+    assert_eq!(adopted.outcome, FileVatReconcileOutcome::Adopted);
+    assert_eq!(filings(home), 2);
+
+    // The filing was recorded after the second correction was sealed, but it
+    // does not cover it: a further replacement is due, and status says so.
+    assert_eq!(replacement_due(&engine), [later]);
+    let shown = status(&engine, home, vec![]);
+    assert_eq!(shown.unfiled_corrections, [later]);
+    assert!(shown.message.contains("file-vat replace"));
+}
+
+#[test]
+fn an_interrupted_first_return_never_claims_a_later_replacement() {
+    let home = sealed_october();
+    let engine = ProcessEngine::open(home.path());
+    let home = home.path();
+    // Run 1 is interrupted before anything left; the user files in OmaVero.
+    let sending = broker(home, october_period("Missing"), vec![], vec![]);
+    let run1 = engine
+        .start_file_vat(&input("510.00", None), &sending, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    engine
+        .answer_file_vat_seam(
+            &run1,
+            "ApproveFiling",
+            "approve",
+            &sending,
+            Seam::CrashBeforeFilingDispatch,
+        )
+        .unwrap();
+    engine
+        .complete_manual_vat(
+            &october(),
+            "omavero",
+            "archive/vero/2026-10.pdf",
+            Some("archive/vero/2026-10-remote-status.txt"),
+        )
+        .unwrap();
+    // Later the manual return is replaced through the API.
+    seal_sale(
+        &Ledger::open(home).unwrap(),
+        "october-correction",
+        "2026-10-20",
+        "2026-11-20",
+        "100.00",
+        Some(october()),
+    );
+    let (replacement, replacing) = start_replacement(
+        &engine,
+        home,
+        vec![receipt("RECEIPT-2", "2026-12-03T09:00:00Z")],
+    );
+    engine
+        .answer_file_vat(&replacement, "ApproveFiling", "approve", &replacing)
+        .unwrap();
+    assert_eq!(filings(home), 2);
+
+    // Run 1 is closed as superseded by the manual filing; it claims neither
+    // filing and offers no payment approval.
+    let closed = engine
+        .reconcile_file_vat(&run1, &idle_broker(home))
+        .unwrap();
+    assert_eq!(closed.outcome, FileVatReconcileOutcome::Superseded);
+    assert!(closed.message.contains("archive/vero/2026-10.pdf"));
+    assert_eq!(effect(&closed.run, "submit-filing"), EffectStatus::Skipped);
+    assert!(closed
+        .run
+        .gates
+        .iter()
+        .all(|gate| gate.gate_id != "ApprovePayment"));
+    assert_eq!(filings(home), 2);
+}
+
 // --- The e-service fallback -------------------------------------------------
 
 #[test]
@@ -923,6 +1028,11 @@ fn a_replacement_made_in_omavero_is_recorded_with_its_evidence() {
         recorded.manual_filing.evidence_ref,
         "archive/vero/2026-10-r.pdf"
     );
+    assert_eq!(filings(home), 2);
+    // The same command again (a lost answer) records nothing more.
+    engine
+        .complete_manual_vat_replacement(&october(), "omavero", "archive/vero/2026-10-r.pdf", None)
+        .unwrap();
     assert_eq!(filings(home), 2);
 
     let shown = status(&engine, home, vec![]);

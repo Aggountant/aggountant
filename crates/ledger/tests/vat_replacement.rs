@@ -8,7 +8,7 @@
 use aggountant_domain::{build_draft, DraftInput, PolicySet};
 use aggountant_ledger::{Ledger, SealRequest, VatFilingEvidence};
 use aggountant_model::{
-    AccountId, Currency, Date, Money, PeriodId, Posting, Side, VatCode, VoucherDraft,
+    AccountId, Currency, Date, Instant, Money, PeriodId, Posting, Side, VatCode, VoucherDraft,
 };
 
 fn october() -> PeriodId {
@@ -179,17 +179,29 @@ fn a_correction_must_be_posted_after_the_period_it_corrects() {
 }
 
 #[test]
-fn unfiled_corrections_are_those_sealed_after_the_latest_filing() {
+fn corrections_are_listed_by_when_they_were_sealed() {
     let (_dir, ledger) = home(true);
+    let recorded_at = |filing: usize| {
+        let filings = ledger.vat_filings(&october()).unwrap();
+        Instant::parse(&filings[filing].recorded_at).unwrap()
+    };
+    let first = recorded_at(0);
     assert!(ledger
-        .unfiled_vat_corrections(&october())
+        .vat_corrections_sealed_after(&october(), first)
         .unwrap()
         .is_empty());
     let sealed = ledger.seal(&correction(), &request("correction")).unwrap();
     assert_eq!(
-        ledger.unfiled_vat_corrections(&october()).unwrap(),
+        ledger
+            .vat_corrections_sealed_after(&october(), first)
+            .unwrap(),
         [sealed.number]
     );
+    // A correction to another period is not October's.
+    assert!(ledger
+        .vat_corrections_sealed_after(&november(), first)
+        .unwrap()
+        .is_empty());
 
     let auth = ledger
         .acquire_replacement_authority(&october(), "replace-run", 1)
@@ -205,9 +217,42 @@ fn unfiled_corrections_are_those_sealed_after_the_latest_filing() {
         )
         .unwrap();
     assert!(ledger
-        .unfiled_vat_corrections(&october())
+        .vat_corrections_sealed_after(&october(), recorded_at(1))
         .unwrap()
         .is_empty());
+}
+
+#[test]
+fn a_manual_replacement_entered_twice_is_recorded_once() {
+    let (_dir, ledger) = home(true);
+    let record = |evidence_ref: &str| {
+        let replaces = ledger.vat_filings(&october()).unwrap().len();
+        let auth = ledger
+            .acquire_replacement_authority(&october(), "manual-file-vat", replaces)
+            .unwrap();
+        ledger
+            .replace_vat_filing(
+                &october(),
+                &auth,
+                VatFilingEvidence::Manual {
+                    channel: "omavero",
+                    evidence_ref,
+                    remote_status_evidence_ref: None,
+                },
+                "filer",
+            )
+            .unwrap();
+        ledger.vat_filings(&october()).unwrap().len()
+    };
+    assert_eq!(record("archive/vero/2026-10-r1.pdf"), 2);
+    assert_eq!(
+        record("archive/vero/2026-10-r1.pdf"),
+        2,
+        "the same evidence replays"
+    );
+    // Another replacement, with its own evidence, is a further filing.
+    assert_eq!(record("archive/vero/2026-10-r2.pdf"), 3);
+    assert!(ledger.verify().unwrap().ok);
 }
 
 #[test]

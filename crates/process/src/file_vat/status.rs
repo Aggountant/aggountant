@@ -157,7 +157,7 @@ impl ProcessEngine {
         let view = ledger.period_view(period)?;
         let runs = self.file_vat_filing_runs(period)?;
         let filings = ledger.vat_filings(period)?;
-        let unfiled_corrections = ledger.unfiled_vat_corrections(period)?;
+        let unfiled_corrections = self.unfiled_vat_corrections(&ledger, period)?;
         let local = |status, run_id: Option<String>, next_command, message| FileVatStatus {
             period: period.to_string(),
             status,
@@ -519,6 +519,47 @@ impl ProcessEngine {
             }
         }
         Ok(None)
+    }
+
+    /// The correction vouchers of `period`'s VAT return that the return in force
+    /// does not cover: sealed for the period after that return's figures were
+    /// fixed. For a return a Run sent, that is when the Run began dispatching (the
+    /// dispatch guard had just checked the sealed vouchers against the approved
+    /// request), which can be days before `file-vat reconcile` records the filing.
+    /// A filing no Run holds (a manual one) has only the time it was recorded.
+    /// Empty for a period that is not filed.
+    pub(super) fn unfiled_vat_corrections(
+        &self,
+        ledger: &Ledger,
+        period: &PeriodId,
+    ) -> Result<Vec<u64>, ProcessError> {
+        let Some(in_force) = ledger.vat_filings(period)?.pop() else {
+            return Ok(Vec::new());
+        };
+        let instant = |value: &str| {
+            aggountant_model::Instant::parse(value)
+                .map_err(|_| ProcessError::JournalCorrupt(format!("bad timestamp {value:?}")))
+        };
+        let mut cutoff = instant(&in_force.recorded_at)?;
+        if let Some(sent_hash) = &in_force.sent_hash {
+            for run in self.file_vat_filing_runs(period)? {
+                // A Run whose start failed before its proposal was stored sent nothing.
+                let Ok(state) = self.read_file_vat_state(&run.run_id) else {
+                    continue;
+                };
+                if &state.filing_sent_hash != sent_hash {
+                    continue;
+                }
+                for event in self.open_journal(&run.run_id)?.read_all()? {
+                    if matches!(&event.payload, EventPayload::EffectExecuting { effect_key }
+                        if effect_key == EFFECT_SUBMIT_FILING)
+                    {
+                        cutoff = cutoff.min(instant(&event.ts)?);
+                    }
+                }
+            }
+        }
+        Ok(ledger.vat_corrections_sealed_after(period, cutoff)?)
     }
 
     /// The filing effect of every `file-vat` Run for `period`, in run-id order.

@@ -306,7 +306,7 @@ impl ProcessEngine {
         let fileable = period_state == PeriodState::Sealed;
         let filing = verified.filing;
         let mut attention = attention_items(&verified.reconciliation, period_state);
-        let unfiled_corrections = ledger.unfiled_vat_corrections(period)?;
+        let unfiled_corrections = self.unfiled_vat_corrections(&ledger, period)?;
         if !unfiled_corrections.is_empty() {
             attention.push(VatAttentionItem {
                 code: "VAT_REPLACEMENT_DUE",

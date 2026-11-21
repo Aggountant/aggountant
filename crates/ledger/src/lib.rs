@@ -1071,23 +1071,27 @@ impl Ledger {
         Ok(vouchers)
     }
 
-    /// The correction vouchers of `period`'s VAT return that no filing covers yet:
-    /// sealed as corrections to it after its latest filing was recorded. While
-    /// there are any, the return in force is short of the books and a replacement
-    /// return is due. Empty for a period that is not filed.
-    pub fn unfiled_vat_corrections(&self, period: &PeriodId) -> Result<Vec<u64>, LedgerError> {
-        let Some(latest) = self.fiscal.period_filings(&period.to_string())?.pop() else {
-            return Ok(Vec::new());
-        };
-        let instant = |value: &str| {
-            Instant::parse(value)
-                .map_err(|_| LedgerError::Store(format!("unreadable fiscal timestamp {value:?}")))
-        };
-        let filed_at = instant(&latest.ts)?;
+    /// The vouchers sealed as corrections to `period`'s VAT return after `cutoff`.
+    /// With the instant the return in force was fixed as the cutoff, these are the
+    /// corrections no filing covers: the return in force is short of the books and
+    /// a replacement return is due. The caller supplies the cutoff because the
+    /// Ledger knows when a filing was recorded, not when its figures were fixed,
+    /// and a filing can be recorded long after it was sent.
+    pub fn vat_corrections_sealed_after(
+        &self,
+        period: &PeriodId,
+        cutoff: Instant,
+    ) -> Result<Vec<u64>, LedgerError> {
         let mut numbers = Vec::new();
         for v in &self.fiscal.verification_snapshot()?.vouchers {
             let body = aggountant_wire::decode_voucher_body(&v.canonical)?;
-            if body.corrects_vat_period() == Some(period) && instant(&v.sealed_at)? > filed_at {
+            if body.corrects_vat_period() != Some(period) {
+                continue;
+            }
+            let sealed_at = Instant::parse(&v.sealed_at).map_err(|_| {
+                LedgerError::Store(format!("unreadable seal timestamp {:?}", v.sealed_at))
+            })?;
+            if sealed_at > cutoff {
                 numbers.push(v.number);
             }
         }
@@ -2165,8 +2169,9 @@ impl Ledger {
 
     /// Record a replacement return as a further audited filing event of a filed
     /// period. Earlier filing events stay in the chain; the latest is in force.
-    /// Idempotent for crash recovery: when the replacement is already the latest
-    /// filing (same `sent_hash`, one more filing than it replaced) it is replayed.
+    /// Idempotent: a replacement that is already the latest filing (the same
+    /// `sent_hash` one filing after the one it replaced, or the same manual
+    /// evidence reference) is replayed, not recorded again.
     pub fn replace_vat_filing(
         &self,
         period: &PeriodId,
@@ -2226,12 +2231,23 @@ impl Ledger {
                 )
             }
         };
+        // The same evidence as the filing in force is that filing again: a request
+        // recorded after a crash, or a manual replacement entered twice. A manual
+        // one is recognised by its evidence reference whatever the authority's
+        // count, because the caller counts the filings at each call.
         let filings = self.fiscal.period_filings(&period.to_string())?;
-        if sent_hash.is_some()
-            && filings.len() as u64 == authority.replaces() + 1
-            && filings.last().and_then(|f| f.sent_hash.as_deref()) == sent_hash
-        {
-            return self.period_view(period);
+        if let Some(last) = filings.last() {
+            let same_request = sent_hash.is_some()
+                && filings.len() as u64 == authority.replaces() + 1
+                && last.sent_hash.as_deref() == sent_hash;
+            let same_manual = filings.len() > 1
+                && manual.is_some_and(|(channel, evidence_ref, _)| {
+                    last.manual_channel.as_deref() == Some(channel)
+                        && last.manual_evidence_ref.as_deref() == Some(evidence_ref)
+                });
+            if same_request || same_manual {
+                return self.period_view(period);
+            }
         }
         let row = self.fiscal.transition_period(&TransitionRequest {
             period_id: period.to_string(),
