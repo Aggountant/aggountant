@@ -9,83 +9,14 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 <!-- oss-changelog:unreleased-start -->
 ## [Unreleased]
 
-### Upgrading from 0.1.0
+### Added
 
-Upgrade when no month close, year-end close or filing is in progress
-(`aggountant run list`), and take these steps in order.
+### Changed
 
-1. **Back up the home first.** The first command that opens the books migrates
-   `fiscal.sqlite` from schema v7 to v8 (the new fixed-asset register), and
-   0.1.0 refuses to open a v8 store. The backup is the only way back: copy the
-   whole home, including `fiscal.sqlite` and the `fiscal.sqlite-*` files next
-   to it, as the guide's "Back up and restore your books" page describes.
-2. **Install 0.2.0**, then run `aggountant skill install` and restart the
-   agent. The skills were rebuilt for this version's commands: `vero-fi` now
-   covers the VAT return only, the Incomes Register work moved to the new
-   `tulorekisteri` skill, and `close-year` and `e-services` are new.
-   `skill install` without a name installs all six and overwrites the old
-   files in place; `skill install vero-fi` also brings `tulorekisteri` and
-   `e-services`.
-3. **Run `aggountant home upgrade --dry-run`, then `--apply`.** In a home on
-   the default chart it updates `masterdata/reference/vat-account-roles.json`
-   with the reverse-charge target for EU goods purchases. Only a file that is
-   byte for byte what 0.1.0 wrote is updated; an edited one is left alone and
-   reported as `skipped`. Every existing role stays, so sealed vouchers verify
-   as before. Commit the changed file.
+### Fixed
+<!-- oss-changelog:unreleased-end -->
 
-Commands that behave differently, for scripts and agent habits carried over
-from 0.1.0:
-
-- `close-year answer` has no default answer; `--answer approve|reject` is
-  required. In 0.1.0 leaving it out approved the gate.
-- `vero-fi configure` merges its stdin JSON into the stored profile: a field
-  left out keeps its value and `null` clears it. In 0.1.0 the input replaced
-  the whole profile; that is now `vero-fi configure --replace`. A merge cannot
-  clear the recorded verification evidence
-  (`VERO_EVIDENCE_WOULD_BE_DROPPED`).
-- `file-vat preview` succeeds on a period that is not closed and returns draft
-  figures with `fileable: false`. In 0.1.0 it failed with `PERIOD_NOT_SEALED`,
-  so a caller that took a successful preview as "ready to file" must read
-  `fileable`. `file-vat start` refuses an unclosed period as before.
-- `file-wage complete-manual` on a report that is already accepted fails with
-  `WAGE_REPORT_ALREADY_ACCEPTED`. In 0.1.0 it exited successfully and recorded
-  nothing. Corrections go through `file-wage correction`.
-- `file-wage employer-report preview|submit --replace` for a report that was
-  given outside aggountant and recorded with `complete-manual` fails with
-  `EMPLOYER_REPORT_PREVIOUS_UNKNOWN` until the original report's pension
-  insurances are stated with `--previous-pension-insurance` or
-  `--previous-no-pension-insurance`. For a report aggountant sent itself the
-  flags are not needed and are refused.
-- A month close started under 0.2.0 binds its approval to the figures the
-  gate shows. If the books change while the gate is open, for example by a
-  voucher in an earlier month that is still open, the approval is refused
-  with `CLOSE_CONTENT_CHANGED`; reject the close and start it again. 0.1.0
-  approved such a close.
-- `import camt053 seal` checks the whole statement before sealing anything. A
-  closed period or a conflicting entry now refuses the whole batch, where
-  0.1.0 sealed the entries before the failing one.
-- `capture-receipt record` refuses an unknown VAT rate class with
-  `CAPTURE_VAT_CLASS_UNKNOWN` instead of `INVALID_ANSWER`.
-- `--as-of` accepts only `YYYY-MM-DD`; `2026-1-5` is refused.
-- Error JSON gains a `hint` key for the codes the guide explains. Existing
-  keys are unchanged.
-
-The receipt convention changed (see Changed below): a receipt that is also
-paid from the bank account is recorded against 2700 Ostovelat, and the bank
-statement row clears it. It applies to receipts recorded from now on. Nothing
-happens to vouchers that are already sealed, and nothing needs to be
-re-recorded. One case needs a look: a receipt that 0.1.0 recorded directly
-against the bank account already credits that account, so importing its
-statement row credits it a second time. Check the bank account against the
-statement for such a month, as the guide's month-end check describes, and
-correct a difference with a new voucher.
-
-A year-end close that is waiting at a gate should be finished or rejected
-before upgrading. If its statements contain a row that 0.1.0 printed as
-`-0.00`, 0.2.0 prints it as `0.00` (see Fixed) and refuses the
-`ApproveStatements` approval, because the statements changed; reject the run
-and start a new one. A month close waiting at `ApproveClose` can still be
-approved after the upgrade.
+## [0.2.0] - 2026-11-21
 
 ### Added
 
@@ -169,6 +100,13 @@ approved after the upgrade.
   --file <FILE>` prints any of them, and `skill list --json` lists each
   skill's files and requirements.
 
+- ADR-10 slice 1: multi-file bundled skills and the e-services skill (`eservice-skill-bundle`).
+- Error hints and aggountant explain <CODE> from the guide's error-code reference (`cli-error-hints`).
+- Fixed-asset register: carry assets and book values from one close-year to the next (`fixed-asset-register`).
+- Replacement VAT return through file-vat for an already filed period (`vat-replacement-return`).
+- Skill rebuild: a close-year skill for the year-end close (`skill-close-year`).
+- close-year: show depreciation rates and computed depreciation without starting a run (`close-year-depreciation-preview`).
+
 ### Changed
 
 - **Receipts and bank rows.** A receipt or purchase invoice that is also paid
@@ -215,6 +153,38 @@ approved after the upgrade.
   and sent timestamps keep the same bytes; date arguments are parsed strictly
   as `YYYY-MM-DD`.
 
+- Bank statement import has no preview, and parse hides the statement balances (`camt-import-preview-and-balances`).
+- CLI friction from production use: knowledge company id, chart list output, report statements to stdout (`cli-production-friction`).
+- Decide how e-service operating knowledge accumulates and reaches agents (`eservice-knowledge`).
+- EU goods purchases cannot be recorded on the default chart (`default-chart-eu-goods-target`).
+- Guide: the new year's monthly reports wait for the prior year's seal (`guide-new-year-reports-wait-seal`).
+- Help does not say which vat_code values a manual voucher may carry (`voucher-vat-code-help`).
+- INPUT section in --help for every stdin JSON command (`cli-stdin-input-help`).
+- Incomes Register profile has no command, no help and no itemised readiness (`tulorekisteri-profile-no-command`).
+- MASTERDATA_CORRUPT for a missing bundled file does not name home upgrade (`nominally-undesirable-afterthought`).
+- Migrate from chrono to jiff or time (`migrate-from-chrono`).
+- Month close approval gate shows a hash, not what the user approves (`virtually-tidy-owl`).
+- Outputs mark sensitive record_hash and the active test seam; specific code for an unknown VAT class (`filing-output-markers`).
+- Set-up offers keeping the previous chart of accounts, but no path installs one (`distinctly-tired-hearing`).
+- Skill rebuild: SOUL as the one home of house rules and of how to read the tool (`skill-soul-rebuild`).
+- Skill rebuild: split vero-fi into VAT and a new tulorekisteri skill with reference files (`skill-vero-split`).
+- Skill rebuild: streamline aggountant-init (`skill-init-rebuild`).
+- Skill rebuild: the month's bookkeeping skill, with the bank import and the month close (`skill-month-rebuild`).
+- Skill writing principles in skills/AGENTS.md and a test that named commands exist (`skill-writing-principles`).
+- VAT reconciliation is only available after the period is locked (`vat-reconciliation-before-close`).
+- close-year help: plain descriptions instead of design-document labels (`close-year-plain-help`).
+- close-year output: message and next_command naming the open gate and what its approval seals (`close-year-next-command`).
+- employer-report: a configure command for the employer_report profile, with the YTJ registration check (`employer-report-configure`).
+- vero-fi configure merges into the stored profile instead of replacing it (`vero-configure-merge`).
+
+### Removed
+
+- The default answer of `close-year answer`.
+- Whole-profile replacement as the default of `vero-fi configure` (use
+  `--replace`).
+- The Incomes Register sections of the `vero-fi` skill (now in
+  `tulorekisteri`) and the consultation route in the skills.
+
 ### Fixed
 
 - A statement or report row that sums to zero on a credit-side account
@@ -236,15 +206,94 @@ approved after the upgrade.
 - Refusals on the receipt-capture paths repeated their code
   (`VAT_CODE: VAT_CODE: …`).
 
-### Removed
+- A correction made in the e-service cannot be recorded; file-wage complete-manual succeeds without recording it (`filing-correction-unrecordable`).
+- Flaky company_knowledge_cli test: stdin write hits Broken pipe when the CLI refuses early (`company-knowledge-cli-broken-pipe-flake`).
+- Flaky test: employer_report_history_cli writes to the stdin of a child that may already have exited (`employer-report-test-stdin-flake`).
+- Guide says a bank row for an already recorded receipt is not recorded again, but the import requires every row (`bank-row-for-recorded-receipt`).
+- Monthly report prints a cleared liability account as −0,00 (`report-negative-zero-balance`).
+- Shipped skills: four wrong facts (journal show, consult route, SOUL unreachable through skill print, codes missing from the guide) (`skill-fact-fixes`).
+- close-year answer defaults to approve, also on the gate that seals the fiscal year (`close-year-explicit-answer`).
+- close-year: a failed archive write after SealYear is silent (`close-year-archive-write-error`).
+- employee help claims an encrypted store; the store is plaintext (`employee-store-plaintext-help`).
+- employer-report: replacing an externally filed month skips the pension-insurance check (`employer-replacement-external-unchecked`).
 
-- The default answer of `close-year answer`.
-- Whole-profile replacement as the default of `vero-fi configure` (use
-  `--replace`).
-- The Incomes Register sections of the `vero-fi` skill (now in
-  `tulorekisteri`) and the consultation route in the skills.
+### Upgrading from 0.1.0
 
-<!-- oss-changelog:unreleased-end -->
+Upgrade when no month close, year-end close or filing is in progress
+(`aggountant run list`), and take these steps in order.
+
+1. **Back up the home first.** The first command that opens the books migrates
+   `fiscal.sqlite` from schema v7 to v8 (the new fixed-asset register), and
+   0.1.0 refuses to open a v8 store. The backup is the only way back: copy the
+   whole home, including `fiscal.sqlite` and the `fiscal.sqlite-*` files next
+   to it, as the guide's "Back up and restore your books" page describes.
+2. **Install 0.2.0**, then run `aggountant skill install` and restart the
+   agent. The skills were rebuilt for this version's commands: `vero-fi` now
+   covers the VAT return only, the Incomes Register work moved to the new
+   `tulorekisteri` skill, and `close-year` and `e-services` are new.
+   `skill install` without a name installs all six and overwrites the old
+   files in place; `skill install vero-fi` also brings `tulorekisteri` and
+   `e-services`.
+3. **Run `aggountant home upgrade --dry-run`, then `--apply`.** In a home on
+   the default chart it updates `masterdata/reference/vat-account-roles.json`
+   with the reverse-charge target for EU goods purchases. Only a file that is
+   byte for byte what 0.1.0 wrote is updated; an edited one is left alone and
+   reported as `skipped`. Every existing role stays, so sealed vouchers verify
+   as before. Commit the changed file.
+
+Commands that behave differently, for scripts and agent habits carried over
+from 0.1.0:
+
+- `close-year answer` has no default answer; `--answer approve|reject` is
+  required. In 0.1.0 leaving it out approved the gate.
+- `vero-fi configure` merges its stdin JSON into the stored profile: a field
+  left out keeps its value and `null` clears it. In 0.1.0 the input replaced
+  the whole profile; that is now `vero-fi configure --replace`. A merge cannot
+  clear the recorded verification evidence
+  (`VERO_EVIDENCE_WOULD_BE_DROPPED`).
+- `file-vat preview` succeeds on a period that is not closed and returns draft
+  figures with `fileable: false`. In 0.1.0 it failed with `PERIOD_NOT_SEALED`,
+  so a caller that took a successful preview as "ready to file" must read
+  `fileable`. `file-vat start` refuses an unclosed period as before.
+- `file-wage complete-manual` on a report that is already accepted fails with
+  `WAGE_REPORT_ALREADY_ACCEPTED`. In 0.1.0 it exited successfully and recorded
+  nothing. Corrections go through `file-wage correction`.
+- `file-wage employer-report preview|submit --replace` for a report that was
+  given outside aggountant and recorded with `complete-manual` fails with
+  `EMPLOYER_REPORT_PREVIOUS_UNKNOWN` until the original report's pension
+  insurances are stated with `--previous-pension-insurance` or
+  `--previous-no-pension-insurance`. For a report aggountant sent itself the
+  flags are not needed and are refused.
+- A month close started under 0.2.0 binds its approval to the figures the
+  gate shows. If the books change while the gate is open, for example by a
+  voucher in an earlier month that is still open, the approval is refused
+  with `CLOSE_CONTENT_CHANGED`; reject the close and start it again. 0.1.0
+  approved such a close.
+- `import camt053 seal` checks the whole statement before sealing anything. A
+  closed period or a conflicting entry now refuses the whole batch, where
+  0.1.0 sealed the entries before the failing one.
+- `capture-receipt record` refuses an unknown VAT rate class with
+  `CAPTURE_VAT_CLASS_UNKNOWN` instead of `INVALID_ANSWER`.
+- `--as-of` accepts only `YYYY-MM-DD`; `2026-1-5` is refused.
+- Error JSON gains a `hint` key for the codes the guide explains. Existing
+  keys are unchanged.
+
+The receipt convention changed (see Changed below): a receipt that is also
+paid from the bank account is recorded against 2700 Ostovelat, and the bank
+statement row clears it. It applies to receipts recorded from now on. Nothing
+happens to vouchers that are already sealed, and nothing needs to be
+re-recorded. One case needs a look: a receipt that 0.1.0 recorded directly
+against the bank account already credits that account, so importing its
+statement row credits it a second time. Check the bank account against the
+statement for such a month, as the guide's month-end check describes, and
+correct a difference with a new voucher.
+
+A year-end close that is waiting at a gate should be finished or rejected
+before upgrading. If its statements contain a row that 0.1.0 printed as
+`-0.00`, 0.2.0 prints it as `0.00` (see Fixed) and refuses the
+`ApproveStatements` approval, because the statements changed; reject the run
+and start a new one. A month close waiting at `ApproveClose` can still be
+approved after the upgrade.
 
 ## [0.1.0] - 2026-11-19
 
