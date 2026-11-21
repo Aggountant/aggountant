@@ -1,9 +1,12 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-21
 type: feature
 status: open
 priority: normal
+lane: capture
+lane_seq: 9
+preparation: pending
 ---
 
 # Import Finvoice e-invoices into vouchers

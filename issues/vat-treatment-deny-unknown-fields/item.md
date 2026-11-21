@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yedg2ttbhyra7g89krq6t7/review-finding:vat-treatment-unknown-fields
@@ -16,6 +16,10 @@ assessment_outcome: SPIN_OFF
 review_confidence: high
 review_severity: should-fix
 review_target: HEAD~1..HEAD
+lane: vat-roles
+lane_seq: 0
+collision: [crates/domain/src/vat/expand.rs]
+preparation: ready
 ---
 
 # VatTreatment accepts unknown fields: a misplaced deductibility on bank import is silently ignored

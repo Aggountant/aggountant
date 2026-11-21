@@ -1,9 +1,12 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-21
 type: feature
 status: open
 priority: normal
+lane: onboarding
+lane_seq: 9
+preparation: pending
 ---
 
 # Computer-use helpers for other accounting programs in their own directory

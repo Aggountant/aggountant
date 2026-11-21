@@ -2,8 +2,8 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yh5d4b1ky22txvkc6jakbk/review-finding:F1-domestic-input-eu-class
 review_source: ai-review
@@ -16,6 +16,10 @@ review_severity: should-fix
 review_confidence: medium-high
 labels:
 - ai-review-model:claude-fable-5-2
+lane: vat-roles
+lane_seq: 1
+collision: [crates/domain/src/vat/expand.rs]
+preparation: ready
 ---
 
 # capture-receipt accepts domestic-input with an EU or zero-rated class and seals it at 0 % VAT

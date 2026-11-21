@@ -2,8 +2,8 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yzes4qee1wjprvjzqjv88g/review-finding:F1-close-period
 review_source: ai-review
@@ -16,6 +16,10 @@ assessment_outcome: SPIN_OFF
 review_confidence: high
 review_severity: must-fix
 review_target: close-year-next-command slice diff
+lane: agent-surface
+lane_seq: 0
+collision: [crates/process/src/close_period.rs]
+preparation: ready
 ---
 
 # close-period next_command: --answer approve|reject runs as a shell pipe and approves
