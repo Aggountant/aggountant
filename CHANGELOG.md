@@ -50,10 +50,17 @@ from 0.1.0:
 - `file-wage complete-manual` on a report that is already accepted fails with
   `WAGE_REPORT_ALREADY_ACCEPTED`. In 0.1.0 it exited successfully and recorded
   nothing. Corrections go through `file-wage correction`.
-- `file-wage employer-report preview|submit --replace` for a month that was
-  recorded with `complete-manual` fails with `EMPLOYER_REPORT_PREVIOUS_UNKNOWN`
-  until the original report's pension insurances are stated with
-  `--previous-pension-insurance` or `--previous-no-pension-insurance`.
+- `file-wage employer-report preview|submit --replace` for a report that was
+  given outside aggountant and recorded with `complete-manual` fails with
+  `EMPLOYER_REPORT_PREVIOUS_UNKNOWN` until the original report's pension
+  insurances are stated with `--previous-pension-insurance` or
+  `--previous-no-pension-insurance`. For a report aggountant sent itself the
+  flags are not needed and are refused.
+- A month close started under 0.2.0 binds its approval to the figures the
+  gate shows. If the books change while the gate is open, for example by a
+  voucher in an earlier month that is still open, the approval is refused
+  with `CLOSE_CONTENT_CHANGED`; reject the close and start it again. 0.1.0
+  approved such a close.
 - `import camt053 seal` checks the whole statement before sealing anything. A
   closed period or a conflicting entry now refuses the whole batch, where
   0.1.0 sealed the entries before the failing one.
@@ -74,9 +81,10 @@ statement for such a month, as the guide's month-end check describes, and
 correct a difference with a new voucher.
 
 A year-end close that is waiting at a gate should be finished or rejected
-before upgrading. If its statements contain a row that sums to zero, 0.2.0
-prints that row differently (see Fixed) and refuses the approval; reject the
-run and start a new one. A month close waiting at `ApproveClose` can still be
+before upgrading. If its statements contain a row that 0.1.0 printed as
+`-0.00`, 0.2.0 prints it as `0.00` (see Fixed) and refuses the
+`ApproveStatements` approval, because the statements changed; reject the run
+and start a new one. A month close waiting at `ApproveClose` can still be
 approved after the upgrade.
 
 ### Added
@@ -143,15 +151,17 @@ approved after the upgrade.
   would block the start, without creating a run. It also works before the
   year's months are closed.
 - **Year-end close:** every `close-year` command returns `message` and
-  `next_command`, naming the open gate and what approving it seals.
+  `next_command`, naming the open gate and what approving it seals
+  (`start --dry-run` returns only `message`).
 - **Agent surface:** `aggountant explain <CODE>` explains an error code from
   the guide's error-code reference (`--lang fi|en`), offline; error JSON
   carries the guide's "what to do" as `hint` (in Finnish).
 - **Agent surface:** every command that reads JSON on stdin describes its
   input in an INPUT section of `--help`, with a synthetic example.
-- **Agent surface:** a command running with the `AGGOUNTANT_BROKER_SCRIPT`
-  test seam says so in its output (`test_seam`) and warns on stderr, because
-  in that mode a period can be marked filed though nothing was sent.
+- **Agent surface:** a command that used the `AGGOUNTANT_BROKER_SCRIPT` test
+  seam marks its JSON output and its JSON error line with `test_seam`, and
+  without `--json` warns on stderr, because in that mode a period can be
+  marked filed though nothing was sent.
 - **Skills:** `close-year` (the year-end close), `tulorekisteri` (travel
   allowance reports and the employer's separate report) and `e-services`
   (working OmaVero and the Incomes Register e-service in the user's browser).
