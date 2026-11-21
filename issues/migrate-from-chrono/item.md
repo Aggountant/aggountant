@@ -15,7 +15,7 @@ preparation: ready
 closed: 2026-11-21
 closed_by: claude-opus-5-5
 commits:
-- hash: 2206072
+- hash: "2206072"
   summary: Pin date and time text with golden tests before leaving chrono
 - hash: b671964
   summary: Replace chrono with jiff behind model::Instant and model::Date
