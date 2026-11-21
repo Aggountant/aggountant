@@ -17,9 +17,9 @@ closed_by: claude-opus-5-5
 commits:
 - hash: "2206072"
   summary: Pin date and time text with golden tests before leaving chrono
-- hash: b671964
+- hash: "b671964"
   summary: Replace chrono with jiff behind model::Instant and model::Date
-- hash: 4527735
+- hash: "4527735"
   summary: Drop the chrono advisory ignore and land ADR-9
 ---
 
