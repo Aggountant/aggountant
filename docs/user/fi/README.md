@@ -21,6 +21,9 @@ keksitty. Englanninkielinen opas on hakemistossa [`../en/`](../en/README.md).
 3. [Harjoittele ensimmäinen kuukausi](start/practice-month.md)
 4. [Ota yrityksesi kirjanpito käyttöön](start/set-up-company.md)
 
+Tuletko toisesta kirjanpito-ohjelmasta? Kerää vanha aineisto ensin:
+[Siirrä kirjanpito toisesta ohjelmasta](start/move-from-another-program.md).
+
 Haluatko mukaan ensimmäisten joukossa tai kehittämään? [Lähde mukaan](start/early-users.md).
 
 ## Joka kuukausi

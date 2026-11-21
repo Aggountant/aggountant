@@ -37,7 +37,7 @@ page follows the reader's calendar, so a reader finds a task by when it is due.
 | Path | Page type | Holds |
 |---|---|---|
 | `README.md` | front page | the only table of contents, grouped by moment: aloita, joka kuukausi, harvoin, vuoden lopussa, kun jokin menee vikaan, näin aggountant toimii, hakuteos |
-| `start/` | tutorial and getting-started tasks | `is-it-for-you`, `install`, `practice-month` (the one full tutorial, run in a practice home), `set-up-company` |
+| `start/` | tutorial and getting-started tasks | `is-it-for-you`, `install`, `practice-month` (the one full tutorial, run in a practice home), `move-from-another-program`, `set-up-company` |
 | `tasks/` | how-to | one task per page, titled with the task in the imperative |
 | `concepts/` | explanation | why aggountant behaves as it does; `for-bookkeepers` is the one orientation page for bookkeepers |
 | `troubleshooting.md` | troubleshooting | one page organised by symptom; split into a folder only past about 300 lines |

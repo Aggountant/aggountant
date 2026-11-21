@@ -14,7 +14,9 @@ myöhemmin.
 - Sinulla on käsillä yrityksen virallinen nimi, Y-tunnus ja tilikausi,
   mieluiten kaupparekisteriotteesta.
 - Jos yritys siirtyy toisesta kirjanpito-ohjelmasta: vanhan järjestelmän
-  saldoluettelo (tase) viimeiseltä päivältä, jonka vanha järjestelmä kattaa.
+  saldoluettelo (tase) viimeiseltä päivältä, jonka vanha järjestelmä kattaa,
+  ja tililuettelo. Mitä muuta vanhasta ohjelmasta viedään talteen ja miten:
+  [Siirrä kirjanpito toisesta ohjelmasta](move-from-another-program.md).
 
 ## Näin teet sen
 

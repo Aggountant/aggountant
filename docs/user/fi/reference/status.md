@@ -225,7 +225,9 @@ Tilikauden sinetöinti on peruuttamaton. Tee näin:
   [Varmuuskopioi ja palauta kirjanpito](../tasks/back-up-and-restore.md)
   (`home-backup-coverage`).
 - **Monivuotisen historian tuonti ei ole valmis.** Käyttöönotto alkaa
-  avaavista saldoista (`historical-import`).
+  avaavista saldoista, ja vanhan järjestelmän historia säilytetään arkistona:
+  [Siirrä kirjanpito toisesta ohjelmasta](../start/move-from-another-program.md)
+  (`historical-import`).
 - **Yrityksen omaa tilikarttaa ei voi tuoda.** Kirjanpito käyttää
   oletustilikarttaa, ja vanhan järjestelmän tilit muunnetaan sille avaavassa
   tositteessa (`sie4-chart-import`).

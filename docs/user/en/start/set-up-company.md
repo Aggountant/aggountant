@@ -15,7 +15,9 @@ unfinished setup can be continued later.
 - You have the company's official name, Business ID (Y-tunnus) and fiscal year
   at hand, preferably from the trade register extract (kaupparekisteriote).
 - If the company is moving from another bookkeeping program: the old system's
-  balance list (balance sheet) for the last day the old system covers.
+  balance list (balance sheet) for the last day the old system covers, and its
+  list of accounts. What else to export from the old program and how:
+  [Move your books from another program](move-from-another-program.md).
 
 ## How to do it
 

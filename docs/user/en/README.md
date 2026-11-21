@@ -25,6 +25,9 @@ The Finnish original of this guide is in [`../fi/`](../fi/README.md).
 3. [Practise your first month](start/practice-month.md)
 4. [Set up your company's books](start/set-up-company.md)
 
+Coming from another bookkeeping program? Collect the old material first:
+[Move your books from another program](start/move-from-another-program.md).
+
 Want to join early or help build it? [Join as an early user](start/early-users.md).
 
 ## Every month

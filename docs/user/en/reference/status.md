@@ -226,7 +226,9 @@ Sealing the fiscal year cannot be undone. Do this:
   [Back up and restore your books](../tasks/back-up-and-restore.md)
   (`home-backup-coverage`).
 - **Importing several years of history is not ready.** The setup starts from
-  opening balances (`historical-import`).
+  opening balances, and the old system's history is kept as an archive:
+  [Move your books from another program](../start/move-from-another-program.md)
+  (`historical-import`).
 - **A company's own chart of accounts cannot be imported.** The books use the
   default chart, and the old system's accounts are mapped onto it in the
   opening voucher (`sie4-chart-import`).

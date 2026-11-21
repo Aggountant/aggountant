@@ -2,10 +2,11 @@
 created: 2026-11-10
 updated: 2026-11-21
 type: feature
-status: open
+status: done
 priority: normal
 lane: unlaned
 collision: [crates/domain/src/vat/expand.rs, docs/user]
+closed: 2026-11-21
 ---
 
 # Migration guide for moving books from another program
@@ -40,7 +41,13 @@ What this issue delivers instead:
 
 ## Acceptance Criteria
 
-- [ ] Guide page in both languages, linked from the user-guide index and
+- [x] Guide page in both languages, linked from the user-guide index and
       the onboarding pages where moving from another program comes up.
-- [ ] Core comments no longer depend on one vendor's chart.
-- [ ] No browser-automation code added.
+- [x] Core comments no longer depend on one vendor's chart.
+- [x] No browser-automation code added.
+
+## Resolution
+
+### 2026-11-21T19:31:57Z · @issuectl
+
+Guide page in both languages, vendor-neutral VAT comments; see result.md and review.md.
