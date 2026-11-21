@@ -243,7 +243,7 @@ fn builtin(name: &str, v: &str) -> Result<(), String> {
         "decimal" => rust_decimal::Decimal::from_str_exact(v).is_ok(),
         // The Incomes Register forbids a time zone on dates and requires one on times.
         "date" => Date::parse(v).is_ok(),
-        "dateTime" => Instant::parse(v).is_ok(),
+        "dateTime" => xs_date_time_with_zone(v),
         other => return Err(format!("unsupported builtin xs:{other}")),
     };
     if ok {
@@ -251,6 +251,45 @@ fn builtin(name: &str, v: &str) -> Result<(), String> {
     } else {
         Err(format!("{v:?} is not a valid xs:{name}"))
     }
+}
+
+/// `YYYY-MM-DDThh:mm:ss[.f+](Z|±hh:mm)`. The application parser is more lenient
+/// (it accepts a missing seconds field or a `+03` offset), so the lexical form
+/// is checked here before the value is read.
+fn xs_date_time_with_zone(v: &str) -> bool {
+    let b = v.as_bytes();
+    let digits =
+        |r: std::ops::Range<usize>| b.get(r).is_some_and(|s| s.iter().all(u8::is_ascii_digit));
+    let at = |i: usize, c: u8| b.get(i) == Some(&c);
+    let seconds = digits(0..4)
+        && at(4, b'-')
+        && digits(5..7)
+        && at(7, b'-')
+        && digits(8..10)
+        && at(10, b'T')
+        && digits(11..13)
+        && at(13, b':')
+        && digits(14..16)
+        && at(16, b':')
+        && digits(17..19);
+    if !seconds {
+        return false;
+    }
+    let mut rest = &v[19..];
+    if let Some(fraction) = rest.strip_prefix('.') {
+        let n = fraction.bytes().take_while(u8::is_ascii_digit).count();
+        if n == 0 {
+            return false;
+        }
+        rest = &fraction[n..];
+    }
+    let z = rest.as_bytes();
+    let zone = rest == "Z"
+        || (z.len() == 6
+            && matches!(z[0], b'+' | b'-')
+            && z[3] == b':'
+            && z[1..3].iter().chain(&z[4..6]).all(u8::is_ascii_digit));
+    zone && Instant::parse(v).is_ok()
 }
 
 /// The only patterns in the vendored files: literals and `decimal2`.
@@ -353,6 +392,15 @@ fn the_validator_rejects_records_the_schema_forbids() {
         .replace("<Amount>0.00</Amount>", "<Amount>0.000</Amount>"),
         // Unknown element.
         xml.replace("<Reports>", "<Extra>1</Extra><Reports>"),
+        // A timestamp without seconds or with a short offset.
+        xml.replace(
+            "<Timestamp>2026-10-02T09:30:00+00:00</Timestamp>",
+            "<Timestamp>2026-10-02T09:30+00:00</Timestamp>",
+        ),
+        xml.replace(
+            "<Timestamp>2026-10-02T09:30:00+00:00</Timestamp>",
+            "<Timestamp>2026-10-02T09:30:00+03</Timestamp>",
+        ),
     ];
     for b in broken {
         assert_ne!(b, xml);
