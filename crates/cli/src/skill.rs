@@ -76,6 +76,13 @@ const SKILLS: &[BundledSkill] = &[
         requires: &["aggountant-init"],
         schema_version: 1,
     },
+    BundledSkill {
+        name: "close-year",
+        description: "Close a fiscal year: year-end entries, the four approvals and the year seal.",
+        files: skill_files!("close-year": "SKILL.md"),
+        requires: &["aggountant-init"],
+        schema_version: 1,
+    },
 ];
 
 fn find(name: &str) -> Result<&'static BundledSkill, CliError> {

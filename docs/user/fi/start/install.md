@@ -30,13 +30,14 @@ kerran ja uudelleen aina, kun päivität ohjelman.
 
    > Asenna aggountantin skillit.
 
-   Skillejä on neljä:
+   Skillejä on viisi:
 
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | suoran ALV-ilmoittamisen käyttöönotto, ALV-ilmoitus ja Tulorekisterin matkakorvaukset |
+   | `close-year` | tilikauden päättäminen: tilinpäätöksen kirjaukset, hyväksynnät ja tilikauden sinetöinti |
    | `e-services` | OmaVeron ja Tulorekisterin asiointipalvelun käyttö selaimessasi: miten sivut toimivat, päivättyinä havaintoina |
 
    Oletuksena skillit menevät Claude Coden skillihakemistoon
@@ -70,7 +71,7 @@ viranomaisten verkkopalveluissa tehtävät vaiheet.
 ## Valmis, kun
 
 - `aggountant --version` näyttää version, esimerkiksi `aggountant 0.1.0`.
-- `aggountant skill list` listaa neljä skilliä, ja ne löytyvät agentin
+- `aggountant skill list` listaa viisi skilliä, ja ne löytyvät agentin
   skillihakemistosta.
 
 Skillit on kirjoitettu suomeksi, mutta voit puhua agentille myös englanniksi.

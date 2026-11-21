@@ -30,13 +30,14 @@ them once, and again every time you upgrade the program.
 
    > Install aggountant's skills.
 
-   There are four skills:
+   There are five skills:
 
    | Skill | What the agent uses it for |
    |---|---|
    | `aggountant-init` | setting up a company home, or continuing an unfinished setup |
    | `capture-receipt` | the month's books: receipts, the bank statement, special entries, reconciliation and the month close |
    | `vero-fi` | setting up direct VAT filing, the VAT return and Tulorekisteri travel allowances |
+   | `close-year` | closing a fiscal year: the year-end entries, the approvals and sealing the year |
    | `e-services` | working OmaVero and the Incomes Register e-service in your browser: how their pages behave, as dated observations |
 
    By default the skills go into Claude Code's skill directory
@@ -70,7 +71,7 @@ the steps done in the authorities' web services.
 ## Done when
 
 - `aggountant --version` prints the version, for example `aggountant 0.1.0`.
-- `aggountant skill list` lists four skills, and they are in the agent's
+- `aggountant skill list` lists five skills, and they are in the agent's
   skill directory.
 
 The skills are written in Finnish, but you can talk to the agent in English.

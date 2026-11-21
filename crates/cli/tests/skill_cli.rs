@@ -22,7 +22,7 @@ fn list_exposes_bundled_skill_metadata_in_text_and_json() {
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(payload["schema_version"], 1);
     assert_eq!(payload["skills"][0]["name"], "capture-receipt");
-    assert_eq!(payload["skills"].as_array().unwrap().len(), 4);
+    assert_eq!(payload["skills"].as_array().unwrap().len(), 5);
     assert_eq!(payload["skills"][1]["name"], "aggountant-init");
     assert_eq!(payload["skills"][2]["name"], "vero-fi");
     assert_eq!(payload["skills"][3]["name"], "e-services");
@@ -30,6 +30,7 @@ fn list_exposes_bundled_skill_metadata_in_text_and_json() {
         payload["skills"][3]["path_in_repo"],
         "skills/e-services/SKILL.md"
     );
+    assert_eq!(payload["skills"][4]["name"], "close-year");
     assert_eq!(
         payload["skills"][0]["cli_version"],
         env!("CARGO_PKG_VERSION")
@@ -64,7 +65,7 @@ fn install_supports_an_explicit_runtime_root_and_all_by_default() {
     assert_eq!(output.status.code(), Some(0));
     assert!(output.stderr.is_empty());
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(payload["count"], 4);
+    assert_eq!(payload["count"], 5);
     assert_eq!(payload["installed"][0]["action"], "created");
 
     let installed = target.path().join("capture-receipt").join("SKILL.md");
