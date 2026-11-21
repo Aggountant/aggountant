@@ -2,13 +2,14 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: high
 preparation: ready
 lane: skills-rebuild
 lane_seq: 3
 collision: [skills/capture-receipt/SKILL.md, crates/cli/src/skill.rs]
 blocked_by: ['@skill-soul-rebuild', '@cli-stdin-input-help']
+closed: 2026-11-21
 ---
 
 # Skill rebuild: the month's bookkeeping skill, with the bank import and the month close
@@ -33,3 +34,9 @@ when `eu-goods` refuses on the default chart; the bank import's assignments
 explained by pointing to `import camt053 seal --help`. House-rule copies go
 (SOUL has them). Decide whether the skill is renamed and say why; if renamed,
 handle existing installs (stale copies are never deleted, `skills/AGENTS.md`).
+
+## Resolution
+
+### 2026-11-21T07:39:41Z · @issuectl
+
+capture-receipt rebuilt as the month's skill (1,501 -> 1,220 words), name kept; review, assessment and result are beside the issue. ci-local passes; five gaps filed unlaned.
