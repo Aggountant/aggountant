@@ -9,8 +9,13 @@ kesken.
 
 - Kuukauden sulku tai ilmoitus ei ole kesken. Pyydä agenttia tarkistamaan
   ajojen tila.
-- Sinulla on tuore varmuuskopio kodista
-  ([Varmuuskopioi ja palauta kirjanpito](back-up-and-restore.md)).
+- Sinulla on juuri ennen päivitystä otettu varmuuskopio kodista
+  ([Varmuuskopioi ja palauta kirjanpito](back-up-and-restore.md)). Uusi versio
+  voi muuttaa tositetietokannan (`fiscal.sqlite`) muotoa, kun se avaa kodin
+  ensimmäisen kerran, eikä vanhempi versio sen jälkeen enää avaa tietokantaa.
+  Varmuuskopio on silloin ainoa tie takaisin vanhempaan versioon. Projektin
+  [muutosloki](https://github.com/aggountant/aggountant/blob/main/CHANGELOG.md)
+  kertoo versio kerrallaan, tapahtuuko näin ja mitkä komennot muuttuivat.
 
 ## Näin teet sen
 

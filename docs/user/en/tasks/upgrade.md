@@ -8,8 +8,14 @@ versions, so upgrade when no run is in progress.
 
 - No month's close or filing is in progress. Ask the agent to check the state
   of the runs.
-- You have a recent backup of the home
-  ([Back up and restore your books](back-up-and-restore.md)).
+- You have a backup of the home taken just before the upgrade
+  ([Back up and restore your books](back-up-and-restore.md)). A new version
+  can change the format of the voucher database (`fiscal.sqlite`) the first
+  time it opens the home, and the older version cannot open the database
+  after that. The backup is then the only way back to the older version.
+  The project's
+  [changelog](https://github.com/aggountant/aggountant/blob/main/CHANGELOG.md)
+  says for each version whether this happens and which commands changed.
 
 ## How to do it
 
