@@ -5,7 +5,7 @@ description: >-
   lataus, lomakkeet) ja Tulorekisterin asiointipalvelu (raportin 630 tilaus ja
   lataus). Kertoo, miten sivut käyttäytyvät ja mitä selaimen on sallittava,
   päivättyinä havaintoina. Avaa ennen kuin teet mitään näillä sivuilla.
-cli_version: "0.1.0"
+cli_version: "0.2.0"
 schema_version: 1
 ---
 

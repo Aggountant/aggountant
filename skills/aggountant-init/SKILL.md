@@ -4,7 +4,7 @@ description: >-
   Ota yrityksen kirjanpito käyttöön aggountantissa tai jatka keskeneräistä
   käyttöönottoa: uusi kirjanpitokoti, yrityksen perustiedot, tilikausi, siirto
   aiemmasta järjestelmästä ja avaavat saldot, kodin AGENTS.md ja TODO.md.
-cli_version: "0.1.0"
+cli_version: "0.2.0"
 schema_version: 1
 ---
 

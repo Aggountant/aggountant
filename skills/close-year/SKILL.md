@@ -5,7 +5,7 @@ description: >-
   ja oikaisut, käy käyttäjän kanssa läpi tase-erittelyt, liitetiedot ja laskelmat
   ja sinetöi tilikausi. Käytä, kun vuoden kuukaudet on suljettu ja tilinpäätöstä
   tehdään. Kuukauden sulku ja ALV-ilmoitus eivät kuulu tähän.
-cli_version: "0.1.0"
+cli_version: "0.2.0"
 schema_version: 1
 ---
 

@@ -5,7 +5,7 @@ description: >-
   päiväraha 331) ja työnantajan erillisilmoitus joka kuukaudelta. Selvitä
   epävarma lähetys, kirjaa asiointipalvelussa annettu ilmoitus, ota
   Tulorekisteri-yhteys käyttöön ja kuro kiinni puuttuvat kuukaudet.
-cli_version: "0.1.0"
+cli_version: "0.2.0"
 schema_version: 1
 ---
 
