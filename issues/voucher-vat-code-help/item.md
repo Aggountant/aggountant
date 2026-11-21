@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: agent-surface
 lane_seq: 6
 preparation: ready
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # Help does not say which vat_code values a manual voucher may carry
@@ -50,3 +52,9 @@ with it), and a read-only way to list the rate classes valid on a date.
 When this lands, `skills/capture-receipt/SKILL.md` drops the sentence that
 places the code ("Merkintä kuuluu veron perusteen riville… laskisi veroa
 verosta") down to its reason.
+
+## Resolution
+
+### 2026-11-21T11:12:06Z · @claude-opus-5-5
+
+Implemented; see result.md.

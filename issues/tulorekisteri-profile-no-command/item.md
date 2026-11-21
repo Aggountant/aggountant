@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: product gap found by taskfleet worker while rebuilding the vero-fi skill
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: agent-surface
 lane_seq: 7
 preparation: ready
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # Incomes Register profile has no command, no help and no itemised readiness
@@ -53,3 +55,9 @@ extended) that lists blockers one by one with owners. Then remove from
 and the paragraph beginning "Ohjelma ei erittele, mikä valmiudesta puuttuu",
 and the "no command" lines in the guide (`reference/status.md`,
 `tasks/report-travel-allowances.md`, both languages).
+
+## Resolution
+
+### 2026-11-21T11:12:06Z · @claude-opus-5-5
+
+Implemented; see result.md.

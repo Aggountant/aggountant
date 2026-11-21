@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yfttmj4acrkhe2exge2c7b/review-finding:masterdata-corrupt-names-no-remedy
@@ -16,6 +16,8 @@ review_target: skills/aggountant-init/SKILL.md (worker fact-check against the bu
 lane: agent-surface
 lane_seq: 5
 preparation: ready
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # MASTERDATA_CORRUPT for a missing bundled file does not name home upgrade
@@ -52,3 +54,9 @@ When the cause is a missing bundled reference file that `home upgrade` would
 add, the message (or a `next_command`) names `aggountant home upgrade
 --dry-run`. Then remove the `MASTERDATA_CORRUPT` clause from the last
 paragraph of `skills/aggountant-init/SKILL.md` ("Myöhemmin").
+
+## Resolution
+
+### 2026-11-21T11:12:06Z · @claude-opus-5-5
+
+Implemented; see result.md.
