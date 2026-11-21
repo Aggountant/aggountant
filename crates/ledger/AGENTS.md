@@ -34,7 +34,9 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   content-addressed files, not git and not SQLite blobs.
 - **Chart role metadata is frozen once a voucher is sealed against its
   `chart_version`.** A role change is a new chart edition; never reinterpret old
-  sealed vouchers under the same version. The rule protects filed figures and
+  sealed vouchers under the same version. Adding a reverse-charge target for a
+  scope the chart had none for reinterprets nothing and is the one exception
+  (see the upgrade rule below). The rule protects filed figures and
   VAT treatment, so it governs the roles those come from
   (`vat-account-roles.json`). The settlement roles in
   `settlement-account-roles.json` (bank and tax accounts) are detection
@@ -46,13 +48,23 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   the file opens, and the reconciliation then fails closed: no payment is a
   settlement. Never fall back to recognising payments by voucher shape alone.
 - **Existing homes take in new masterdata only by addition.** `home upgrade`
-  creates missing bundled snapshot and role files and never rewrites a file or
-  the active chart, because a home's masterdata may be company-approved and is
+  creates missing bundled snapshot and role files and never rewrites the active
+  chart or a file the company may have approved, because that masterdata is
   what its sealed vouchers resolve against. A binary that needs something an
   older home cannot get by addition needs a decision, not a rewrite in the
   upgrade. So new kinds of masterdata go into a new file (as the settlement
-  roles did), never as a new field of a file every home already has: changed
-  bundled bytes would leave every existing home reporting it `differs`.
+  roles did), never as a new field of a file every home already has.
+  The one sanctioned in-place change: a bundled `vat-account-roles.json` may
+  gain a reverse-charge target for a scope its chart had none for (no voucher
+  can have been sealed with that scope, so nothing is reinterpreted; the
+  `eu-goods` target on `fi-general-2026` came this way). Whoever changes the
+  bundled role bytes copies the previous file, byte for byte as `init` wrote
+  it, into `data/retired-vat-account-roles/` and lists it in
+  `RETIRED_VAT_ROLE_FILES`; the upgrade then replaces a home's file only while
+  it is exactly such a retired file and the bundled table passes
+  `only_adds_reverse_charge_targets_to`. Any other change to the bundled roles
+  is a new chart edition. Without the retired entry every existing home would
+  report the file `differs` and never get the target.
 
 ## Refusals
 

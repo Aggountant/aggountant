@@ -365,3 +365,95 @@ fn an_uninitialized_home_is_refused_without_creating_it() {
     assert_eq!(err.error_code(), "MASTERDATA_NOT_INITIALIZED");
     assert!(!home.exists());
 }
+
+/// The VAT role file exactly as `init` wrote it before the default chart had an
+/// `eu-goods` reverse-charge target.
+const ROLES_BEFORE_EU_GOODS: &str =
+    include_str!("../data/retired-vat-account-roles/before-eu-goods.json");
+
+#[test]
+fn an_unedited_role_file_from_an_earlier_release_gains_only_the_new_target() {
+    let home = tempfile::tempdir().unwrap();
+    {
+        let ledger = Ledger::init(home.path()).unwrap();
+        seal_purchase(&ledger, "esimerkki:receipt-1", "100.00");
+    }
+    let reference = reference_dir(home.path());
+    let roles_path = reference.join("vat-account-roles.json");
+    fs::write(&roles_path, ROLES_BEFORE_EU_GOODS).unwrap();
+    let before_home = tree(home.path());
+
+    let plan = Ledger::upgrade_masterdata(home.path(), false).unwrap();
+    assert_eq!(
+        states(&plan),
+        vec![
+            (UpgradeResource::ChartSnapshot, UpgradeState::Present),
+            (UpgradeResource::VatAccountRoles, UpgradeState::Update),
+            (
+                UpgradeResource::SettlementAccountRoles,
+                UpgradeState::Present
+            ),
+        ]
+    );
+    assert!(plan.masterdata_check.is_none());
+    assert_eq!(tree(home.path()), before_home, "dry-run writes nothing");
+
+    let applied = Ledger::upgrade_masterdata(home.path(), true).unwrap();
+    assert_eq!(applied.items[1].state, UpgradeState::Updated);
+    assert!(applied.masterdata_check.is_none());
+
+    // Only the role file changed, and it now equals what a fresh init writes.
+    let after_home = tree(home.path());
+    let roles_file = Path::new("masterdata/reference/vat-account-roles.json");
+    assert_eq!(after_home.len(), before_home.len());
+    for (path, bytes) in &before_home {
+        if path != roles_file {
+            assert_eq!(&after_home[path], bytes, "{} unchanged", path.display());
+        }
+    }
+    let fresh = tempfile::tempdir().unwrap();
+    Ledger::init(fresh.path()).unwrap();
+    assert_eq!(
+        fs::read(&roles_path).unwrap(),
+        fs::read(reference_dir(fresh.path()).join("vat-account-roles.json")).unwrap()
+    );
+
+    // The difference is exactly one added target: eu-goods on the domestic pair.
+    let old: serde_json::Value = serde_json::from_str(ROLES_BEFORE_EU_GOODS).unwrap();
+    let mut new: serde_json::Value =
+        serde_json::from_slice(&fs::read(&roles_path).unwrap()).unwrap();
+    let targets = new["charts"][0]["reverse_charge_targets"]
+        .as_array_mut()
+        .unwrap();
+    let added = targets
+        .iter()
+        .position(|t| t["scope"] == "eu-goods")
+        .expect("eu-goods target added");
+    assert_eq!(
+        targets.remove(added),
+        serde_json::json!({"scope":"eu-goods","input_account":"1763","output_account":"2939"})
+    );
+    assert_eq!(new, old, "nothing else changed");
+
+    let again = Ledger::upgrade_masterdata(home.path(), true).unwrap();
+    assert!(again.items.iter().all(|i| i.state == UpgradeState::Present));
+    assert_eq!(tree(home.path()), after_home);
+    assert!(Ledger::open(home.path()).unwrap().verify().unwrap().ok);
+}
+
+#[test]
+fn an_edited_role_file_from_an_earlier_release_is_left_untouched() {
+    let home = tempfile::tempdir().unwrap();
+    Ledger::init(home.path()).unwrap();
+    let roles_path = reference_dir(home.path()).join("vat-account-roles.json");
+    // Same roles, but no longer the bytes the release wrote: a company's own file.
+    let edited = ROLES_BEFORE_EU_GOODS.replace("  ", "    ");
+    fs::write(&roles_path, &edited).unwrap();
+
+    for apply in [false, true] {
+        let upgrade = Ledger::upgrade_masterdata(home.path(), apply).unwrap();
+        assert_eq!(upgrade.items[1].state, UpgradeState::Differs);
+        assert!(upgrade.masterdata_check.is_none());
+    }
+    assert_eq!(fs::read_to_string(&roles_path).unwrap(), edited);
+}

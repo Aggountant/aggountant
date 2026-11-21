@@ -33,15 +33,20 @@ versions, so upgrade when no run is in progress.
    accounts VAT is paid and refunded through). Without the settlement roles
    the home opens, but the VAT return preview asks for every VAT payment to be
    checked. The agent first runs a dry run, which only lists the missing files, and then
-   the actual upgrade. The upgrade only adds missing files to
-   `masterdata/reference/`: it does not switch the chart of accounts in use
-   and does not change any existing file, so vouchers sealed earlier verify
-   as before. If a file in the home differs from the one that comes with
-   aggountant, the upgrade leaves it as it is and says so (`skipped`). A
-   second run does nothing.
+   the actual upgrade. The upgrade adds missing files to
+   `masterdata/reference/` and does not switch the chart of accounts in use.
+   Of the existing files it updates only the VAT roles
+   (`vat-account-roles.json`), and only when the file is byte for byte what
+   an earlier aggountant version wrote and the new version merely adds
+   reverse-charge account pairs to it (for example for EU goods purchases,
+   `eu-goods`). Every old role stays, so vouchers sealed earlier verify as
+   before (`"action": "update"`). If a file in the home differs from the one
+   that comes with aggountant, for example the company's own chart import,
+   the upgrade leaves it as it is and says so (`skipped`). A second run does
+   nothing.
 
-   The added files show up in `git status`. Commit them; that is the record
-   of what the upgrade added.
+   The added and updated files show up in `git status`. Commit them; that is
+   the record of what the upgrade changed.
 
 6. **If a run was in progress after all** and continuing it gives the code
    `WORKFLOW_VERSION_MISMATCH`, the run's definition changed between versions.
@@ -72,7 +77,7 @@ aggountant run migrate --run-id cp-… --confirm
 ## Limitations
 
 - The upgrade does not fix or replace a file that differs in the home from
-  the one that comes with aggountant. If the home's chart of accounts is one
+  the one that comes with aggountant or an earlier version of it. If the home's chart of accounts is one
   for which aggountant brings no VAT roles or settlement roles, the upgrade
   cannot add them (`unavailable`). Do not copy files by hand; ask for help in the
   project's [issue tracker](https://github.com/aggountant/aggountant/issues).

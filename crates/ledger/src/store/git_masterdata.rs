@@ -72,6 +72,16 @@ const BUNDLED_CHARTS: &[&str] = &[DEFAULT_CHART_JSON];
 
 const VAT_ROLES_FILE: &str = "vat-account-roles.json";
 
+/// The VAT role files earlier releases' `init` wrote, byte for byte. A home whose
+/// role file is still exactly one of these never edited it, so `home upgrade` may
+/// replace it with the bundled table, but only while the bundled table merely adds
+/// reverse-charge targets to it ([`VatAccountRoleTable::only_adds_reverse_charge_targets_to`]).
+/// Append an entry whenever the bundled role bytes change; never remove one, or
+/// homes that release wrote will report the file as `differs` forever.
+const RETIRED_VAT_ROLE_FILES: &[&str] = &[include_str!(
+    "../../data/retired-vat-account-roles/before-eu-goods.json"
+)];
+
 /// Optional: a home without it opens, and the VAT reconciliation then treats every
 /// VAT payment and refund as untagged (fails closed) until `home upgrade` adds it.
 const SETTLEMENT_ROLES_FILE: &str = "settlement-account-roles.json";
@@ -86,6 +96,11 @@ pub enum UpgradeState {
     Created,
     /// Already present with exactly the bundled bytes.
     Present,
+    /// Present with exactly the bytes an earlier release wrote, which the bundled
+    /// file only adds to; a dry-run would replace it with the bundled file.
+    Update,
+    /// Held an earlier release's bytes before this run; the apply replaced it.
+    Updated,
     /// Present with other bytes; left untouched.
     Differs,
     /// Missing, but the bundled content cannot serve this home; not created.
@@ -294,9 +309,11 @@ impl GitMasterDataRefStore {
 
     /// Plan, and with `apply` perform, the masterdata upgrade of an existing home:
     /// add the bundled chart snapshots, the VAT role metadata and the settlement
-    /// roles a newer binary needs and an older `init` never wrote. It only ever creates files that do
-    /// not exist. The active chart, `chart_version` and every existing file are
-    /// left byte-identical; an existing file whose bytes differ from the bundled
+    /// roles a newer binary needs and an older `init` never wrote. It creates files
+    /// that do not exist and replaces only a VAT role file that is still exactly
+    /// what an earlier release wrote, when the bundled table only adds reverse-charge
+    /// targets to it. The active chart, `chart_version` and every other existing file
+    /// are left byte-identical; an existing file whose bytes differ from the bundled
     /// ones is reported and left alone, because it may be company-approved
     /// masterdata. Role metadata is added only when the bundled table activates
     /// the home's own active chart, so the active chart choice never changes.
@@ -312,6 +329,8 @@ impl GitMasterDataRefStore {
 
         let mut items = Vec::new();
         let mut creates: Vec<(String, Vec<u8>)> = Vec::new();
+        // Files to replace: path, the exact bytes expected there now, new bytes.
+        let mut updates: Vec<(String, Vec<u8>, Vec<u8>)> = Vec::new();
         for json in BUNDLED_CHARTS {
             let chart = parse_chart(json)?;
             let version = compute_chart_version(&chart.chart, &chart.chart_date, &chart.accounts)?;
@@ -362,13 +381,42 @@ impl GitMasterDataRefStore {
                 let raw = fs::read_to_string(reference.join(VAT_ROLES_FILE))
                     .map_err(|e| LedgerError::Store(e.to_string()))?;
                 let roles = parse_vat_roles(&raw);
-                if role_item.state == UpgradeState::Differs {
-                    role_item.detail = Some(match &roles {
-                        Ok(existing) => differing_roles_detail(existing),
-                        Err(e) => format!("existing file is not valid role metadata: {e}"),
-                    });
+                if role_item.state == UpgradeState::Differs && retired_vat_roles_extended(&raw) {
+                    let bundled = VatAccountRoleTable::bundled();
+                    match validate_chart_vat_roles(&active_version, &snapshots, bundled) {
+                        Ok(()) => {
+                            role_item.state = UpgradeState::Update;
+                            role_item.detail = Some(
+                                "the file is exactly what an earlier aggountant release wrote; \
+                                 the bundled file keeps every role in it and adds \
+                                 reverse-charge targets"
+                                    .to_string(),
+                            );
+                            updates.push((
+                                VAT_ROLES_FILE.to_string(),
+                                raw.into_bytes(),
+                                role_bytes,
+                            ));
+                            Ok(bundled.clone())
+                        }
+                        Err(e) => {
+                            role_item.detail = Some(format!(
+                                "the file is an earlier release's role metadata, but the \
+                                 bundled roles do not fit this home's charts: {e}; left \
+                                 untouched"
+                            ));
+                            roles
+                        }
+                    }
+                } else {
+                    if role_item.state == UpgradeState::Differs {
+                        role_item.detail = Some(match &roles {
+                            Ok(existing) => differing_roles_detail(existing),
+                            Err(e) => format!("existing file is not valid role metadata: {e}"),
+                        });
+                    }
+                    roles
                 }
-                roles
             }
         };
         items.push(role_item);
@@ -440,9 +488,14 @@ impl GitMasterDataRefStore {
             for (path, bytes) in &creates {
                 create_new_file(&reference, path, bytes)?;
             }
+            for (path, expected, bytes) in &updates {
+                replace_file(&reference, path, expected, bytes)?;
+            }
             for item in &mut items {
-                if item.state == UpgradeState::Create {
-                    item.state = UpgradeState::Created;
+                match item.state {
+                    UpgradeState::Create => item.state = UpgradeState::Created,
+                    UpgradeState::Update => item.state = UpgradeState::Updated,
+                    _ => {}
                 }
             }
             check = Self::open(dir).map(|_| ());
@@ -640,6 +693,62 @@ fn differing_roles_detail(existing: &VatAccountRoleTable) -> String {
             missing.join(", ")
         )
     }
+}
+
+/// Whether `raw` is exactly an earlier release's bundled role file that the bundled
+/// table only extends with reverse-charge targets.
+fn retired_vat_roles_extended(raw: &str) -> bool {
+    RETIRED_VAT_ROLE_FILES.iter().any(|retired| {
+        *retired == raw
+            && VatAccountRoleTable::from_json(retired).is_ok_and(|older| {
+                VatAccountRoleTable::bundled().only_adds_reverse_charge_targets_to(&older)
+            })
+    })
+}
+
+/// Replace one file whose bytes are still exactly `expected` with `bytes`: written
+/// and fsynced under a private temporary name, then renamed over the target, so a
+/// crash leaves either the old or the new file, never a half-written one. A file
+/// that changed since the plan is refused, not overwritten.
+fn replace_file(
+    reference: &Path,
+    path: &str,
+    expected: &[u8],
+    bytes: &[u8],
+) -> Result<(), LedgerError> {
+    let target = reference.join(path);
+    let current = fs::read(&target).map_err(|e| LedgerError::Store(e.to_string()))?;
+    if current != expected {
+        return Err(LedgerError::Store(format!(
+            "{} changed while the upgrade ran; nothing was replaced, re-run the upgrade",
+            target.display()
+        )));
+    }
+    let parent = target
+        .parent()
+        .ok_or_else(|| LedgerError::Store(format!("{} has no parent", target.display())))?;
+    let name = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let temporary = parent.join(format!(
+        ".{name}.upgrade.{}.{}",
+        std::process::id(),
+        next_unique()
+    ));
+    if let Err(e) = write_file_synced(&temporary, bytes) {
+        let _ = fs::remove_file(&temporary);
+        return Err(e);
+    }
+    if let Err(e) = fs::rename(&temporary, &target) {
+        let _ = fs::remove_file(&temporary);
+        return Err(LedgerError::Store(format!(
+            "could not replace {} (it was left as it was; re-running the upgrade is safe): {e}",
+            target.display()
+        )));
+    }
+    fsync_dir(parent);
+    Ok(())
 }
 
 /// Create one new file without ever replacing an existing one: the bytes are
@@ -1059,6 +1168,24 @@ add personal names or identifiers to this tree.
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_retired_role_file_is_only_extended_by_the_bundled_table() {
+        let bundled = VatAccountRoleTable::bundled();
+        for retired in RETIRED_VAT_ROLE_FILES {
+            let older = VatAccountRoleTable::from_json(retired).unwrap();
+            assert!(
+                bundled.only_adds_reverse_charge_targets_to(&older),
+                "the bundled VAT roles must keep every role of an earlier release's file"
+            );
+            assert!(retired_vat_roles_extended(retired));
+            assert_ne!(
+                retired.as_bytes(),
+                bundled_vat_roles_bytes().unwrap(),
+                "a retired file is never the current bundled file"
+            );
+        }
+    }
 
     #[test]
     fn init_then_open_round_trips() {

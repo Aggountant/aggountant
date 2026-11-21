@@ -35,15 +35,21 @@ kesken.
    ALV-ilmoituksen esikatselu pyytää tarkistamaan jokaisen ALV:n maksun.
    Agentti ajaa ensin
    kuivaharjoituksen, joka vain luettelee puuttuvat tiedostot, ja sen jälkeen
-   varsinaisen päivityksen. Päivitys lisää vain puuttuvia tiedostoja
-   hakemistoon `masterdata/reference/`: se ei vaihda käytössä olevaa
-   tilikarttaa eikä muuta olemassa olevaa tiedostoa, joten aiemmin
-   sinetöidyt tositteet tarkistuvat kuten ennenkin. Jos jokin tiedosto on
-   kodissa eri sisältöisenä kuin ohjelman mukana tuleva, päivitys jättää sen
-   ennalleen ja kertoo siitä (`skipped`). Toinen ajo ei tee mitään.
+   varsinaisen päivityksen. Päivitys lisää puuttuvia tiedostoja
+   hakemistoon `masterdata/reference/` eikä vaihda käytössä olevaa
+   tilikarttaa. Olemassa olevista tiedostoista se päivittää vain ALV-roolit
+   (`vat-account-roles.json`), ja vain silloin, kun tiedosto on tavu
+   tavulta sellainen kuin aiempi aggountantin versio sen kirjoitti ja uusi
+   versio vain lisää siihen käännetyn verovelvollisuuden tilipareja (esimerkiksi
+   EU-tavaraostoille, `eu-goods`). Silloin kaikki vanhat roolit säilyvät,
+   joten aiemmin sinetöidyt tositteet tarkistuvat kuten ennenkin
+   (`"action": "update"`). Jos jokin tiedosto on kodissa eri sisältöisenä
+   kuin ohjelman mukana tuleva, esimerkiksi yrityksen oma tilikartan tuonti,
+   päivitys jättää sen ennalleen ja kertoo siitä (`skipped`). Toinen ajo ei
+   tee mitään.
 
-   Lisätyt tiedostot näkyvät `git status` -tulosteessa. Vie ne
-   versionhallintaan; se on kirjanpito siitä, mitä päivitys lisäsi.
+   Lisätyt ja päivitetyt tiedostot näkyvät `git status` -tulosteessa. Vie ne
+   versionhallintaan; se on kirjanpito siitä, mitä päivitys muutti.
 
 6. **Jos jokin ajo oli kuitenkin kesken** ja sen jatkaminen antaa koodin
    `WORKFLOW_VERSION_MISMATCH`, ajon määritys on muuttunut versioiden välillä.
@@ -74,7 +80,7 @@ aggountant run migrate --run-id cp-… --confirm
 ## Rajoitukset
 
 - Päivitys ei korjaa eikä korvaa tiedostoa, joka on kodissa eri sisältöisenä
-  kuin ohjelman mukana tuleva. Jos kodin tilikartalle ei tule ohjelman
+  kuin ohjelman mukana tuleva tai sen aiempi versio. Jos kodin tilikartalle ei tule ohjelman
   mukana ALV-rooleja tai maksutilien rooleja, päivitys ei voi lisätä niitä (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
   [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
 

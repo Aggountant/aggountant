@@ -11,6 +11,7 @@
       "domestic_input_account": "1763",
       "reverse_charge_targets": [
         { "scope": "eu-services", "input_account": "1763", "output_account": "2939" },
+        { "scope": "eu-goods", "input_account": "1763", "output_account": "2939" },
         { "scope": "non-eu-services", "input_account": "1763", "output_account": "2939" }
       ],
       "mistag_guards": [

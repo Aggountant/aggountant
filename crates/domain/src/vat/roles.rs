@@ -249,6 +249,37 @@ impl VatAccountRoleTable {
         Ok(table)
     }
 
+    /// Whether `self` is `older` plus reverse-charge targets for scopes `older` had
+    /// none for, and nothing else: the same table, the same chart snapshots in the same
+    /// order, every account role, domestic input account, mistag guard and existing
+    /// target unchanged. Such a table resolves every treatment `older` could seal to the
+    /// same accounts, so no voucher sealed under `older` is reinterpreted by it.
+    pub fn only_adds_reverse_charge_targets_to(&self, older: &Self) -> bool {
+        self.table == older.table
+            && self.charts.len() == older.charts.len()
+            && self.charts.iter().zip(&older.charts).all(|(new, old)| {
+                new.chart_version == old.chart_version
+                    && new.active == old.active
+                    && new.accounts == old.accounts
+                    && new.domestic_input_account == old.domestic_input_account
+                    && new.mistag_guards == old.mistag_guards
+                    // Old snapshots with legacy account-attached targets resolve
+                    // differently once explicit targets exist; never extend them.
+                    && !old.reverse_charge_targets.is_empty()
+                    && old
+                        .reverse_charge_targets
+                        .iter()
+                        .all(|target| new.reverse_charge_targets.contains(target))
+                    && new.reverse_charge_targets.iter().all(|target| {
+                        old.reverse_charge_targets.contains(target)
+                            || !old
+                                .reverse_charge_targets
+                                .iter()
+                                .any(|existing| existing.scope == target.scope)
+                    })
+            })
+    }
+
     /// Resolve one exact, activated chart snapshot. Prefix fallback is deliberately
     /// forbidden: roles from another edition can silently turn a filing into 0,00.
     pub fn resolve(&self, chart_version: &str) -> Result<&ChartVatRoles, DomainError> {

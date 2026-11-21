@@ -42,6 +42,15 @@ pub enum ReverseChargeScope {
 }
 
 impl ReverseChargeScope {
+    /// The scope as callers write it (`eu-goods`), for diagnostics.
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            ReverseChargeScope::EuServices => "eu-services",
+            ReverseChargeScope::EuGoods => "eu-goods",
+            ReverseChargeScope::NonEuServices => "non-eu-services",
+        }
+    }
+
     /// Legacy chartless expander target. Chart-aware production paths resolve the
     /// exact active chart instead.
     pub(super) fn input_account(self) -> &'static str {
@@ -521,8 +530,13 @@ fn reverse_charge_accounts(
     let (input, output) = match roles {
         Some(chart) => chart.reverse_charge_target(scope).ok_or_else(|| {
             DomainError::VatStructure(format!(
-                "chart_version {:?} has no reverse-charge role target for {scope:?}",
-                chart.chart_version()
+                "chart_version {:?} has no reverse-charge role target for scope {}; \
+                 the home's masterdata/reference/vat-account-roles.json names no input and \
+                 output VAT account for it. On the default chart `aggountant home upgrade \
+                 --dry-run` shows whether an upgrade adds it; a company's own role file \
+                 needs the target added in its own chart import",
+                chart.chart_version(),
+                scope.label()
             ))
         })?,
         None => (scope.input_account(), scope.output_account()),

@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use aggountant_domain::{verify_vat_expansion_with_role_table, VatRecompute};
+use aggountant_domain::{
+    compute_derived_vat_filing, verify_vat_expansion_with_role_table, VatRecompute, VatReturnField,
+};
 use aggountant_ledger::Ledger;
 use aggountant_process::{
     prepare_structured_receipt, record_structured_receipt, StructuredReceiptInput,
@@ -211,6 +213,57 @@ fn install_reverse_charge_chart(home: &Path) {
         .unwrap(),
     )
     .unwrap();
+}
+
+/// An EU goods acquisition on the chart `init` creates: the generated legs land on
+/// the default chart's domestic pair, and the return reports it in the EU goods
+/// fields (312 base, 305 tax) with the tax deductible in 307.
+#[test]
+fn eu_goods_reverse_charge_on_the_default_chart_files_in_the_eu_goods_fields() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    let mut input = input(json!({
+        "type": "reverse-charge",
+        "rate_class": "domestic-standard",
+        "scope": "eu-goods"
+    }));
+    input.source.amount = serde_json::from_value(json!({
+        "amount": "1000.00", "currency": "EUR"
+    }))
+    .unwrap();
+    let prepared = prepare_structured_receipt(&ledger, &input).unwrap();
+    let legs: Vec<_> = prepared
+        .draft
+        .postings()
+        .iter()
+        .map(|p| (p.account.as_str().to_string(), p.amount.amount_str()))
+        .collect();
+    assert!(legs.contains(&("1763".into(), "255.00".into())), "{legs:?}");
+    assert!(legs.contains(&("2939".into(), "255.00".into())), "{legs:?}");
+    let sealed = record_structured_receipt(&ledger, &input, &prepared.preparation_hash).unwrap();
+    let body = ledger.voucher(sealed.number).unwrap().body;
+    assert!(matches!(
+        verify_vat_expansion_with_role_table(&body, ledger.vat_role_table()).unwrap(),
+        VatRecompute::Verified { .. }
+    ));
+
+    let period = aggountant_model::PeriodId::parse("2026-07").unwrap();
+    let figures = ledger
+        .derive_vat_filing_figures(&period, &ledger.period_vouchers(&period).unwrap())
+        .unwrap();
+    let filing = compute_derived_vat_filing(&figures).unwrap();
+    let field = |f| filing.fields.get(f).map(|m| m.amount_str());
+    assert_eq!(field(VatReturnField::Field312).as_deref(), Some("1000.00"));
+    assert_eq!(field(VatReturnField::Field305).as_deref(), Some("255.00"));
+    assert_eq!(field(VatReturnField::Field307).as_deref(), Some("255.00"));
+    assert_eq!(field(VatReturnField::Field308).as_deref(), Some("0.00"));
+    for domestic_or_service in [
+        VatReturnField::Field301,
+        VatReturnField::Field306,
+        VatReturnField::Field313,
+    ] {
+        assert!(filing.fields.get(domestic_or_service).is_none());
+    }
 }
 
 #[test]

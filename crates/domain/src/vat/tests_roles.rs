@@ -1827,3 +1827,34 @@ fn domestic_tagged_sale_and_provenance_purchases_merge_once_per_tax_slot() {
         filing.sales_vat.amount()
     );
 }
+
+#[test]
+fn only_added_reverse_charge_targets_count_as_an_extension() {
+    let table = |targets: &str, accounts: &str| {
+        VatAccountRoleTable::from_json(&format!(
+            r#"{{"table":"t","charts":[{{"chart_version":"company@v1","active":true,
+            "accounts":[{accounts}],"domestic_input_account":"1763",
+            "reverse_charge_targets":[{targets}]}}]}}"#
+        ))
+        .unwrap()
+    };
+    let accounts = r#"{"account":"1763","role":"input-vat"},
+        {"account":"2939","role":"tagged-only","generated_role":"output"}"#;
+    let services = r#"{"scope":"eu-services","input_account":"1763","output_account":"2939"}"#;
+    let goods = r#"{"scope":"eu-goods","input_account":"1763","output_account":"2939"}"#;
+    let older = table(services, accounts);
+
+    assert!(
+        table(&format!("{services},{goods}"), accounts).only_adds_reverse_charge_targets_to(&older)
+    );
+    assert!(older.only_adds_reverse_charge_targets_to(&older));
+    // Losing a target, or a changed account role, is not an extension.
+    assert!(!table(goods, accounts).only_adds_reverse_charge_targets_to(&older));
+    let more_accounts = format!(r#"{accounts},{{"account":"1797","role":"input-vat"}}"#);
+    assert!(!table(&format!("{services},{goods}"), &more_accounts)
+        .only_adds_reverse_charge_targets_to(&older));
+    // A re-pointed existing scope reinterprets sealed vouchers.
+    let moved = r#"{"scope":"eu-services","input_account":"1797","output_account":"2939"}"#;
+    assert!(!table(moved, &more_accounts)
+        .only_adds_reverse_charge_targets_to(&table(services, &more_accounts)));
+}

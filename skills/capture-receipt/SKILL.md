@@ -54,13 +54,6 @@ ALV-käsittely on aina nimenomainen väite, koska se on ilmoituksen rahaa.
   kysymys menee käyttäjälle ja osto jää avoimeksi. Tuntemattoman ALV:n
   merkitseminen `no-vat`iksi olisi hiljaa väärää kirjanpitoa, jota kukaan ei
   huomaa ennen ilmoitusta.
-- EU-tavaraosto (`eu-goods`) kieltäytyy oletustilikartalla, koska kartassa ei
-  ole sille ALV-tiliparia. Oikeaa kiertotietä ei ole: `eu-services` veisi oston
-  ilmoituksen palvelukenttiin ja käsin merkitty tosite kotimaan kenttiin. Jätä
-  lasku avoimeksi ja kerro käyttäjälle, että sen vero puuttuu ohjelman
-  laskemasta ilmoituksesta, kunnes hän tai hänen kirjanpitäjänsä on ratkaissut
-  käsittelyn. Jos maksu on jo tiliotteella, rivi kirjataan ostovelkaa vastaan
-  kuten muutkin.
 
 `natural_key` johdetaan lähteestä, jotta sama kuitti tunnistetaan myöhemmin.
 Avaimen vaihtaminen kieltäytymisen kiertämiseksi tuottaa kahdennetun tositteen.

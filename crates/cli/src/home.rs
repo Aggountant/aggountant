@@ -14,9 +14,13 @@ settlement account roles (the bank and tax accounts VAT is paid through).
   aggountant --home ./accounting --json home upgrade --dry-run
   aggountant --home ./accounting --json home upgrade --apply
 
-The upgrade only creates missing files under masterdata/reference/. It never
-changes the active chart or chart_version and never rewrites an existing file:
-a file whose bytes differ from the bundled one (for example a company's own
+The upgrade creates missing files under masterdata/reference/. It never
+changes the active chart or chart_version. The one file it replaces is
+vat-account-roles.json, and only while it is still byte for byte what an
+earlier aggountant release wrote and the bundled file keeps every role in it,
+adding reverse-charge targets (for example `eu-goods`); that entry has
+`"action": "update"` and is listed under `updated` after --apply. Any other
+file whose bytes differ from the bundled one (for example a company's own
 role metadata) is listed under `skipped` with reason `differs` and left alone.
 Role metadata is added only when the bundled roles cover the home's own
 active chart; otherwise it is skipped as `unavailable`. A second run is a no-op.
@@ -28,9 +32,9 @@ what the upgrade added."#;
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum HomeCmd {
-    /// Take in the masterdata a newer aggountant needs: add only missing bundled
-    /// chart snapshots, VAT role metadata and settlement roles. `--dry-run`
-    /// writes nothing.
+    /// Take in the masterdata a newer aggountant needs: add missing bundled chart
+    /// snapshots, VAT role metadata and settlement roles, and extend an unedited
+    /// VAT role file from an earlier release. `--dry-run` writes nothing.
     #[command(
         after_help = HOME_UPGRADE_HELP,
         group(ArgGroup::new("mode").required(true).args(["dry_run", "apply"]))
@@ -39,7 +43,7 @@ pub(crate) enum HomeCmd {
         /// List what would be added without writing anything.
         #[arg(long)]
         dry_run: bool,
-        /// Add the missing files.
+        /// Add the missing files and extend an unedited earlier role file.
         #[arg(long)]
         apply: bool,
     },
@@ -54,14 +58,26 @@ pub(crate) fn run(cmd: &HomeCmd, home: &Path) -> Result<Value, CliError> {
             let mut skipped = Vec::new();
             for item in &upgrade.items {
                 match item.state {
-                    UpgradeState::Create | UpgradeState::Created => {
+                    UpgradeState::Create
+                    | UpgradeState::Created
+                    | UpgradeState::Update
+                    | UpgradeState::Updated => {
+                        let action = match item.state {
+                            UpgradeState::Create | UpgradeState::Created => "create",
+                            _ => "update",
+                        };
                         let mut would = json!({
-                            "action": "create",
+                            "action": action,
                             "resource": item.resource,
                             "path": item.path,
                         });
                         if let Some(version) = &item.chart_version {
                             would["chart_version"] = json!(version);
+                        }
+                        if action == "update" {
+                            if let Some(detail) = &item.detail {
+                                would["detail"] = json!(detail);
+                            }
                         }
                         planned.push(would);
                     }
@@ -92,10 +108,15 @@ pub(crate) fn run(cmd: &HomeCmd, home: &Path) -> Result<Value, CliError> {
                 })),
             });
             if upgrade.applied {
-                value["created"] = json!(planned
-                    .iter()
-                    .map(|p| p["path"].clone())
-                    .collect::<Vec<_>>());
+                let paths = |action: &str| {
+                    planned
+                        .iter()
+                        .filter(|p| p["action"] == action)
+                        .map(|p| p["path"].clone())
+                        .collect::<Vec<_>>()
+                };
+                value["created"] = json!(paths("create"));
+                value["updated"] = json!(paths("update"));
             } else {
                 value["would"] = json!(planned);
             }
@@ -112,13 +133,29 @@ pub(crate) fn human_line(cmd: &HomeCmd, value: &Value) -> String {
                 None => "masterdata opens".to_string(),
                 Some(code) => format!("masterdata still does not open ({code})"),
             };
-            let (verb, added) = if value["dry_run"] == true {
-                ("would add", count("would"))
+            let dry_run = value["dry_run"] == true;
+            let would = |action: &str| {
+                value["would"].as_array().map_or(0, |items| {
+                    items.iter().filter(|w| w["action"] == action).count()
+                })
+            };
+            let (add, added, update, updated) = if dry_run {
+                (
+                    "would add",
+                    would("create"),
+                    "would update",
+                    would("update"),
+                )
             } else {
-                ("added", count("created"))
+                ("added", count("created"), "updated", count("updated"))
+            };
+            let updates = if updated > 0 {
+                format!(", {update} {updated}")
+            } else {
+                String::new()
             };
             format!(
-                "{verb} {added} file(s), {} already present, {} left untouched — {opens}",
+                "{add} {added} file(s){updates}, {} already present, {} left untouched — {opens}",
                 count("existed"),
                 count("skipped"),
             )
