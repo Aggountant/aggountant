@@ -62,6 +62,10 @@ pub struct PeriodBalance {
     pub assets_total: String,
     pub equity_liabilities_total: String,
     pub balanced: bool,
+    /// Present when the balances leave out the opening position because the
+    /// previous fiscal year is not closed yet; says so and why.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opening_note: Option<String>,
 }
 
 /// What closing the period means, as the user approves it.
@@ -98,7 +102,9 @@ pub struct ClosePeriodPreview {
     pub period: String,
     pub state: PeriodState,
     pub owning_run_id: Option<String>,
-    /// True when `run start close-period` would be accepted now.
+    /// True when the period is Open and no obligation is open for it. The
+    /// ledger's coverage rules (no months and quarters in one year, quarters only
+    /// in a calendar fiscal year) are checked when the close starts.
     pub ready: bool,
     /// Why a close cannot start now (empty when `ready`).
     pub blockers: Vec<String>,
@@ -170,15 +176,31 @@ impl ProcessEngine {
                 )),
             ));
         }
-        let data = ledger.fiscal_year_data(fiscal_year.year())?;
+        // The opening position comes from the previous fiscal year, which is
+        // usually still open when its successor's first months are closed. The
+        // close does not wait for the year-end close: the balances then show this
+        // fiscal year's movements only, and the content says so.
+        let (opening_balance, vouchers, opening_note) =
+            match ledger.fiscal_year_data(fiscal_year.year()) {
+                Ok(data) => (data.opening_balance, data.vouchers, None),
+                Err(aggountant_ledger::LedgerError::PeriodNotSealed(reason)) => (
+                    None,
+                    ledger.year_vouchers(fiscal_year.year())?,
+                    Some(format!(
+                        "Balances exclude the opening position (movements of fiscal year {} \
+                         only): {reason}",
+                        fiscal_year.year()
+                    )),
+                ),
+                Err(e) => return Err(e.into()),
+            };
         let chart = ledger.chart_list(None)?;
         let provenance = StatementProvenance {
             chart_version: ledger.chart_version()?,
             policy_set: PolicySet::default().id,
             kpa_policy_version: kpa_policy_version().to_string(),
         };
-        let to_date: Vec<_> = data
-            .vouchers
+        let to_date: Vec<_> = vouchers
             .iter()
             .filter(|v| v.posting_date() <= last_date)
             .cloned()
@@ -190,7 +212,7 @@ impl ProcessEngine {
             .collect();
 
         let period_statements = compute_statements(
-            &data.fiscal_year,
+            &fiscal_year,
             None,
             &in_period,
             &chart,
@@ -199,8 +221,8 @@ impl ProcessEngine {
         )
         .map_err(map_domain)?;
         let to_date_statements = compute_statements(
-            &data.fiscal_year,
-            data.opening_balance.as_ref(),
+            &fiscal_year,
+            opening_balance.as_ref(),
             &to_date,
             &chart,
             kpa_policy(),
@@ -208,8 +230,8 @@ impl ProcessEngine {
         )
         .map_err(map_domain)?;
         let balances = tase_erittelyt(
-            &data.fiscal_year,
-            data.opening_balance.as_ref(),
+            &fiscal_year,
+            opening_balance.as_ref(),
             &to_date,
             &chart,
             provenance,
@@ -247,6 +269,7 @@ impl ProcessEngine {
                 assets_total: to_date_statements.assets_total,
                 equity_liabilities_total: to_date_statements.equity_liabilities_total,
                 balanced: to_date_statements.balanced,
+                opening_note,
             },
             open_obligations,
             locks: format!(

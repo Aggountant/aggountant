@@ -2733,6 +2733,9 @@ balances at {}:",
         balance["equity_liabilities_total"].as_str().unwrap_or("?"),
         balance["balanced"]
     ));
+    if let Some(note) = balance["opening_note"].as_str() {
+        out.push_str(&format!("\n  {note}"));
+    }
     for obligation in content["open_obligations"].as_array().into_iter().flatten() {
         out.push_str(&format!(
             "

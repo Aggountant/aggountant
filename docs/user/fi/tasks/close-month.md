@@ -44,6 +44,10 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
    kerro. Hyväksy, kun tiedät, ettei kuukauteen tarvitse enää kirjata mitään.
    Hyväksynnän jälkeen kuukausi lukitaan pysyvästi.
 
+   Jos edellistä tilikautta ei ole vielä suljettu, saldoissa ovat vain tämän
+   tilikauden tapahtumat ilman avaavia saldoja, ja sisältö sanoo sen. Sulku ei
+   odota tilinpäätöstä.
+
    Hyväksyntä koskee juuri näytettyä sisältöä. Jos kirjanpito muuttuu sen
    jälkeen (esimerkiksi edelliselle avoimelle kuukaudelle kirjataan tosite,
    joka muuttaa loppusaldoja), hyväksyntä hylätään koodilla

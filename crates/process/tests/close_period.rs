@@ -819,3 +819,47 @@ fn a_quarter_spanning_two_fiscal_years_is_refused_before_it_closes() {
     assert_eq!(ledger.period_view(&q1()).unwrap().state, PeriodState::Open);
     assert!(engine.list().unwrap().is_empty());
 }
+
+#[test]
+fn january_closes_while_the_previous_fiscal_year_is_still_open() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    let january = PeriodId::parse("2027-01").unwrap();
+    seal_voucher(&ledger, "2026-12-15", "co:december").unwrap();
+    seal_voucher(&ledger, "2027-01-10", "co:january").unwrap();
+
+    let preview = engine.preview_close_period(&january).unwrap();
+    assert!(preview.ready, "{:?}", preview.blockers);
+    let balance = &preview.content.balance_sheet;
+    let note = balance.opening_note.as_deref().expect("opening note");
+    assert!(note.contains("fiscal year 2027"), "{note}");
+    // Movements of 2027 only: December's payment is not in the bank balance.
+    let bank = balance
+        .accounts
+        .iter()
+        .find(|a| a.account == "1910")
+        .unwrap();
+    assert_eq!(bank.balance, "-12.40");
+    assert_eq!(preview.content.income_statement.result, "-12.40");
+
+    let started = engine
+        .start_close_period(&january, &PolicySet::default())
+        .unwrap();
+    let done = engine
+        .answer(&started.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+}
+
+#[test]
+fn a_full_previous_year_gives_balances_with_no_opening_note() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    seal_voucher(&ledger, "2026-07-10", "co:july").unwrap();
+    let preview = engine
+        .preview_close_period(&PeriodId::parse("2026-07").unwrap())
+        .unwrap();
+    assert!(preview.content.balance_sheet.opening_note.is_none());
+}

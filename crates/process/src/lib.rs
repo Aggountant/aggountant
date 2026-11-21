@@ -761,8 +761,10 @@ impl ProcessEngine {
             // still name an earlier run (one that rejected its close or reopened
             // a seal); that is history, not a claim, and `begin_close` does not
             // match the owner. The retry is a start, so it passes the same
-            // obligation gate; a refusal leaves the Run retryable.
+            // obligation gate and content check; a refusal leaves the Run
+            // retryable.
             self.refuse_open_obligations(&period)?;
+            self.close_period_content(&ledger, &period)?;
             match ledger.begin_close(&period, run_id, ACTOR) {
                 Ok(_) => journal.append(EventPayload::EffectSucceeded {
                     effect_key: EFFECT_TRANSITION.to_string(),

@@ -46,6 +46,10 @@ finished.
    Approve when you know nothing more needs to be recorded in the month. After
    approval the month is locked permanently.
 
+   If the previous fiscal year has not been closed yet, the balances show only
+   this fiscal year's transactions without the opening balances, and the
+   content says so. The close does not wait for the year-end close.
+
    The approval covers exactly the content shown. If the books change after
    that (for example a voucher recorded in an earlier open month changes the
    closing balances), the approval is refused with `CLOSE_CONTENT_CHANGED`.
