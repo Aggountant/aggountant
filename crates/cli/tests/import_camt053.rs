@@ -312,6 +312,34 @@ fn deductibility_misplaced_on_a_full_treatment_is_refused_before_sealing() {
 }
 
 #[test]
+fn no_vat_with_a_rate_class_or_scope_is_refused_before_sealing() {
+    // `no-vat` carrying a rate class or scope contradicts itself and must be refused,
+    // not sealed with no VAT leg.
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let input = r#"{"assignments":[
+      {"bank_ref":"HLV-2026-0314-001","bank_account":"1910","document_date":"2026-03-14",
+       "contra_postings":[{"account":"7690","amount":{"amount":"124.00","currency":"EUR"}}],
+       "vat_treatment":{"type":"no-vat","rate_class":"domestic-standard","scope":"eu-goods"}},
+      {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
+        {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
+    ]}"#;
+    for args in [
+        &["import", "camt053", "seal", "--file", &file, "--dry-run"][..],
+        &["import", "camt053", "seal", "--file", &file][..],
+    ] {
+        let (code, _, stderr) = run(home, args, input);
+        assert_eq!(code, 1, "{stderr}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(error["error_code"], "INVALID_INPUT");
+        assert!(error["message"].as_str().unwrap().contains("rate_class"));
+    }
+    assert_no_fiscal_vouchers(home);
+}
+
+#[test]
 fn zero_rate_legacy_tag_remains_a_supported_transport_path() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();

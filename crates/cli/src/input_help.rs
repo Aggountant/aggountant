@@ -160,6 +160,7 @@ pub(crate) const CAPTURE_RECEIPT_RECORD: &str = r#"INPUT (JSON on stdin)
           net. The chart's VAT roles for the scope receive the legs.
       {"type":"no-vat"}
           only when VAT-free status is confirmed by the source or practice.
+          It takes no other member: a rate_class or scope on it is refused.
       {"type":"clarification-required","question":"..."}
           a deciding fact is missing: refused as CAPTURE_CLARIFICATION_REQUIRED.
       {"type":"unsupported","treatment":"...","reason":"..."}

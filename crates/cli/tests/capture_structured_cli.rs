@@ -230,3 +230,51 @@ fn domestic_input_with_a_zero_rated_sale_class_is_refused_with_the_fitting_treat
     let verified = success(home.path(), &["voucher", "verify"], &json!(null));
     assert_eq!(verified["voucher_count"], 0, "{verified}");
 }
+
+#[test]
+fn no_vat_with_a_rate_class_or_scope_is_refused_on_dry_run_and_record() {
+    // `no-vat` carrying a rate class or scope contradicts itself. The members used to
+    // be dropped silently and the receipt sealed with no VAT leg, losing the input
+    // VAT deduction from the return.
+    let home = tempfile::tempdir().unwrap();
+    success(home.path(), &["init"], &json!(null));
+
+    // The approval hash of the clean no-vat receipt: if the surplus members were
+    // dropped, the contradictory input would match it and seal.
+    let mut clean = receipt();
+    clean["proposal"]["vat"] = json!({"type": "no-vat"});
+    let preview = success(
+        home.path(),
+        &["capture-receipt", "record", "--dry-run"],
+        &clean,
+    );
+    let hash = preview["preparation_hash"].as_str().unwrap().to_string();
+
+    for (vat, member) in [
+        (
+            json!({"type":"no-vat","rate_class":"domestic-standard","scope":"eu-goods"}),
+            "rate_class",
+        ),
+        (json!({"type":"no-vat","scope":"eu-services"}), "scope"),
+    ] {
+        let mut contradictory = receipt();
+        contradictory["proposal"]["vat"] = vat;
+        for args in [
+            &["capture-receipt", "record", "--dry-run"][..],
+            &[
+                "capture-receipt",
+                "record",
+                "--approved-preparation-hash",
+                &hash,
+            ][..],
+        ] {
+            let error = failure(home.path(), args, &contradictory);
+            assert_eq!(error["error_code"], "INVALID_INPUT", "{error}");
+            let message = error["message"].as_str().unwrap();
+            assert!(message.contains(member), "{message}");
+        }
+    }
+
+    let verified = success(home.path(), &["voucher", "verify"], &json!(null));
+    assert_eq!(verified["voucher_count"], 0, "{verified}");
+}

@@ -131,8 +131,12 @@ pub struct ReceiptSourceFacts {
 
 /// Explicit VAT proposal. Uncertainty is data and can never default to `NoVat`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+// `deny_unknown_fields` refuses a member of another variant, but serde does not apply
+// it to a unit variant of an internally tagged enum: a `rate_class` or `scope` on
+// `no-vat` contradicts the type and must be refused, not sealed as no VAT.
 #[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum ReceiptVatProposal {
+    #[serde(deserialize_with = "aggountant_model::de::deny_members")]
     NoVat,
     DomesticInput {
         rate_class: String,

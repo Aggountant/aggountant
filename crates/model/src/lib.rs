@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod account;
+pub mod de;
 pub mod error;
 pub mod fiscal_year;
 pub mod instant;

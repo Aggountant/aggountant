@@ -6,7 +6,8 @@ use aggountant_domain::{
 };
 use aggountant_ledger::Ledger;
 use aggountant_process::{
-    prepare_structured_receipt, record_structured_receipt, StructuredReceiptInput,
+    prepare_structured_receipt, record_structured_receipt, ReceiptVatProposal,
+    StructuredReceiptInput,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -141,6 +142,49 @@ fn approval_hash_binds_the_proposal() {
     let err = record_structured_receipt(&ledger, &changed, &prepared.preparation_hash).unwrap_err();
     assert_eq!(err.error_code(), "CAPTURE_PREPARATION_CHANGED");
     assert_eq!(voucher_count(home.path()), 0);
+}
+
+#[test]
+fn vat_proposal_refuses_members_that_do_not_belong_to_its_type() {
+    // `no-vat` with a rate class or scope contradicts itself; serde's container-level
+    // `deny_unknown_fields` does not reach the unit variant, so without the variant
+    // deserializer the members were dropped and the receipt sealed with no VAT leg.
+    let valid = [
+        r#""type":"no-vat""#,
+        r#""type":"domestic-input","rate_class":"domestic-standard""#,
+        r#""type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-goods""#,
+        r#""type":"clarification-required","question":"Is this a passenger car?""#,
+        r#""type":"unsupported","treatment":"margin-scheme","reason":"needs source facts""#,
+    ];
+    for members in valid {
+        let parsed: ReceiptVatProposal = serde_json::from_str(&format!("{{{members}}}"))
+            .unwrap_or_else(|e| panic!("{members} must parse: {e}"));
+        // Serialization still emits exactly the members deserialization accepts.
+        let value = serde_json::to_value(&parsed).unwrap();
+        serde_json::from_value::<ReceiptVatProposal>(value).unwrap();
+        for extra in [
+            r#""rate_class":"domestic-reduced-a""#,
+            r#""scope":"eu-services""#,
+            r#""question":"why?""#,
+            r#""unknown":1"#,
+        ] {
+            let json = format!("{{{members},{extra}}}");
+            assert!(
+                serde_json::from_str::<ReceiptVatProposal>(&json).is_err(),
+                "an unknown or duplicate member must be refused: {json}"
+            );
+        }
+    }
+
+    // The issue's reproduction names the refused member.
+    let error = serde_json::from_str::<ReceiptVatProposal>(
+        r#"{"type":"no-vat","rate_class":"domestic-standard","scope":"eu-goods"}"#,
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("rate_class"),
+        "the refusal names the member: {error}"
+    );
 }
 
 fn reference_dir(home: &Path) -> PathBuf {
