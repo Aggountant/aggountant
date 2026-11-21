@@ -2,12 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: agent-surface
 lane_seq: 1
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-21
 ---
 
 # vero-fi configure merges into the stored profile instead of replacing it
@@ -25,3 +26,9 @@ the program prevents it.
 input that would drop stored evidence unless an explicit flag says so, and
 `--dry-run` shows what would change. Then the skill's warning can go. Help and
 guide updated.
+
+## Resolution
+
+### 2026-11-21T07:38:06Z · @issuectl
+
+Implemented: configure merges (RFC 7386), refuses dropping recorded evidence, --replace keeps the old semantics, changes listed. See result.md.
