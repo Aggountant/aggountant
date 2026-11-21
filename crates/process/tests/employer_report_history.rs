@@ -274,6 +274,7 @@ fn a_month_known_only_from_a_transcript_is_neither_resent_nor_replaced() {
         month: month("2025-01"),
         payments: MonthPayments::None,
         replace,
+        previous_pension_insurances: None,
     };
     let status = e.employer_report_status(month("2025-01")).unwrap();
     assert_eq!(status.state, EmployerMonthState::FiledOutside);
@@ -294,7 +295,15 @@ fn a_month_known_only_from_a_transcript_is_neither_resent_nor_replaced() {
     manual(&e, "2025-01");
     let status = e.employer_report_status(month("2025-01")).unwrap();
     assert_eq!(status.state, EmployerMonthState::Accepted);
-    assert!(e.preview_employer_report(input(true), at).is_ok());
+    // Its content is still unknown, so the replacement needs the original's
+    // pension insurances as the e-service shows them.
+    let unknown = e.preview_employer_report(input(true), at).unwrap_err();
+    assert_eq!(unknown.error_code(), "EMPLOYER_REPORT_PREVIOUS_UNKNOWN");
+    let stated = EmployerReportInput {
+        previous_pension_insurances: Some(vec![]),
+        ..input(true)
+    };
+    assert!(e.preview_employer_report(stated, at).is_ok());
 }
 
 #[test]
@@ -342,6 +351,7 @@ fn transcripts_that_disagree_make_a_visible_conflict_whatever_the_import_order()
                     month: month("2025-02"),
                     payments: MonthPayments::None,
                     replace: false,
+                    previous_pension_insurances: None,
                 },
                 t("2026-04-02T10:00:00Z"),
             )

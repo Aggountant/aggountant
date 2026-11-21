@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/review-finding:sha1:e313eabcf2ecf22e7463489110cf417d17184fe2
@@ -19,6 +19,7 @@ review_severity: Medium
 lane: wage-reporting
 lane_seq: 2
 preparation: ready
+closed: 2026-11-21
 ---
 
 # employer-report: replacing an externally filed month skips the pension-insurance check
@@ -68,3 +69,9 @@ usual), or say in the preview that the comparison could not be made.
 Until then `skills/tulorekisteri/kiinnikurominen.md` asks the agent to have the
 user compare the original report's insurances with the profile ("Ohjelma ei
 tunne alkuperäisen ilmoituksen sisältöä…"); remove that when the program checks.
+
+## Resolution
+
+### 2026-11-21T10:32:15Z · @issuectl
+
+Replacement of a complete-manual month now needs the original's stated pension insurances (EMPLOYER_REPORT_PREVIOUS_UNKNOWN otherwise); see result.md.

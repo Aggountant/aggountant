@@ -54,10 +54,14 @@ sellaista kuukautta, kerro vaihtoehdot: korjaus asiointipalvelussa, tai hän hak
 sieltä ilmoituksen viitteen, se kirjataan komennolla
 `aggountant file-wage employer-report complete-manual`, ja sen jälkeen korvaavan voi
 lähettää. Anna myös ilmoituksen versio, jos se on tiedossa: korvaava kohdistuu silloin
-oikeaan versioon. Ohjelma ei tunne alkuperäisen ilmoituksen sisältöä eikä siksi voi
-tarkistaa, että korvaavassa on samat eläkevakuutustiedot, kuten Tulorekisteri vaatii.
-Pyydä käyttäjää katsomaan ne alkuperäisestä ilmoituksesta; jos ne eroavat profiilista,
-korjaus tehdään asiointipalvelussa.
+oikeaan versioon. Korvaavan on toistettava alkuperäisen eläkevakuutustiedot, eikä
+ohjelma tunne niitä: pyydä käyttäjää katsomaan ne alkuperäisestä ilmoituksesta
+asiointipalvelun lähetetyistä ilmoituksista ja anna ne korvaavan esikatseluun ja
+lähetykseen (`--previous-pension-insurance KOODI:NUMERO` tai
+`--previous-no-pension-insurance`). Ilman niitä ohjelma vastaa
+`EMPLOYER_REPORT_PREVIOUS_UNKNOWN`; älä täytä niitä profiilista arvaamalla. Jos ne
+eroavat profiilista, "ei palkanmaksua" -korvaava hylätään
+(`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`) ja korjaus tehdään asiointipalvelussa.
 
 Kuukausi, josta kaksi raporttia on eri mieltä, pysyy lukittuna, kunnes käyttäjä on
 katsonut sen asiointipalvelusta ja olemassa oleva ilmoitus on kirjattu viitteineen.

@@ -198,6 +198,15 @@ lähteenä raportti. Tällaiselle kuukaudelle aggountant ei lähetä uutta
 ilmoitusta eikä korvaavaa, koska raportissa ei ole ilmoitusviitettä: korjaa
 ilmoitus asiointipalvelussa tai kirjaa ensin sen viite.
 
+Korvaava ilmoitus toistaa korvattavan ilmoituksen eläkevakuutustiedot, eikä
+aggountant tiedä, mitä sen ulkopuolella annetussa ilmoituksessa luki: mikään
+raportti tai rajapinta ei palauta niitä. Ennen tällaista korvaavaa avaa
+alkuperäinen ilmoitus asiointipalvelun lähetetyistä ilmoituksista ja kerro
+agentille sen eläkevakuutukset (eläkeyhtiön tunnus ja vakuutusnumero, tai ei
+yhtään). Jos ne eroavat nykyisistä asetuksista, "Ei palkanmaksua"
+-korvaava hylätään ja korjaus tehdään asiointipalvelussa. Ilman niitä korvaava
+hylätään (`EMPLOYER_REPORT_PREVIOUS_UNKNOWN`).
+
 Jos kaksi tuotua raporttia on eri mieltä kuukaudesta (toisessa on ilmoitus,
 toisessa ei), aggountant ei arvaa, kumpi on uudempi. Kuukausi näkyy
 puuttuvien luettelossa ristiriitana, eikä sille lähetetä mitään ennen kuin
@@ -214,6 +223,10 @@ asiointipalvelun tuottamassa tiedostossa. Muunlainen tiedosto hylätään
 aggountant file-wage employer-report import-transcript raportti-630.csv --dry-run
 aggountant file-wage employer-report import-transcript raportti-630.csv
 aggountant file-wage employer-report missing
+aggountant file-wage employer-report complete-manual --month 2025-03 --ir-report-id VIITE
+aggountant file-wage employer-report preview --month 2025-03 \
+  --payments tax-free-reimbursements-only --timestamp 2026-11-21T08:00:00Z \
+  --replace --previous-pension-insurance 46:12-3456789
 ```
 </details>
 

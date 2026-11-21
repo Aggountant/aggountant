@@ -148,6 +148,7 @@ fn input(m: &str, payments: MonthPayments) -> EmployerReportInput {
         month: month(m),
         payments,
         replace: false,
+        previous_pension_insurances: None,
     }
 }
 fn t(s: &str) -> Instant {
@@ -640,7 +641,7 @@ fn e_service_evidence_settles_a_replacement_only_with_a_newer_version() {
         replace: true,
         ..input("2026-10", MonthPayments::TaxFreeReimbursementsOnly)
     };
-    let r = e.preview_employer_report(replace, later).unwrap();
+    let r = e.preview_employer_report(replace.clone(), later).unwrap();
     let status = e
         .submit_employer_report(replace, later, &r.record_hash, &b, later)
         .unwrap();
@@ -685,11 +686,13 @@ fn e_service_evidence_cannot_settle_a_replacement_of_an_unknown_version() {
         at,
     )
     .unwrap();
+    // Its pension insurances are stated as the e-service shows them.
     let replace = EmployerReportInput {
         replace: true,
+        previous_pension_insurances: Some(vec![]),
         ..input("2026-10", MonthPayments::TaxFreeReimbursementsOnly)
     };
-    let r = e.preview_employer_report(replace, later).unwrap();
+    let r = e.preview_employer_report(replace.clone(), later).unwrap();
     e.submit_employer_report(replace, later, &r.record_hash, &b, later)
         .unwrap();
     for version in [Some(2), Some(5)] {
@@ -706,6 +709,168 @@ fn e_service_evidence_cannot_settle_a_replacement_of_an_unknown_version() {
         assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_INVALID_EVIDENCE");
     }
     assert!(e.employer_report_in_doubt(month("2026-10")).unwrap());
+}
+
+#[test]
+fn replacing_a_report_given_outside_aggountant_needs_its_stated_pension_insurances() {
+    // The earlier payroll provider reported 2026-08 with a pension policy; the
+    // profile now says the company has none. aggountant holds only the report
+    // reference, so it must not take the replacement's insurances from the profile.
+    let h = home(json!([]));
+    let e = ProcessEngine::open(h.path());
+    let at = t("2026-11-02T08:00:00Z");
+    let (b, s) = broker(
+        h.path(),
+        vec![Answer::Accept(2), Answer::Accept(3)],
+        Answer::Accept(2),
+    );
+    e.complete_employer_report_manual(
+        month("2026-08"),
+        EmployerReportReceipt {
+            ir_delivery_id: None,
+            ir_report_id: IR_REPORT.into(),
+            version: Some(1),
+            source: "e_service".into(),
+        },
+        at,
+    )
+    .unwrap();
+    let runs = || {
+        std::fs::read_dir(h.path().join("process/runs"))
+            .unwrap()
+            .count()
+    };
+    let before = runs();
+    let policy = PensionInsurance {
+        provider_code: 46,
+        policy_number: "12-3456789".into(),
+    };
+    let replace = |payments, previous: Option<Vec<PensionInsurance>>| EmployerReportInput {
+        replace: true,
+        previous_pension_insurances: previous,
+        ..input("2026-08", payments)
+    };
+    for payments in [
+        MonthPayments::None,
+        MonthPayments::TaxFreeReimbursementsOnly,
+    ] {
+        let r = e.preview_employer_report(replace(payments, None), at);
+        let err = r.unwrap_err();
+        assert!(err.to_string().contains("--previous-pension-insurance"));
+        assert_eq!(code(err), "EMPLOYER_REPORT_PREVIOUS_UNKNOWN");
+    }
+    // "No wages payable" takes the profile's (empty) insurances, which differ
+    // from the original's: that is cancel-and-new, not a replacement.
+    let r = e.preview_employer_report(replace(MonthPayments::None, Some(vec![policy.clone()])), at);
+    assert_eq!(
+        code(r.unwrap_err()),
+        "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED"
+    );
+    // The EUR 0 correction repeats the stated insurances and says what could
+    // not be compared.
+    let correction = replace(
+        MonthPayments::TaxFreeReimbursementsOnly,
+        Some(vec![policy.clone()]),
+    );
+    let p = e.preview_employer_report(correction.clone(), at).unwrap();
+    assert_eq!(
+        p.report.sent_pension_insurances(),
+        std::slice::from_ref(&policy)
+    );
+    assert_eq!(
+        p.report.action,
+        EmployerReportAction::Replacement {
+            ir_report_id: IR_REPORT.into(),
+            replaces_version: Some(1)
+        }
+    );
+    assert!(p.warnings.iter().any(|w| w.contains("outside aggountant")));
+    assert!(p
+        .warnings
+        .iter()
+        .any(|w| w.contains("(46:12-3456789) differ from the current settings (none)")));
+    assert_eq!(runs(), before, "a preview writes nothing");
+    let status = e
+        .submit_employer_report(correction, at, &p.record_hash, &b, at)
+        .unwrap();
+    assert_eq!(status.current.unwrap().version, Some(2));
+
+    // From now on aggountant holds the previous version itself.
+    let later = t("2026-11-03T08:00:00Z");
+    let r = e.preview_employer_report(
+        replace(
+            MonthPayments::TaxFreeReimbursementsOnly,
+            Some(vec![policy.clone()]),
+        ),
+        later,
+    );
+    assert_eq!(
+        code(r.unwrap_err()),
+        "EMPLOYER_REPORT_PREVIOUS_STATED_NEEDLESSLY"
+    );
+    let r = e.preview_employer_report(replace(MonthPayments::None, None), later);
+    assert_eq!(
+        code(r.unwrap_err()),
+        "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED"
+    );
+    // A new month never takes a statement about a previous version.
+    let new = EmployerReportInput {
+        previous_pension_insurances: Some(vec![]),
+        ..input("2026-10", MonthPayments::None)
+    };
+    let r = e.preview_employer_report(new, later);
+    assert_eq!(
+        code(r.unwrap_err()),
+        "EMPLOYER_REPORT_PREVIOUS_STATED_NEEDLESSLY"
+    );
+    assert_eq!(s.sends.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn stated_pension_insurances_are_compared_without_regard_to_order() {
+    let a = PensionInsurance {
+        provider_code: 46,
+        policy_number: "12-3456789".into(),
+    };
+    let b = PensionInsurance {
+        provider_code: 54,
+        policy_number: "98-7654321".into(),
+    };
+    let h = home(json!([a, b]));
+    let e = ProcessEngine::open(h.path());
+    let at = t("2026-11-02T08:00:00Z");
+    e.complete_employer_report_manual(
+        month("2026-08"),
+        EmployerReportReceipt {
+            ir_delivery_id: None,
+            ir_report_id: IR_REPORT.into(),
+            version: Some(1),
+            source: "e_service".into(),
+        },
+        at,
+    )
+    .unwrap();
+    let replace = |previous: Vec<PensionInsurance>| EmployerReportInput {
+        replace: true,
+        previous_pension_insurances: Some(previous),
+        ..input("2026-08", MonthPayments::None)
+    };
+    let p = e
+        .preview_employer_report(replace(vec![b.clone(), a.clone()]), at)
+        .unwrap();
+    assert_eq!(p.report.sent_pension_insurances(), [a.clone(), b.clone()]);
+    assert_eq!(p.warnings.len(), 1, "{:?}", p.warnings);
+    // A real difference names both lists, so a typo is not taken for a reason
+    // to cancel the report.
+    let err = e
+        .preview_employer_report(replace(vec![a.clone()]), at)
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("(46:12-3456789) differ from the settings (46:12-3456789, 54:98-7654321)"),
+        "{err}"
+    );
+    assert_eq!(code(err), "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED");
 }
 
 #[test]

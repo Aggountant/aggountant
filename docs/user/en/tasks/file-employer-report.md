@@ -201,6 +201,15 @@ the transcript as their source. For such a month aggountant sends neither a
 new report nor a replacement, because the transcript carries no report
 reference: correct the report in the e-service, or record its reference first.
 
+A replacement repeats the pension insurance details of the report it
+replaces, and aggountant does not know what a report given outside it said:
+no transcript or interface returns them. Before such a replacement, open the
+original report under Submitted reports in the e-service and tell the agent
+its pension insurances (pension company code and policy number, or none). If
+they differ from your current settings, a "No wages payable" replacement is
+refused and the correction is made in the e-service. Without them the
+replacement is refused (`EMPLOYER_REPORT_PREVIOUS_UNKNOWN`).
+
 If two imported transcripts disagree about a month (one has a report, the
 other none), aggountant does not guess which is newer. The month is listed
 among the missing months as a conflict, and nothing is sent for it until you
@@ -217,6 +226,10 @@ the Tulorekisteri e-service writes. Any other file is refused
 aggountant file-wage employer-report import-transcript raportti-630.csv --dry-run
 aggountant file-wage employer-report import-transcript raportti-630.csv
 aggountant file-wage employer-report missing
+aggountant file-wage employer-report complete-manual --month 2025-03 --ir-report-id REFERENCE
+aggountant file-wage employer-report preview --month 2025-03 \
+  --payments tax-free-reimbursements-only --timestamp 2026-11-21T08:00:00Z \
+  --replace --previous-pension-insurance 46:12-3456789
 ```
 </details>
 

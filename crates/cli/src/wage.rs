@@ -79,6 +79,12 @@ pub struct EmployerReportArgs {
     /// Replace the month's accepted report instead of sending a new one.
     #[arg(long)]
     replace: bool,
+    /// With --replace of a report recorded with complete-manual (given outside aggountant): a pension insurance the replaced report states, as PROVIDER_CODE:POLICY_NUMBER, read from the report under Submitted reports in the Incomes Register e-service. Repeatable. The replacement must repeat them: a tax-free-reimbursements-only (EUR 0) replacement sends the stated ones, and a "no wages payable" replacement, which states the profile's, is refused when they differ (EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED). Without this or --previous-no-pension-insurance such a replacement is refused (EMPLOYER_REPORT_PREVIOUS_UNKNOWN).
+    #[arg(long, value_name = "PROVIDER_CODE:POLICY_NUMBER", value_parser = parse_pension_insurance, conflicts_with = "previous_no_pension_insurance", requires = "replace")]
+    previous_pension_insurance: Vec<PensionInsurance>,
+    /// With --replace of a report recorded with complete-manual: the replaced report states no pension insurance, as read in the e-service.
+    #[arg(long, requires = "replace")]
+    previous_no_pension_insurance: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -243,6 +249,9 @@ impl EmployerReportArgs {
                 Payments::Wages => MonthPayments::Wages,
             },
             replace: self.replace,
+            previous_pension_insurances: (self.previous_no_pension_insurance
+                || !self.previous_pension_insurance.is_empty())
+            .then(|| self.previous_pension_insurance.clone()),
         }
     }
 }

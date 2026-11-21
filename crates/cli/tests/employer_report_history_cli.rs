@@ -110,6 +110,61 @@ fn imported_transcript_months_leave_missing_and_a_strange_file_is_refused() {
     assert_eq!(code, 1);
     assert_eq!(replace["error_code"], "EMPLOYER_REPORT_NO_REFERENCE");
 
+    // With the reference recorded, a replacement still needs the original's
+    // pension insurances, which only the e-service shows.
+    let (code, recorded) = run(
+        home.path(),
+        &[
+            "file-wage",
+            "employer-report",
+            "complete-manual",
+            "--month",
+            "2025-01",
+            "--ir-report-id",
+            "22222222222233334444555555555555",
+        ],
+    );
+    assert_eq!(code, 0, "{recorded}");
+    let preview = |extra: &[&str]| {
+        run(
+            home.path(),
+            &[
+                &[
+                    "file-wage",
+                    "employer-report",
+                    "preview",
+                    "--month",
+                    "2025-01",
+                    "--payments",
+                    "tax-free-reimbursements-only",
+                    "--timestamp",
+                    "2026-03-10T08:00:00Z",
+                    "--replace",
+                ][..],
+                extra,
+            ]
+            .concat(),
+        )
+    };
+    let (code, unknown) = preview(&[]);
+    assert_eq!(code, 1);
+    assert_eq!(unknown["error_code"], "EMPLOYER_REPORT_PREVIOUS_UNKNOWN");
+    let (code, stated) = preview(&["--previous-pension-insurance", "46:12-3456789"]);
+    assert_eq!(code, 0, "{stated}");
+    assert_eq!(
+        stated["report"]["pension_insurances"],
+        json!([{"provider_code":46,"policy_number":"12-3456789"}])
+    );
+    let (code, none) = preview(&["--previous-no-pension-insurance"]);
+    assert_eq!(code, 0, "{none}");
+    assert_eq!(none["report"]["pension_insurances"], json!([]));
+    let (code, both) = preview(&[
+        "--previous-no-pension-insurance",
+        "--previous-pension-insurance",
+        "46:12-3456789",
+    ]);
+    assert_ne!(code, 0, "{both}");
+
     let strange = home.path().join("other.csv");
     std::fs::write(&strange, "Päivämäärä;Summa\n1.1.2025;10,00\n").unwrap();
     let (code, refused) = run(

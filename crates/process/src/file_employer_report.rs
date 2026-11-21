@@ -32,7 +32,8 @@ use aggountant_broker::{
     AttemptOutcome, Broker, BrokerError, RemoteOutcome,
 };
 use aggountant_domain::payroll::{
-    EmployerReportAction, EmployerReportContent, EmployerSeparateReport, MonthPayments, ReportMonth,
+    EmployerReportAction, EmployerReportContent, EmployerSeparateReport, MonthPayments,
+    PensionInsurance, ReportMonth,
 };
 use aggountant_model::{BusinessId, Instant};
 use jiff::civil::Date as CivilDate;
@@ -65,11 +66,17 @@ fn store(e: impl std::fmt::Display) -> ProcessError {
 
 /// What the caller asks for: the month, what was paid in it, and whether this
 /// replaces the month's accepted report.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct EmployerReportInput {
     pub month: ReportMonth,
     pub payments: MonthPayments,
     pub replace: bool,
+    /// The pension insurances of the report being replaced, as the user read
+    /// them from the Incomes Register e-service. Given only when that report was
+    /// recorded with `complete-manual`: aggountant does not hold its content, and
+    /// no register interface or transcript returns it, yet a replacement must
+    /// repeat it. `Some(vec![])` states that the report had none.
+    pub previous_pension_insurances: Option<Vec<PensionInsurance>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -520,14 +527,58 @@ impl ProcessEngine {
                 )
             }
         };
-        let previous = current.and_then(|r| r.report.as_ref());
+        let previous_report = current.and_then(|r| r.report.as_ref());
+        // The previous version's pension insurances: from the report aggountant
+        // sent, or, for a report given outside aggountant, as the caller stated
+        // them. Neither transcript 630 nor record 312 carries them, and the
+        // register has no interface that returns a report's content, so they are
+        // never guessed from the profile.
+        let previous_insurances: Option<Vec<PensionInsurance>> =
+            match (current, previous_report, input.previous_pension_insurances) {
+                (_, Some(_), Some(_)) | (None, _, Some(_)) => {
+                    return Err(refused(
+                        "EMPLOYER_REPORT_PREVIOUS_STATED_NEEDLESSLY",
+                        "the previous version's pension insurances are stated only when replacing a report recorded with complete-manual; aggountant knows them otherwise, so leave out --previous-pension-insurance and --previous-no-pension-insurance",
+                    ))
+                }
+                (_, Some(previous), None) => Some(previous.sent_pension_insurances().to_vec()),
+                (Some(run), None, None) => {
+                    return Err(refused(
+                        "EMPLOYER_REPORT_PREVIOUS_UNKNOWN",
+                        format!("{month}'s accepted report ({}) was given outside aggountant and recorded with complete-manual, so its content is not known here; a replacement must repeat its pension insurances. Open the report under Submitted reports in the Incomes Register e-service and state them with --previous-pension-insurance PROVIDER_CODE:POLICY_NUMBER (repeatable) or --previous-no-pension-insurance, or correct the report in the e-service", run.run_id),
+                    ))
+                }
+                (Some(_), None, Some(stated)) => {
+                    for insurance in &stated {
+                        insurance
+                            .validate()
+                            .map_err(|e| refused("EMPLOYER_REPORT_INVALID", e.to_string()))?;
+                    }
+                    warnings.push(format!(
+                        "{month}'s accepted report was given outside aggountant: the replacement repeats the pension insurances stated for it, and whether it changes anything else could not be checked; compare it with the report in the e-service"
+                    ));
+                    if matches!(
+                        content,
+                        EmployerReportContent::HealthInsuranceContribution { .. }
+                    ) && !same_insurances(&stated, &profile.pension_insurances)
+                    {
+                        warnings.push(format!(
+                            "the pension insurances stated for {month}'s report ({}) differ from the current settings ({}); the replacement sends the stated ones, so check them against the report in the e-service",
+                            insurance_list(&stated),
+                            insurance_list(&profile.pension_insurances)
+                        ));
+                    }
+                    Some(stated)
+                }
+                (None, None, None) => None,
+            };
         // Register processing rule (Data delivery – Schemas – Employer's separate
         // reports, §2.9): in a replacement the pension insurances match the
         // previous version. A contribution replacement carries them forward; a
         // "no wages payable" replacement must already state the same ones.
-        let pension_insurances = match (previous, &content) {
+        let pension_insurances = match (&previous_insurances, &content) {
             (Some(previous), EmployerReportContent::HealthInsuranceContribution { .. }) => {
-                previous.sent_pension_insurances().to_vec()
+                previous.clone()
             }
             _ => profile.pension_insurances,
         };
@@ -543,7 +594,7 @@ impl ProcessEngine {
         report
             .validate()
             .map_err(|e| refused("EMPLOYER_REPORT_INVALID", e.to_string()))?;
-        if let Some(previous) = previous {
+        if let Some(previous) = previous_report {
             if previous.content == report.content
                 && previous.contact_name == report.contact_name
                 && previous.contact_phone == report.contact_phone
@@ -554,15 +605,27 @@ impl ProcessEngine {
                     "the replacement would repeat the accepted report",
                 ));
             }
-            // A changed pension provider or policy is corrected by cancelling and
-            // re-sending (employer's separate report guidance §5), never by a
-            // replacement, which must repeat the previous version's insurances.
-            if previous.sent_pension_insurances() != report.sent_pension_insurances() {
-                return Err(refused(
-                    "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED",
-                    "pension insurance details cannot be corrected with a replacement; cancel the report in the e-service and send a new one",
-                ));
-            }
+        }
+        // A changed pension provider or policy is corrected by cancelling and
+        // re-sending (employer's separate report guidance §5), never by a
+        // replacement, which must repeat the previous version's insurances.
+        if let Some(previous) = previous_insurances
+            .as_deref()
+            .filter(|previous| !same_insurances(previous, report.sent_pension_insurances()))
+        {
+            let stated = if previous_report.is_none() {
+                format!(
+                    " The insurances stated for the original ({}) differ from the settings ({}); first check what was stated against the report in the e-service.",
+                    insurance_list(previous),
+                    insurance_list(report.sent_pension_insurances())
+                )
+            } else {
+                String::new()
+            };
+            return Err(refused(
+                "EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED",
+                format!("pension insurance details cannot be corrected with a replacement; cancel the report in the e-service and send a new one.{stated}"),
+            ));
         }
         let xml = payer_summary_record(&report, timestamp)
             .map_err(|_| refused("EMPLOYER_REPORT_INVALID", "the record could not be built"))?;
@@ -920,6 +983,31 @@ impl ProcessEngine {
             filed_outside,
         })
     }
+}
+
+/// Whether two lists name the same pension insurances. The order carries no
+/// meaning in the report, and a list typed from the e-service need not follow
+/// the profile's order.
+fn same_insurances(a: &[PensionInsurance], b: &[PensionInsurance]) -> bool {
+    fn key(list: &[PensionInsurance]) -> Vec<(u32, &str)> {
+        let mut k: Vec<_> = list
+            .iter()
+            .map(|p| (p.provider_code, p.policy_number.as_str()))
+            .collect();
+        k.sort_unstable();
+        k
+    }
+    key(a) == key(b)
+}
+
+fn insurance_list(list: &[PensionInsurance]) -> String {
+    if list.is_empty() {
+        return "none".into();
+    }
+    list.iter()
+        .map(|p| format!("{}:{}", p.provider_code, p.policy_number))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn run_id_for(month: ReportMonth, hash: &str) -> String {
