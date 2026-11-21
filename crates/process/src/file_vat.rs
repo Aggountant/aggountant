@@ -124,6 +124,13 @@ pub struct FileVatStart {
 #[derive(Debug, Clone, Serialize)]
 pub struct OfflineVatPreview {
     pub period: String,
+    /// The period's state when the preview was derived. Before `sealed` the
+    /// figures and the reconciliation are a draft of the coming return.
+    pub period_state: PeriodState,
+    /// Whether the period is in a fileable state: only a sealed period is filed,
+    /// so an open or closing period's preview is for checking, not for filing.
+    /// Whether the figures themselves need action first is in `attention`.
+    pub fileable: bool,
     pub filing_fields: aggountant_domain::VatReturnFields,
     pub sales_vat: String,
     pub purchase_vat: String,
@@ -216,24 +223,44 @@ impl ProcessEngine {
         policy_set: &PolicySet,
     ) -> Result<OfflineVatPreview, ProcessError> {
         let ledger = Ledger::open(&self.home)?;
-        let verified = derive_verified_sealed_filing(&ledger, period, policy_set)?;
+        let period_state = ledger.period_view(period)?.state;
+        let verified = derive_verified_filing(&ledger, period, policy_set)?;
+        let fileable = period_state == PeriodState::Sealed;
         let filing = verified.filing;
         let payment_amount = if filing.net_vat.amount().is_sign_negative() {
             "0.00".to_string()
         } else {
             filing.net_vat.amount_str()
         };
+        const NOT_YET_PAYABLE: &str =
+            "Nothing to pay yet: the amount is known once the closed period is previewed.";
+        let (filing_instruction, payment_instruction) = match period_state {
+            PeriodState::Sealed => (
+                "Enter these numbered VAT fields manually in OmaVero, or use an independently prepared Ilmoitin.fi file; aggountant does not create or upload that file.",
+                "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
+            ),
+            PeriodState::Open => (
+                "Not fileable: the period is not closed, so these are draft figures. Correct any finding with a voucher in this period, close it (`run start close-period`), and preview again before filing.",
+                NOT_YET_PAYABLE,
+            ),
+            PeriodState::Closing => (
+                "Not fileable: the period is closing, so these are draft figures. If a finding needs a correcting voucher, reject the close (`run answer --gate ApproveClose --answer reject`) to reopen the period first; otherwise approve the close, and preview again before filing.",
+                NOT_YET_PAYABLE,
+            ),
+        };
         Ok(OfflineVatPreview {
             period: period.to_string(),
+            period_state,
+            fileable,
             filing_fields: filing.fields,
             sales_vat: filing.sales_vat.amount_str(),
             purchase_vat: filing.purchase_vat.amount_str(),
             net_vat: filing.net_vat.amount_str(),
             payment_amount,
-            attention: attention_items(&verified.reconciliation),
+            attention: attention_items(&verified.reconciliation, period_state),
             vat_reconciliation: verified.reconciliation,
-            filing_instruction: "Enter these numbered VAT fields manually in OmaVero, or use an independently prepared Ilmoitin.fi file; aggountant does not create or upload that file.",
-            payment_instruction: "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
+            filing_instruction,
+            payment_instruction,
         })
     }
 
@@ -1093,10 +1120,8 @@ impl ProcessEngine {
     }
 }
 
-/// Read and fully verify the sealed ledger before deriving a filing, then bind the
-/// proposal to both each period voucher's fiscal hash and its source fingerprint.
-/// The explicit length framing keeps the digest unambiguous even for legacy source
-/// identifiers containing separators.
+/// Refuse a period that is not sealed, then derive its filing: only a sealed
+/// period's figures are filed.
 fn derive_verified_sealed_filing(
     ledger: &Ledger,
     period: &PeriodId,
@@ -1111,6 +1136,19 @@ fn derive_verified_sealed_filing(
             )),
         ));
     }
+    derive_verified_filing(ledger, period, policy_set)
+}
+
+/// Read and fully verify the ledger before deriving a period's filing from its
+/// sealed vouchers, then bind the proposal to both each period voucher's fiscal
+/// hash and its source fingerprint. The explicit length framing keeps the digest
+/// unambiguous even for legacy source identifiers containing separators. The
+/// period state is the caller's concern: the preview reads an open period too.
+fn derive_verified_filing(
+    ledger: &Ledger,
+    period: &PeriodId,
+    policy_set: &PolicySet,
+) -> Result<VerifiedFilingSnapshot, ProcessError> {
     ledger.verify()?;
     let sealed_vouchers = ledger.period_vouchers(period)?;
     let mut source_hash = Sha256::new();

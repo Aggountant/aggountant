@@ -15,6 +15,11 @@ finished.
   closing balance ([See how the month went](monthly-report.md)).
 - There are no open obligations. An open obligation blocks the close
   ([Periods, closing and the fiscal year](../concepts/periods.md#obligations)).
+- The VAT accounts agree with the VAT return. The VAT return preview runs on
+  the open month too, as a draft that cannot be filed, and shows whether a
+  posting on a VAT account is missing its VAT code. Before the close such a
+  voucher is still corrected in the same month; after it, the return has to
+  be filed in OmaVero with corrected figures.
 
 ## How to do it
 
@@ -49,6 +54,7 @@ finished.
 ```sh
 aggountant obligation list
 aggountant obligation resolve --id <identifier>
+aggountant file-vat preview --period 2026-03
 aggountant run start close-period --period 2026-03
 aggountant run answer --run-id cp-… --gate ApproveClose --answer approve
 aggountant period show --period 2026-03
@@ -56,7 +62,11 @@ aggountant period show --period 2026-03
 
 An obligation is marked resolved (`obligation resolve`) only when the matter
 has really been dealt with. The close waits at the approval `ApproveClose`.
-Rejecting is `--answer reject`, and it returns the month to `open`. For a
+Rejecting is `--answer reject`, and it returns the month to `open`.
+Before the close, `file-vat preview` answers with `fileable: false` and the
+attention item `VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` must be
+`reconciled`, or the postings listed under `VAT_ACCOUNTS_UNRECONCILED` must be
+ones that do not belong in a return. For a
 quarterly period, the period is given as `2026-Q1`.
 </details>
 

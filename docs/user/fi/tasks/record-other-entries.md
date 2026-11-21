@@ -27,7 +27,8 @@ tositeluonnoksena, jonka sinä hyväksyt ennen sinetöintiä.
    tilit ovat tilikartassa ja liite on tallessa. Tarkistus ei tallenna mitään.
    Jos ALV-tilin viennillä ei ole ALV-merkintää missään tositteen rivissä,
    tarkistus varoittaa koodilla `VAT_POSTING_UNTAGGED`, mutta ei estä
-   sinetöintiä.
+   sinetöintiä. ALV-ilmoituksen esikatselu näyttää tällaisen viennin uudelleen
+   ennen kuukauden sulkua ([Sulje kuukausi](close-month.md#ennen-kuin-aloitat)).
 
 3. **Tarkista ja hyväksy.** Agentti näyttää päivän, kuvauksen, jokaisen
    viennin tilin ja summan sekä liitteen. Katso, että summat vastaavat lähdettä

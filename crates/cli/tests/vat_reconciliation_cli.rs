@@ -64,6 +64,22 @@ fn an_untagged_sale_vat_leg_warns_shows_in_preview_and_blocks_filing() {
     let seal = json!({"draft": sale(), "natural_key": "sale-2026-0042"});
     let (code, _, err) = run(home, None, &["voucher", "seal"], &seal.to_string());
     assert_eq!(code, 0, "{err}");
+
+    // Before the close the same check runs on the open period, while the voucher
+    // can still be corrected in it (issue `vat-reconciliation-before-close`).
+    let preview_args = ["file-vat", "preview", "--period", "2026-03"];
+    let (code, draft, err) = run(home, None, &preview_args, "");
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(draft["period_state"], "open");
+    assert_eq!(draft["fileable"], false);
+    assert_eq!(draft["vat_reconciliation"]["status"], "unreconciled");
+    assert_eq!(draft["attention"][0]["code"], "VAT_PERIOD_NOT_SEALED");
+    assert_eq!(draft["attention"][1]["code"], "VAT_ACCOUNTS_UNRECONCILED");
+    assert_eq!(draft["attention"][1]["vouchers"], json!([1]));
+    let message = draft["attention"][1]["message"].as_str().unwrap();
+    assert!(message.contains("before the close"), "{message}");
+    assert!(!message.contains("OmaVero"), "{message}");
+
     let (code, started, err) = run(
         home,
         None,
@@ -72,6 +88,19 @@ fn an_untagged_sale_vat_leg_warns_shows_in_preview_and_blocks_filing() {
     );
     assert_eq!(code, 0, "{err}");
     let run_id = started["run_id"].as_str().unwrap();
+    let (code, closing, err) = run(home, None, &preview_args, "");
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(closing["period_state"], "closing");
+    assert_eq!(closing["fileable"], false);
+    let message = closing["attention"][1]["message"].as_str().unwrap();
+    assert!(message.contains("reject the close gate"), "{message}");
+    let instruction = closing["filing_instruction"].as_str().unwrap();
+    assert!(instruction.contains("reject the close"), "{instruction}");
+    assert!(
+        !instruction.contains("run start close-period"),
+        "{instruction}"
+    );
+
     let answer = [
         "run",
         "answer",
@@ -91,6 +120,8 @@ fn an_untagged_sale_vat_leg_warns_shows_in_preview_and_blocks_filing() {
         "",
     );
     assert_eq!(code, 0, "{err}");
+    assert_eq!(preview["period_state"], "sealed");
+    assert_eq!(preview["fileable"], true);
     assert_eq!(preview["sales_vat"], "0.00");
     assert_eq!(preview["vat_reconciliation"]["status"], "unreconciled");
     assert_eq!(

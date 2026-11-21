@@ -111,8 +111,10 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).
 
 ## Jos jokin menee pieleen
 
-- **`PERIOD_NOT_SEALED`.** Kuukautta ei ole suljettu tai sulku on kesken:
-  [Sulje kuukausi](close-month.md).
+- **`PERIOD_NOT_SEALED`, tai esikatselu näyttää `VAT_PERIOD_NOT_SEALED`.**
+  Kuukautta ei ole suljettu tai sulku on kesken. Avoimen kuukauden esikatselu
+  on tarkistusta varten tehty luonnos (`fileable: false`), ei ilmoitettavia
+  lukuja: [Sulje kuukausi](close-month.md).
 - **Esikatselu näyttää `VAT_ACCOUNTS_UNRECONCILED`.** Luetelluissa
   tositteissa on ALV:tä ALV-tilillä ilman ALV-merkintää, ja esikatselun luvut
   jättävät sen pois. Kirjanpidossa vero on oikein ALV-tilillä, mutta

@@ -122,12 +122,13 @@ from source with the Rust toolchain. Do this:
   with aggountant.** For example, a month whose only sale is a credit note.
   The error misleadingly names the currency (`VAT_CURRENCY`). File the return
   in OmaVero (`vat-negative-period-filing`).
-- **A VAT posting without a VAT code cannot be corrected into the return in
-  aggountant.** The return is calculated from VAT-coded postings. Voucher
-  validation warns about an uncoded VAT posting, and the VAT return preview
-  shows it (`VAT_ACCOUNTS_UNRECONCILED`), but a closed month cannot be
-  reopened for correction. File the return in OmaVero with corrected figures
-  instead ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)).
+- **A VAT posting without a VAT code found after the close cannot be
+  corrected into the return in aggountant.** The return is calculated from
+  VAT-coded postings. Voucher validation warns about an uncoded VAT posting,
+  and the VAT return preview shows it (`VAT_ACCOUNTS_UNRECONCILED`), also on
+  the open month before the close, when a correcting voucher still fixes it.
+  A closed month cannot be reopened for correction: file the return in
+  OmaVero with corrected figures instead ([File the VAT return in OmaVero](../tasks/file-vat-omavero.md#if-something-goes-wrong)).
 - **Quarterly periods have been tried less.** Direct filing has been tried
   with monthly periods.
 - **aggountant does not prepare Ilmoitin.fi files.**

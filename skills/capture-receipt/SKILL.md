@@ -135,9 +135,8 @@ jää ilman koodia, koska koodi sillä laskisi veroa verosta.
 
 Jos `voucher validate` varoittaa merkitsemättömästä ALV-viennistä, korjaa luonnos
 ennen hyväksyntää, ellei vienti ole ALV:n maksu tai muu ilmoitukseen kuulumaton
-siirto. Varoitus ei estä sinetöintiä, ja ALV-ilmoituksen esikatselu toimii vasta
-suljetulle kuukaudelle. Sinetöity puute löytyy siis vasta, kun kuukausi on
-lukittu ja ilmoitus on tehtävä käsin korjatuin luvuin.
+siirto. Varoitus ei estä sinetöintiä; sinetöidyn puutteen löytää täsmäytyksen
+ALV-tarkistus (alla) ennen sulkua.
 
 ## Täsmäytys
 
@@ -154,6 +153,16 @@ Kaksi lukua paljastaa tavallisimmat virheet:
 Ohjelma ei tarkista kumpaakaan eikä yhdistä kuittia sen maksuriviin, ja kaksi
 vastakkaista virhettä kumoaa toisensa saldossa. Selitä siksi `2700`:n saldo
 laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua.
+
+ALV-tilit täsmäytetään ilmoitukseen ennen sulkua komennolla
+`aggountant file-vat preview --period <kausi>`. Avoimelle kaudelle se on luonnos
+(`fileable: false`, huomiokohta `VAT_PERIOD_NOT_SEALED`), mutta täsmäytys on sama
+kuin suljetulla. Jos `vat_reconciliation.status` on `unreconciled`, käy
+`VAT_ACCOUNTS_UNRECONCILED`-kohdan tositteet läpi lähdettä vasten. Ilmoitukseen
+kuuluva vero korjataan nyt korjaavalla tositteella samalle kaudelle, ALV-koodi
+veron perusteen rivillä; sulun jälkeen sama korjaus onnistuu vain OmaVerossa
+käsin. Ilmoitukseen kuulumattomat viennit, kuten ALV:n maksu, jäävät ja ne
+kuitataan ilmoitusta lähetettäessä (`vero-fi`).
 
 ## Sulku
 
@@ -172,7 +181,8 @@ kohdille tehdään.
 
 Hyväksyntäportti näyttää vain tiivisteen, joten käyttäjän näkemä ehdotus on
 sinun koottavasi: mikä kuukausi suljetaan, montako tositetta siinä on, tulos ja
-pankkitilin täsmäys raportista, ostovelkojen tila ja mitä jää avoimeksi. Vastaa
+pankkitilin täsmäys raportista, ALV-täsmäytyksen tila, ostovelkojen tila ja mitä
+jää avoimeksi. Vastaa
 porttiin komennolla `aggountant run answer` vasta hänen vastauksensa jälkeen.
 Avoin kohta ei estä sulkua, jos käyttäjä päättää niin tietäen, että se jää pois
 tämän kauden luvuista ja ilmoituksesta. Hylkäys palauttaa kuukauden avoimeksi

@@ -28,7 +28,9 @@ sealed.
    balance, the accounts are in the chart of accounts and the attachment is
    stored. Validation stores nothing. If a posting on a VAT account has no VAT
    code on any line of the voucher, validation warns with
-   `VAT_POSTING_UNTAGGED` but does not stop the sealing.
+   `VAT_POSTING_UNTAGGED` but does not stop the sealing. The VAT return
+   preview shows such a posting again before the month is closed
+   ([Close the month](close-month.md#before-you-start)).
 
 3. **Check and approve.** The agent shows the date, the description, every
    posting's account and amount, and the attachment. Check that the amounts

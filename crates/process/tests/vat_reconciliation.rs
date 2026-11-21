@@ -13,7 +13,7 @@ use aggountant_broker::{
 use aggountant_domain::{
     vat_expand, PolicySet, VatExpandInput, VatReconciliationStatus, VatTreatment,
 };
-use aggountant_ledger::{Ledger, SealRequest};
+use aggountant_ledger::{Ledger, PeriodState, SealRequest};
 use aggountant_model::{
     AccountId, Currency, Date, Money, PeriodId, Posting, Side, VatCode, VoucherDraft,
 };
@@ -67,12 +67,18 @@ fn close(ledger: &Ledger) {
 }
 
 fn home_with(vouchers: Vec<Vec<Posting>>) -> tempfile::TempDir {
+    let home = open_home_with(vouchers);
+    close(&Ledger::open(home.path()).unwrap());
+    home
+}
+
+/// The vouchers sealed into a March that is still open.
+fn open_home_with(vouchers: Vec<Vec<Posting>>) -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
     for (i, postings) in vouchers.into_iter().enumerate() {
         seal(&ledger, &format!("v{i}"), postings);
     }
-    close(&ledger);
     home
 }
 
@@ -543,4 +549,103 @@ fn without_settlement_roles_a_vat_payment_blocks_and_the_preview_says_why() {
         )
         .unwrap();
     assert_eq!(start.run.status, RunStatus::AwaitingGate);
+}
+
+// --- Before the close (issue `vat-reconciliation-before-close`) ---------------
+
+#[test]
+fn an_open_period_previews_as_a_draft_that_finds_the_untagged_vat() {
+    let home = open_home_with(vec![sale(None)]);
+    let database = home.path().join("fiscal.sqlite");
+    let before = std::fs::read(&database).unwrap();
+
+    let preview = ProcessEngine::open(home.path())
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+
+    assert_eq!(preview.period_state, PeriodState::Open);
+    assert!(!preview.fileable);
+    assert!(preview.filing_instruction.starts_with("Not fileable"));
+    let r = &preview.vat_reconciliation;
+    assert_eq!(r.status, VatReconciliationStatus::Unreconciled);
+    assert_eq!(r.untagged_vouchers(), vec![1]);
+    let codes: Vec<_> = preview
+        .attention
+        .iter()
+        .map(|item| (item.code, item.severity))
+        .collect();
+    assert_eq!(
+        codes,
+        vec![
+            ("VAT_PERIOD_NOT_SEALED", "blocking"),
+            ("VAT_ACCOUNTS_UNRECONCILED", "blocking"),
+        ]
+    );
+    let unreconciled = &preview.attention[1].message;
+    assert!(unreconciled.contains("correcting voucher in this period"));
+    assert!(!unreconciled.contains("OmaVero"));
+    // Read-only: the ledger and the period are untouched, and no Run exists.
+    assert_eq!(std::fs::read(&database).unwrap(), before);
+    assert!(!home.path().join("process/runs").exists());
+    let ledger = Ledger::open(home.path()).unwrap();
+    assert_eq!(
+        ledger.period_view(&march()).unwrap().state,
+        PeriodState::Open
+    );
+}
+
+#[test]
+fn a_correction_before_the_close_reconciles_the_draft_and_the_sealed_return() {
+    let correction = vec![
+        line("3000", Side::Debit, "1976.10", None),
+        line(
+            "3000",
+            Side::Credit,
+            "1976.10",
+            Some("sales-domestic-standard"),
+        ),
+    ];
+    let home = open_home_with(vec![sale(None), correction]);
+    let engine = ProcessEngine::open(home.path());
+
+    let draft = engine
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+    assert_eq!(
+        draft.vat_reconciliation.status,
+        VatReconciliationStatus::Reconciled
+    );
+    assert_eq!(draft.attention[0].code, "VAT_PERIOD_NOT_SEALED");
+    assert!(draft
+        .attention
+        .iter()
+        .all(|item| item.code != "VAT_ACCOUNTS_UNRECONCILED"));
+
+    close(&Ledger::open(home.path()).unwrap());
+    let sealed = engine
+        .preview_offline_vat(&march(), &PolicySet::default())
+        .unwrap();
+    assert!(sealed.fileable);
+    assert_eq!(sealed.period_state, PeriodState::Sealed);
+    // The draft figures are the figures the closed period files.
+    assert_eq!(sealed.sales_vat, draft.sales_vat);
+    assert_eq!(sealed.net_vat, draft.net_vat);
+    assert_eq!(sealed.filing_fields, draft.filing_fields);
+    assert!(sealed
+        .attention
+        .iter()
+        .all(|item| item.code != "VAT_PERIOD_NOT_SEALED"));
+}
+
+#[test]
+fn filing_an_open_period_is_still_refused() {
+    let home = open_home_with(vec![sale(Some("sales-domestic-standard"))]);
+    let err = ProcessEngine::open(home.path())
+        .start_file_vat(
+            &input("503.91", None),
+            &broker(home.path()),
+            &PolicySet::default(),
+        )
+        .unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
 }

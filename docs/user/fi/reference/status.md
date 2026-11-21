@@ -121,12 +121,13 @@ lähdekoodista Rust-työkaluilla. Tee näin:
   aggountantilla.** Esimerkiksi kuukausi, jonka ainoa myynti on hyvityslasku.
   Virhe nimeää harhaanjohtavasti valuutan (`VAT_CURRENCY`). Tee ilmoitus
   OmaVerossa (`vat-negative-period-filing`).
-- **ALV-vientiä ilman ALV-merkintää ei voi korjata ilmoitukseen
-  aggountantissa.** Ilmoitus lasketaan ALV-merkityistä vienneistä. Tositteen
-  tarkistus varoittaa merkitsemättömästä ALV-viennistä, ja ALV-ilmoituksen
-  esikatselu näyttää sen (`VAT_ACCOUNTS_UNRECONCILED`), mutta suljettua
-  kuukautta ei voi avata korjattavaksi. Tee silloin ilmoitus OmaVerossa
-  korjatuin luvuin ([Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen)).
+- **Sulun jälkeen löytynyttä ALV-vientiä ilman ALV-merkintää ei voi korjata
+  ilmoitukseen aggountantissa.** Ilmoitus lasketaan ALV-merkityistä vienneistä.
+  Tositteen tarkistus varoittaa merkitsemättömästä ALV-viennistä, ja
+  ALV-ilmoituksen esikatselu näyttää sen (`VAT_ACCOUNTS_UNRECONCILED`) myös
+  avoimelle kuukaudelle ennen sulkua, jolloin korjaava tosite vielä korjaa sen.
+  Suljettua kuukautta ei voi avata korjattavaksi: tee silloin ilmoitus
+  OmaVerossa korjatuin luvuin ([Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen)).
 - **Neljännesvuosikausia on koeteltu vähemmän.** Suoraa ilmoittamista on
   koeteltu kuukausikausilla.
 - **Ilmoitin.fi-tiedostoa aggountant ei laadi.**

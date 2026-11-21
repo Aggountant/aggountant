@@ -115,8 +115,10 @@ More detail: [What is ready and what is not](../reference/status.md#vat-return).
 
 ## If something goes wrong
 
-- **`PERIOD_NOT_SEALED`.** The month has not been closed, or the close is in
-  progress: [Close the month](close-month.md).
+- **`PERIOD_NOT_SEALED`, or the preview shows `VAT_PERIOD_NOT_SEALED`.** The
+  month has not been closed, or the close is in progress. The preview of an
+  open month is a draft for checking (`fileable: false`), not figures to file:
+  [Close the month](close-month.md).
 - **The preview shows `VAT_ACCOUNTS_UNRECONCILED`.** The listed vouchers have
   VAT on a VAT account without a VAT code, and the preview's figures leave it
   out. In the books the tax is correctly on the VAT account, but it is missing

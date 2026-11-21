@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use aggountant_domain::{
     reconcile_vat_accounts, DerivedVatFigures, VatAccountReconciliation, VatReconciliationStatus,
 };
-use aggountant_ledger::Ledger;
+use aggountant_ledger::{Ledger, PeriodState};
 use aggountant_model::{AccountKind, PeriodId, VoucherBody};
 
 use crate::ProcessError;
@@ -59,20 +59,54 @@ pub(crate) fn reconcile_period(
     .map_err(|e| ProcessError::Store(format!("{}: {e}", e.error_code())))
 }
 
-pub(crate) fn attention_items(reconciliation: &VatAccountReconciliation) -> Vec<VatAttentionItem> {
+/// The preview's attention items. `state` decides what an unreconciled period
+/// asks for: before the close the voucher can still be corrected in the period,
+/// after it only the return can carry the corrected figures.
+pub(crate) fn attention_items(
+    reconciliation: &VatAccountReconciliation,
+    state: PeriodState,
+) -> Vec<VatAttentionItem> {
     let mut items = Vec::new();
+    if state != PeriodState::Sealed {
+        items.push(VatAttentionItem {
+            code: "VAT_PERIOD_NOT_SEALED",
+            severity: "blocking",
+            message: format!(
+                "Period {} is not closed: these are draft figures for checking, not for \
+                 filing. Filing needs the closed period, and its figures change with every \
+                 voucher sealed into it before then.",
+                reconciliation.period
+            ),
+            vouchers: Vec::new(),
+        });
+    }
     let untagged = reconciliation.untagged_vouchers();
     if reconciliation.status == VatReconciliationStatus::Unreconciled {
+        let remedy = match state {
+            PeriodState::Open => {
+                "VAT that belongs in this return is corrected now, before the close, with \
+                 a correcting voucher in this period that carries the VAT code on the line \
+                 of the VAT base."
+            }
+            PeriodState::Closing => {
+                "VAT that belongs in this return is corrected before the close: reject the \
+                 close gate to reopen the period, then seal a correcting voucher in this \
+                 period that carries the VAT code on the line of the VAT base."
+            }
+            PeriodState::Sealed => {
+                "VAT that belongs in this return is filed in OmaVero with corrected \
+                 figures (the closed period cannot be corrected here) and must not be \
+                 recorded again with a VAT code later."
+            }
+        };
         items.push(VatAttentionItem {
             code: "VAT_ACCOUNTS_UNRECONCILED",
             severity: "blocking",
             message: format!(
                 "{} posting(s) on VAT accounts are not covered by a VAT code, and the VAT \
-                 accounts differ from the return (output VAT {}, input VAT {}). Check them against their source. \
-                 VAT that belongs in this return is filed in OmaVero with corrected \
-                 figures (the closed period cannot be corrected here) and must not be \
-                 recorded again with a VAT code later; acknowledge only postings that do \
-                 not belong in a return.",
+                 accounts differ from the return (output VAT {}, input VAT {}). Check them \
+                 against their source. {remedy} Acknowledge only postings that do not \
+                 belong in a return.",
                 reconciliation.untagged_postings.len(),
                 reconciliation.output.difference.amount_str(),
                 reconciliation.input.difference.amount_str(),

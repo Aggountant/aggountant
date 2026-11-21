@@ -14,6 +14,11 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
   ([Katso, miten kuukausi meni](monthly-report.md)).
 - Avoimia velvoitteita ei ole. Avoin velvoite estää sulun
   ([Kaudet, sulku ja tilikausi](../concepts/periods.md#velvoitteet)).
+- ALV-tilit täsmäävät ALV-ilmoitukseen. ALV-ilmoituksen esikatselu toimii myös
+  avoimelle kuukaudelle luonnoksena, jota ei voi ilmoittaa, ja näyttää, puuttuuko
+  ALV-tilin vienniltä ALV-merkintä. Ennen sulkua tällainen tosite korjataan
+  vielä samalle kuukaudelle; sulun jälkeen ilmoitus on tehtävä OmaVerossa
+  korjatuin luvuin.
 
 ## Näin teet sen
 
@@ -49,6 +54,7 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
 ```sh
 aggountant obligation list
 aggountant obligation resolve --id <tunniste>
+aggountant file-vat preview --period 2026-03
 aggountant run start close-period --period 2026-03
 aggountant run answer --run-id cp-… --gate ApproveClose --answer approve
 aggountant period show --period 2026-03
@@ -57,6 +63,10 @@ aggountant period show --period 2026-03
 Velvoite merkitään ratkaistuksi (`obligation resolve`) vasta, kun asia on
 oikeasti hoidettu. Sulku odottaa hyväksyntää `ApproveClose`. Hylkäys on `--answer reject`, ja se
 palauttaa kuukauden tilaan `open`. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
+Ennen sulkua `file-vat preview` vastaa `fileable: false` ja huomiokohdalla
+`VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` on oltava `reconciled`,
+tai kohdan `VAT_ACCOUNTS_UNRECONCILED` luettelemien vientien on oltava sellaisia,
+jotka eivät kuulu ilmoitukseen.
 </details>
 
 ## Valmis, kun

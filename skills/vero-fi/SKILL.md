@@ -28,7 +28,9 @@ ennen lähetystä ja käyttäjä hyväksyy juuri ne luvut, jotka lähtevät.
 
 Ilmoitus tehdään suljetusta kaudesta. `aggountant file-vat preview --period 2026-08`
 laskee ilmoituksen kentät kirjanpidosta käyttämättä verkkoa, myös jo ilmoitetulle
-kaudelle.
+kaudelle. Avoimelle tai suljettavalle kaudelle se antaa luonnoksen
+(`fileable: false`), jolla täsmäytys tehdään ennen sulkua (`capture-receipt`);
+sen lukuja ei lähetetä.
 
 Esikatselu myös täsmäyttää ALV-tilit ilmoituksen lukuihin. Jos se nimeää ALV-tilien
 vientejä, joilla ei ole ALV-merkintää (`untagged_postings`), käy ne tositteet läpi

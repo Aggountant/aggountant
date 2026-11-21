@@ -568,9 +568,11 @@ enum RunPayrollCmd {
 
 #[derive(Subcommand, Debug)]
 enum FileVatCmd {
-    /// Derive numbered filing fields and separate payment instructions from a sealed
-    /// period, and reconcile its VAT accounts with those figures. Read-only: creates
-    /// no Run and reads no Vero credentials or network; works on filed periods too.
+    /// Derive numbered filing fields and separate payment instructions from a
+    /// period's sealed vouchers, and reconcile its VAT accounts with those figures.
+    /// Read-only: creates no Run and reads no Vero credentials or network; works on
+    /// filed periods too. On an open or closing period it is a draft for checking
+    /// before the close (`fileable: false`, attention VAT_PERIOD_NOT_SEALED).
     Preview {
         #[arg(long)]
         period: PeriodId,
@@ -2814,8 +2816,13 @@ fn human_line(command: &Command, value: &Value) -> String {
         Command::FileVat { cmd } => match cmd {
             FileVatCmd::Preview { .. } => {
                 let mut line = format!(
-                    "VAT preview {} — net {}, pay separately {}, VAT accounts {}",
+                    "VAT preview {}{} — net {}, pay separately {}, VAT accounts {}",
                     value["period"],
+                    if value["fileable"] == true {
+                        ""
+                    } else {
+                        " (draft, not fileable)"
+                    },
                     value["net_vat"],
                     value["payment_amount"],
                     value["vat_reconciliation"]["status"]
