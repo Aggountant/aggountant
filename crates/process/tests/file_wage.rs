@@ -110,6 +110,10 @@ fn offline_preview_start_and_approve_once_with_pii_isolation() {
     assert_eq!(p.report.period_start.to_string(), "2026-09-01");
     let preview = serde_json::to_string(&p).unwrap();
     assert!(!preview.contains("010101A123N"));
+    let json: serde_json::Value = serde_json::from_str(&preview).unwrap();
+    let note = json["sensitive"]["record_hash"].as_str().unwrap();
+    assert!(note.contains("personal identity code"), "{note}");
+    assert!(note.contains("do not store, log or share"), "{note}");
     assert!(!h.path().join("process").exists());
     let run = e.start_wage(&r, time()).unwrap();
     assert_eq!(run.status, RunStatus::AwaitingGate);

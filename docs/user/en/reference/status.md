@@ -214,7 +214,8 @@ Sealing the fiscal year cannot be undone. Do this:
 - **A test-environment variable can mark a return as filed.**
   `AGGOUNTANT_BROKER_SCRIPT` is meant only for testing the program. If it is
   set, `file-vat` can mark a period as filed even though nothing was sent.
-  Make sure the variable is not set when you file a real return.
+  Such output is marked with the field `test_seam`. Make sure the variable is
+  not set when you file a real return.
 
 ## See also
 

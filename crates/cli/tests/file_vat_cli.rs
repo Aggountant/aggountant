@@ -410,11 +410,21 @@ fn file_vat_end_to_end_via_cli() {
     assert_eq!(code, 0, "{err}");
     let v: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(v["status"], "awaiting_gate");
+    // The period is now recorded as filed although nothing left the machine:
+    // the output itself says the test seam answered.
+    assert_eq!(v["test_seam"]["active"], true, "{v}");
+    assert_eq!(v["test_seam"]["variable"], "AGGOUNTANT_BROKER_SCRIPT");
+    assert!(v["test_seam"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("nothing was sent"));
+    assert_eq!(started["test_seam"]["active"], true);
 
-    // period show → filed.
+    // period show → filed. No broker is built, so no seam marker.
     let (_, stdout, _) = run(home, None, &["period", "show", "--period", "2026-Q1"], "");
     let pv: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(pv["vat_filed"], true);
+    assert!(pv.get("test_seam").is_none());
 
     // Approve payment → Completed.
     let (code, stdout, err) = run(
@@ -433,6 +443,55 @@ fn file_vat_end_to_end_via_cli() {
 }
 
 #[test]
+fn the_test_seam_is_announced_on_errors_and_in_human_output() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    seal_q1(home);
+    let script = home.join("broker_script.json");
+    std::fs::write(&script, happy_script()).unwrap();
+
+    // A refusal through the seam carries the marker in its one error line.
+    let (code, _, stderr) = run(
+        home,
+        Some(&script),
+        &["file-vat", "approve-filing", "--run-id", "fv-unknown"],
+        "",
+    );
+    assert_eq!(code, 1, "{stderr}");
+    let error: Value = serde_json::from_str(stderr.trim()).unwrap();
+    assert_eq!(error["test_seam"]["active"], true, "{stderr}");
+
+    // Without --json a person sees a warning on stderr; stdout keeps its line.
+    let mut child = bin()
+        .arg("--home")
+        .arg(home)
+        .args(["file-vat", "start"])
+        .env("AGGOUNTANT_BROKER_SCRIPT", &script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(FILE_VAT_INPUT.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.starts_with("warning: AGGOUNTANT_BROKER_SCRIPT is set"),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn file_vat_without_a_broker_script_refuses() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();
@@ -442,6 +501,7 @@ fn file_vat_without_a_broker_script_refuses() {
     let (code, _, stderr) = run(home, None, &["file-vat", "start"], FILE_VAT_INPUT);
     assert_eq!(code, 1);
     assert!(stderr.contains("VERO_NOT_READY"), "{stderr}");
+    assert!(!stderr.contains("test_seam"), "{stderr}");
     // Missing identity is projected once by readiness, not re-checked with a
     // second command-specific error after Broker construction.
     for blocker in [

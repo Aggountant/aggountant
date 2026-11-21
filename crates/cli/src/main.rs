@@ -10,6 +10,7 @@ use std::ffi::OsStr;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::{error::ErrorKind, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
@@ -45,7 +46,7 @@ use aggountant_process::{
 /// `file-vat start` INPUT section.
 macro_rules! vero_transport_help {
     () => {
-        "Vero transport: Broker reliability uses an outbox and OutcomeUnknown reconciliation. Production uses the fixed Vero.fi target only after `aggountant vero-fi status` reports ready. The credential bundle path is platform-local (AGGOUNTANT_VERO_CREDENTIALS_FILE is only a path override). AGGOUNTANT_BROKER_SCRIPT selects the scripted test seam only and never establishes production readiness."
+        "Vero transport: Broker reliability uses an outbox and OutcomeUnknown reconciliation. Production uses the fixed Vero.fi target only after `aggountant vero-fi status` reports ready. The credential bundle path is platform-local (AGGOUNTANT_VERO_CREDENTIALS_FILE is only a path override). AGGOUNTANT_BROKER_SCRIPT selects the scripted test seam only and never establishes production readiness; output (and errors) of a command that used it carry a `test_seam` field, and without --json a warning goes to stderr."
     };
 }
 
@@ -947,6 +948,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | CaptureFactRequired(_)
             | CaptureClarificationRequired(_)
             | CaptureUnsupportedTreatment(_)
+            | CaptureVatClassUnknown(_)
             | CapturePreparationChanged(_)
             | InvalidKnowledge(_)
             | KnowledgeNotFound(_)
@@ -2319,7 +2321,27 @@ fn build_file_vat_broker(
     })
 }
 
+/// Set once this process has built a broker from `$AGGOUNTANT_BROKER_SCRIPT`. The
+/// command's output then says so (`test_seam`), because with the seam a filing can
+/// be recorded as made although nothing was sent to the authority.
+static TEST_SEAM_USED: AtomicBool = AtomicBool::new(false);
+
+const TEST_SEAM_MESSAGE: &str = "AGGOUNTANT_BROKER_SCRIPT is set: authority responses came from a test script and nothing was sent to the authority; a filing recorded now is not a real filing";
+
+/// The `test_seam` marker added to a command's output, or `None` when the command
+/// did not use the scripted broker.
+fn test_seam_marker() -> Option<Value> {
+    TEST_SEAM_USED.load(Ordering::SeqCst).then(|| {
+        json!({
+            "active": true,
+            "variable": "AGGOUNTANT_BROKER_SCRIPT",
+            "message": TEST_SEAM_MESSAGE,
+        })
+    })
+}
+
 fn build_scripted_broker_path(home: &Path, path: &OsStr) -> Result<Broker, CliError> {
+    TEST_SEAM_USED.store(true, Ordering::SeqCst);
     let raw = std::fs::read_to_string(path).map_err(|e| {
         CliError::system(
             "IO_ERROR",
@@ -2838,17 +2860,23 @@ fn human_line(command: &Command, value: &Value) -> String {
             value["before"],
             value["after"]
         ),
-        Command::FileWage { .. } => format!(
-            "file-wage {}",
-            value
-                .get("run_id")
-                .or_else(|| value.get("record_hash"))
-                .or_else(|| value.get("state"))
-                .or_else(|| value.get("comparison"))
-                .or_else(|| value.get("artifact"))
-                .and_then(Value::as_str)
-                .unwrap_or("dry-run")
-        ),
+        Command::FileWage { .. } => {
+            let line = format!(
+                "file-wage {}",
+                value
+                    .get("run_id")
+                    .or_else(|| value.get("record_hash"))
+                    .or_else(|| value.get("state"))
+                    .or_else(|| value.get("comparison"))
+                    .or_else(|| value.get("artifact"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("dry-run")
+            );
+            match value["sensitive"]["record_hash"].as_str() {
+                Some(note) => format!("{line}\nrecord_hash is sensitive: {note}"),
+                None => line,
+            }
+        }
         Command::RunPayroll { .. } => format!(
             "run-payroll {} — {} [{}]",
             value["run_id"], value["status"], value["period"]
@@ -3006,6 +3034,9 @@ fn emit_error(error: &CliError) -> std::io::Result<()> {
     if let Some(hint) = explain::hint(&error.code) {
         payload["hint"] = Value::String(hint);
     }
+    if let Some(marker) = test_seam_marker() {
+        payload["test_seam"] = marker;
+    }
     write_stderr_line(&serde_json::to_string(&payload).expect("error payload serializes"))
 }
 
@@ -3033,7 +3064,17 @@ fn main() -> ExitCode {
         }
     };
     match run(&cli) {
-        Ok(value) => {
+        Ok(mut value) => {
+            // A filing made through the test seam must say so wherever it is read:
+            // as a field in JSON output, and as a notice on stderr for a person.
+            if let Some(marker) = test_seam_marker() {
+                if let Some(object) = value.as_object_mut() {
+                    object.insert("test_seam".into(), marker);
+                }
+                if !cli.json {
+                    let _ = write_stderr_line(&format!("warning: {TEST_SEAM_MESSAGE}"));
+                }
+            }
             let raw_skill = !cli.json
                 && matches!(
                     &cli.command,

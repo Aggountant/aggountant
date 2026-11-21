@@ -101,7 +101,10 @@ aggountant run show --run-id wr-…
 
 In the employee input the identifier is `employee_id` and the withholding
 percentage `tax_card.withholding_pct`. The preview gives the checksum in the
-field `record_hash`. The preview and the start get the same timestamp.
+field `record_hash`. The checksum is derived from the personal identity code,
+so it is sensitive: it is used only for the approval and is not stored, logged
+or shared. The preview says the same in the field `sensitive.record_hash`.
+The preview and the start get the same timestamp.
 `aggountant employee show --employee <identifier>` shows the personal identity
 code and bank account number in plain text, so the agent does not run it
 needlessly.

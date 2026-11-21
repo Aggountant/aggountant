@@ -212,8 +212,8 @@ Tilikauden sinetöinti on peruuttamaton. Tee näin:
 - **Testiympäristön muuttuja voi merkitä ilmoituksen tehdyksi.**
   `AGGOUNTANT_BROKER_SCRIPT` on tarkoitettu vain ohjelman testaukseen. Jos se
   on asetettuna, `file-vat` voi merkitä kauden ilmoitetuksi, vaikka mitään ei
-  lähetetty. Varmista, ettei muuttuja ole voimassa, kun teet oikeaa
-  ilmoitusta.
+  lähetetty. Tällainen tuloste on merkitty kentällä `test_seam`. Varmista,
+  ettei muuttuja ole voimassa, kun teet oikeaa ilmoitusta.
 
 ## Katso myös
 

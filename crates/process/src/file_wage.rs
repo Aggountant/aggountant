@@ -48,7 +48,17 @@ pub struct WagePreview {
     /// Do not persist/log it. Git-native state uses a separate non-PII proposal hash.
     /// Signature is added with the current valid credential ONLY after approval.
     pub record_hash: String,
+    /// Says in the output itself which fields are sensitive and why, so a caller
+    /// that only sees the JSON knows not to store, log or share them.
+    pub sensitive: WagePreviewSensitive,
 }
+/// The preview's sensitive fields, each with the reason a caller must protect it.
+#[derive(Serialize)]
+pub struct WagePreviewSensitive {
+    pub record_hash: &'static str,
+}
+/// Why `record_hash` is sensitive; shown with every wage preview.
+const RECORD_HASH_SENSITIVE: &str = "derived from the employee's personal identity code (HETU): use it only to approve this report; do not store, log or share it";
 impl ProcessEngine {
     fn wage_request(
         &self,
@@ -81,6 +91,9 @@ impl ProcessEngine {
             delivery_id: report.delivery_id(),
             report_id: report.report_id(),
             record_hash: record_hash(&xml),
+            sensitive: WagePreviewSensitive {
+                record_hash: RECORD_HASH_SENSITIVE,
+            },
         })
     }
     /// Natural identity also owns the local Run. Repeated start returns the same

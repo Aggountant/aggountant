@@ -215,10 +215,10 @@ pub fn prepare_structured_receipt(
     let treatment = match &input.proposal.vat {
         ReceiptVatProposal::NoVat => VatTreatment::NoVat,
         ReceiptVatProposal::DomesticInput { rate_class } => VatTreatment::DomesticInput {
-            rate_class: required_trimmed(Some(rate_class), "proposal.vat.rate_class")?,
+            rate_class: known_rate_class(rate_class)?,
         },
         ReceiptVatProposal::ReverseCharge { rate_class, scope } => VatTreatment::ReverseCharge {
-            rate_class: required_trimmed(Some(rate_class), "proposal.vat.rate_class")?,
+            rate_class: known_rate_class(rate_class)?,
             scope: *scope,
         },
         ReceiptVatProposal::ClarificationRequired { question } => {
@@ -316,6 +316,22 @@ pub fn record_structured_receipt(
         &prepared.source_fingerprint,
         &prepared.chart_version,
     )?)
+}
+
+/// A proposal's rate class, refused with its own code when the dated rate table
+/// does not know it. A known class without an edition for the date still fails
+/// later, with `VAT_CODE`, because that is missing rate data rather than a typo.
+fn known_rate_class(rate_class: &str) -> Result<String, ProcessError> {
+    let rate_class = required_trimmed(Some(rate_class), "proposal.vat.rate_class")?;
+    let known = aggountant_domain::vat::vat_rate_classes();
+    if known.contains(&rate_class.as_str()) {
+        Ok(rate_class)
+    } else {
+        Err(ProcessError::CaptureVatClassUnknown(format!(
+            "proposal.vat.rate_class {rate_class:?} is not a known VAT rate class; use one of: {}",
+            known.join(", ")
+        )))
+    }
 }
 
 fn required_trimmed(value: Option<&str>, field: &str) -> Result<String, ProcessError> {

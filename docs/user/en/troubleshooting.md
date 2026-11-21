@@ -277,7 +277,10 @@ is set. It is meant only for testing the program and replaces the Tax
 Administration's responses with pre-written ones. When it is set, `file-vat`
 can mark a period as filed even though nothing was sent.
 
-**Check.** Ask the agent to check whether the variable is set.
+**Check.** The command says so itself: its output has the field `test_seam`
+(an error too), and without `--json` a warning starting
+`warning: AGGOUNTANT_BROKER_SCRIPT is set` goes to standard error. Ask the
+agent to check whether the variable is set.
 
 **Do this.** Unset the variable and file the return in OmaVero
 ([File the VAT return in OmaVero](tasks/file-vat-omavero.md)). Marking the

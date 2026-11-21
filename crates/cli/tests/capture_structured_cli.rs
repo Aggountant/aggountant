@@ -138,6 +138,20 @@ fn missing_date_unsupported_treatment_and_unknown_field_are_deterministic_refusa
     );
     assert_eq!(error["error_code"], "CAPTURE_UNSUPPORTED_TREATMENT");
 
+    let mut unknown_class = receipt();
+    unknown_class["proposal"]["vat"]["rate_class"] = json!("domestic-bogus");
+    let error = failure(
+        home.path(),
+        &["capture-receipt", "record", "--dry-run"],
+        &unknown_class,
+    );
+    assert_eq!(error["error_code"], "CAPTURE_VAT_CLASS_UNKNOWN");
+    let message = error["message"].as_str().unwrap();
+    assert!(!message.contains("VAT_CODE"), "{message}");
+    assert!(!message.contains("INVALID_ANSWER"), "{message}");
+    assert!(message.contains("\"domestic-bogus\""), "{message}");
+    assert!(message.contains("domestic-standard"), "{message}");
+
     let mut unknown = receipt();
     unknown["source"]["guessed_vat"] = json!(true);
     let error = failure(

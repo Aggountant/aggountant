@@ -57,9 +57,13 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     assert_eq!(p["schema_version"], 1);
     assert_eq!(p["deadline"], "2026-10-30");
     assert_eq!(p["report"]["joint_owner"], true);
+    assert!(p["sensitive"]["record_hash"]
+        .as_str()
+        .unwrap()
+        .contains("personal identity code"));
     assert!(!out.contains("010101A123N"));
     assert!(!home.path().join("process").exists());
-    let (code, _, err) = run(
+    let (code, out, err) = run(
         home.path(),
         &[
             "file-wage",
@@ -71,6 +75,8 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
         &report,
     );
     assert_eq!(code, 0, "{err}");
+    let dry: Value = serde_json::from_str(&out).unwrap();
+    assert!(dry["would"][0]["preview"]["sensitive"]["record_hash"].is_string());
     assert!(!home.path().join("process").exists());
     let (code, out, err) = run(
         home.path(),

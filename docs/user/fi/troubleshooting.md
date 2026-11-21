@@ -274,7 +274,10 @@ Verohallinnon vastaukset etukäteen kirjoitetuilla vastauksilla. Kun se on
 asetettuna, `file-vat` voi merkitä kauden ilmoitetuksi, vaikka mitään ei
 lähetetty.
 
-**Tarkista.** Pyydä agenttia tarkistamaan, onko muuttuja asetettuna.
+**Tarkista.** Komento kertoo sen itse: tulosteessa on kenttä `test_seam`
+(virheessäkin), ja ilman `--json`-valintaa virhevirtaan tulee varoitus, joka
+alkaa `warning: AGGOUNTANT_BROKER_SCRIPT is set`. Pyydä agenttia tarkistamaan,
+onko muuttuja asetettuna.
 
 **Tee näin.** Poista muuttuja ja tee ilmoitus OmaVerossa
 ([Tee ALV-ilmoitus OmaVerossa](tasks/file-vat-omavero.md)). Kauden merkintä

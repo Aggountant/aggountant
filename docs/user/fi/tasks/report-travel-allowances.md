@@ -95,6 +95,9 @@ aggountant run show --run-id wr-…
 
 Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
 `tax_card.withholding_pct`. Esikatselu antaa tarkisteen kentässä `record_hash`.
+Tarkiste on johdettu henkilötunnuksesta, joten se on arkaluonteinen: sitä
+käytetään vain hyväksyntään, eikä sitä tallenneta, kirjata lokiin tai jaeta.
+Esikatselu sanoo saman kentässä `sensitive.record_hash`.
 Esikatselulle ja käynnistykselle annetaan sama aikaleima.
 `aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
 tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.

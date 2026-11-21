@@ -422,6 +422,20 @@ pub(super) fn parse_vat_code(
     Ok((direction, rate_class, deductibility, VatScheme::Normal))
 }
 
+/// The rate classes the bundled dated rate table knows, sorted and without
+/// duplicates. Lets a caller tell an unknown class from a known class that has no
+/// edition for a date, which [`resolve_vat_rate`] reports alike.
+pub fn vat_rate_classes() -> Vec<&'static str> {
+    let mut classes: Vec<&'static str> = vat_rate_table()
+        .editions
+        .iter()
+        .map(|e| e.rate_class.as_str())
+        .collect();
+    classes.sort_unstable();
+    classes.dedup();
+    classes
+}
+
 /// Resolve the VAT percentage in force for `rate_class` on `document_date`. Fails
 /// with `VAT_CODE` if no edition covers the date (rates are dated data, never
 /// extrapolated) or the class is unknown.

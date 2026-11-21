@@ -12,7 +12,7 @@ use aggountant_process::{EmployerReportInput, EmployerReportReceipt, Registratio
 
 #[derive(Subcommand, Debug)]
 pub enum WageCmd {
-    /// Read report JSON on stdin. Offline; returns lines, explicit period/ownership, deadline and unsigned canonical record hash. Example: file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
+    /// Read report JSON on stdin. Offline; returns lines, explicit period/ownership, deadline and unsigned canonical record hash; record_hash is derived from the HETU and sensitive (output field `sensitive`): use it only to approve, never store, log or share it. Example: file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
     #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
     Preview {
         #[arg(long)]

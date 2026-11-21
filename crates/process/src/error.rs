@@ -70,6 +70,9 @@ pub enum ProcessError {
     /// The proposal names a treatment outside the ordinary capture slice.
     #[error("CAPTURE_UNSUPPORTED_TREATMENT: {0}")]
     CaptureUnsupportedTreatment(String),
+    /// The proposal names a VAT rate class the dated rate table does not know.
+    #[error("CAPTURE_VAT_CLASS_UNKNOWN: {0}")]
+    CaptureVatClassUnknown(String),
     /// The approved stateless preparation binding no longer matches the projection.
     #[error("CAPTURE_PREPARATION_CHANGED: {0}")]
     CapturePreparationChanged(String),
@@ -122,6 +125,7 @@ impl ProcessError {
             ProcessError::CaptureFactRequired(_) => "CAPTURE_FACT_REQUIRED",
             ProcessError::CaptureClarificationRequired(_) => "CAPTURE_CLARIFICATION_REQUIRED",
             ProcessError::CaptureUnsupportedTreatment(_) => "CAPTURE_UNSUPPORTED_TREATMENT",
+            ProcessError::CaptureVatClassUnknown(_) => "CAPTURE_VAT_CLASS_UNKNOWN",
             ProcessError::CapturePreparationChanged(_) => "CAPTURE_PREPARATION_CHANGED",
             ProcessError::InvalidKnowledge(_) => "INVALID_KNOWLEDGE",
             ProcessError::KnowledgeNotFound(_) => "KNOWLEDGE_NOT_FOUND",

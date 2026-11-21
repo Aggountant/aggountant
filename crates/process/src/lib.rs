@@ -1165,7 +1165,7 @@ fn new_run_id_with(prefix: &str) -> String {
 }
 
 mod file_wage;
-pub use file_wage::WagePreview;
+pub use file_wage::{WagePreview, WagePreviewSensitive};
 mod file_employer_report;
 pub use file_employer_report::{
     EmployerMonthState, EmployerMonthStatus, EmployerReportConfigured, EmployerReportInput,
