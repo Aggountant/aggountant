@@ -258,21 +258,25 @@ pub fn check_eu_sale_buyer_vat_id(
 /// new rate classes open cannot be entered. Run by [`crate::build_draft`].
 pub fn check_no_eu_acquisition_code(postings: &[Posting]) -> Result<(), DomainError> {
     for posting in postings {
-        let Some(code) = &posting.vat_code else {
-            continue;
-        };
-        if matches!(
-            parse_vat_code(code.as_str()),
-            Ok((VatDirection::Purchase, "eu-goods" | "eu-services", _, _))
-        ) {
-            return Err(DomainError::VatCode(format!(
-                "VAT code {:?} books an EU acquisition as a zero-rated purchase; an \
-                 intra-Community acquisition must be reverse-charged (self-assessed \
-                 output sales- + deductible input purchase-domestic-*, AVL 9 §), not \
-                 tagged purchase-eu-*",
-                code.as_str()
-            )));
+        if let Some(code) = &posting.vat_code {
+            refuse_eu_acquisition_code(code.as_str())?;
         }
+    }
+    Ok(())
+}
+
+/// The per-code rule of [`check_no_eu_acquisition_code`].
+pub(super) fn refuse_eu_acquisition_code(code: &str) -> Result<(), DomainError> {
+    if matches!(
+        parse_vat_code(code),
+        Ok((VatDirection::Purchase, "eu-goods" | "eu-services", _, _))
+    ) {
+        return Err(DomainError::VatCode(format!(
+            "VAT code {code:?} books an EU acquisition as a zero-rated purchase; an \
+             intra-Community acquisition must be reverse-charged (self-assessed \
+             output sales- + deductible input purchase-domestic-*, AVL 9 §), not \
+             tagged purchase-eu-*"
+        )));
     }
     Ok(())
 }

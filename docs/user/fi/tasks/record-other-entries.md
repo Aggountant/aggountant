@@ -36,7 +36,8 @@ tositeluonnoksena, jonka sinä hyväksyt ennen sinetöintiä.
    tässä laske ALV-rivejä itse, joten tarkista ne erityisen huolella. Kysy
    myös, onko tositteella ALV-merkintä. Merkintä on veron perusteen rivillä,
    myynnissä myyntitilin rivillä (esimerkiksi `sales-domestic-standard`), ja
-   ilmoitus laskee veron siitä. ALV-ilmoitus lasketaan merkityistä
+   ilmoitus laskee veron siitä. `voucher vat-codes --document-date` listaa
+   tositteen päivänä sallitut koodit. ALV-ilmoitus lasketaan merkityistä
    vienneistä, ei tilinumeroista, joten merkitsemätön ALV puuttuisi
    ilmoituksesta ([Miten ALV-käsittely päätetään](../concepts/vat-treatment.md)).
    Ohjelma huomaa puutteen viimeistään ALV-ilmoituksen esikatselussa, mutta

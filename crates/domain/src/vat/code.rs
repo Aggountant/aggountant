@@ -142,23 +142,39 @@ pub enum MarginCategory {
 }
 
 impl MarginCategory {
+    /// Every category, in the order the code grammar documents them.
+    pub const ALL: [MarginCategory; 5] = [
+        MarginCategory::UsedGoods,
+        MarginCategory::Art,
+        MarginCategory::Antiques,
+        MarginCategory::Collectibles,
+        MarginCategory::Vehicle,
+    ];
+
+    /// The segment that follows `margin-` in a VAT code.
+    pub fn segment(self) -> &'static str {
+        match self {
+            MarginCategory::UsedGoods => "used-goods",
+            MarginCategory::Art => "art",
+            MarginCategory::Antiques => "antiques",
+            MarginCategory::Collectibles => "collectibles",
+            MarginCategory::Vehicle => "vehicle",
+        }
+    }
+
     /// Parse the category segment that follows `margin-` in a VAT code. An unknown
     /// category is refused loudly (`VAT_CODE`) rather than silently accepted, so a
     /// typo in a margin code can never resolve to a wrong (or zero) filing figure.
     fn parse(segment: &str) -> Result<MarginCategory, DomainError> {
-        Ok(match segment {
-            "used-goods" => MarginCategory::UsedGoods,
-            "art" => MarginCategory::Art,
-            "antiques" => MarginCategory::Antiques,
-            "collectibles" => MarginCategory::Collectibles,
-            "vehicle" => MarginCategory::Vehicle,
-            other => {
-                return Err(DomainError::VatCode(format!(
-                    "unknown margin-scheme category {other:?} — expected one of \
+        MarginCategory::ALL
+            .into_iter()
+            .find(|category| category.segment() == segment)
+            .ok_or_else(|| {
+                DomainError::VatCode(format!(
+                    "unknown margin-scheme category {segment:?} — expected one of \
                      used-goods, art, antiques, collectibles, vehicle (AVL 79 a §)"
-                )))
-            }
-        })
+                ))
+            })
     }
 }
 
@@ -477,4 +493,75 @@ pub(super) fn resolve_vat_rate(
 pub fn vat_code_is_tax_bearing(code: &VatCode, document_date: Date) -> Result<bool, DomainError> {
     let (_, rate_class, _, _) = parse_vat_code(code.as_str())?;
     Ok(!resolve_vat_rate(rate_class, document_date)?.is_zero())
+}
+
+/// One `vat_code` a voucher posting may carry on a document date, as
+/// [`vat_codes_on`] lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VatCodeOption {
+    pub code: String,
+    /// `sales` (output VAT) or `purchase` (deductible input VAT).
+    pub direction: &'static str,
+    /// The class of the dated rate table the code resolves to.
+    pub rate_class: String,
+    /// The percentage in force on the date, as a canonical decimal string.
+    pub percent: String,
+    /// `normal` (VAT on top of the tagged base) or `margin` (VAT extracted from
+    /// within the tagged VAT-inclusive margin).
+    pub scheme: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_category: Option<MarginCategory>,
+    /// Sealing needs the draft's `buyer_vat_id` (an intra-Community sale).
+    pub requires_buyer_vat_id: bool,
+    /// The code also takes a `-deduct<NN>` partial-deductibility suffix.
+    pub accepts_partial_deduction: bool,
+}
+
+/// The `vat_code` values a voucher posting may carry when its document date is
+/// `date`: every direction × rate class of the dated table with an edition on that
+/// date, plus the margin-scheme codes, less what the record-time guards refuse.
+/// Validity is decided by the same parser and guards that sealing runs, so this
+/// list cannot drift from what a seal accepts. A chart may still refuse a generic
+/// code on an account with a dedicated rate class (the seal-time mistag guard);
+/// that depends on the account and is checked by `voucher validate`.
+pub fn vat_codes_on(date: Date) -> Vec<VatCodeOption> {
+    let mut candidates: Vec<String> = Vec::new();
+    for class in vat_rate_classes() {
+        for direction in [VatDirection::Sales, VatDirection::Purchase] {
+            candidates.push(format!("{}-{class}", direction.label()));
+        }
+    }
+    for category in MarginCategory::ALL {
+        candidates.push(format!("sales-{MARGIN_MARKER}{}", category.segment()));
+    }
+    let mut options = Vec::new();
+    for code in candidates {
+        let Ok((direction, rate_class, _, scheme)) = parse_vat_code(&code) else {
+            continue;
+        };
+        if refuse_eu_acquisition_code(&code).is_err() {
+            continue;
+        }
+        let Ok(percent) = resolve_vat_rate(rate_class, date) else {
+            continue;
+        };
+        let partial = format!("{code}{DEDUCT_MARKER}50");
+        options.push(VatCodeOption {
+            direction: direction.label(),
+            rate_class: rate_class.to_string(),
+            percent: percent.normalize().to_string(),
+            scheme: match scheme {
+                VatScheme::Normal => "normal",
+                VatScheme::Margin(_) => "margin",
+            },
+            margin_category: match scheme {
+                VatScheme::Normal => None,
+                VatScheme::Margin(category) => Some(category),
+            },
+            requires_buyer_vat_id: eu_sale_kind(&code).is_some(),
+            accepts_partial_deduction: parse_vat_code(&partial).is_ok(),
+            code,
+        });
+    }
+    options
 }

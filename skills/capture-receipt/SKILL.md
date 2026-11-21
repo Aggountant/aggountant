@@ -131,9 +131,9 @@ valmistellaan itse: `aggountant voucher draft`, `voucher validate` ja
 sinetöintiä, sillä tässä ohjelma ei laske ALV-rivejä puolestasi.
 
 ALV-ilmoitus näkee tällaisen tositteen veron vain `vat_code`-merkinnästä, ei
-tilinumerosta. Merkintä kuuluu veron perusteen riville: myynnissä myyntitilin
-riville (`sales-…`), ostossa kulutilin riville (`purchase-…`). ALV-tilin rivi
-jää ilman koodia, koska koodi sillä laskisi veroa verosta.
+tilinumerosta, joten merkitsemätön vero puuttuu ilmoituksesta. Koodin paikka ja
+muoto ovat `voucher seal --help`issä, ja `voucher vat-codes --document-date`
+listaa tositteen päivänä sallitut koodit.
 
 Jos `voucher validate` varoittaa merkitsemättömästä ALV-viennistä, korjaa luonnos
 ennen hyväksyntää, ellei vienti ole ALV:n maksu tai muu ilmoitukseen kuulumaton

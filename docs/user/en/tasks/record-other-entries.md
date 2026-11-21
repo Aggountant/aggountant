@@ -39,7 +39,8 @@ sealed.
    check them with particular care. Also ask whether the voucher carries a
    VAT code. The code goes on the line of the tax base, for a sale the sales
    account line (for example `sales-domestic-standard`), and the return
-   calculates the tax from it. The VAT return is calculated from coded
+   calculates the tax from it. `voucher vat-codes --document-date` lists the
+   codes valid on the voucher's date. The VAT return is calculated from coded
    postings, not from account numbers, so uncoded VAT would be missing from
    the return ([How the VAT treatment is decided](../concepts/vat-treatment.md)).
    The program notices the gap at the latest in the VAT return preview, but by

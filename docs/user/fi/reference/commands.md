@@ -19,7 +19,7 @@ kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsim
 | `import camt053` | lukee pankin tiliotteen ja sinetöi sen kirjaukset (myös camt.052) | [Tuo pankin tiliote](../tasks/import-bank-statement.md) |
 | `artifact` | arkistoi lähdetiedoston, kuten kuitin tai vahvistuksen | [Kirjaa kuitit ja ostolaskut](../tasks/record-receipts.md) |
 | `capture-receipt` | kirjaa tavallisen ostokuitin esikatselun ja hyväksynnän kautta | [Kirjaa kuitit ja ostolaskut](../tasks/record-receipts.md) |
-| `voucher` | tositeluonnos, tarkistus, sinetöinti, haku ja ketjun tarkistus | [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](../tasks/record-other-entries.md), [Korjaa virheellinen tosite](../tasks/correct-voucher.md) |
+| `voucher` | tositeluonnos, tarkistus, sinetöinti, haku, ketjun tarkistus ja päivänä voimassa olevat ALV-koodit | [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](../tasks/record-other-entries.md), [Korjaa virheellinen tosite](../tasks/correct-voucher.md) |
 | `report statements` | kuukausiraportti HTML- tai JSON-muodossa | [Katso, miten kuukausi meni](../tasks/monthly-report.md) |
 | `obligation` | avoimet velvoitteet ja niiden ratkaiseminen | [Kaudet](../concepts/periods.md#velvoitteet) |
 | `run` | kuukauden sulkuajo: esikatselu, aloitus, hyväksyntä, jatkaminen, tila ja siirto uuteen versioon | [Sulje kuukausi](../tasks/close-month.md) |

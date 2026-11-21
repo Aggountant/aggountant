@@ -177,3 +177,40 @@ fn validate_eu_buyer_vat_id_checks_shape_and_returns_the_normalised_form() {
 }
 
 // --- AVL 79 a–k § second-hand margin scheme --------------------------
+
+#[test]
+fn vat_codes_on_lists_what_a_seal_accepts_on_that_date() {
+    let codes = vat_codes_on(date("2026-03-15"));
+    let find = |code: &str| codes.iter().find(|o| o.code == code);
+
+    let standard = find("sales-domestic-standard").unwrap();
+    assert_eq!(standard.percent, "25.5");
+    assert!(!standard.accepts_partial_deduction);
+    let reduced = find("purchase-domestic-reduced-1").unwrap();
+    assert_eq!(reduced.percent, "13.5");
+    assert!(reduced.accepts_partial_deduction);
+    assert!(find("sales-eu-goods").unwrap().requires_buyer_vat_id);
+    // Refused at record time: an EU acquisition is reverse-charged, not zero-rated.
+    assert!(find("purchase-eu-goods").is_none());
+    assert!(find("purchase-eu-services").is_none());
+    let margin = find("sales-margin-vehicle").unwrap();
+    assert_eq!(margin.scheme, "margin");
+    assert_eq!(margin.rate_class, MARGIN_RATE_CLASS);
+    assert!(find("purchase-margin-vehicle").is_none());
+
+    // Every listed code passes the parser and the guards a seal runs.
+    for option in &codes {
+        parse_vat_code(&option.code).unwrap();
+        refuse_eu_acquisition_code(&option.code).unwrap();
+    }
+
+    // The table is dated: the same class has the rate of the date asked for, and a
+    // date before the table has no codes at all.
+    let old = vat_codes_on(date("2024-08-31"));
+    let old_standard = old
+        .iter()
+        .find(|o| o.code == "sales-domestic-standard")
+        .unwrap();
+    assert_eq!(old_standard.percent, "24");
+    assert!(vat_codes_on(date("2012-12-31")).is_empty());
+}

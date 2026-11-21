@@ -766,6 +766,17 @@ use AND semantics. Results are always number ASC and limited to 1..=100 (default
 `count` is the number of returned rows; `truncated` reports further matches. A row is
 only a possible source match, never an automatic duplicate decision."#;
 
+const VOUCHER_VAT_CODES_HELP: &str = r#"EXAMPLE
+  aggountant --json voucher vat-codes --document-date 2026-01-15
+
+Lists every code the seal accepts for that document date: direction, rate class,
+percent in force, scheme (normal or margin), whether the draft needs buyer_vat_id,
+and whether a -deduct<NN> partial-deduction suffix is accepted. The list comes
+from the same parser, guards and dated rate table the seal uses. A chart may still
+refuse a generic code on an account that has a dedicated rate class; `voucher
+validate` checks that per account. Where the code goes on a voucher: see
+`voucher seal --help`."#;
+
 #[derive(Subcommand, Debug)]
 enum VoucherCmd {
     /// Build + locally validate a draft from stdin JSON (Σ=0, ≥2 postings).
@@ -801,6 +812,14 @@ enum VoucherCmd {
     },
     /// Walk and verify the whole chain.
     Verify,
+    /// List the vat_code values a posting may carry on a document date, with the
+    /// rate in force (offline, read-only; needs no home).
+    #[command(after_help = VOUCHER_VAT_CODES_HELP)]
+    VatCodes {
+        /// The voucher's document_date (YYYY-MM-DD); it selects the dated rate.
+        #[arg(long)]
+        document_date: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1735,6 +1754,14 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     "count": result.count,
                     "truncated": result.truncated,
                     "vouchers": result.vouchers,
+                }))
+            }
+            VoucherCmd::VatCodes { document_date } => {
+                let date = parse_cli_date(document_date)?;
+                Ok(json!({
+                    "schema_version": 1,
+                    "document_date": date,
+                    "codes": aggountant_domain::vat_codes_on(date),
                 }))
             }
             VoucherCmd::Verify => {
@@ -2848,6 +2875,20 @@ fn human_line(command: &Command, value: &Value) -> String {
                 "{} returned possible source match(es), number ASC (truncated={})",
                 value["count"], value["truncated"]
             ),
+            VoucherCmd::VatCodes { .. } => {
+                let mut out = format!(
+                    "vat codes on {}",
+                    value["document_date"].as_str().unwrap_or("?")
+                );
+                for code in value["codes"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+                    out.push_str(&format!(
+                        "\n{}\t{} %",
+                        code["code"].as_str().unwrap_or("?"),
+                        code["percent"].as_str().unwrap_or("?")
+                    ));
+                }
+                out
+            }
             VoucherCmd::Verify => format!(
                 "chain ok — {} vouchers, head #{}",
                 value["voucher_count"], value["head_number"]

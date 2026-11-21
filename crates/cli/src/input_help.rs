@@ -7,7 +7,34 @@
 //! so a stdin command without an INPUT section, or an example its command would
 //! refuse to parse, fails the build.
 
-pub(crate) const VOUCHER_DRAFT: &str = r#"INPUT (JSON on stdin)
+/// The `vat_code` paragraph shared by the draft, seal and validate help: one
+/// description of where a manual voucher's VAT code goes and its grammar.
+macro_rules! vat_code_input {
+    () => {
+        r#"  vat_code (optional, per posting) is how a manually prepared voucher reaches
+  the VAT return. Put it on the VAT base line (the net sales or expense
+  posting), never on the VAT account line, which carries no code: the VAT
+  return derives each tagged posting's VAT as round(base x rate) at the rate in
+  force on document_date and reconciles it against the VAT accounts, so a code
+  on the VAT line would count VAT on VAT and an untagged base line is missing
+  from the return. Book the VAT line at that derived amount (with -deduct<NN>,
+  the deductible share).
+  Grammar: <direction>-<rate class>. direction is sales (output VAT) or
+  purchase (deductible input VAT); the rate class comes from the dated rate
+  table, e.g. sales-domestic-standard, purchase-domestic-reduced-1,
+  sales-eu-goods (needs buyer_vat_id). A purchase code takes a -deduct<NN>
+  suffix (NN 1..99) for partial deduction: purchase-domestic-standard-deduct50.
+  A margin-scheme sale is sales-margin-<used-goods|art|antiques|collectibles|
+  vehicle>, tagged on the VAT-inclusive margin, not the price. Refused:
+  purchase-eu-* (an EU acquisition is reverse-charged), -deduct on a sales
+  code, purchase-margin-*. List the codes valid on a document date (offline):
+    aggountant --json voucher vat-codes --document-date 2026-01-15
+"#
+    };
+}
+
+pub(crate) const VOUCHER_DRAFT: &str = concat!(
+    r#"INPUT (JSON on stdin)
   Required draft fields: document_date and posting_date (ISO YYYY-MM-DD), a
   non-empty description, and postings (at least two balanced entries).
   Each posting requires account, amount, and side. amount is exactly
@@ -18,14 +45,18 @@ pub(crate) const VOUCHER_DRAFT: &str = r#"INPUT (JSON on stdin)
   Optional draft fields: attachment_ref (singular sha256 returned for an existing
   file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
   buyer_vat_id.
-  Each posting may also carry optional vat_code. Omit optional fields when absent.
+  Omit optional fields when absent.
+"#,
+    vat_code_input!(),
+    r#"
 
 Example JSON (input-shape demonstration only, not VAT or classification advice):
 ```json
 {"document_date":"2026-01-15","posting_date":"2026-01-15","description":"Fictional service transaction","postings":[{"account":"7690","amount":{"amount":"125.00","currency":"EUR"},"side":"debit"},{"account":"1910","amount":{"amount":"125.00","currency":"EUR"},"side":"credit"}]}
 ```
 Run the printed example after selecting account IDs from the active chart:
-  aggountant --home ./accounting --json voucher draft < draft.json"#;
+  aggountant --home ./accounting --json voucher draft < draft.json"#
+);
 
 pub(crate) const VOUCHER_VALIDATE: &str = r#"INPUT (JSON on stdin), one of two shapes
   1. The `voucher seal` envelope: {"draft":{...},"natural_key":"...","actor":"..."}.
@@ -50,7 +81,8 @@ Run it after `aggountant --home ./accounting --json init`, then seal the same fi
   aggountant --home ./accounting --json voucher validate < seal.json
   aggountant --home ./accounting --json voucher seal < seal.json"#;
 
-pub(crate) const VOUCHER_SEAL: &str = r#"INPUT (JSON on stdin)
+pub(crate) const VOUCHER_SEAL: &str = concat!(
+    r#"INPUT (JSON on stdin)
   Required fields: draft (the complete draft-input object described below) and
   natural_key (a non-empty caller-chosen idempotency key). Optional actor defaults
   to "cli". Do not add ledger-output fields or a policy_set field.
@@ -63,7 +95,10 @@ pub(crate) const VOUCHER_SEAL: &str = r#"INPUT (JSON on stdin)
   Optional draft fields: attachment_ref (singular sha256 returned for an existing
   file by `aggountant --home ./accounting --json artifact attach --file ./receipt.pdf`),
   buyer_vat_id.
-  Each posting may also carry optional vat_code. Omit optional fields when absent.
+  Omit optional fields when absent.
+"#,
+    vat_code_input!(),
+    r#"
 
 Example JSON (input-shape demonstration only, not VAT or classification advice):
 ```json
@@ -73,7 +108,8 @@ Run the printed example after `aggountant --home ./accounting --json init` and
 after selecting account IDs from the active chart. Dry-run the same file with
 `voucher validate` first; it accepts this envelope unchanged:
   aggountant --home ./accounting --json voucher validate < seal.json
-  aggountant --home ./accounting --json voucher seal < seal.json"#;
+  aggountant --home ./accounting --json voucher seal < seal.json"#
+);
 
 pub(crate) const CAPTURE_RECEIPT_RECORD: &str = r#"INPUT (JSON on stdin)
   Facts read from the receipt go under source; the agent's proposed treatment

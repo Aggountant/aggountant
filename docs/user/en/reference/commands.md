@@ -19,7 +19,7 @@ fields and an example in the INPUT section of its help. Every command accepts th
 | `import camt053` | reads a bank statement and seals its entries (also camt.052) | [Import the bank statement](../tasks/import-bank-statement.md) |
 | `artifact` | archives a source file, such as a receipt or a confirmation | [Record receipts and purchase invoices](../tasks/record-receipts.md) |
 | `capture-receipt` | records an ordinary purchase receipt through a preview and an approval | [Record receipts and purchase invoices](../tasks/record-receipts.md) |
-| `voucher` | voucher draft, validation, sealing, search and the chain check | [Record a sales invoice, payroll or another manual entry](../tasks/record-other-entries.md), [Correct a wrong voucher](../tasks/correct-voucher.md) |
+| `voucher` | voucher draft, validation, sealing, search, the chain check and the VAT codes valid on a date | [Record a sales invoice, payroll or another manual entry](../tasks/record-other-entries.md), [Correct a wrong voucher](../tasks/correct-voucher.md) |
 | `report statements` | the monthly report in HTML or JSON | [See how the month went](../tasks/monthly-report.md) |
 | `obligation` | open obligations and resolving them | [Periods](../concepts/periods.md#obligations) |
 | `run` | the month's close run: preview, start, approval, resume, status and moving to a new version | [Close the month](../tasks/close-month.md) |
