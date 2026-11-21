@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
@@ -11,6 +11,7 @@ originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
 lane: bank-import
 lane_seq: 1
+closed: 2026-11-21
 ---
 
 # Bank statement import has no preview, and parse hides the statement balances
@@ -56,3 +57,9 @@ bank account with the imported closing balance.
 When this lands, `skills/capture-receipt/SKILL.md` drops "Tuonnissa ei ole
 esikatselua eikä hyväksynnän tiivistettä…" and "Loppusaldo luetaan tiliotteesta
 itsestään, sillä `parse` ei näytä sitä."
+
+## Resolution
+
+### 2026-11-21T11:03:46Z · @issuectl
+
+seal --dry-run with preparation hash and --approved-preparation-hash; statement period, balances and balances_reconcile in parse. See result.md.
