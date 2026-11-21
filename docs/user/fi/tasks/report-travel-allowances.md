@@ -116,8 +116,8 @@ tarkistaa sen myös Tulorekisterin asiointipalvelusta.
 
 - Matkakorvausilmoituksen korvaavaa ilmoitusta ja mitätöintiä ei tehdä
   aggountantilla. Ne tehdään Tulorekisterin asiointipalvelussa.
-- Työntekijärekisteriä ei vielä ole salattu, vaikka komennon ohje niin sanoo.
-  Pidä kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.
+- Työntekijärekisteriä ei vielä ole salattu. Pidä kotihakemisto ja sen
+  varmuuskopiot vain omassa käytössäsi.
 
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tulorekisteri-ja-työntekijät).
 

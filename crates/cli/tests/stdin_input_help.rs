@@ -91,3 +91,82 @@ fn offline_stdin_commands_accept_their_printed_example() {
     let payroll = call("run-payroll start", &[]);
     assert!(payroll["run_id"].is_string());
 }
+
+/// The consult example seals a voucher whose VAT the return counts: following
+/// the help must not produce a deduction that filing leaves out.
+#[test]
+fn capture_receipt_start_example_reaches_the_vat_return() {
+    let config_home = tempfile::tempdir().unwrap();
+    let data_home = tempfile::tempdir().unwrap();
+    let config = config_home.path();
+    let home = data_home.path().to_str().unwrap();
+    let broker = data_home.path().join("broker.json");
+    std::fs::write(
+        &broker,
+        r#"{"consult-llm":[{"status":200,"body":{"type":"final","advice":{"summary":"Fictional advice.","citations":["fictional"]}}}]}"#,
+    )
+    .unwrap();
+    let call = |args: &[&str], stdin: &str| {
+        let mut full = vec!["--home", home, "--json"];
+        full.extend_from_slice(args);
+        let mut command = Command::new(env!("CARGO_BIN_EXE_aggountant"));
+        command
+            .env("HOME", config)
+            .env_remove("AGGOUNTANT_HOME")
+            .env_remove("XDG_CONFIG_HOME")
+            .env("AGGOUNTANT_BROKER_SCRIPT", &broker)
+            .args(&full)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = command.spawn().unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(stdin.as_bytes())
+            .unwrap();
+        ok_json(child.wait_with_output().unwrap())
+    };
+
+    call(&["init"], "");
+    let input: Value = serde_json::from_str(&example(config, "capture-receipt start")).unwrap();
+    let period = input["period"].as_str().unwrap().to_string();
+    let started = call(&["capture-receipt", "start"], &input.to_string());
+    let run_id = started["run_id"].as_str().unwrap().to_string();
+    for gate in [
+        "ApproveConsultDisclosure",
+        "ApproveVoucher",
+        "ApproveKnowledgePR",
+    ] {
+        call(
+            &[
+                "capture-receipt",
+                "answer",
+                "--run-id",
+                &run_id,
+                "--gate",
+                gate,
+            ],
+            "",
+        );
+    }
+    let close = call(&["run", "start", "close-period", "--period", &period], "");
+    call(
+        &[
+            "run",
+            "answer",
+            "--run-id",
+            close["run_id"].as_str().unwrap(),
+            "--gate",
+            "ApproveClose",
+            "--answer",
+            "approve",
+        ],
+        "",
+    );
+
+    let preview = call(&["file-vat", "preview", "--period", &period], "");
+    assert_eq!(preview["purchase_vat"], input["receipt_vat"]["amount"]);
+    assert_eq!(preview["vat_reconciliation"]["status"], "reconciled");
+}

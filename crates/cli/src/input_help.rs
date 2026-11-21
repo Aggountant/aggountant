@@ -158,6 +158,9 @@ pub(crate) const CAPTURE_RECEIPT_START: &str = r#"INPUT (JSON on stdin)
                           a genuine open follow-up, opened when the voucher seals.
   knowledge_slug          slug of the knowledge candidate distilled from the consult.
   draft                   the proposed voucher draft (see `voucher draft --help`).
+                          Tag the VAT base posting with its vat_code (e.g.
+                          purchase-domestic-standard) and leave the VAT-account
+                          leg untagged: the VAT return counts only tagged VAT.
                           Its deductible VAT must equal the assessed amount or
                           sealing is refused (CAPTURE_VAT_MISMATCH).
   tool_results            optional [{"tool":"...","result":<any JSON>}]: scripted
@@ -180,7 +183,8 @@ Example JSON (input-shape demonstration only, not VAT or classification advice):
     "document_date": "2026-02-28", "posting_date": "2026-03-10",
     "description": "Fictional business service",
     "postings": [
-      {"account": "7690", "amount": {"amount": "100.00", "currency": "EUR"}, "side": "debit"},
+      {"account": "7690", "amount": {"amount": "100.00", "currency": "EUR"}, "side": "debit",
+       "vat_code": "purchase-domestic-standard"},
       {"account": "1763", "amount": {"amount": "25.50", "currency": "EUR"}, "side": "debit"},
       {"account": "1910", "amount": {"amount": "125.50", "currency": "EUR"}, "side": "credit"}
     ]
@@ -266,8 +270,9 @@ Run it:
 
 pub(crate) const EMPLOYEE_ADD: &str = r#"INPUT (JSON on stdin)
   Every field is required; unknown fields are refused. The record replaces any
-  earlier one with the same employee_id. Personal data lands only in the
-  encrypted store.
+  earlier one with the same employee_id. Personal data is kept only in the
+  home's separate PII store (masterdata/pii.sqlite), which the home's
+  .gitignore keeps out of git; it is not encrypted at rest in this version.
   employee_id  stable non-PII id used by run-payroll and file-wage.
   name         the employee's name.
   hetu         Finnish personal identity code; checked when a payroll Run starts.
@@ -303,8 +308,8 @@ Run it:
 pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
   {"assignments":[...],"actor":"..."}. One assignment for every booked entry of
   the statement (`import camt053 parse` lists them with their bank_ref); an
-  entry without one refuses the whole batch (MISSING_ASSIGNMENT). Unknown fields
-  are refused.
+  entry without one refuses the whole batch (MISSING_ASSIGNMENT). Unknown
+  top-level and assignment fields are refused.
   actor             optional, default "cli".
   Each assignment:
     bank_ref         required. The entry's bank_ref from `parse`.
@@ -322,6 +327,8 @@ pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
                        "deductibility":{"numerator":N,"denominator":D,
                         "provenance":{"source":"documented-use-allocation",
                         "reference":"..."}}  (0 < N < D).
+                     A partial deduction needs the -partial type: on the full
+                     types a deductibility member is ignored, not refused.
                      Sales VAT is not expanded here; do not import such an entry.
     document_date    YYYY-MM-DD, the source document's date. Required with
                      vat_treatment (it selects the VAT rate; the bank date stays
@@ -405,9 +412,11 @@ pub(crate) const FILE_VAT_START: &str = concat!(
                  under the AGGOUNTANT_BROKER_SCRIPT test seam.
   vat_reconciliation_acknowledgement
                  optional {"reason":"...","vouchers":[N,...]}: file although
-                 untagged VAT-account postings remain. vouchers must name
-                 exactly the vouchers the preview lists, or the start is
-                 refused (VAT_ACCOUNTS_UNRECONCILED).
+                 untagged VAT-account postings remain, which otherwise refuse
+                 the start (VAT_ACCOUNTS_UNRECONCILED). reason must be
+                 non-empty and vouchers exactly the ones the preview lists; an
+                 acknowledgement that does not match, or is given when nothing
+                 needs it, is refused (VAT_RECONCILIATION_ACK_MISMATCH).
 
 Example JSON (input-shape demonstration only, not VAT advice):
 ```json

@@ -122,8 +122,8 @@ check it in Tulorekisteri's e-service.
 
 - Replacement reports and cancellations of a travel allowance report are not
   made with aggountant. They are made in Tulorekisteri's e-service.
-- The employee register is not yet encrypted, even though the command's help
-  says so. Keep the home directory and its backups for your own use only.
+- The employee register is not yet encrypted. Keep the home directory and its
+  backups for your own use only.
 
 More detail: [What is ready and what is not](../reference/status.md#tulorekisteri-and-employees).
 

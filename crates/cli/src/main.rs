@@ -148,7 +148,7 @@ enum Command {
         #[command(subcommand)]
         cmd: FileVatCmd,
     },
-    /// F7 employee master-data (PII-isolated, encrypted store). Add/inspect the
+    /// F7 employee master-data (separate gitignored PII store). Add/inspect the
     /// employee records the `run-payroll` Run reads.
     Employee {
         #[command(subcommand)]
@@ -510,8 +510,8 @@ enum IntakeCmd {
 
 #[derive(Subcommand, Debug)]
 enum EmployeeCmd {
-    /// Add (or replace) an employee from stdin JSON (`EmployeeState`: id, name,
-    /// hetu, iban, tax_card). PII lands only in the encrypted store. YTD is derived
+    /// Add (or replace) an employee from stdin JSON (`EmployeeState`: employee_id, name,
+    /// hetu, iban, tax_card). PII lands only in the separate PII store. YTD is derived
     /// from the earnings ledger, not part of the record — re-adding never resets it.
     #[command(after_help = input_help::EMPLOYEE_ADD)]
     Add,

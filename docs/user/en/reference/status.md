@@ -162,10 +162,9 @@ record the payroll voucher in aggountant:
   ([File the employer's separate report](../tasks/file-employer-report.md)).
 - **There is no command for the Tulorekisteri profile.** The agent writes it
   as the `vero-fi` skill instructs.
-- **The employee register is not encrypted.** The command's help talks about
-  an encrypted store, but the data is stored in plain text. The only
-  protection is that the file is kept out of git. Keep the home directory and
-  its backups for your own use only (`employee-store-plaintext-help`).
+- **The employee register is not encrypted.** The data is stored in plain
+  text. The only protection is that the file is kept out of git. Keep the home
+  directory and its backups for your own use only.
 - **There is no safe way to enter personal data.** `employee show` shows the
   personal identity code and bank account number in plain text, and the
   details cannot be entered without showing them. Write the input to a file

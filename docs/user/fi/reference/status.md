@@ -161,10 +161,9 @@ palkkatosite aggountantiin:
   ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md)).
 - **Tulorekisteri-profiilille ei ole omaa komentoa.** Agentti kirjoittaa sen
   `vero-fi`-skillin ohjeen mukaan.
-- **Työntekijärekisteriä ei ole salattu.** Komennon ohje puhuu salatusta
-  varastosta, mutta tiedot tallentuvat selkokielisinä. Suojana on vain se, että
-  tiedosto pidetään erillään gitistä. Pidä kotihakemisto ja sen varmuuskopiot
-  vain omassa käytössäsi (`employee-store-plaintext-help`).
+- **Työntekijärekisteriä ei ole salattu.** Tiedot tallentuvat selkokielisinä.
+  Suojana on vain se, että tiedosto pidetään erillään gitistä. Pidä
+  kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.
 - **Henkilötiedoille ei ole turvallista syöttötapaa.** `employee show` näyttää
   henkilötunnuksen ja tilinumeron selväkielisinä, eikä tietoja voi syöttää
   näyttämättä niitä. Laadi syöte itse tiedostoon, älä kirjoita
