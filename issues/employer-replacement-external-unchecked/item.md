@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/review-finding:sha1:e313eabcf2ecf22e7463489110cf417d17184fe2
@@ -16,6 +16,9 @@ assessment_outcome: SPIN_OFF
 review_target: skills/vero-fi and skills/tulorekisteri (skill-vero-split draft)
 review_confidence: MED
 review_severity: Medium
+lane: wage-reporting
+lane_seq: 2
+preparation: ready
 ---
 
 # employer-report: replacing an externally filed month skips the pension-insurance check

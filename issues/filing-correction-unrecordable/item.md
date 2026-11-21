@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/review-finding:sha1:d8cfb3cf331def517313168ed7b13c00e28ecadd
@@ -16,6 +16,9 @@ assessment_outcome: SPIN_OFF
 review_target: skills/vero-fi and skills/tulorekisteri (skill-vero-split draft)
 review_confidence: HIGH
 review_severity: High
+lane: wage-reporting
+lane_seq: 1
+preparation: ready
 ---
 
 # A correction made in the e-service cannot be recorded; file-wage complete-manual succeeds without recording it

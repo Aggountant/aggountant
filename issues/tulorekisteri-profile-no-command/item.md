@@ -2,13 +2,16 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: product gap found by taskfleet worker while rebuilding the vero-fi skill
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/observed:tulorekisteri-profile-no-command
 originating_run: 01m7yj1dwxfz2vr4z5h867tt8t
 originating_run_kind: spinoff
+lane: agent-surface
+lane_seq: 7
+preparation: ready
 ---
 
 # Incomes Register profile has no command, no help and no itemised readiness
