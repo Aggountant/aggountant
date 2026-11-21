@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: feature
-status: open
+status: done
 priority: high
 provenance: other
 provenance_detail: follow-up filed by the taskfleet worker implementing filing-correction-unrecordable
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: vat-filing
 lane_seq: 1
 preparation: ready
+closed: 2026-11-21
+closed_by: taskfleet-worker
 ---
 
 # Replacement VAT return through file-vat for an already filed period
@@ -96,3 +98,9 @@ records each filing of a period; `complete-manual` records an OmaVero
 replacement. The skill `skills/vero-fi/SKILL.md` and the guide
 (`docs/user/*/reference/status.md`, "Replacement returns are not made") change
 with it.
+
+## Resolution
+
+### 2026-11-21T11:55:55Z · @taskfleet-worker
+
+file-vat replace sends a replacement return for a filed period as its own previewed and approved filing, with its own outbox key and reconcile-only recovery; a correction voucher names the filed period it corrects (corrects_vat_period) and is counted in that return only; the Ledger records every filing of a period and keeps the earlier receipt; complete-manual --replacement records a replacement made in OmaVero. See result.md.
