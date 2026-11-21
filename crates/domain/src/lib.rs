@@ -96,6 +96,12 @@ pub enum DomainError {
     /// intra-Community supply and under-declare its output VAT.
     #[error("VAT_BUYER_ID: {0}")]
     VatBuyerId(String),
+    /// A VAT expansion names a rate class that does not belong to its treatment,
+    /// for example `domestic-input` with the zero-rated EU-sale class `eu-goods`.
+    /// Refused before the seal, because the pair would resolve to 0 % and seal a
+    /// purchase with no VAT legs. The message names the treatment that fits.
+    #[error("VAT_TREATMENT_CLASS_MISMATCH: {0}")]
+    VatTreatmentClassMismatch(String),
     /// The dated statutory rate table could not resolve an edition for a
     /// `payment_date`, or an edition holds a malformed percentage (must-spec #1).
     #[error("PAYROLL_RATES: {0}")]
@@ -128,6 +134,7 @@ impl DomainError {
             DomainError::VatCode(_) => "VAT_CODE",
             DomainError::VatStructure(_) => "VAT_STRUCTURE",
             DomainError::VatBuyerId(_) => "VAT_BUYER_ID",
+            DomainError::VatTreatmentClassMismatch(_) => "VAT_TREATMENT_CLASS_MISMATCH",
             DomainError::PayrollRates(_) => "PAYROLL_RATES",
             DomainError::Tulolaji(_) => "TULOLAJI",
             DomainError::Hetu(_) => "INVALID_HETU",

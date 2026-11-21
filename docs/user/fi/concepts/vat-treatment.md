@@ -37,6 +37,11 @@ Ohjelma valitsee prosentin itse verokantataulukostaan, kun agentti on kertonut
 käsittelyn, kantaluokan ja päivän. Agentti ei kirjoita ALV-rivejä käsin
 kuittireitillä eikä tiliotteen ostoissa.
 
+Myös käännetyssä verovelvollisuudessa kantaluokka on se Suomen kanta, jota
+tavaraan tai palveluun sovelletaan; se, että osto tuli toisesta EU-maasta,
+kerrotaan erikseen. EU-myynnin nollakantaluokat eivät sovi ostolle, ja ohjelma
+torjuu ne ja kertoo sopivan käsittelyn (`VAT_TREATMENT_CLASS_MISMATCH`).
+
 ## Käsittely päätetään sinetöidessä
 
 ALV-käsittely tallentuu tositteeseen sinetöinnin hetkellä, ja ALV-ilmoitus

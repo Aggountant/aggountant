@@ -251,7 +251,14 @@ pub fn prepare_structured_receipt(
         &chart_version,
         ledger.vat_role_table(),
     )
-    .map_err(map_domain)?;
+    .map_err(|error| match error {
+        // The Domain's own code reaches the caller, so the CLI can attach the
+        // guide's hint for it; the message names the treatment that fits.
+        error @ aggountant_domain::DomainError::VatTreatmentClassMismatch(_) => {
+            ProcessError::from(aggountant_ledger::LedgerError::from(error))
+        }
+        error => map_domain(error),
+    })?;
     let validation = ledger.validate(&draft)?;
     if validation.chart_version != chart_version {
         return Err(ProcessError::CapturePreparationChanged(format!(
@@ -329,8 +336,9 @@ fn known_rate_class(rate_class: &str) -> Result<String, ProcessError> {
         Ok(rate_class)
     } else {
         Err(ProcessError::CaptureVatClassUnknown(format!(
-            "proposal.vat.rate_class {rate_class:?} is not a known VAT rate class (known classes: {})",
-            known.join(", ")
+            "proposal.vat.rate_class {rate_class:?} is not a known VAT rate class; a purchase \
+             uses the class of the Finnish rate that applies: {}",
+            aggountant_domain::vat::PURCHASE_RATE_CLASSES.join(", ")
         )))
     }
 }

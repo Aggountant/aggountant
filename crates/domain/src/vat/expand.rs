@@ -344,7 +344,99 @@ pub fn vat_expand_with_role_table(
     )
 }
 
+/// Rate classes of the dated table that name a Finnish domestic supply. These are
+/// the classes a VAT-bearing purchase treatment takes its rate from: for
+/// `domestic-input` the VAT the Finnish seller charged, for `reverse-charge` the
+/// Finnish VAT the buyer self-assesses on the acquisition. Whether an acquisition
+/// is EU goods, EU services or non-EU services is its `scope`, never its class. A
+/// domestic class whose rate is 0 % on some date (passenger transport in
+/// January–April 2023) stays admissible: the class still names the supply, and the
+/// 0 % is that day's law, so the decision is by class and never by percentage.
+pub const PURCHASE_RATE_CLASSES: [&str; 5] = [
+    "domestic-standard",
+    "domestic-reduced-1",
+    "domestic-reduced-2",
+    "domestic-passenger-transport",
+    "domestic-electricity",
+];
+
+/// Rate classes of the dated table that name a zero-rated **sale**: `zero-rated`
+/// (0 % turnover such as exports) and `eu-goods` / `eu-services` (the
+/// intra-Community supply, AVL 72 b §). They exist so a sales code resolves to
+/// 0 %. No purchase treatment admits them: on `domestic-input` they would seal an
+/// EU acquisition as a domestic purchase without VAT, and on `reverse-charge` they
+/// would report the base with zero self-assessed tax. An acquisition that is
+/// exempt from Finnish VAT is not a modelled reverse-charge case, so it is refused
+/// too. Every class of the bundled table is in exactly one of these two lists
+/// (pinned by a unit test), so a new class needs this decision before it is used.
+pub(super) const ZERO_RATED_SALE_RATE_CLASSES: [&str; 3] =
+    ["zero-rated", "eu-goods", "eu-services"];
+
+/// Refuse a treatment whose rate class belongs to another treatment, naming the
+/// treatment that fits. A class the table does not know is left to
+/// [`resolve_vat_rate`], which refuses it with `VAT_CODE`.
+fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainError> {
+    let (type_name, rate_class, scope) = match treatment {
+        VatTreatment::NoVat => return Ok(()),
+        VatTreatment::DomesticInput { rate_class } => ("domestic-input", rate_class, None),
+        VatTreatment::DomesticInputPartial { rate_class, .. } => {
+            ("domestic-input-partial", rate_class, None)
+        }
+        VatTreatment::ReverseCharge { rate_class, scope } => {
+            ("reverse-charge", rate_class, Some(*scope))
+        }
+        VatTreatment::ReverseChargePartial {
+            rate_class, scope, ..
+        } => ("reverse-charge-partial", rate_class, Some(*scope)),
+    };
+    if !ZERO_RATED_SALE_RATE_CLASSES.contains(&rate_class.as_str()) {
+        return Ok(());
+    }
+    let partial = matches!(
+        treatment,
+        VatTreatment::DomesticInputPartial { .. } | VatTreatment::ReverseChargePartial { .. }
+    );
+    let reverse_type = if partial {
+        "reverse-charge-partial"
+    } else {
+        "reverse-charge"
+    };
+    let domestic_classes = PURCHASE_RATE_CLASSES.join(", ");
+    let fits = match (scope, rate_class.as_str()) {
+        (None, eu @ ("eu-goods" | "eu-services")) => format!(
+            "an EU {} purchase is a reverse charge, not a domestic purchase: use \
+             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{eu}\"}} \
+             with the domestic class whose Finnish rate applies ({domestic_classes}); \
+             source.amount is then the net",
+            if eu == "eu-goods" { "goods" } else { "services" }
+        ),
+        (None, _) => format!(
+            "a purchase that carries no Finnish VAT is {{\"type\":\"no-vat\"}}; a purchase \
+             from abroad on which the buyer self-assesses VAT is {reverse_type} with the \
+             domestic class whose Finnish rate applies ({domestic_classes})"
+        ),
+        (Some(scope), "eu-goods" | "eu-services") => format!(
+            "rate_class is the Finnish rate the buyer self-assesses and scope already says \
+             the acquisition is {}: use \
+             {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{}\"}} \
+             with the domestic class whose Finnish rate applies ({domestic_classes})",
+            scope.label(),
+            scope.label()
+        ),
+        (Some(_), _) => format!(
+            "a reverse charge self-assesses the Finnish rate of the goods or service, one \
+             of {domestic_classes}; an acquisition exempt from Finnish VAT is not a modelled \
+             reverse-charge case and is refused rather than reported with zero tax"
+        ),
+    };
+    Err(DomainError::VatTreatmentClassMismatch(format!(
+        "rate_class {rate_class:?} names a zero-rated sale and does not belong to \
+         treatment {type_name}; {fits}"
+    )))
+}
+
 fn resolved_treatment_percent(input: &VatExpandInput) -> Result<Option<Decimal>, DomainError> {
+    check_treatment_rate_class(&input.treatment)?;
     match &input.treatment {
         VatTreatment::NoVat => Ok(None),
         VatTreatment::ReverseCharge {
@@ -372,7 +464,9 @@ fn resolved_treatment_percent(input: &VatExpandInput) -> Result<Option<Decimal>,
 
 /// Re-run the expansion arithmetic from hash-bound resolved provenance. Historical
 /// verification must not re-resolve an ambient rate table and thereby reinterpret an
-/// intact sealed voucher after policy masterdata changes.
+/// intact sealed voucher after policy masterdata changes. For the same reason it does
+/// not re-apply the treatment/rate-class admissibility check: a voucher sealed before
+/// that check existed still verifies, reads and files exactly as it was sealed.
 pub(super) fn vat_expand_resolved(
     input: &VatExpandInput,
     resolved_percent: Option<Decimal>,

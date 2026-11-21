@@ -799,3 +799,190 @@ fn treatment_refuses_members_of_another_variant_for_every_variant() {
         "the refusal names the member: {error}"
     );
 }
+
+#[test]
+fn every_rate_class_is_either_a_purchase_class_or_a_zero_rated_sale_class() {
+    // A class added to the dated table must be classified before a purchase can
+    // use it; a class in both lists would be admitted and refused at once.
+    for class in vat_rate_classes() {
+        let purchase = PURCHASE_RATE_CLASSES.contains(&class);
+        let sale = ZERO_RATED_SALE_RATE_CLASSES.contains(&class);
+        assert!(
+            purchase != sale,
+            "rate class {class:?} must be in exactly one of PURCHASE_RATE_CLASSES and ZERO_RATED_SALE_RATE_CLASSES"
+        );
+    }
+    for class in PURCHASE_RATE_CLASSES
+        .iter()
+        .chain(ZERO_RATED_SALE_RATE_CLASSES.iter())
+    {
+        assert!(
+            vat_rate_classes().contains(class),
+            "{class:?} is not in the dated table"
+        );
+    }
+}
+
+fn purchase_treatments(rate_class: &str) -> Vec<VatTreatment> {
+    let mut treatments = vec![
+        VatTreatment::DomesticInput {
+            rate_class: rate_class.into(),
+        },
+        VatTreatment::DomesticInputPartial {
+            rate_class: rate_class.into(),
+            deductibility: half_deductible(),
+        },
+    ];
+    for scope in [
+        ReverseChargeScope::EuGoods,
+        ReverseChargeScope::EuServices,
+        ReverseChargeScope::NonEuServices,
+    ] {
+        treatments.push(VatTreatment::ReverseCharge {
+            rate_class: rate_class.into(),
+            scope,
+        });
+        treatments.push(VatTreatment::ReverseChargePartial {
+            rate_class: rate_class.into(),
+            scope,
+            deductibility: half_deductible(),
+        });
+    }
+    treatments
+}
+
+#[test]
+fn purchase_treatment_with_a_zero_rated_sale_class_is_refused_before_a_draft() {
+    // The issue's reproduction: domestic-input + eu-goods resolved to 0 % and would
+    // have sealed an EU acquisition as a domestic purchase without VAT legs.
+    for class in ZERO_RATED_SALE_RATE_CLASSES {
+        for treatment in purchase_treatments(class) {
+            let input = expand_input("10.00", "7690", "1910", treatment.clone(), "2026-07-15");
+            for error in [
+                vat_expand(&input).unwrap_err(),
+                vat_expand_with_role_table(&input, DEFAULT_TEST_CHART, vat_account_role_table())
+                    .unwrap_err(),
+            ] {
+                assert_eq!(
+                    error.error_code(),
+                    "VAT_TREATMENT_CLASS_MISMATCH",
+                    "{treatment:?}: {error}"
+                );
+                assert!(error.to_string().contains(class), "{error}");
+            }
+        }
+    }
+}
+
+const DEFAULT_TEST_CHART: &str =
+    "fi-general-2026@dd5d3f339cebfbc670f55cbd0942c775904c58523d9b07ad8eb48b589c79b63b";
+
+#[test]
+fn treatment_class_refusal_names_the_treatment_that_fits() {
+    let message = |treatment: VatTreatment| {
+        vat_expand(&expand_input(
+            "10.00",
+            "7690",
+            "1910",
+            treatment,
+            "2026-07-15",
+        ))
+        .unwrap_err()
+        .to_string()
+    };
+
+    let eu_goods = message(VatTreatment::DomesticInput {
+        rate_class: "eu-goods".into(),
+    });
+    assert!(
+        eu_goods.contains(
+            r#"{"type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-goods"}"#
+        ),
+        "{eu_goods}"
+    );
+    let eu_services = message(VatTreatment::DomesticInputPartial {
+        rate_class: "eu-services".into(),
+        deductibility: half_deductible(),
+    });
+    assert!(
+        eu_services.contains(
+            r#"{"type":"reverse-charge-partial","rate_class":"domestic-standard","scope":"eu-services"}"#
+        ),
+        "{eu_services}"
+    );
+    let zero = message(VatTreatment::DomesticInput {
+        rate_class: "zero-rated".into(),
+    });
+    assert!(zero.contains(r#"{"type":"no-vat"}"#), "{zero}");
+    let class_as_scope = message(VatTreatment::ReverseCharge {
+        rate_class: "eu-services".into(),
+        scope: ReverseChargeScope::EuServices,
+    });
+    assert!(
+        class_as_scope.contains(
+            r#"{"type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-services"}"#
+        ),
+        "{class_as_scope}"
+    );
+    let zero_reverse = message(VatTreatment::ReverseCharge {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::EuGoods,
+    });
+    assert!(
+        zero_reverse.contains("domestic-standard") && zero_reverse.contains("not a modelled"),
+        "{zero_reverse}"
+    );
+}
+
+#[test]
+fn purchase_treatments_keep_every_domestic_class_including_a_dated_zero_rate() {
+    // Domestic passenger transport was 0 % from January to April 2023. The class
+    // names a domestic supply, so domestic-input still expands (with no VAT leg).
+    let draft = vat_expand(&expand_input(
+        "50.00",
+        "7690",
+        "1910",
+        VatTreatment::DomesticInput {
+            rate_class: "domestic-passenger-transport".into(),
+        },
+        "2023-02-15",
+    ))
+    .unwrap();
+    assert!(draft
+        .vat_expansion()
+        .unwrap()
+        .generated_vat_legs()
+        .is_empty());
+    assert_eq!(
+        draft.vat_expansion().unwrap().resolved_percent(),
+        Some("0.0")
+    );
+
+    for class in PURCHASE_RATE_CLASSES {
+        for treatment in purchase_treatments(class) {
+            let non_eu_slotless = matches!(
+                &treatment,
+                VatTreatment::ReverseCharge {
+                    scope: ReverseChargeScope::NonEuServices,
+                    ..
+                } | VatTreatment::ReverseChargePartial {
+                    scope: ReverseChargeScope::NonEuServices,
+                    ..
+                }
+            ) && vat_rate_class_field(class).is_err();
+            let result = vat_expand(&expand_input(
+                "100.00",
+                "4000",
+                "1910",
+                treatment.clone(),
+                "2026-02-15",
+            ));
+            if non_eu_slotless {
+                // Unchanged: non-EU service tax fits only the three generic slots.
+                assert_eq!(result.unwrap_err().error_code(), "VAT_STRUCTURE");
+            } else {
+                result.unwrap_or_else(|e| panic!("{treatment:?} must expand: {e}"));
+            }
+        }
+    }
+}

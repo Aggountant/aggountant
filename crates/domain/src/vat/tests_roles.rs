@@ -1858,3 +1858,51 @@ fn only_added_reverse_charge_targets_count_as_an_extension() {
     assert!(!table(moved, &more_accounts)
         .only_adds_reverse_charge_targets_to(&table(services, &more_accounts)));
 }
+
+#[test]
+fn a_voucher_sealed_before_the_treatment_class_check_still_verifies_and_files() {
+    // Vouchers sealed before the check may carry domestic-input + eu-goods or a
+    // zero-rated reverse charge. Reading, verifying and filing them re-runs only the
+    // sealed arithmetic, so an existing fiscal store keeps opening and reporting;
+    // only a new seal applies the check.
+    use sha2::{Digest, Sha256};
+    let sealed = |chart: &str, number: u64, treatment: VatTreatment| {
+        let input = expand_input("10.00", "4000", "1910", treatment, "2026-02-15");
+        let roles = test_role_table();
+        let draft = vat_expand_resolved_with_roles(
+            &input,
+            Some(Decimal::ZERO),
+            crate::PolicySet::default().id,
+            Hash::from_bytes(Sha256::digest(VAT_RATES_JSON.as_bytes()).into()),
+            Some(roles.resolve(chart).unwrap()),
+        )
+        .unwrap();
+        VoucherBody::from_draft(&draft, number, chart.into()).unwrap()
+    };
+    let domestic = sealed(
+        SHARED_CHART_VERSION,
+        1,
+        VatTreatment::DomesticInput {
+            rate_class: "eu-goods".into(),
+        },
+    );
+    let reverse = sealed(
+        CUSTOM_CHART_VERSION,
+        2,
+        VatTreatment::ReverseCharge {
+            rate_class: "zero-rated".into(),
+            scope: ReverseChargeScope::EuGoods,
+        },
+    );
+    for body in [&domestic, &reverse] {
+        assert!(matches!(
+            test_verify(body).unwrap(),
+            VatRecompute::Verified { .. }
+        ));
+        let error =
+            verify_vat_expansion_for_seal_with_role_table(body, &test_role_table()).unwrap_err();
+        assert_eq!(error.error_code(), "VAT_TREATMENT_CLASS_MISMATCH");
+    }
+    test_derive(&q1(), std::slice::from_ref(&domestic)).unwrap();
+    test_derive(&q1(), std::slice::from_ref(&reverse)).unwrap();
+}

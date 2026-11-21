@@ -563,3 +563,35 @@ fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
     let verify: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(verify["voucher_count"], 2);
 }
+
+#[test]
+fn domestic_input_with_an_eu_class_is_refused_before_sealing() {
+    // A bank-line assignment feeds the same expansion as capture-receipt: an EU
+    // purchase written as domestic-input + eu-goods would seal with no VAT legs.
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let input = r#"{"assignments":[
+      {"bank_ref":"HLV-2026-0314-001","bank_account":"1910","document_date":"2026-03-14",
+       "contra_postings":[{"account":"7690","amount":{"amount":"124.00","currency":"EUR"}}],
+       "vat_treatment":{"type":"domestic-input","rate_class":"eu-goods"}},
+      {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
+        {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
+    ]}"#;
+    for args in [
+        &["import", "camt053", "seal", "--dry-run", "--file", &file][..],
+        &["import", "camt053", "seal", "--file", &file][..],
+    ] {
+        let (code, _, stderr) = run(home, args, input);
+        assert_eq!(code, 1, "{stderr}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(error["error_code"], "VAT_TREATMENT_CLASS_MISMATCH");
+        assert!(error["message"]
+            .as_str()
+            .unwrap()
+            .contains(r#""scope":"eu-goods""#));
+        assert!(error["hint"].is_string(), "{error}");
+    }
+    assert_no_fiscal_vouchers(home);
+}

@@ -170,3 +170,63 @@ fn missing_date_unsupported_treatment_and_unknown_field_are_deterministic_refusa
     assert_eq!(error["error_code"], "INVALID_INPUT");
     assert!(error["message"].as_str().unwrap().contains("unknown field"));
 }
+
+#[test]
+fn domestic_input_with_a_zero_rated_sale_class_is_refused_with_the_fitting_treatment() {
+    // The issue's reproduction: domestic-input + eu-goods resolved to 0 % and the
+    // dry run reported a valid voucher with no VAT legs.
+    let home = tempfile::tempdir().unwrap();
+    success(home.path(), &["init"], &json!(null));
+
+    for (class, fits) in [
+        (
+            "eu-goods",
+            r#"{"type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-goods"}"#,
+        ),
+        (
+            "eu-services",
+            r#"{"type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-services"}"#,
+        ),
+        ("zero-rated", r#"{"type":"no-vat"}"#),
+    ] {
+        let mut proposal = receipt();
+        proposal["source"]["amount"]["amount"] = json!("10.00");
+        proposal["proposal"]["vat"]["rate_class"] = json!(class);
+        for args in [
+            &["capture-receipt", "record", "--dry-run"][..],
+            &[
+                "capture-receipt",
+                "record",
+                "--approved-preparation-hash",
+                "sha256:v1:0000",
+            ][..],
+        ] {
+            let error = failure(home.path(), args, &proposal);
+            assert_eq!(
+                error["error_code"], "VAT_TREATMENT_CLASS_MISMATCH",
+                "{error}"
+            );
+            assert_eq!(error["error_kind"], "user");
+            let message = error["message"].as_str().unwrap();
+            assert!(message.contains(fits), "{message}");
+            assert!(!message.contains("INVALID_ANSWER"), "{message}");
+            assert!(
+                error["hint"].as_str().unwrap().contains("reverse-charge"),
+                "{error}"
+            );
+        }
+    }
+
+    // The supported pair still previews, and nothing was sealed by the refusals.
+    let mut reverse = receipt();
+    reverse["proposal"]["vat"] =
+        json!({"type":"reverse-charge","rate_class":"domestic-standard","scope":"eu-goods"});
+    let preview = success(
+        home.path(),
+        &["capture-receipt", "record", "--dry-run"],
+        &reverse,
+    );
+    assert_eq!(preview["projection_valid"], true);
+    let verified = success(home.path(), &["voucher", "verify"], &json!(null));
+    assert_eq!(verified["voucher_count"], 0, "{verified}");
+}

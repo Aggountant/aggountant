@@ -39,6 +39,12 @@ has given the treatment, the rate category and the date. The agent does not
 write VAT lines by hand on the receipt route or for purchases on the bank
 statement.
 
+For a reverse-charge purchase too, the rate category is the Finnish rate that
+applies to the goods or service; whether it came from another EU country is
+given separately. The zero-rate categories of EU sales do not fit a purchase,
+and the program refuses them and names the treatment that fits
+(`VAT_TREATMENT_CLASS_MISMATCH`).
+
 ## Treatment is decided at sealing
 
 The VAT treatment is stored in the voucher at the moment of sealing, and the
