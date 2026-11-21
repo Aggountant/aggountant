@@ -9,8 +9,8 @@ use aggountant_domain::{depreciation_voucher, AccrualInput, AssetInput, PolicySe
 use aggountant_ledger::{FiscalYearState, Ledger, MonthlyReportOptions, SealRequest};
 use aggountant_model::{AccountId, Currency, Date, Money, PeriodId, Posting, Side, VoucherDraft};
 use aggountant_process::{
-    CloseYearInput, CloseYearShow, CorrectionInput, EffectStatus, GateContent, ProcessEngine,
-    RunStatus, RunView,
+    CloseYearInput, CloseYearNext, CloseYearNextFor, CloseYearShow, CorrectionInput, EffectStatus,
+    GateContent, ProcessEngine, RunStatus, RunView,
 };
 
 fn eur() -> Currency {
@@ -1365,6 +1365,19 @@ fn resuming_a_superseded_run_leaves_the_sealing_runs_archive_alone() {
 
     engine.resume_close_year(&a).unwrap();
     assert_eq!(fs::read(&archive_path).unwrap(), sealed_by_b);
+    // A can only be ended, and says so.
+    let n = engine.close_year_next(&a, CloseYearNextFor::Show).unwrap();
+    assert!(
+        n.message.contains("Another close-year run sealed"),
+        "{}",
+        n.message
+    );
+    assert_eq!(
+        n.next_command,
+        Some(format!(
+            "aggountant close-year answer --run-id {a} --gate ApproveStatements --answer reject"
+        ))
+    );
     let ledger = Ledger::open(home.path()).unwrap();
     assert_eq!(
         ledger
@@ -1807,4 +1820,189 @@ fn statements_are_not_sealed_while_another_runs_voucher_is_unattributed() {
         .answer_close_year(&b, "ApproveStatements", "reject")
         .unwrap();
     assert_eq!(rejected.status, RunStatus::Rejected);
+}
+
+fn next(engine: &ProcessEngine, run_id: &str, reported_by: CloseYearNextFor) -> CloseYearNext {
+    engine.close_year_next(run_id, reported_by).unwrap()
+}
+
+#[test]
+fn every_step_names_the_open_gate_what_it_seals_and_the_next_command() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let mut input = base_input(2026);
+    input.corrections = vec![CorrectionInput {
+        correction_id: "reclass-1".into(),
+        description: "uudelleenluokittelu".into(),
+        debit_account: acct("6000"),
+        credit_account: acct("7690"),
+        amount: money("150.00"),
+    }];
+    let run_id = engine
+        .start_close_year(&input, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let show = format!("aggountant close-year show --run-id {run_id}");
+    let answer = |gate: &str| {
+        format!(
+            "aggountant close-year answer --run-id {run_id} --gate {gate} --answer approve|reject"
+        )
+    };
+
+    // A command other than show points at show; show points at the command that acts
+    // on what it showed: here the unsealed correction comes first.
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert_eq!(n.next_command.as_deref(), Some(show.as_str()));
+    assert!(
+        n.message.contains("Open gate: ApproveAdjustments"),
+        "{}",
+        n.message
+    );
+    assert!(n
+        .message
+        .contains("seals the depreciation and accrual vouchers permanently"));
+    assert!(n.message.contains("[reclass-1]"), "{}", n.message);
+    let n = next(&engine, &run_id, CloseYearNextFor::Show);
+    assert_eq!(
+        n.next_command.as_deref(),
+        Some(
+            format!(
+                "aggountant close-year seal-correction --run-id {run_id} --correction reclass-1"
+            )
+            .as_str()
+        )
+    );
+    assert!(
+        n.message.contains("only after the user has approved it"),
+        "{}",
+        n.message
+    );
+
+    engine
+        .seal_close_year_correction(&run_id, "reclass-1")
+        .unwrap();
+    let n = next(&engine, &run_id, CloseYearNextFor::Show);
+    assert_eq!(n.next_command, Some(answer("ApproveAdjustments")));
+    assert!(!n.message.contains("reclass-1"), "{}", n.message);
+
+    approve(&engine, &run_id, "ApproveAdjustments");
+    for gate in ["ApproveTaseErittelyt", "ApproveLiitetiedot"] {
+        let n = next(&engine, &run_id, CloseYearNextFor::Other);
+        assert_eq!(n.next_command.as_deref(), Some(show.as_str()));
+        assert!(
+            n.message.contains(&format!("Open gate: {gate}")),
+            "{}",
+            n.message
+        );
+        assert!(n.message.contains("it seals nothing"), "{}", n.message);
+        assert_eq!(
+            next(&engine, &run_id, CloseYearNextFor::Show).next_command,
+            Some(answer(gate))
+        );
+        approve(&engine, &run_id, gate);
+    }
+
+    let n = next(&engine, &run_id, CloseYearNextFor::Show);
+    assert_eq!(n.next_command, Some(answer("ApproveStatements")));
+    assert!(
+        n.message.contains("seals fiscal year 2026") && n.message.contains("cannot be undone"),
+        "{}",
+        n.message
+    );
+
+    approve(&engine, &run_id, "ApproveStatements");
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert_eq!(n.next_command, None);
+    assert!(
+        n.message.contains("Fiscal year 2026 is sealed"),
+        "{}",
+        n.message
+    );
+    assert!(n.message.contains("tilinpaatos.json"), "{}", n.message);
+}
+
+#[test]
+fn a_rejected_run_has_no_next_command() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    engine
+        .answer_close_year(&run_id, "ApproveAdjustments", "reject")
+        .unwrap();
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert_eq!(n.next_command, None);
+    assert!(n.message.contains("rejected"), "{}", n.message);
+}
+
+#[test]
+fn a_failed_archive_write_is_reported_and_resume_rewrites_it() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    // A directory where the archive file goes makes its write fail.
+    let archive = home.path().join("archive/2026/tilinpaatos.json");
+    fs::create_dir_all(&archive).unwrap();
+
+    let done = approve_all(&engine, &run_id);
+    // The seal is not undone or hidden: the year is sealed and the run completed.
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        Ledger::open(home.path())
+            .unwrap()
+            .fiscal_year_view(2026)
+            .unwrap()
+            .state,
+        FiscalYearState::Sealed
+    );
+    fs::remove_dir(&archive).unwrap();
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert_eq!(
+        n.next_command.as_deref(),
+        Some(format!("aggountant close-year resume --run-id {run_id}").as_str())
+    );
+    assert!(n.message.contains("is missing"), "{}", n.message);
+    // The reason recorded when the write failed.
+    assert!(n.message.contains("archive not written"), "{}", n.message);
+
+    let resumed = engine.resume_close_year(&run_id).unwrap();
+    assert_eq!(resumed.status, RunStatus::Completed);
+    let written: serde_json::Value = serde_json::from_slice(&fs::read(&archive).unwrap()).unwrap();
+    assert_eq!(written["sealed_by_run"], run_id.as_str());
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert_eq!(n.next_command, None);
+    assert!(n.message.contains("is sealed"), "{}", n.message);
+}
+
+#[test]
+fn a_failing_archive_rewrite_on_resume_is_an_error() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    approve_all(&engine, &run_id);
+    let archive_dir = home.path().join("archive/2026");
+    fs::remove_dir_all(&archive_dir).unwrap();
+    // A file where the archive directory goes.
+    fs::write(&archive_dir, b"").unwrap();
+    let err = engine.resume_close_year(&run_id).unwrap_err();
+    assert!(
+        err.to_string().contains("fiscal year 2026 is sealed"),
+        "{err}"
+    );
 }

@@ -60,7 +60,11 @@ hand it over and record the year-end entries.
    interrupted, the agent can show the open step again later. If the
    content has changed since the step opened, the agent cannot show it and
    you cannot approve it; reject the step and start the run again. The last
-   approval seals the fiscal year, and it cannot be undone.
+   approval seals the fiscal year, and it cannot be undone. The run then
+   writes the approved statements, balance sheet breakdowns and notes to
+   `archive/<year>/tilinpaatos.json` in the company home. If that write
+   fails, the agent tells you and writes the file again by continuing the
+   run; the books are correct either way.
 
    Until the year is sealed, the monthly report of the next fiscal year's
    months is refused with `PERIOD_NOT_SEALED`, because its balance sheet

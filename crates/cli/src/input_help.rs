@@ -297,8 +297,11 @@ pub(crate) const CLOSE_YEAR_START: &str = r#"INPUT (JSON on stdin)
                  both {"amount":"...","currency":"EUR"}.
   accruals     optional list of accruals (jaksotukset). Each requires
                accrual_id, description, debit_account, credit_account, amount.
-  corrections  optional list of pre-close reclassifications, each sealed on its
-               own approval (`close-year seal-correction`). Each requires
+  corrections  optional list of entries for the closing year that the program
+               does not calculate (a reclassification, an error found in the
+               closed months, a depreciation calculated elsewhere). Each is
+               sealed on its own approval (`close-year seal-correction`) before
+               ApproveAdjustments is approved. Each requires
                correction_id, description, debit_account, credit_account, amount.
 
 Example JSON (input-shape demonstration only, not accounting advice):

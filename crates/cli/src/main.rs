@@ -38,7 +38,7 @@ use aggountant_model::{
 };
 use aggountant_process::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, CloseYearInput,
-    FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, RunView,
+    CloseYearNextFor, FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, RunView,
     StructuredReceiptInput, SystemClock, VatReconciliationAcknowledgement,
 };
 
@@ -212,8 +212,10 @@ enum Command {
         #[command(subcommand)]
         cmd: IntakeCmd,
     },
-    /// The `close-year` Run (RF6/S6): year-end tilinpäätös — poistot/jaksotukset,
-    /// statements-from-policy, the check-gates, D7 corrections, and `SealYear`.
+    /// Year-end close (tilinpäätös) of a fiscal year whose months are all sealed:
+    /// depreciation (poistot), accruals (jaksotukset) and corrections, four approval
+    /// gates, and finally sealing the fiscal year. Every command returns `message`
+    /// and `next_command`, which name the open gate and what approving it seals.
     CloseYear {
         #[command(subcommand)]
         cmd: CloseYearCmd,
@@ -382,18 +384,20 @@ enum Camt053Cmd {
 
 #[derive(Subcommand, Debug)]
 enum CloseYearCmd {
-    /// Start a `close-year` Run from stdin JSON (`CloseYearInput`: year + assets +
-    /// accruals + corrections); computes poistot and parks on `ApproveAdjustments`.
+    /// Start a year-end close from stdin JSON (year, assets, accruals, corrections).
+    /// Puts nothing in the books: it computes the depreciation and stops at the first
+    /// gate, `ApproveAdjustments`.
     #[command(after_help = input_help::CLOSE_YEAR_START)]
     Start,
     /// Answer the run's open gate with an explicit `--answer approve|reject`; there
     /// is no default. The gates open in this order: `ApproveAdjustments` (approving
     /// seals the depreciation and accrual vouchers into the books, permanently: a
-    /// sealed voucher is corrected only by a new one), `ApproveTaseErittelyt`,
-    /// `ApproveLiitetiedot`, and `ApproveStatements` (approving seals the fiscal
+    /// sealed voucher is corrected only by a new one), `ApproveTaseErittelyt` (the
+    /// balance-sheet breakdowns) and `ApproveLiitetiedot` (the notes), whose
+    /// approvals seal nothing, and `ApproveStatements` (approving seals the fiscal
     /// year; this cannot be undone). Read the gate with `close-year show` first.
-    /// `reject` declines the close and ends the run; start a new run after fixing
-    /// the books.
+    /// `reject` declines the close and ends the run; what it already sealed stays in
+    /// the books. Start a new run after fixing the input.
     Answer {
         /// The run to answer, as returned by `close-year start` (`cy-…`).
         #[arg(long)]
@@ -407,7 +411,12 @@ enum CloseYearCmd {
         #[arg(long)]
         answer: String,
     },
-    /// Seal one D7 pre-close correction on its own approval (`--correction <id>`).
+    /// Seal one correction given in the start input into the books. A correction is
+    /// a balanced entry for the closing year that the program does not calculate: a
+    /// reclassification, an error found in the closed months, or a depreciation
+    /// calculated outside the program. It is permanent once sealed (corrected only by
+    /// a new entry), so seal it only after the user has approved it. Every correction
+    /// is sealed while `ApproveAdjustments` is open, before that gate is approved.
     SealCorrection {
         /// The run whose correction is sealed (`cy-…`).
         #[arg(long)]
@@ -416,8 +425,10 @@ enum CloseYearCmd {
         #[arg(long)]
         correction: String,
     },
-    /// Resume an interrupted run (reconciles `SealYear` to fiscal; lands at the
-    /// correct gate).
+    /// Continue an interrupted run: finish what the user already approved, including
+    /// sealing the fiscal year when `ApproveStatements` was approved, and stop at the
+    /// open gate. Also rewrites `archive/<year>/tilinpaatos.json` when the year this
+    /// run sealed has no archive. Not a read; use `show` to look.
     Resume {
         /// The run to resume (`cy-…`).
         #[arg(long)]
@@ -2128,33 +2139,59 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         }
         Command::CloseYear { cmd } => {
             let engine = ProcessEngine::open(&home_path(cli)?);
-            match cmd {
+            let (value, run_id, reported_by) = match cmd {
                 CloseYearCmd::Start => {
                     let input: CloseYearInput = read_stdin_json()?;
                     let started = engine.start_close_year(&input, &PolicySet::default())?;
-                    Ok(serde_json::to_value(started).expect("close-year start serializes"))
+                    let run_id = started.run.run_id.clone();
+                    (
+                        serde_json::to_value(started).expect("close-year start serializes"),
+                        run_id,
+                        CloseYearNextFor::Other,
+                    )
                 }
                 CloseYearCmd::Answer {
                     run_id,
                     gate,
                     answer,
-                } => Ok(
+                } => (
                     serde_json::to_value(engine.answer_close_year(run_id, gate, answer)?)
                         .expect("run view serializes"),
+                    run_id.clone(),
+                    CloseYearNextFor::Other,
                 ),
-                CloseYearCmd::SealCorrection { run_id, correction } => Ok(serde_json::to_value(
-                    engine.seal_close_year_correction(run_id, correction)?,
-                )
-                .expect("run view serializes")),
-                CloseYearCmd::Resume { run_id } => {
-                    Ok(serde_json::to_value(engine.resume_close_year(run_id)?)
-                        .expect("run view serializes"))
-                }
-                CloseYearCmd::Show { run_id } => {
-                    Ok(serde_json::to_value(engine.show_close_year(run_id)?)
-                        .expect("close-year show serializes"))
-                }
-            }
+                CloseYearCmd::SealCorrection { run_id, correction } => (
+                    serde_json::to_value(engine.seal_close_year_correction(run_id, correction)?)
+                        .expect("run view serializes"),
+                    run_id.clone(),
+                    CloseYearNextFor::Other,
+                ),
+                CloseYearCmd::Resume { run_id } => (
+                    serde_json::to_value(engine.resume_close_year(run_id)?)
+                        .expect("run view serializes"),
+                    run_id.clone(),
+                    CloseYearNextFor::Other,
+                ),
+                CloseYearCmd::Show { run_id } => (
+                    serde_json::to_value(engine.show_close_year(run_id)?)
+                        .expect("close-year show serializes"),
+                    run_id.clone(),
+                    CloseYearNextFor::Show,
+                ),
+            };
+            // Every close-year command says what to do next and what approving the
+            // open gate seals, so the agent need not infer it from the gate list.
+            let next = engine.close_year_next(&run_id, reported_by)?;
+            let mut value = value;
+            let object = value
+                .as_object_mut()
+                .expect("close-year output is an object");
+            object.insert("message".into(), Value::String(next.message));
+            object.insert(
+                "next_command".into(),
+                next.next_command.map_or(Value::Null, Value::String),
+            );
+            Ok(value)
         }
         Command::Report { cmd } => reports::run(cmd, &home_path(cli)?),
         Command::FiscalYear { cmd } => {
@@ -2754,6 +2791,15 @@ fn close_period_json(engine: &ProcessEngine, view: RunView) -> Result<Value, Cli
     Ok(serde_json::to_value(engine.close_period_view(view)?).expect("run view serializes"))
 }
 
+/// The `message` and `next_command` lines of a close-year output.
+fn close_year_next_human(value: &Value) -> String {
+    format!(
+        "{}\nnext: {}",
+        value["message"].as_str().unwrap_or(""),
+        value["next_command"].as_str().unwrap_or("-")
+    )
+}
+
 /// The human rendering of close-period content (`run preview`, or the open
 /// `ApproveClose` gate).
 fn close_period_content_human(content: &Value) -> String {
@@ -3128,17 +3174,21 @@ fn human_line(command: &Command, value: &Value) -> String {
                 value["period"],
                 value["open_gate"]["gate_id"].as_str().unwrap_or("none")
             );
-            match &value["open_gate"] {
+            let line = match &value["open_gate"] {
                 Value::Null => line,
                 gate => format!(
                     "{line}\n{}",
                     serde_json::to_string_pretty(gate).expect("gate view serializes")
                 ),
-            }
+            };
+            format!("{line}\n{}", close_year_next_human(value))
         }
         Command::CloseYear { .. } => format!(
-            "close-year run {} — {} [{}]",
-            value["run_id"], value["status"], value["period"]
+            "close-year run {} — {} [{}]\n{}",
+            value["run_id"],
+            value["status"],
+            value["period"],
+            close_year_next_human(value)
         ),
         Command::Report { .. } => reports::human_line(value),
         Command::FiscalYear { cmd } => match cmd {

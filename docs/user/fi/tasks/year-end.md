@@ -55,7 +55,11 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
    agentti voi näyttää avoimen vaiheen myöhemmin uudelleen. Jos sisältö on
    muuttunut vaiheen avautumisen jälkeen, agentti ei voi näyttää sitä etkä
    voi hyväksyä sitä; hylkää vaihe ja aloita ajo alusta. Viimeinen hyväksyntä
-   sinetöi tilikauden, eikä sitä voi perua.
+   sinetöi tilikauden, eikä sitä voi perua. Sen jälkeen ajo kirjoittaa
+   hyväksytyt laskelmat, tase-erittelyt ja liitetiedot kirjanpitokodin
+   tiedostoon `archive/<vuosi>/tilinpaatos.json`. Jos kirjoitus epäonnistuu,
+   agentti kertoo sen ja kirjoittaa tiedoston uudelleen jatkamalla ajoa;
+   kirjanpito on joka tapauksessa oikein.
 
    Ennen kuin vuosi on sinetöity, seuraavan tilikauden kuukausien
    kuukausiraportti torjutaan koodilla `PERIOD_NOT_SEALED`, koska sen tase

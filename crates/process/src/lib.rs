@@ -48,8 +48,8 @@ pub use close_period::{
     PeriodBalance, PeriodIncome, PeriodVouchers,
 };
 pub use close_year::{
-    AdjustmentsContent, CloseYearGateView, CloseYearInput, CloseYearShow, CloseYearStart,
-    CorrectionInput, CorrectionStatus, GateContent,
+    AdjustmentsContent, CloseYearGateView, CloseYearInput, CloseYearNext, CloseYearNextFor,
+    CloseYearShow, CloseYearStart, CorrectionInput, CorrectionStatus, GateContent,
 };
 pub use company_knowledge::{
     AddCompanyKnowledge, CompanyKnowledgeDocument, CompanyKnowledgeItem, CompanyKnowledgeRevision,

@@ -38,7 +38,7 @@ use aggountant_ledger::{FiscalYearState, Ledger, PeriodState};
 use aggountant_model::{AccountId, Date, Money, PeriodId};
 
 use crate::journal::{EventPayload, Journal};
-use crate::{fold, EffectStatus, Fold, ProcessEngine, ProcessError, RunView};
+use crate::{fold, EffectStatus, Fold, ProcessEngine, ProcessError, RunStatus, RunView};
 
 const EFFECT_COMPUTE_ADJ: &str = "compute-adjustments";
 const EFFECT_SEAL_ADJ: &str = "seal-adjustments";
@@ -49,6 +49,8 @@ const GATE_APPROVE_TE: &str = "ApproveTaseErittelyt";
 const GATE_APPROVE_LT: &str = "ApproveLiitetiedot";
 const GATE_APPROVE_STMT: &str = "ApproveStatements";
 const ACTOR: &str = "process:close-year";
+/// Marks a `seal-year` note whose archive write failed.
+const ARCHIVE_NOT_WRITTEN: &str = "archive not written";
 
 /// The effect key for one D7 correction (`correction:<id>`).
 fn correction_effect_key(id: &str) -> String {
@@ -171,6 +173,26 @@ pub struct CorrectionStatus {
     #[serde(flatten)]
     pub correction: CorrectionInput,
     pub sealed: bool,
+}
+
+/// What to do next with a `close-year` Run: every close-year command returns it
+/// beside the Run, so an agent follows `next_command` instead of inferring the next
+/// step from the gate list. `message` names the open gate and what approving it
+/// puts permanently into the books.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CloseYearNext {
+    pub message: String,
+    /// `None` when the Run has ended and nothing is left to do with it.
+    pub next_command: Option<String>,
+}
+
+/// What a close-year command reports beside the Run: the result of `close-year
+/// show` names the command that answers the open gate, every other command the
+/// `close-year show` that displays the content to approve first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseYearNextFor {
+    Show,
+    Other,
 }
 
 /// What a close-year gate binds, one variant per gate.
@@ -456,7 +478,7 @@ impl ProcessEngine {
         journal.append(EventPayload::EffectSucceeded {
             effect_key: EFFECT_COMPUTE_ADJ.to_string(),
             note: format!(
-                "{} depreciation line(s), {} accrual(s), {} D7 correction(s)",
+                "{} depreciation line(s), {} accrual(s), {} correction(s)",
                 depreciation.len(),
                 input.accruals.len(),
                 input.corrections.len()
@@ -496,7 +518,7 @@ impl ProcessEngine {
         let key = correction_effect_key(correction_id);
         if f.effect(&key).is_none() {
             return Err(ProcessError::InvalidAnswer(format!(
-                "run {run_id} has no D7 correction {correction_id:?}"
+                "run {run_id} has no correction {correction_id:?}"
             )));
         }
         if f.effect_succeeded(&key) {
@@ -511,7 +533,7 @@ impl ProcessEngine {
             .is_none_or(|gate| gate.answered.is_some())
         {
             return Err(ProcessError::GateNotOpen(format!(
-                "D7 correction {correction_id:?} of run {run_id} can only be sealed while \
+                "correction {correction_id:?} of run {run_id} can only be sealed while \
                  {GATE_APPROVE_ADJ} is open and unanswered; start a new close-year run that \
                  includes it"
             )));
@@ -539,7 +561,7 @@ impl ProcessEngine {
                 journal.append(EventPayload::EffectSucceeded {
                     effect_key: key,
                     note: format!(
-                        "D7 correction {correction_id} sealed to {} and attributed to {}",
+                        "correction {correction_id} sealed to {} and attributed to {}",
                         state.next_open_period, state.year
                     ),
                 })?;
@@ -706,14 +728,11 @@ impl ProcessEngine {
                 && own_hash.is_some()
                 && fy.statements_hash == own_hash
             {
+                let note = self.seal_note(run_id, &state, "sealed by this run (reconciled)");
                 journal.append(EventPayload::EffectReconciled {
                     effect_key: EFFECT_SEAL_YEAR.to_string(),
-                    note: format!(
-                        "fiscal shows year {} Sealed by this run — reconciled",
-                        state.year
-                    ),
+                    note,
                 })?;
-                let _ = self.write_archive_stub(run_id, &state);
             } else {
                 journal.append(EventPayload::EffectRejected {
                     effect_key: EFFECT_SEAL_YEAR.to_string(),
@@ -727,9 +746,150 @@ impl ProcessEngine {
             // Approve-then-crash: the statements were approved but SealYear did not
             // run. Complete it now; `run_seal_year` re-checks the Preview binding.
             self.run_seal_year(&journal, run_id)?;
+        } else if seal_done
+            && fy.sealed_by_run_id.as_deref() == Some(run_id)
+            && !self.archive_path(state.year).exists()
+        {
+            // The year was sealed by this run but its archive is missing (the write
+            // after the seal failed). Rewriting it changes nothing in the books.
+            self.write_archive_stub(run_id, &state).map_err(|e| {
+                ProcessError::Store(format!(
+                    "fiscal year {} is sealed, but its archive {} could not be written: {e}",
+                    state.year,
+                    self.archive_path(state.year).display()
+                ))
+            })?;
         }
 
         Ok(fold(run_id, &journal.read_all()?)?.to_view())
+    }
+
+    /// The next step of a `close-year` Run and what it puts permanently into the
+    /// books (a read). See [`CloseYearNext`].
+    pub fn close_year_next(
+        &self,
+        run_id: &str,
+        reported_by: CloseYearNextFor,
+    ) -> Result<CloseYearNext, ProcessError> {
+        let f = fold(run_id, &self.open_journal(run_id)?.read_all()?)?;
+        let state = self.read_close_year_state(run_id)?;
+        let year = state.year;
+        let resume = format!("aggountant close-year resume --run-id {run_id}");
+        let show = format!("aggountant close-year show --run-id {run_id}");
+        let next = |message: String, next_command: Option<String>| CloseYearNext {
+            message,
+            next_command,
+        };
+        let open_gate = f.gates.iter().find(|g| g.answered.is_none());
+
+        if f.error_codes.get(EFFECT_SEAL_YEAR).map(String::as_str)
+            == Some("SUPERSEDED_BY_ANOTHER_CLOSE")
+        {
+            let message = format!(
+                "Another close-year run sealed fiscal year {year}; this run cannot seal or \
+                 book anything more."
+            );
+            return Ok(match open_gate {
+                Some(gate) => next(
+                    format!("{message} Reject its open gate {} to end it.", gate.gate_id),
+                    Some(answer_command(run_id, &gate.gate_id, "reject")),
+                ),
+                None => next(message, None),
+            });
+        }
+        if let Some(gate) = open_gate {
+            let gate_id = gate.gate_id.as_str();
+            let unsealed: Vec<&str> = f
+                .effects
+                .iter()
+                .filter(|e| {
+                    e.effect_type == "VoucherCorrect" && e.status != EffectStatus::Succeeded
+                })
+                .filter_map(|e| e.key.strip_prefix("correction:"))
+                .collect();
+            let approval = gate_approval(gate_id, year);
+            let corrections = if gate_id == GATE_APPROVE_ADJ && !unsealed.is_empty() {
+                format!(
+                    " First {} correction(s) must be sealed: [{}]. Each correction goes \
+                     permanently into the books (a sealed voucher is corrected only by a \
+                     new one) on its own `close-year seal-correction`, so seal one only \
+                     after the user has approved it.",
+                    unsealed.len(),
+                    unsealed.join(", ")
+                )
+            } else {
+                String::new()
+            };
+            let reject = "Reject ends the run; what it has already sealed stays in the books.";
+            return Ok(match reported_by {
+                CloseYearNextFor::Show => {
+                    let command = match unsealed.first() {
+                        Some(id) if gate_id == GATE_APPROVE_ADJ => format!(
+                            "aggountant close-year seal-correction --run-id {run_id} \
+                             --correction {id}"
+                        ),
+                        _ => answer_command(run_id, gate_id, "approve|reject"),
+                    };
+                    next(
+                        format!(
+                            "Open gate: {gate_id}. Show the user this content and answer after \
+                             their decision: {approval}{corrections} {reject}"
+                        ),
+                        Some(command),
+                    )
+                }
+                CloseYearNextFor::Other => next(
+                    format!(
+                        "Open gate: {gate_id}. {approval}{corrections} Show its content to \
+                         the user with `close-year show` before answering. {reject}"
+                    ),
+                    Some(show),
+                ),
+            });
+        }
+        Ok(match f.status() {
+            RunStatus::Rejected => next(
+                format!(
+                    "The run was rejected and has ended; what it already sealed stays in the \
+                     books. Start a new close-year run for {year} after fixing the input."
+                ),
+                None,
+            ),
+            RunStatus::Completed if !self.archive_path(year).exists() => {
+                let recorded = f
+                    .notes
+                    .get(EFFECT_SEAL_YEAR)
+                    .filter(|note| note.contains(ARCHIVE_NOT_WRITTEN))
+                    .map(|note| format!(" ({note})"))
+                    .unwrap_or_default();
+                next(
+                    format!(
+                        "Fiscal year {year} is sealed and the books are correct, but its archive \
+                         {} is missing{recorded}. `close-year resume` writes it again.",
+                        self.archive_path(year).display()
+                    ),
+                    Some(resume),
+                )
+            }
+            RunStatus::Completed => next(
+                format!(
+                    "Fiscal year {year} is sealed. The approved statements, tase-erittelyt and \
+                     liitetiedot are in {}.",
+                    self.archive_path(year).display()
+                ),
+                None,
+            ),
+            // An interrupted stage, or a failed one that can be retried: resume drives
+            // on from what the user already approved.
+            _ => next(
+                format!(
+                    "The run stopped before reaching its next gate; `close-year resume` \
+                     continues from what the user already approved (including sealing fiscal \
+                     year {year} if ApproveStatements was approved)."
+                ),
+                Some(resume),
+            ),
+        })
     }
 
     // --- internals --------------------------------------------------------
@@ -885,11 +1045,14 @@ impl ProcessEngine {
         let ledger = Ledger::open(&self.home)?;
         match ledger.seal_year(state.year, &statements_hash, run_id, ACTOR) {
             Ok(_) => {
+                // The archive is written before the success is journalled so the note
+                // records whether it was; a crash in between is reconciled on resume,
+                // which writes the archive again.
+                let note = self.seal_note(run_id, &state, "sealed");
                 journal.append(EventPayload::EffectSucceeded {
                     effect_key: EFFECT_SEAL_YEAR.to_string(),
-                    note: format!("fiscal year {} sealed", state.year),
+                    note,
                 })?;
-                let _ = self.write_archive_stub(run_id, &state);
                 Ok(())
             }
             Err(e) => {
@@ -914,7 +1077,7 @@ impl ProcessEngine {
             .collect();
         if !unsealed.is_empty() {
             return Err(ProcessError::CloseYearBlocked(format!(
-                "{GATE_APPROVE_ADJ} is blocked by {} unsealed D7 correction(s): [{}]; seal \
+                "{GATE_APPROVE_ADJ} is blocked by {} unsealed correction(s): [{}]; seal \
                  each first with `aggountant close-year seal-correction --run-id {} \
                  --correction <id>`, where <id> follows `correction:`",
                 unsealed.len(),
@@ -1303,6 +1466,27 @@ impl ProcessEngine {
         })
     }
 
+    /// `<home>/archive/<year>/tilinpaatos.json`, the sealed year's archive.
+    fn archive_path(&self, year: i32) -> PathBuf {
+        self.home
+            .join("archive")
+            .join(year.to_string())
+            .join("tilinpaatos.json")
+    }
+
+    /// Write the archive of a just-sealed year and return the `seal-year` note,
+    /// which records a failed write. A failed write does not fail the seal: the
+    /// year is sealed and the books are right; `close-year resume` rewrites it.
+    fn seal_note(&self, run_id: &str, state: &CloseYearState, what: &str) -> String {
+        match self.write_archive_stub(run_id, state) {
+            Ok(()) => format!("fiscal year {} {what}", state.year),
+            Err(e) => format!(
+                "fiscal year {} {what}; {ARCHIVE_NOT_WRITTEN}: {e}",
+                state.year
+            ),
+        }
+    }
+
     /// Write the sealed statements + the approved tase-erittelyt + liitetiedot to the
     /// minimal **fiscal archive stub** (`<home>/archive/<year>/`, Fork C option b) on
     /// `SealYear`. A Run started before the gate content was persisted builds them
@@ -1313,8 +1497,11 @@ impl ProcessEngine {
             Some(s) => s,
             None => return Ok(()),
         };
-        let dir = self.home.join("archive").join(state.year.to_string());
-        fs::create_dir_all(&dir).map_err(|e| ProcessError::Store(e.to_string()))?;
+        let path = self.archive_path(state.year);
+        let dir = path
+            .parent()
+            .expect("the archive file is inside a directory");
+        fs::create_dir_all(dir).map_err(|e| ProcessError::Store(e.to_string()))?;
         let te = match &state.tase_erittelyt {
             Some(te) => te.clone(),
             None => self.build_tase_erittelyt(state)?,
@@ -1333,7 +1520,6 @@ impl ProcessEngine {
             serde_json::to_vec_pretty(&bundle).map_err(|e| ProcessError::Store(e.to_string()))?;
         // Atomic durable write (temp → fsync → rename), matching the journal/state so
         // a crash mid-write never leaves a truncated archive.
-        let path = dir.join("tilinpaatos.json");
         let tmp = path.with_extension("json.tmp");
         {
             let mut f = fs::File::create(&tmp).map_err(|e| ProcessError::Store(e.to_string()))?;
@@ -1344,6 +1530,32 @@ impl ProcessEngine {
         }
         fs::rename(&tmp, &path).map_err(|e| ProcessError::Store(e.to_string()))?;
         Ok(())
+    }
+}
+
+/// `close-year answer` for one gate.
+fn answer_command(run_id: &str, gate_id: &str, answer: &str) -> String {
+    format!("aggountant close-year answer --run-id {run_id} --gate {gate_id} --answer {answer}")
+}
+
+/// What approving a close-year gate does to the books.
+fn gate_approval(gate_id: &str, year: i32) -> String {
+    match gate_id {
+        GATE_APPROVE_ADJ => "Approving it seals the depreciation and accrual vouchers \
+            permanently into the books (a sealed voucher is corrected only by a new one) and \
+            computes the statements."
+            .to_string(),
+        GATE_APPROVE_TE => "Approving it accepts the balance-sheet breakdowns \
+            (tase-erittelyt); it seals nothing and opens ApproveLiitetiedot."
+            .to_string(),
+        GATE_APPROVE_LT => "Approving it accepts the notes (liitetiedot); it seals nothing \
+            and opens ApproveStatements."
+            .to_string(),
+        GATE_APPROVE_STMT => format!(
+            "Approving it seals fiscal year {year} with these statements: nothing can be \
+             recorded in {year} afterwards, and this cannot be undone."
+        ),
+        other => format!("Gate {other} is not a close-year gate."),
     }
 }
 
@@ -1414,7 +1626,7 @@ fn build_correction_draft(
     use aggountant_model::{Currency, Posting, Side};
     if c.debit_account == c.credit_account {
         return Err(ProcessError::InvalidAnswer(format!(
-            "D7 correction {} debits and credits the same account {}",
+            "correction {} debits and credits the same account {}",
             c.correction_id, c.debit_account
         )));
     }
@@ -1423,7 +1635,7 @@ fn build_correction_draft(
     let eur = Currency::new("EUR").expect("EUR is a valid currency code");
     if c.amount.currency() != &eur {
         return Err(ProcessError::InvalidAnswer(format!(
-            "D7 correction {} is {}, but close-year corrections are EUR-only",
+            "correction {} is {}, but close-year corrections are EUR-only",
             c.correction_id,
             c.amount.currency()
         )));

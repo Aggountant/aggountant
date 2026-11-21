@@ -73,13 +73,13 @@ sinetöinti, joten näytä oikaisu käyttäjälle ja pyydä hyväksyntä ennen k
 
 ## Mitä käyttäjä päättää missäkin vaiheessa
 
-Ajo pysähtyy neljästi. `close-year show` näyttää avoimen vaiheen sisällön juuri
-sellaisena kuin hyväksyntä sen sitoo; näytä se käyttäjälle, älä omaa yhteenvetoasi
-muistista. Kaksi vaiheista on pysyviä tekoja.
+Ajo pysähtyy neljästi. Jokaisen `close-year`-komennon `message` nimeää avoimen
+vaiheen ja kertoo, mitä sen hyväksyntä sinetöi, ja `next_command` on seuraava
+komento. `close-year show` näyttää avoimen vaiheen sisällön juuri sellaisena kuin
+hyväksyntä sen sitoo; näytä se käyttäjälle, älä omaa yhteenvetoasi muistista.
 
 1. **Oikaisukirjaukset** (`ApproveAdjustments`). Ovatko nämä vuoden poistot ja
    jaksotukset, oikeilla tileillä ja summilla, ja onko jokainen oikaisu mukana.
-   Hyväksyntä sinetöi poisto- ja jaksotustositteet.
 2. **Tase-erittelyt** (`ApproveTaseErittelyt`). Vastaako jokaisen tasetilin
    loppusaldo todellisuutta: pankkitili tiliotetta tilikauden viimeisenä päivänä,
    saamiset ja velat oikeita avoimia eriä, ALV-velka ilmoitettua. Ajo ei tarkista,
@@ -94,7 +94,6 @@ muistista. Kaksi vaiheista on pysyviä tekoja.
 4. **Laskelmat** (`ApproveStatements`). Vertaa tuloslaskelmaa ja tasetta tekijän
    tilinpäätökseen ennen kuin pyydät hyväksyntää. Erilainen rivijako tai pyöristys
    ei haittaa, kunhan ero on selitetty; selittämätön ero selvitetään ensin.
-   Hyväksyntä sinetöi tilikauden, eikä sitä voi perua.
 
 ## Hylkäys ei peru sinetöityä
 
@@ -118,6 +117,8 @@ ehtivät ensimmäisen ajon oikaisuiksi.
 ## Sinetöinnin jälkeen
 
 Ajo kirjoittaa hyväksytyt laskelmat, tase-erittelyt ja liitetiedot kotiin
-hakemistoon `archive/<vuosi>/`. Anna ne tekijälle, jos hän tarvitsee ne, ja
-commitoi koti. Jos tekijä sinetöinnin jälkeen vielä muuttaa lukujaan, kerro
+hakemistoon `archive/<vuosi>/`. Jos kirjoitus epäonnistui, `message` kertoo sen ja
+`next_command` on `close-year resume`, joka kirjoittaa arkiston uudelleen;
+kirjanpito ja sinetöity vuosi ovat joka tapauksessa oikein. Anna tiedostot
+tekijälle, jos hän tarvitsee ne, ja commitoi koti. Jos tekijä sinetöinnin jälkeen vielä muuttaa lukujaan, kerro
 käyttäjälle, että muutos voidaan kirjata vain seuraavalle vuodelle.
