@@ -610,19 +610,12 @@ fn refuse_dry_run(dry_run: bool) -> Result<(), CliError> {
 fn broker(home: &Path) -> Result<Broker, CliError> {
     let profile =
         read_wage_profile(home).map_err(|s| CliError::user("TULOREKISTERI_NOT_READY", s))?;
-    let config = read_config(&config_path()?)?;
-    let path = if let Some(path) = &profile.credentials_file {
-        path.clone()
-    } else {
-        resolve_credential_path(&config, None)?
-            .value
-            .ok_or_else(|| {
-                CliError::user(
-                    "MISSING_CREDENTIAL",
-                    "configure Vero credential path or a separate Tulorekisteri credentials_file",
-                )
-            })?
-    };
+    let path = crate::tulorekisteri::credential_path(Some(&profile))?.ok_or_else(|| {
+        CliError::user(
+            "MISSING_CREDENTIAL",
+            "configure Vero credential path or a separate Tulorekisteri credentials_file",
+        )
+    })?;
     if !path.is_absolute() {
         return Err(CliError::user(
             "INVALID_CREDENTIAL_PATH",

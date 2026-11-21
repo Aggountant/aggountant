@@ -1168,7 +1168,7 @@ impl ProcessEngine {
         let raw = fs::read_to_string(&path).map_err(|_| {
             refused(
                 "TULOREKISTERI_NOT_READY",
-                "configure .aggountant/tulorekisteri.json (business_id, mode, reporting_permission_active) first",
+                "no Tulorekisteri profile; write it first with `aggountant tulorekisteri configure`",
             )
         })?;
         let spliced = with_employer_report(&raw, &settings)

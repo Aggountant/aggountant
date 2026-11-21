@@ -454,6 +454,45 @@ Check first, then write:
 Change one field of a stored profile:
   echo '{"contact_phone":"+358 40 7654321"}' | aggountant --home ./accounting --json vero-fi configure --dry-run"#;
 
+pub(crate) const TULOREKISTERI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
+  The Incomes Register channel settings in .aggountant/tulorekisteri.json. They
+  are merged into the stored profile (JSON merge patch): a field left out keeps
+  its stored value and null clears credentials_file. The output lists every
+  changed field under changes, before and after, and the resulting readiness;
+  check them with --dry-run first. --replace writes the input as the whole
+  profile instead. Unknown fields are refused; employer_report is refused here
+  and kept as stored (`file-wage employer-report configure` writes it). The
+  profile holds no secrets.
+  schema_version               1.
+  mode                         "disabled" or "production". A production profile
+                               is written only when readiness is ready
+                               (otherwise TULOREKISTERI_NOT_READY, naming each
+                               blocker).
+  business_id                  the company's own Business ID, 1234567-8 with a
+                               valid check digit; the credential's must match.
+  reporting_permission_active  the user's statement that the Incomes Register
+                               wage reporting permission is granted (not just
+                               applied for). The program cannot check it.
+  credentials_file             optional absolute path of a separate credential
+                               bundle (same format as the Vero one), outside the
+                               home; absent or null uses the Vero credential path.
+  The first four are required when there is no stored profile (or --replace).
+
+Example JSON (input-shape demonstration only; fictional company):
+```json
+{
+  "schema_version": 1,
+  "mode": "production",
+  "business_id": "1234567-1",
+  "reporting_permission_active": true,
+  "credentials_file": null
+}
+```
+Check first, then write; `tulorekisteri status` shows readiness offline later:
+  aggountant --home ./accounting --json tulorekisteri configure --dry-run < tulorekisteri.json
+  aggountant --home ./accounting --json tulorekisteri configure < tulorekisteri.json
+  aggountant --home ./accounting --json tulorekisteri status"#;
+
 pub(crate) const FILE_VAT_START: &str = concat!(
     r#"INPUT (JSON on stdin)
   Take the figures from `file-vat preview`; they are derived again from the
@@ -660,6 +699,10 @@ mod tests {
                     .map(drop)
                     .map_err(|e| e.message)
             }),
+            (
+                "tulorekisteri configure",
+                parses::<aggountant_broker::tulorekisteri::WageProfile>,
+            ),
             ("file-vat start", parses::<crate::CliFileVatInput>),
             ("file-wage preview", parse_wage_report),
             ("file-wage start", parse_wage_report),

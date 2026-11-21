@@ -164,8 +164,6 @@ palkkatosite aggountantiin:
   näytetään aina kuukauden 5. päivä, vaikka lauantaina tai pyhänä ilmoituksen
   saa antaa seuraavana pankkipäivänä
   ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md)).
-- **Tulorekisteri-profiilille ei ole omaa komentoa.** Agentti kirjoittaa sen
-  `tulorekisteri`-skillin ohjeen mukaan.
 - **Työntekijärekisteriä ei ole salattu.** Tiedot tallentuvat selkokielisinä.
   Suojana on vain se, että tiedosto pidetään erillään gitistä. Pidä
   kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.

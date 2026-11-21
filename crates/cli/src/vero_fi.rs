@@ -211,7 +211,7 @@ fn reject_unknown_nulls(
 }
 
 /// RFC 7386 JSON merge patch.
-fn merge_patch(target: &mut serde_json::Value, patch: &serde_json::Value) {
+pub(super) fn merge_patch(target: &mut serde_json::Value, patch: &serde_json::Value) {
     use serde_json::Value;
     let Value::Object(patch_members) = patch else {
         *target = patch.clone();
@@ -237,7 +237,7 @@ fn merge_patch(target: &mut serde_json::Value, patch: &serde_json::Value) {
 
 /// Every leaf (non-object value) that differs, as `{field, before, after}` with
 /// a dotted field path; a missing leaf is `null`.
-fn diff_leaves(
+pub(super) fn diff_leaves(
     prefix: &str,
     before: &serde_json::Value,
     after: &serde_json::Value,

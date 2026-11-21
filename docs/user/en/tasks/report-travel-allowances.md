@@ -36,11 +36,15 @@ allowances it gives a health insurance contribution of €0:
    > Let's set up Tulorekisteri travel allowance reports. The API permission
    > has been granted.
 
-   The agent writes the home file `.aggountant/tulorekisteri.json` with
-   production mode, the Business ID and your confirmation that the reporting
-   permission has been granted. There is no command for this file, so the
-   agent writes it as the `tulorekisteri` skill instructs. **Confirm the permission
-   only once it has been granted**, not when the application has been sent.
+   With `tulorekisteri configure` the agent writes the home file
+   `.aggountant/tulorekisteri.json` with production mode, the Business ID and
+   your confirmation that the reporting permission has been granted.
+   **Confirm the permission only once it has been granted**, not when the
+   application has been sent. Production mode is written only once the
+   channel is ready; otherwise the command lists what is missing.
+   `tulorekisteri status` shows the same offline later: the code of each
+   missing requirement, whether it is yours (`human`) or the agent's
+   (`agent`), and what to do.
 
 2. **Add the income earner to the employee register.** The income earner's
    details are an identifier, name, personal identity code (henkilötunnus),

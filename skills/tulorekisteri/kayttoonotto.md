@@ -15,33 +15,17 @@ kertoo vahvistuksen näyttävän oikeuden.
 
 ## Profiili
 
-Profiilille ei ole komentoa, joten kirjoita kodin tiedosto
-`.aggountant/tulorekisteri.json` itse. Siinä ei ole salaisuuksia. Esimerkin tiedot ovat
-kuvitteellisia:
+Profiilin kirjoittaa `aggountant tulorekisteri configure`; syötteen muoto on sen
+ohjeessa, ja `aggountant tulorekisteri status` erittelee verkotta, mikä valmiudesta
+puuttuu ja kenelle se kuuluu. `reporting_permission_active` on käyttäjän lausuma siitä,
+että oikeus on myönnetty; ohjelma ei voi tarkistaa sitä. Ilman `credentials_file`-polkua
+käytetään samaa tunnustiedostoa kuin ALV-ilmoituksessa
+([vero-fi: tunnukset](../vero-fi/kayttoonotto.md)). Tunnustiedostossa pitää olla myös
+`software_key`, vaikka Tulorekisteri ei käytä sitä. Tunnustiedosto on kodin
+ulkopuolella, eikä sen sisältö kuulu keskusteluun. Valtuutuksella toisen puolesta
+asiointia ei tueta.
 
-```json
-{
-  "schema_version": 1,
-  "mode": "production",
-  "business_id": "1234567-1",
-  "reporting_permission_active": true,
-  "credentials_file": null
-}
-```
-
-`reporting_permission_active` on käyttäjän lausuma siitä, että oikeus on myönnetty;
-ohjelma ei voi tarkistaa sitä. `credentials_file: null` käyttää samaa tunnustiedostoa
-kuin ALV-ilmoitus ([vero-fi: tunnukset](../vero-fi/kayttoonotto.md)); erilliselle
-varmenteelle annetaan oman, samanmuotoisen tiedoston absoluuttinen polku. Tiedostossa
-pitää olla myös `software_key`, vaikka Tulorekisteri ei käytä sitä. Tunnustiedosto on
-kodin ulkopuolella, eikä sen sisältö kuulu keskusteluun.
-
-Ohjelma ei erittele, mikä valmiudesta puuttuu: se vaatii tuotantotilan, oikeuden
-lausuman, tunnustiedoston tuotantotargetin ja saman Y-tunnuksen sekä voimassa olevan
-varmenteen. Valtuutuksella toisen puolesta asiointia ei tueta.
-
-Tiedostossa voi olla myös `employer_report`-lohko. Sitä ei kirjoiteta käsin, vaan sen
-tekee komento (alla), joka jättää muun tiedoston ennalleen.
+Profiilin `employer_report`-lohkon kirjoittaa oma komentonsa (alla).
 
 Jos koti on git-repositorio, katso ennen ensimmäistä lähetystä, ettei gitin seurantaan
 ole aiemmin lisätty lähetysten outbox-tietokantaa: ohjelman `.gitignore` ei poista jo

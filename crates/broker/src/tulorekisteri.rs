@@ -6,7 +6,7 @@ use crate::tulorekisteri_xml::{
     wage_replacement_record, DELIVERY_TYPE_EMPLOYER, DELIVERY_TYPE_WAGE,
     DELIVERY_TYPE_WAGE_CANCELLATION,
 };
-use crate::vero_filing::{VeroCredentialTarget, VeroCredentials};
+use crate::vero_filing::{VeroCertificateMetadata, VeroCredentialTarget, VeroCredentials};
 use crate::{
     AdapterError, AdapterKind, AdapterResponse, Broker, CredentialHandle, DeliverySemantics,
     Envelope, Registry, RequestResponse, Vault,
@@ -77,12 +77,13 @@ pub fn wage_profile_path(home: &Path) -> std::path::PathBuf {
     home.join(".aggountant/tulorekisteri.json")
 }
 pub fn read_wage_profile(home: &Path) -> Result<WageProfile, String> {
-    let raw = std::fs::read(wage_profile_path(home))
-        .map_err(|_| "configure .aggountant/tulorekisteri.json first")?;
+    let raw = std::fs::read(wage_profile_path(home)).map_err(|_| {
+        "no Tulorekisteri profile; write it with `aggountant tulorekisteri configure`"
+    })?;
     parse_wage_profile(&raw)
 }
 fn parse_wage_profile(raw: &[u8]) -> Result<WageProfile, String> {
-    serde_json::from_slice(raw).map_err(|_| "invalid Tulorekisteri profile".into())
+    serde_json::from_slice(raw).map_err(|e| format!("invalid Tulorekisteri profile: {e}"))
 }
 
 /// The profile with its `employer_report` block replaced.
@@ -165,32 +166,279 @@ pub fn write_wage_profile(home: &Path, bytes: &[u8]) -> Result<(), String> {
     }
     std::fs::rename(&temporary, &path).map_err(|_| fail("replaced"))
 }
+/// One requirement of the channel that is not met: a stable code, who settles it
+/// (`human`: the user's fact, confirmation or e-service step; `agent`: a setting
+/// the agent can fix) and what to do.
+#[derive(Debug, Clone, Serialize)]
+pub struct TulorekisteriBlocker {
+    pub code: &'static str,
+    pub owner: &'static str,
+    pub message: String,
+}
+
+/// Offline readiness of the own-organisation Incomes Register channel, itemised.
+/// The same requirements gate every send ([`check_readiness`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct TulorekisteriReadiness {
+    pub ready: bool,
+    pub profile_path: String,
+    pub mode: Option<String>,
+    pub business_id: Option<String>,
+    pub reporting_permission_active: Option<bool>,
+    pub credential_path: Option<String>,
+    pub certificate: Option<VeroCertificateMetadata>,
+    /// Whether the employer's separate report settings are written; not a
+    /// requirement of the travel report.
+    pub employer_report_configured: bool,
+    pub blockers: Vec<TulorekisteriBlocker>,
+}
+
+fn blocker(
+    blockers: &mut Vec<TulorekisteriBlocker>,
+    code: &'static str,
+    owner: &'static str,
+    message: impl Into<String>,
+) {
+    blockers.push(TulorekisteriBlocker {
+        code,
+        owner,
+        message: message.into(),
+    });
+}
+
+/// What the profile itself must state.
+fn profile_blockers(profile: &WageProfile, blockers: &mut Vec<TulorekisteriBlocker>) {
+    if profile.schema_version != 1 {
+        blocker(
+            blockers,
+            "TULOREKISTERI_SCHEMA_VERSION_UNSUPPORTED",
+            "agent",
+            format!(
+                "profile schema_version is {}, this binary reads 1; write it with `tulorekisteri configure`",
+                profile.schema_version
+            ),
+        );
+    }
+    if profile.mode != "production" {
+        blocker(
+            blockers,
+            "TULOREKISTERI_DISABLED",
+            "human",
+            format!(
+                "profile mode is {:?}; the channel sends only in mode \"production\", set on the user's say-so",
+                profile.mode
+            ),
+        );
+    }
+    if !profile.reporting_permission_active {
+        blocker(
+            blockers,
+            "TULOREKISTERI_REPORTING_PERMISSION_UNATTESTED",
+            "human",
+            "the user has not confirmed that the Incomes Register wage reporting permission is granted (reporting_permission_active)",
+        );
+    }
+}
+
+/// What the credential bundle must satisfy for this profile at `now`. Returns
+/// the certificate metadata when the bundle is readable.
+fn credential_blockers(
+    profile: &WageProfile,
+    secret: &str,
+    now: Instant,
+    blockers: &mut Vec<TulorekisteriBlocker>,
+) -> Option<VeroCertificateMetadata> {
+    let cred = match VeroCredentials::parse(secret) {
+        Ok(cred) => cred,
+        Err(message) => {
+            blocker(
+                blockers,
+                "TULOREKISTERI_CREDENTIAL_INVALID",
+                "agent",
+                message,
+            );
+            return None;
+        }
+    };
+    if cred.target != VeroCredentialTarget::Production {
+        blocker(
+            blockers,
+            "TULOREKISTERI_CREDENTIAL_TARGET_MISMATCH",
+            "agent",
+            "the credential bundle is not for the production target",
+        );
+    }
+    if cred.business_id != profile.business_id {
+        blocker(
+            blockers,
+            "TULOREKISTERI_CREDENTIAL_BUSINESS_ID_MISMATCH",
+            "human",
+            format!(
+                "the credential bundle is for Business ID {}, the profile states {}",
+                cred.business_id.as_str(),
+                profile.business_id.as_str()
+            ),
+        );
+    }
+    if cred.authorization_token.is_some() {
+        blocker(
+            blockers,
+            "TULOREKISTERI_DELEGATED_USE_UNSUPPORTED",
+            "human",
+            "the credential bundle carries an authorization_token; reporting on behalf of another organisation is not supported",
+        );
+    }
+    let meta = match cred.validate_transport_material() {
+        Ok(meta) => meta,
+        Err(message) => {
+            blocker(
+                blockers,
+                "TULOREKISTERI_CREDENTIAL_INVALID",
+                "agent",
+                message,
+            );
+            return None;
+        }
+    };
+    if now < meta.not_before {
+        blocker(
+            blockers,
+            "TULOREKISTERI_CERTIFICATE_NOT_YET_VALID",
+            "human",
+            format!("the certificate is valid from {}", meta.not_before),
+        );
+    }
+    if now >= meta.not_after {
+        blocker(
+            blockers,
+            "TULOREKISTERI_CERTIFICATE_EXPIRED",
+            "human",
+            format!("the certificate expired at {}", meta.not_after),
+        );
+    }
+    Some(meta)
+}
+
+/// Read the profile: `Ok(None)` when the file does not exist.
+pub fn load_wage_profile(home: &Path) -> Result<Option<WageProfile>, String> {
+    match std::fs::read(wage_profile_path(home)) {
+        Ok(raw) => parse_wage_profile(&raw).map(Some),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(_) => Err("the Tulorekisteri profile could not be read".into()),
+    }
+}
+
+/// Offline, itemised readiness: the profile as read, the credential file at
+/// `credential_path` (the profile's `credentials_file`, else the Vero bundle) and
+/// the certificate's validity at `now`. Makes no network request.
+pub fn evaluate_readiness(
+    home: &Path,
+    profile: Result<Option<WageProfile>, String>,
+    credential_path: Option<&Path>,
+    now: Instant,
+) -> TulorekisteriReadiness {
+    let mut blockers = Vec::new();
+    let profile = match profile {
+        Ok(Some(profile)) => Some(profile),
+        Ok(None) => {
+            blocker(
+                &mut blockers,
+                "TULOREKISTERI_PROFILE_MISSING",
+                "agent",
+                "there is no Tulorekisteri profile; write it with `tulorekisteri configure`",
+            );
+            None
+        }
+        Err(message) => {
+            blocker(
+                &mut blockers,
+                "TULOREKISTERI_PROFILE_INVALID",
+                "agent",
+                format!("{message}; rewrite it with `tulorekisteri configure --replace`"),
+            );
+            None
+        }
+    };
+    let mut certificate = None;
+    if let Some(profile) = &profile {
+        profile_blockers(profile, &mut blockers);
+        match credential_path {
+            None => blocker(
+                &mut blockers,
+                "TULOREKISTERI_CREDENTIAL_PATH_MISSING",
+                "agent",
+                "no credential file: set the profile's credentials_file or the Vero credential path (`vero-fi configure`)",
+            ),
+            Some(path) if !path.is_absolute() => blocker(
+                &mut blockers,
+                "TULOREKISTERI_CREDENTIAL_PATH_NOT_ABSOLUTE",
+                "agent",
+                format!("credential path {} is not absolute", path.display()),
+            ),
+            Some(path) => {
+                let inside_home = match (path.canonicalize(), home.canonicalize()) {
+                    (Ok(path), Ok(home)) => path.starts_with(home),
+                    _ => path.starts_with(home),
+                };
+                if inside_home {
+                    blocker(
+                        &mut blockers,
+                        "TULOREKISTERI_CREDENTIAL_IN_ACCOUNTING_HOME",
+                        "agent",
+                        "the credential file must be outside the git-versioned accounting home",
+                    );
+                } else {
+                    match std::fs::read_to_string(path) {
+                        Ok(secret) => {
+                            certificate = credential_blockers(profile, &secret, now, &mut blockers)
+                        }
+                        Err(_) => blocker(
+                            &mut blockers,
+                            "TULOREKISTERI_CREDENTIAL_UNAVAILABLE",
+                            "agent",
+                            format!("credential file {} is not readable", path.display()),
+                        ),
+                    }
+                }
+            }
+        }
+    }
+    TulorekisteriReadiness {
+        ready: blockers.is_empty(),
+        profile_path: wage_profile_path(home).display().to_string(),
+        mode: profile.as_ref().map(|p| p.mode.clone()),
+        business_id: profile.as_ref().map(|p| p.business_id.as_str().to_string()),
+        reporting_permission_active: profile.as_ref().map(|p| p.reporting_permission_active),
+        credential_path: credential_path.map(|p| p.display().to_string()),
+        certificate,
+        employer_report_configured: profile
+            .as_ref()
+            .is_some_and(|p| p.employer_report.is_some()),
+        blockers,
+    }
+}
+
+/// The send-time gate: the same requirements as [`evaluate_readiness`] for a
+/// credential already read, refused with every unmet one named.
 pub fn check_readiness(
     profile: &WageProfile,
     handle: &CredentialHandle,
     now: Instant,
 ) -> Result<(), AdapterError> {
-    let fail = || {
-        AdapterError::Unauthorized("Tulorekisteri requires schema_version=1, mode=production, reporting_permission_active=true, own-organisation production credential and a currently valid certificate".into())
-    };
-    if profile.schema_version != 1
-        || profile.mode != "production"
-        || !profile.reporting_permission_active
-    {
-        return Err(fail());
+    let mut blockers = Vec::new();
+    profile_blockers(profile, &mut blockers);
+    credential_blockers(profile, handle.expose_secret(), now, &mut blockers);
+    if blockers.is_empty() {
+        return Ok(());
     }
-    let cred = VeroCredentials::parse(handle.expose_secret()).map_err(|_| fail())?;
-    if cred.target != VeroCredentialTarget::Production
-        || cred.business_id != profile.business_id
-        || cred.authorization_token.is_some()
-    {
-        return Err(fail());
-    }
-    let meta = cred.validate_transport_material().map_err(|_| fail())?;
-    if now < meta.not_before || now >= meta.not_after {
-        return Err(fail());
-    }
-    Ok(())
+    let items: Vec<String> = blockers
+        .iter()
+        .map(|b| format!("{} ({}): {}", b.code, b.owner, b.message))
+        .collect();
+    Err(AdapterError::Unauthorized(format!(
+        "Tulorekisteri channel not ready: {}; `aggountant tulorekisteri status` lists them offline",
+        items.join("; ")
+    )))
 }
 /// PII lives only in memory. Never persist this request; outbox stores hashes only.
 #[derive(Serialize, Deserialize)]
@@ -962,6 +1210,65 @@ mod tests {
         p.business_id = BusinessId::parse("7654321-2").unwrap();
         assert!(check_readiness(&p, &h, time()).is_err());
         assert!(check_readiness(&profile(), &h, "2040-01-01T00:00:00Z".parse().unwrap()).is_err());
+
+        // Every unmet requirement is named, not one sentence for all of them.
+        p = profile();
+        p.mode = "disabled".into();
+        p.reporting_permission_active = false;
+        let message = check_readiness(&p, &h, time()).unwrap_err().to_string();
+        assert!(message.contains("TULOREKISTERI_DISABLED"), "{message}");
+        assert!(
+            message.contains("TULOREKISTERI_REPORTING_PERMISSION_UNATTESTED"),
+            "{message}"
+        );
+        assert!(!message.contains("CERTIFICATE"), "{message}");
+    }
+    #[test]
+    fn readiness_is_itemised_with_owners() {
+        let home = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let codes = |r: &TulorekisteriReadiness| -> Vec<&str> {
+            r.blockers.iter().map(|b| b.code).collect()
+        };
+
+        let r = evaluate_readiness(home.path(), Ok(None), None, time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_PROFILE_MISSING"]);
+        let r = evaluate_readiness(home.path(), Err("invalid".into()), None, time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_PROFILE_INVALID"]);
+
+        let mut p = profile();
+        p.reporting_permission_active = false;
+        let r = evaluate_readiness(home.path(), Ok(Some(p.clone())), None, time());
+        assert_eq!(
+            codes(&r),
+            [
+                "TULOREKISTERI_REPORTING_PERMISSION_UNATTESTED",
+                "TULOREKISTERI_CREDENTIAL_PATH_MISSING"
+            ]
+        );
+        assert_eq!(r.blockers[0].owner, "human");
+        assert_eq!(r.blockers[1].owner, "agent");
+
+        let inside = home.path().join("credentials.json");
+        std::fs::write(&inside, secret()).unwrap();
+        let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&inside), time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_CREDENTIAL_IN_ACCOUNTING_HOME"]);
+
+        let credential = outside.path().join("credentials.json");
+        let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&credential), time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_CREDENTIAL_UNAVAILABLE"]);
+
+        std::fs::write(&credential, secret()).unwrap();
+        let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&credential), time());
+        assert!(r.ready, "{:?}", r.blockers);
+        assert!(r.certificate.is_some());
+        p = profile();
+        p.business_id = BusinessId::parse("7654321-2").unwrap();
+        let r = evaluate_readiness(home.path(), Ok(Some(p)), Some(&credential), time());
+        assert_eq!(codes(&r), ["TULOREKISTERI_CREDENTIAL_BUSINESS_ID_MISMATCH"]);
+        let later = "2040-01-01T00:00:00Z".parse().unwrap();
+        let r = evaluate_readiness(home.path(), Ok(Some(profile())), Some(&credential), later);
+        assert_eq!(codes(&r), ["TULOREKISTERI_CERTIFICATE_EXPIRED"]);
     }
     #[test]
     fn golden_signed_records_and_rsa_verification() {

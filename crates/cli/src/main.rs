@@ -57,6 +57,7 @@ mod input_help;
 mod knowledge;
 mod reports;
 mod skill;
+mod tulorekisteri;
 mod vero_fi;
 mod wage;
 
@@ -147,6 +148,13 @@ enum Command {
     Run {
         #[command(subcommand)]
         cmd: RunCmd,
+    },
+    /// Inspect and configure the own-organisation Incomes Register (Tulorekisteri)
+    /// channel profile: `tulorekisteri status` (offline readiness, itemised) and
+    /// `tulorekisteri configure`.
+    Tulorekisteri {
+        #[command(subcommand)]
+        cmd: tulorekisteri::TulorekisteriCmd,
     },
     /// Inspect and configure the own-organisation Vero.fi filing boundary.
     VeroFi {
@@ -1442,6 +1450,7 @@ fn draft_to_json(draft: &VoucherDraft) -> Value {
 fn run(cli: &Cli) -> Result<Value, CliError> {
     match &cli.command {
         Command::FileWage { cmd } => wage::execute(cmd, &home_path(cli)?),
+        Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &home_path(cli)?),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => Ok(json!({
                 "schema_version": 1,
@@ -2790,6 +2799,30 @@ fn human_line(command: &Command, value: &Value) -> String {
                 value["config"]["home"]["source"].as_str().unwrap_or("?")
             ),
         },
+        Command::Tulorekisteri { .. } => {
+            let blockers = value["blockers"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let mut out = format!(
+                "Tulorekisteri {} — {} blocker(s)",
+                if value["ready"].as_bool() == Some(true) {
+                    "ready"
+                } else {
+                    "not ready"
+                },
+                blockers.len()
+            );
+            for b in blockers {
+                out.push_str(&format!(
+                    "\n{} ({}): {}",
+                    b["code"].as_str().unwrap_or("?"),
+                    b["owner"].as_str().unwrap_or("?"),
+                    b["message"].as_str().unwrap_or("?")
+                ));
+            }
+            out
+        }
         Command::VeroFi { cmd } => match cmd {
             VeroFiCmd::Status | VeroFiCmd::Configure { .. } => format!(
                 "Vero.fi {} — {} blocker(s)",

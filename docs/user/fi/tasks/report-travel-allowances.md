@@ -35,11 +35,14 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
    > Otetaan Tulorekisterin matkakorvausilmoitukset käyttöön. Rajapintaoikeus
    > on myönnetty.
 
-   Agentti kirjoittaa kodin tiedostoon `.aggountant/tulorekisteri.json`
-   tuotantotilan, Y-tunnuksen ja vahvistuksesi siitä, että ilmoitusoikeus on
-   myönnetty. Tiedostolle ei ole omaa komentoa, joten agentti kirjoittaa sen
-   `tulorekisteri`-skillin ohjeen mukaan. **Vahvista oikeus vasta, kun se on
-   myönnetty**, ei silloin kun hakemus on lähetetty.
+   Agentti kirjoittaa komennolla `tulorekisteri configure` kodin tiedostoon
+   `.aggountant/tulorekisteri.json` tuotantotilan, Y-tunnuksen ja
+   vahvistuksesi siitä, että ilmoitusoikeus on myönnetty. **Vahvista oikeus
+   vasta, kun se on myönnetty**, ei silloin kun hakemus on lähetetty.
+   Tuotantotila kirjoitetaan vasta, kun yhteys on valmis; muuten komento
+   luettelee, mikä puuttuu. `tulorekisteri status` näyttää saman verkotta
+   myöhemminkin: jokaisen puuttuvan asian koodin, sen, kuuluuko se sinulle
+   (`human`) vai agentille (`agent`), ja mitä tehdä.
 
 2. **Lisää tulonsaaja työntekijärekisteriin.** Tulonsaajan tiedot ovat
    tunniste, nimi, henkilötunnus, tilinumero ja verokortin pidätysprosentti.

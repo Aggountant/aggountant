@@ -26,6 +26,7 @@ kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsim
 | `period` | kauden tila (`open`, `closing`, `sealed`) ja ALV-ilmoituksen tila | [Kaudet](../concepts/periods.md) |
 | `fiscal-year` | tilikauden päivät ja tila (`open`, `sealed`); kalenterivuodesta poikkeavan tilikauden määrittely | [Kaudet](../concepts/periods.md#tilikauden-tila) |
 | `file-vat` | ALV-ilmoituksen esikatselu, suora lähetys, lähetetyn ilmoituksen tila, tilan selvitys ja käsin tehdyn ilmoituksen kirjaus | [Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md), [suoraan](../tasks/file-vat-direct.md) |
+| `tulorekisteri` | Tulorekisteri-yhteyden profiili ja valmiuden tarkistus | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `vero-fi` | suoran ilmoittamisen asetukset, valmiuden tarkistus ja hyväksyntätestit | [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md) |
 | `employee` | työntekijärekisteri | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `file-wage` | matkakorvausilmoitus Tulorekisteriin; `file-wage correction` hyväksytyn ilmoituksen korvaava ilmoitus ja mitätöinti | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |

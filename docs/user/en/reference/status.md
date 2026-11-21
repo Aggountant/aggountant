@@ -165,8 +165,6 @@ record the payroll voucher in aggountant:
   shown is always the 5th of the month, although a report due on a Saturday or
   a holiday may be filed on the next banking day
   ([File the employer's separate report](../tasks/file-employer-report.md)).
-- **There is no command for the Tulorekisteri profile.** The agent writes it
-  as the `tulorekisteri` skill instructs.
 - **The employee register is not encrypted.** The data is stored in plain
   text. The only protection is that the file is kept out of git. Keep the home
   directory and its backups for your own use only.
