@@ -352,13 +352,15 @@ mod tests {
     }
 
     /// The first word of `tokens` that names no command, walking down from
-    /// `command`. The walk ends at a leaf command, and at anything that is not
-    /// a bare word (an option, a placeholder, punctuation): what follows a
-    /// command path is arguments, which `--help` owns.
+    /// `command`. The walk ends at a leaf command, and at anything that does
+    /// not start a word (an option, a placeholder, punctuation): what follows
+    /// a command path is arguments, which `--help` owns. A word under a
+    /// command that has subcommands must be one of them, however it is
+    /// spelled (`file_vat`).
     fn first_unknown_command(mut command: &clap::Command, tokens: &[&str]) -> Option<String> {
         let mut path = command.get_name().to_string();
         for token in tokens {
-            if !command.has_subcommands() || !is_command_word(token) {
+            if !command.has_subcommands() || !token.starts_with(|c: char| c.is_alphanumeric()) {
                 break;
             }
             path = format!("{path} {token}");
@@ -378,7 +380,13 @@ mod tests {
         let mut unknown = Vec::new();
         let mut check = |code: &str, inline: bool| {
             let tokens: Vec<&str> = code.split_whitespace().collect();
-            if let Some(at) = tokens.iter().position(|token| *token == root.get_name()) {
+            let mut named = false;
+            for (at, _) in tokens
+                .iter()
+                .enumerate()
+                .filter(|(_, token)| **token == root.get_name())
+            {
+                named = true;
                 let mut rest = &tokens[at + 1..];
                 // Global options may precede the command; skip them and the
                 // value of one that takes a value.
@@ -390,7 +398,11 @@ mod tests {
                     rest = &rest[(1 + usize::from(takes_value)).min(rest.len())..];
                 }
                 unknown.extend(first_unknown_command(root, rest));
-            } else if inline && tokens.len() >= 2 && tokens[..2].iter().all(|t| is_command_word(t))
+            }
+            if !named
+                && inline
+                && tokens.len() >= 2
+                && tokens[..2].iter().all(|t| is_command_word(t))
             {
                 unknown.extend(first_unknown_command(root, &tokens));
             }
@@ -398,7 +410,12 @@ mod tests {
         // Fenced blocks alternate with prose; an inline span may wrap a line.
         for (index, block) in text.split("```").enumerate() {
             if index % 2 == 1 {
-                block.lines().for_each(|line| check(line, false));
+                // A continued shell line is one command; a comment is prose.
+                block
+                    .replace("\\\n", " ")
+                    .lines()
+                    .filter(|line| !line.trim_start().starts_with('#'))
+                    .for_each(|line| check(line, false));
             } else {
                 block
                     .split('`')
@@ -410,18 +427,26 @@ mod tests {
         unknown
     }
 
+    /// Built, so that it has clap's own `help` subcommands.
+    fn command_tree() -> clap::Command {
+        let mut root = <crate::Cli as clap::CommandFactory>::command();
+        root.build();
+        root
+    }
+
     /// A command a skill names must exist: an agent that is told to run a
     /// command the binary does not have is sent to a dead end.
     #[test]
     fn named_commands_exist_in_the_command_tree() {
-        let root = <crate::Cli as clap::CommandFactory>::command();
+        let root = command_tree();
         for skill in SKILLS {
             for (file, content) in skill.files {
                 let unknown = unknown_command_paths(&root, content);
                 assert!(
                     unknown.is_empty(),
                     "{}/{file} names commands the binary does not have: {unknown:?}. \
-                     Write a command path from the top-level command down.",
+                     Write a command path from the top-level command down; an inline \
+                     code span that starts with two bare words is read as one.",
                     skill.name
                 );
             }
@@ -430,7 +455,7 @@ mod tests {
 
     #[test]
     fn made_up_and_partial_command_paths_are_reported() {
-        let root = <crate::Cli as clap::CommandFactory>::command();
+        let root = command_tree();
         let text = "\
 Hylkäys näkyy komennolla `journal show`, ei komennolla `aggountant journal`.
 Tila kysytään komennolla `aggountant --json --home /tmp/esimerkki file-vat tila --period 2026-08`.
@@ -440,6 +465,9 @@ nayta` auta.
 ```sh
 jq . receipt.json | aggountant --json capture-receipt tallenna \\
   --dry-run
+aggountant --json --home /tmp/esimerkki \\
+  file_vat status
+aggountant init && aggountant Journal show
 ```
 ";
         assert_eq!(
@@ -451,6 +479,8 @@ jq . receipt.json | aggountant --json capture-receipt tallenna \\
                 "aggountant employer-report",
                 "aggountant run nayta",
                 "aggountant capture-receipt tallenna",
+                "aggountant file_vat",
+                "aggountant Journal",
             ]
         );
 
@@ -459,6 +489,12 @@ jq . receipt.json | aggountant --json capture-receipt tallenna \\
 `aggountant --json run show --run-id fv-…`, `file-wage employer-report missing`,
 `voucher show <numero>`, `skill print aggountant-init --file SOUL.md`,
 `status --month`, `user statement: conversation 2026-09-12`, `aggountant-init`.
+
+```sh
+# aggountant kertoo tilan
+aggountant help file-vat
+aggountant file-vat help status
+```
 
 ```json
 {\"type\": \"unsupported\", \"reason\": \"journal show\"}

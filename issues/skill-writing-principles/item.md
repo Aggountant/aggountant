@@ -2,12 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: task
-status: open
+status: done
 priority: high
 preparation: ready
 lane: skills-rebuild
 lane_seq: 0
 collision: [skills/AGENTS.md, crates/cli/src/skill.rs]
+closed: 2026-11-21
 ---
 
 # Skill writing principles in skills/AGENTS.md and a test that named commands exist
@@ -53,3 +54,9 @@ skill reads, as reasons a writer can apply rather than a checklist:
 Add the packaging-test check that every `aggountant <command> [<sub>]` path a
 skill names exists in the binary's command tree (the review found a skill
 naming a `journal` command that never existed), in `crates/cli/src/skill.rs`.
+
+## Resolution
+
+### 2026-11-21T07:11:12Z · @issuectl
+
+Principles are in skills/AGENTS.md ("What goes into a skill") and the packaging tests resolve every command path a skill names against the command tree. See result.md, review.md and assessment.md beside the issue.
