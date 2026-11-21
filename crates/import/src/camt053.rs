@@ -167,11 +167,13 @@ pub struct StatementSummary {
     pub entry_count: usize,
     /// The signed sum of those entries (money in positive, money out
     /// negative), in the account currency. `None` when no currency is known
-    /// (no `Acct/Ccy` and no entries).
+    /// (no `Acct/Ccy` and no entries) or the entries are in several
+    /// currencies.
     pub entries_net: Option<Money>,
     /// `opening_balance + entries_net == closing_balance`, in one currency.
     /// `None` when the opening or closing balance is missing. `false` means
-    /// the entries read from the file do not explain the bank's own balances.
+    /// the entries read from the file do not explain the bank's own balances,
+    /// including when they are not all in the balances' currency.
     pub balances_reconcile: Option<bool>,
 }
 
@@ -414,8 +416,10 @@ fn summarize_report(
         Some(code) => Some(Currency::new(code)?),
         None => entries.first().map(|e| e.amount.currency().clone()),
     };
+    // Without `Acct/Ccy` the parser does not stop entries in several
+    // currencies; such entries have no net in one currency.
     let entries_net = match currency {
-        Some(currency) => {
+        Some(currency) if entries.iter().all(|e| e.amount.currency() == &currency) => {
             let mut net = rust_decimal::Decimal::ZERO;
             for entry in entries {
                 let amount = entry.amount.amount();
@@ -427,21 +431,21 @@ fn summarize_report(
             }
             Some(Money::new(net, currency))
         }
-        None => None,
+        _ => None,
     };
     let balances_reconcile = match (&opening_balance, &closing_balance) {
         (Some(opening), Some(closing)) => {
             let currency = opening.amount.currency();
-            let same_currency = closing.amount.currency() == currency
-                && entries_net
-                    .as_ref()
-                    .is_none_or(|net| net.currency() == currency);
-            let net = entries_net
-                .as_ref()
-                .map_or(rust_decimal::Decimal::ZERO, Money::amount);
+            let net = match &entries_net {
+                Some(net) if net.currency() == currency => Some(net.amount()),
+                // No entries and no declared currency: nothing moved.
+                None if entries.is_empty() => Some(rust_decimal::Decimal::ZERO),
+                _ => None,
+            };
             Some(
-                same_currency
-                    && opening.amount.amount().checked_add(net) == Some(closing.amount.amount()),
+                closing.amount.currency() == currency
+                    && net.and_then(|net| opening.amount.amount().checked_add(net))
+                        == Some(closing.amount.amount()),
             )
         }
         _ => None,

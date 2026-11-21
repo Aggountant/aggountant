@@ -509,3 +509,32 @@ fn dry_run_and_an_approval_hash_together_are_a_usage_error() {
     assert_eq!(code, 1, "a usage error is caller-actionable");
     assert!(stderr.contains("approved-preparation-hash"), "{stderr}");
 }
+
+#[test]
+fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let (code, _, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    // The second entry is already sealed to 3000; a different account is a
+    // reused natural key with different content, refused before any write.
+    let changed = ASSIGNMENTS.replace("\"3000\"", "\"3010\"");
+    for extra in [&["--dry-run"][..], &[][..]] {
+        let mut args = vec!["import", "camt053", "seal", "--file", &file];
+        args.extend_from_slice(extra);
+        let (code, stdout, stderr) = run(home, &args, &changed);
+        assert_eq!(code, 1, "{stdout}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(error["error_code"], "IDEMPOTENCY_KEY_REUSE");
+    }
+    let (_, stdout, _) = run(home, &["voucher", "verify"], "");
+    let verify: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verify["voucher_count"], 2);
+}

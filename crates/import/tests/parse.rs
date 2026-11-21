@@ -447,6 +447,22 @@ fn each_report_block_is_summarised_with_its_own_entries() {
 }
 
 #[test]
+fn entries_in_several_currencies_never_reconcile() {
+    // Without Acct/Ccy the parser accepts entries in different currencies; the
+    // numbers must not be added as if they were one currency.
+    let xml = SAMPLE.replacen("<Ccy>EUR</Ccy>", "", 1).replacen(
+        r#"<Amt Ccy="EUR">2480.00</Amt>"#,
+        r#"<Amt Ccy="USD">2480.00</Amt>"#,
+        1,
+    );
+    let stmt = parse_camt053(&xml).unwrap();
+    assert_eq!(stmt.transactions[1].amount.currency().as_str(), "USD");
+    let summary = &stmt.statements[0];
+    assert!(summary.entries_net.is_none());
+    assert_eq!(summary.balances_reconcile, Some(false));
+}
+
+#[test]
 fn a_balance_without_a_type_or_indicator_is_refused() {
     let no_type = r#"<Bal><Amt Ccy="EUR">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>
       <Dt><Dt>2026-03-31</Dt></Dt></Bal>"#;
