@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: normal
 provenance: other
 provenance_detail: observed in ci-local during a taskfleet spinoff
@@ -12,6 +12,11 @@ originating_run_kind: spinoff
 lane: test-flakes
 lane_seq: 0
 preparation: ready
+closed: 2026-11-21
+closed_by: claude-opus-5-5
+commits:
+- hash: a3b96af
+  summary: Ignore BrokenPipe when CLI tests feed stdin to a child
 ---
 
 # Flaky company_knowledge_cli test: stdin write hits Broken pipe when the CLI refuses early
@@ -37,3 +42,9 @@ helper (the exit code and stderr are what the test checks), as other CLI test
 helpers do or should.
 
 Impact: a red local CI run that blocks a push until rerun; no product impact.
+
+## Resolution
+
+### 2026-11-21T10:22:38Z · @claude-opus-5-5
+
+Fixed with employer-report-test-stdin-flake; see result.md.

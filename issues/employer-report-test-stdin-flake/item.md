@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: normal
 provenance: other
 provenance_detail: observed in scripts/ci-local.sh while landing skill-month-rebuild
@@ -12,6 +12,11 @@ originating_run_kind: spinoff
 lane: test-flakes
 lane_seq: 0
 preparation: ready
+closed: 2026-11-21
+closed_by: claude-opus-5-5
+commits:
+- hash: a3b96af
+  summary: Ignore BrokenPipe when CLI tests feed stdin to a child
 ---
 
 # Flaky test: employer_report_history_cli writes to the stdin of a child that may already have exited
@@ -52,3 +57,9 @@ that have nothing to do with the employer report. No effect on users.
 In the helper, ignore `BrokenPipe` from the stdin write (the assertion is on
 the child's output and exit code anyway), or pipe stdin only for the calls that
 pass input. Other test helpers with the same shape are worth the same look.
+
+## Resolution
+
+### 2026-11-21T10:22:38Z · @claude-opus-5-5
+
+Fixed: CLI test helpers tolerate BrokenPipe on stdin writes; see result.md.
