@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yf4gqpbnqmpjp50392d9xd/review-finding:close-gate-shows-no-content
@@ -18,6 +18,7 @@ lane: agent-surface
 lane_seq: 4
 collision: [crates/process/src/lib.rs]
 preparation: ready
+closed: 2026-11-21
 ---
 
 # Month close approval gate shows a hash, not what the user approves
@@ -67,3 +68,9 @@ the gate carries it, that passage goes.
 
 Found while rebuilding SOUL (`skill-soul-rebuild`): an instruction-file review
 asked what the agent shows the user for a close, and the binary gave no answer.
+
+## Resolution
+
+### 2026-11-21T11:07:47Z · @issuectl
+
+Done: run preview close-period, and ApproveClose shows and binds the close content (result.md).

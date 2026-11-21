@@ -700,6 +700,22 @@ fn close_preview_changes_nothing_and_matches_the_gate_content() {
     assert_eq!(bank.balance, "-37.20");
     assert!(content.balance_sheet.balanced);
     assert!(content.open_obligations.is_empty());
+    // The same figures as the monthly report.
+    let report = ledger
+        .monthly_statements_report(&july, "Esimerkki Oy", Default::default())
+        .unwrap();
+    assert_eq!(
+        content.income_statement.result,
+        report.sections.month_income.result
+    );
+    assert_eq!(
+        content.income_statement.year_to_date_result,
+        report.sections.year_to_date_income.result
+    );
+    assert_eq!(
+        content.balance_sheet.assets_total,
+        report.sections.balance.assets_total
+    );
     // Nothing changed.
     assert_eq!(ledger.period_view(&july).unwrap().state, PeriodState::Open);
     assert!(engine.list().unwrap().is_empty());
