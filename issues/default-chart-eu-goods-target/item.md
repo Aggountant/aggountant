@@ -2,13 +2,15 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
 source_ref: taskfleet:01m7yfttyc2h090xfx2xtre7aa/gap:default-chart-eu-goods-target
 originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
+lane: vat-roles
+lane_seq: 0
 ---
 
 # EU goods purchases cannot be recorded on the default chart

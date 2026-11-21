@@ -2,13 +2,16 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
 source_ref: taskfleet:01m7yfttyc2h090xfx2xtre7aa/gap:voucher-vat-code-help
 originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
+lane: agent-surface
+lane_seq: 6
+preparation: ready
 ---
 
 # Help does not say which vat_code values a manual voucher may carry

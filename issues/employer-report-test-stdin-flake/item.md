@@ -2,13 +2,16 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: observed in scripts/ci-local.sh while landing skill-month-rebuild
 source_ref: taskfleet:01m7yfttyc2h090xfx2xtre7aa/gap:employer-report-test-stdin-flake
 originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
+lane: wage-reporting
+lane_seq: 0
+preparation: ready
 ---
 
 # Flaky test: employer_report_history_cli writes to the stdin of a child that may already have exited

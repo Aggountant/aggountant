@@ -2,13 +2,15 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: found while rebuilding the month skill against the built binary
 source_ref: taskfleet:01m7yfttyc2h090xfx2xtre7aa/gap:camt-import-preview-and-balances
 originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
+lane: bank-import
+lane_seq: 1
 ---
 
 # Bank statement import has no preview, and parse hides the statement balances
