@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7z96fkrs15d0vqv8af8waxf/review-finding:receipt-vat-proposal-no-vat-members
@@ -16,6 +16,8 @@ assessment_outcome: SPIN_OFF
 review_confidence: high
 review_severity: should-fix
 review_target: HEAD~1..HEAD
+lane: unlaned
+collision: [crates/domain/src/vat/expand.rs, crates/process/src/capture_receipt.rs]
 ---
 
 # ReceiptVatProposal no-vat silently drops rate_class/scope members on capture-receipt stdin
@@ -60,3 +62,9 @@ test. `VatExpansionTreatment::NoVat` (`crates/model/src/vat_expansion.rs`) has
 the same shape, but it is read from stored vouchers, so tightening it needs a
 check that no stored record carries surplus members. Leave it out unless that
 check is done.
+
+## Decisions
+
+### 2026-11-21T19:04:10Z · @conductor
+
+Accepted by the product owner (2026-11-21) for the current wave, before the November close.
