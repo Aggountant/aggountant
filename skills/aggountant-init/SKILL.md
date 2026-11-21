@@ -11,7 +11,7 @@ schema_version: 1
 # Kirjanpidon käyttöönotto
 
 Lue ensin [SOUL.md](SOUL.md), joka kuvaa roolisi kirjanpitoavustajana ja
-`aggountant`-työvälineesi.
+`aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
 
 Käyttöönotto on valmis, kun yrityksen kirjanpitoa voi jatkaa aggountantissa ilman että
 kukaan selvittää enää, mikä yritys tämä on, mistä sen tilikausi ja saldot alkavat ja
@@ -177,8 +177,8 @@ Mikä menee minne:
   tallenneta tietueeksi: "lasku tulossa" ei ole fakta, ja se jäisi myöhemmin
   vanhentuneena poistettavaksi (`retire`).
 - **`aggountant obligation`**: ohjelman seuraamat velvoitteet, jotka estävät kauden
-  sulun. Niitä syntyy vain poikkeuksellisten kuittien reitiltä eikä niitä luoda käsin,
-  joten muu sulkua odottava asia kirjataan `TODO.md`-tiedoston sulkutilanteeseen.
+  sulun. Niitä ei luoda käsin eikä kuitin käsittely luo niitä, joten sulkua
+  odottava asia kirjataan `TODO.md`-tiedoston sulkutilanteeseen.
 
 ## Vero.fi
 

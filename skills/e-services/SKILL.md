@@ -12,7 +12,7 @@ schema_version: 1
 # Verkkopalvelujen käyttö selaimessa
 
 Lue ensin [SOUL.md](../aggountant-init/SOUL.md), joka kuvaa roolisi kirjanpitoavustajana
-ja `aggountant`-työvälineesi.
+ja `aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
 
 ## Tieto ei ole lupa
 

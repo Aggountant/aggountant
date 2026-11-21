@@ -55,11 +55,13 @@ aggountant skill list
 aggountant skill install
 aggountant skill install --target <agentin skillihakemisto>
 aggountant skill print capture-receipt
+aggountant skill print aggountant-init --file SOUL.md
 ```
 
 Jos lähdekoodi on jo koneellasi, asennus tehdään sen juuresta komennolla
 `cargo install --locked --path crates/cli`. `skill print` näyttää skillin
-sisällön asentamatta mitään. Kun asennat pelkän `capture-receipt`-skillin,
+sisällön asentamatta mitään; `--file` näyttää sen muut tiedostot, kuten
+yhteisen roolikuvauksen `SOUL.md`. Kun asennat pelkän `capture-receipt`-skillin,
 mukaan tulee myös `aggountant-init`, koska niillä on yhteinen roolikuvaus.
 `vero-fi` tuo lisäksi `e-services`-skillin, jonka varassa se tekee
 viranomaisten verkkopalveluissa tehtävät vaiheet.

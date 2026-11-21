@@ -23,13 +23,28 @@ struct BundledSkill {
 }
 
 impl BundledSkill {
-    fn content(&self) -> &'static str {
-        self.files[0].1
-    }
-
     fn path_in_repo(&self) -> String {
         format!("skills/{}/{}", self.name, self.files[0].0)
     }
+}
+
+/// The file a relative link in `skill`'s files names, as `skill install` writes
+/// it: one of the skill's own files (`SOUL.md`) or a required skill's
+/// (`../aggountant-init/SOUL.md`). `None` when the install would not write it.
+fn linked_file(
+    skill: &'static BundledSkill,
+    link: &str,
+) -> Option<(&'static BundledSkill, &'static str, &'static str)> {
+    let (owner, file) = match link.strip_prefix("../") {
+        Some(rest) => rest.split_once('/')?,
+        None => (skill.name, link),
+    };
+    let owner = with_requirements(skill.name)
+        .ok()?
+        .into_iter()
+        .find(|candidate| candidate.name == owner)?;
+    let (name, content) = owner.files.iter().find(|(name, _)| *name == file)?;
+    Some((owner, name, content))
 }
 
 const SKILLS: &[BundledSkill] = &[
@@ -107,19 +122,48 @@ pub(super) fn list() -> Value {
             "cli_version": env!("CARGO_PKG_VERSION"),
             "schema_version_skill": skill.schema_version,
             "path_in_repo": skill.path_in_repo(),
+            "files": skill.files.iter().map(|(file, _)| *file).collect::<Vec<_>>(),
+            "requires": skill.requires,
         })).collect::<Vec<_>>(),
     })
 }
 
-pub(super) fn printable(name: &str) -> Result<Value, CliError> {
+/// `file` is a path as the skill's own text links it: `SKILL.md` (the default),
+/// another file of the skill, or `../<required skill>/<file>`.
+pub(super) fn printable(name: &str, file: Option<&str>) -> Result<Value, CliError> {
     let skill = find(name)?;
+    let file = file.unwrap_or(skill.files[0].0);
+    let (owner, owner_file, content) = linked_file(skill, file).ok_or_else(|| {
+        let available = with_requirements(skill.name)
+            .into_iter()
+            .flatten()
+            .flat_map(|owner| {
+                owner.files.iter().map(move |(listed, _)| {
+                    if owner.name == skill.name {
+                        (*listed).to_string()
+                    } else {
+                        format!("../{}/{listed}", owner.name)
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        CliError::user(
+            "SKILL_FILE_NOT_FOUND",
+            format!(
+                "skill {:?} ships no file {file:?}; available: {}",
+                skill.name,
+                available.join(", ")
+            ),
+        )
+    })?;
     Ok(json!({
         "schema_version": 1,
         "name": skill.name,
         "cli_version": env!("CARGO_PKG_VERSION"),
         "schema_version_skill": skill.schema_version,
-        "content": skill.content(),
-        "path_in_repo": skill.path_in_repo(),
+        "file": file,
+        "content": content,
+        "path_in_repo": format!("skills/{}/{owner_file}", owner.name),
     }))
 }
 
@@ -251,14 +295,14 @@ fn validate_target(target: &Path) -> Result<(), CliError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{with_requirements, SKILLS};
+    use super::{linked_file, with_requirements, SKILLS};
     use aggountant_model::Date;
 
     #[test]
     fn bundled_metadata_and_print_newline_invariant_are_pinned() {
         for skill in SKILLS {
             assert_eq!(skill.files[0].0, "SKILL.md");
-            let content = skill.content();
+            let content = skill.files[0].1;
             assert!(content.starts_with("---\n"));
             assert!(content.contains(&format!("\nname: {}\n", skill.name)));
             assert!(content.contains(&format!(
@@ -283,7 +327,6 @@ mod tests {
     #[test]
     fn relative_links_resolve_within_what_the_install_ships() {
         for skill in SKILLS {
-            let shipped = with_requirements(skill.name).unwrap();
             for (file, content) in skill.files {
                 for target in content.split("](").skip(1) {
                     let target = target.split(')').next().unwrap();
@@ -291,15 +334,8 @@ mod tests {
                         continue;
                     }
                     let target = target.split('#').next().unwrap();
-                    let (owner, name) = match target.strip_prefix("../") {
-                        Some(rest) => rest.split_once('/').unwrap_or_else(|| {
-                            panic!("{}/{file}: link {target:?} names no skill", skill.name)
-                        }),
-                        None => (skill.name, target),
-                    };
                     assert!(
-                        shipped.iter().any(|candidate| candidate.name == owner
-                            && candidate.files.iter().any(|(listed, _)| *listed == name)),
+                        linked_file(skill, target).is_some(),
                         "{}/{file}: link {target:?} is not installed with the skill",
                         skill.name
                     );

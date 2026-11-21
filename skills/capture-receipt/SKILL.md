@@ -10,7 +10,7 @@ schema_version: 1
 # Aineiston käsittely kirjanpitoon
 
 Lue ensin [SOUL.md](../aggountant-init/SOUL.md), joka kuvaa roolisi kirjanpitoavustajana
-ja `aggountant`-työvälineesi.
+ja `aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
 
 Käyttäjä antaa sinulle aineistoa: yhden kuitin, nipun tositteita tai kuukauden
 tapahtumat. Hyvä lopputulos on, että jokainen tapahtuma on joko sinetöity tositteeksi
@@ -51,8 +51,8 @@ odottaa tiliotetta" `knowledge company`-tietueeksi, koska tietue on lähteelline
 tai käytäntö ja odottava kohta jäisi myöhemmin vanhentuneena poistettavaksi. Tietoon
 kuuluu se, mikä asian ratketessa selviää pysyvästi (esimerkiksi miten sisaryhtiön
 edelleenlaskutus kirjataan). `aggountant obligation` taas on ohjelman velvoitelista,
-jonka avoin velvoite estää sulun; sitä syntyy vain poikkeuksellisten kuittien reitiltä,
-eikä siihen kirjata muistiinpanoja.
+jonka avoin velvoite estää sulun; kuitin käsittely ei luo velvoitteita, eikä siihen
+kirjata muistiinpanoja.
 
 Aiempi kirjanpito on käytettävissäsi: `aggountant voucher list` (mm. `--attachment-ref`
 paljastaa, onko sama lähdetiedosto jo kirjattu), `aggountant voucher show` ja tilit
@@ -197,10 +197,9 @@ kiertämiseksi tuottaisi kahdennetun tositteen.
 
 ## Muut reitit
 
-- Poikkeuksellinen kuitti, jonka käsittelyyn tarvitset ulkopuolista konsultaatiota, kulkee
-  `capture-receipt start/answer/resume` -Runin kautta. Rajan yli menevät vain
-  hyväksytyt faktat, ja käyttäjä hyväksyy paljastuksen erikseen
-  (`ApproveConsultDisclosure`); raakalähde ei mene ulos.
+- Poikkeuksellinen kuitti, jonka käsittelyä lähteet ja yrityksen tiedot eivät ratkaise:
+  kysy käyttäjältä (tai hänen kirjanpitäjältään) ja kirjaa avoin kysymys kodin
+  `TODO.md`-tiedostoon, kunnes se ratkeaa.
 - Erikoiskirjaukset, joita record-polku ei tue, valmistellaan komennoilla
   `aggountant voucher draft`, `validate` ja `seal`. Sama hyväksyntäperiaate koskee niitä.
   Tarkista sama tiedosto, jonka sinetöit: `voucher validate` hyväksyy `voucher seal`

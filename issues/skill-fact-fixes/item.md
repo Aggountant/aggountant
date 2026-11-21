@@ -2,12 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: high
 preparation: ready
 lane: skills-contract
 lane_seq: 0
 collision: [skills/vero-fi/SKILL.md, skills/capture-receipt/SKILL.md, skills/aggountant-init/SOUL.md, crates/cli/src/skill.rs]
+closed: 2026-11-21
 ---
 
 # Shipped skills: four wrong facts (journal show, consult route, SOUL unreachable through skill print, codes missing from the guide)
@@ -53,3 +54,9 @@ by `eservice-skill-bundle`.
 The larger restructuring the same review recommends (SOUL as the one home for
 house rules, a month-close skeleton, splitting `vero-fi`, stdin formats in
 `--help`) is separate work; do not start it here.
+
+## Resolution
+
+### 2026-11-21T06:43:18Z · @issuectl
+
+Fixed: see result.md. vero-fi points to run show; consult route removed from skills; skill print --file and skill list files/requires; seven codes in the error-code guide.

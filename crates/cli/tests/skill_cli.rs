@@ -311,3 +311,75 @@ fn init_can_be_printed_and_installed_without_capture() {
     );
     assert!(!target.path().join("capture-receipt").exists());
 }
+
+#[test]
+fn print_file_reaches_the_shared_role_through_the_link_a_skill_gives() {
+    let soul: &[u8] = include_bytes!("../../../skills/aggountant-init/SOUL.md");
+    let output = invoke(&["skill", "print", "aggountant-init", "--file", "SOUL.md"]);
+    assert_eq!(output.status.code(), Some(0));
+    assert!(output.stderr.is_empty());
+    assert_eq!(output.stdout, soul);
+
+    // The same relative link capture-receipt's text uses reaches the role.
+    let output = invoke(&[
+        "--json",
+        "skill",
+        "print",
+        "capture-receipt",
+        "--file",
+        "../aggountant-init/SOUL.md",
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["name"], "capture-receipt");
+    assert_eq!(payload["file"], "../aggountant-init/SOUL.md");
+    assert_eq!(payload["path_in_repo"], "skills/aggountant-init/SOUL.md");
+    assert_eq!(payload["content"].as_str().unwrap().as_bytes(), soul);
+
+    let output = invoke(&[
+        "skill",
+        "print",
+        "vero-fi",
+        "--file",
+        "../e-services/omavero.md",
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, E_SERVICES[1].1);
+}
+
+#[test]
+fn print_file_refuses_a_file_the_install_does_not_write() {
+    // aggountant-init requires nothing, so capture-receipt's files are not its.
+    for (skill, file) in [
+        ("aggountant-init", "../capture-receipt/SKILL.md"),
+        ("capture-receipt", "SOUL.md"),
+        (
+            "capture-receipt",
+            "../aggountant-init/../aggountant-init/SOUL.md",
+        ),
+    ] {
+        let output = invoke(&["--json", "skill", "print", skill, "--file", file]);
+        assert_eq!(output.status.code(), Some(1), "{skill} {file}");
+        assert!(output.stdout.is_empty());
+        let payload: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(payload["error_code"], "SKILL_FILE_NOT_FOUND");
+        let message = payload["message"].as_str().unwrap();
+        assert!(message.contains("available: SKILL.md"), "{message}");
+    }
+}
+
+#[test]
+fn list_json_names_each_skill_file_and_requirement() {
+    let output = invoke(&["--json", "skill", "list"]);
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let init = &payload["skills"][1];
+    assert_eq!(init["name"], "aggountant-init");
+    assert_eq!(init["files"], serde_json::json!(["SKILL.md", "SOUL.md"]));
+    assert_eq!(init["requires"], serde_json::json!([]));
+    let vero = &payload["skills"][2];
+    assert_eq!(vero["files"], serde_json::json!(["SKILL.md"]));
+    assert_eq!(
+        vero["requires"],
+        serde_json::json!(["aggountant-init", "e-services"])
+    );
+}

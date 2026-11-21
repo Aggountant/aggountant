@@ -308,9 +308,16 @@ enum SkillCmd {
         target: Option<PathBuf>,
     },
     /// Print one canonical bundled SKILL.md to stdout without side effects.
+    /// `--file` prints another file the skill ships or links to instead, for
+    /// example the shared role: `skill print aggountant-init --file SOUL.md`.
     Print {
         /// Skill name from `skill list`.
         name: String,
+        /// A file as the skill's text links it: one of the skill's own files
+        /// (`skill list --json` lists them) or a required skill's file as
+        /// `../<skill>/<file>` (default: SKILL.md).
+        #[arg(long)]
+        file: Option<String>,
     },
 }
 
@@ -1603,7 +1610,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 };
                 skill::install(name.as_deref(), &targets)
             }
-            SkillCmd::Print { name } => skill::printable(name),
+            SkillCmd::Print { name, file } => skill::printable(name, file.as_deref()),
         },
         Command::Init => {
             let home = home_path(cli)?;
@@ -2741,7 +2748,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                     .unwrap_or_else(|| "?".to_string())
             ),
             // Text `skill print` bypasses this line formatter in `main` so its
-            // bytes stay identical to the bundled and installed SKILL.md.
+            // bytes stay identical to the bundled and installed file.
             SkillCmd::Print { .. } => value["content"].as_str().unwrap_or("").to_string(),
         },
         Command::Init => format!(

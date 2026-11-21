@@ -13,7 +13,7 @@ schema_version: 1
 # Vero.fi-asiointi
 
 Lue ensin [SOUL.md](../aggountant-init/SOUL.md), joka kuvaa roolisi kirjanpitoavustajana
-ja `aggountant`-työvälineesi.
+ja `aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
 
 Aggountant lähettää yrityksen oman ALV-ilmoituksen Vero API:n kautta. Se ei asioi toisen
 organisaation puolesta (valtuutustoken credential-nipussa on valmiusesteenä) eikä maksa
@@ -501,7 +501,7 @@ Manuaalinen valmistuminen on erillinen, nimenomainen teko eikä ohjelman hiljain
 varapolku. Korvaavat ilmoitukset ja mitätöinnit tehdään toistaiseksi palvelussa.
 
 Tilahaun vahvistama hylkäys kirjataan `TULOREKISTERI_REJECTED`-koodilla
-(`journal show`), ja Run jää `needs_attention`-tilaan. Se ei ole enää ohje
+(`run show --run-id`), ja Run jää `needs_attention`-tilaan. Se ei ole enää ohje
 odottaa käsittelyn valmistumista: selvitä virhe asiointipalvelusta ja käytä
 manuaalista varapolkua. Myös ennen yhteyden muodostumista tapahtunut yhteysvirhe
 käsitellään tässä rajatussa polussa konservatiivisesti ilman uutta API-lähetystä;

@@ -71,10 +71,8 @@ antaa myös `--id`-valitsimella tai stdin-JSONin `id`-kenttänä). Kirjoita
 lähdeviite itseään selittävästi, esimerkiksi `user statement: conversation 2026-09-12`
 tai `document: supplier-notice.pdf`.
 
-Komennot `aggountant knowledge list` ja `aggountant knowledge show --slug "tunniste"`
-käsittelevät erillisiä Capture Receiptin consultista `ApproveKnowledgePR`-portin kautta
-syntyviä Advice-asiakirjoja. Älä sekoita niiden lähdettä tai elinkaarta suoraan
-ylläpidettäviin `knowledge company` -tietoihin. Ohjelman työnkuluissa syntyneitä
+Komennot `aggountant knowledge list` ja `aggountant knowledge show` eivät ole
+yrityksen tietoja: ne kuuluvat konsultaatioreittiin, joka ei ole käytössä. Ohjelman työnkuluissa syntyneitä
 avoimia velvoitteita voi tarkastella ja merkitä ratkaistuiksi.
 
 Kuukausikauden voi sulkea ohjelmassa, jolloin sen kirjaukset lukitaan. Ohjelma

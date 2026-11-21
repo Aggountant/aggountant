@@ -55,11 +55,13 @@ aggountant skill list
 aggountant skill install
 aggountant skill install --target <the agent's skill directory>
 aggountant skill print capture-receipt
+aggountant skill print aggountant-init --file SOUL.md
 ```
 
 If you already have the source code, install from its root with
 `cargo install --locked --path crates/cli`. `skill print` shows a skill's
-content without installing anything. When you install `capture-receipt` on
+content without installing anything; `--file` shows its other files, such
+as the shared role `SOUL.md`. When you install `capture-receipt` on
 its own, `aggountant-init` comes with it, because they share a role
 description. `vero-fi` also brings `e-services`, which it relies on for
 the steps done in the authorities' web services.
