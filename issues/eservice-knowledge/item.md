@@ -1,8 +1,8 @@
 ---
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-21
 type: task
-status: untriaged
+status: done
 priority: normal
 provenance: other
 provenance_detail: taskfleet technical-decision brief
@@ -12,6 +12,7 @@ originating_run_kind: technical-decision
 preparation: reviewing
 lane: skills-contract
 lane_seq: 1
+closed: 2026-11-21
 ---
 
 # Decide how e-service operating knowledge accumulates and reaches agents

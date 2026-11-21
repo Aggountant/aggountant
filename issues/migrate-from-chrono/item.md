@@ -1,6 +1,6 @@
 ---
 created: 2026-11-18
-updated: 2026-11-19
+updated: 2026-11-21
 type: chore
 status: open
 priority: normal
@@ -11,7 +11,7 @@ originating_run: 01m7q5ksc4yp9nhd6egpt8chbq
 originating_run_kind: spinoff
 lane: dependencies
 lane_seq: 1
-preparation: reviewing
+preparation: ready
 ---
 
 # Migrate from chrono to jiff or time

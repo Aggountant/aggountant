@@ -1,6 +1,6 @@
 # ADR-9 — Date and time library: replace chrono with jiff
 
-- **Status:** Proposed
+- **Status:** Accepted 2026-11-21 by Jari Mustonen
 - **Date:** 2026-11-19
 - **Authors:** technical-decision worker for issue `migrate-from-chrono`, from
   probes against the candidate crates, a crate-by-crate reading of our code,

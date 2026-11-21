@@ -1,6 +1,6 @@
 # ADR-10 — E-service operating knowledge: a bundled skill, fed through company knowledge and public issues
 
-- **Status:** Proposed
+- **Status:** Accepted 2026-11-21 by Jari Mustonen
 - **Date:** 2026-11-19
 - **Authors:** technical-decision worker for issue `eservice-knowledge`,
   from the existing skills, the `skill install` and `knowledge` code,
@@ -195,6 +195,11 @@ maintainer's own use.
   stale guidance shows as stale rather than being silently wrong.
 - The loop depends on users submitting issues. If nobody does, entries age
   into leads, which the freshness rule already covers.
+- Once the skill is in use, the maintainer watches whether what agents
+  record and contribute has the right granularity: one entry per thing an
+  agent needs to know about a page, neither whole-page walkthroughs nor
+  one-off session detail. The first contributions are reviewed for this
+  before the format is considered settled (issue `eservice-knowledge-granularity`).
 - Implementation is two slices: first multi-file skills and the seeded
   `e-services` skill (with `vero-fi` linked to it and its stale "ADR-9"
   citation replaced), then the accumulation loop (recording and contribution
