@@ -414,9 +414,12 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
             if eu == "eu-goods" { "goods" } else { "services" }
         ),
         (None, _) => format!(
-            "a purchase that carries no Finnish VAT is {{\"type\":\"no-vat\"}}; a purchase \
-             from abroad on which the buyer self-assesses VAT is {reverse_type} with the \
-             domestic class whose Finnish rate applies ({domestic_classes})"
+            "a purchase that carries no Finnish VAT, including a service bought from another \
+             EU state whose supply the Finnish VAT Act exempts, is {{\"type\":\"no-vat\"}}, \
+             but an exempt intra-Community acquisition of goods is still reported in the VAT \
+             return and no treatment models it; a purchase from abroad on which the buyer \
+             self-assesses VAT is {reverse_type} with the domestic class whose Finnish rate \
+             applies ({domestic_classes})"
         ),
         (Some(scope), "eu-goods" | "eu-services") => format!(
             "rate_class is the Finnish rate the buyer self-assesses and scope already says \
@@ -425,6 +428,18 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
              {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes})",
             scope.label(),
             scope.label()
+        ),
+        // An exempt service bought from another EU state is outside the reverse charge
+        // and outside the return's EU services box, so `no-vat` is its booking. An exempt
+        // intra-Community acquisition of goods is still reported (in the EU goods
+        // purchases box), which no treatment models, so it gets no `no-vat` advice.
+        (Some(ReverseChargeScope::EuServices), _) => format!(
+            "a reverse charge self-assesses the Finnish rate of the service, one of \
+             {domestic_classes}, also when the seller's invoice shows no VAT because the \
+             buyer owes it; only a service whose supply the Finnish VAT Act exempts, such as \
+             an insurance or financial service, carries no Finnish VAT and is not reported in \
+             the VAT return's EU services purchases: use {{\"type\":\"no-vat\"}} with no \
+             other member"
         ),
         (Some(_), _) => format!(
             "a reverse charge self-assesses the Finnish rate of the goods or service, one \

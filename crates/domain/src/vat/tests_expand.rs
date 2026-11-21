@@ -933,6 +933,31 @@ fn treatment_class_refusal_names_the_treatment_that_fits() {
         zero_reverse.contains("domestic-standard") && zero_reverse.contains("not a modelled"),
         "{zero_reverse}"
     );
+    // An exempt intra-Community goods acquisition is still reported in the return, so
+    // the goods scope must not advise no-vat; an exempt EU service is not, so it does.
+    assert!(!zero_reverse.contains("no-vat"), "{zero_reverse}");
+    let zero_reverse_services = message(VatTreatment::ReverseCharge {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::EuServices,
+    });
+    assert!(
+        zero_reverse_services.contains(r#"{"type":"no-vat"}"#)
+            && zero_reverse_services.contains("not reported"),
+        "{zero_reverse_services}"
+    );
+    let zero_partial_services = message(VatTreatment::ReverseChargePartial {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::EuServices,
+        deductibility: half_deductible(),
+    });
+    assert!(
+        zero_partial_services.contains(r#"{"type":"no-vat"} with no other member"#),
+        "{zero_partial_services}"
+    );
+    assert!(
+        zero.contains("intra-Community acquisition of goods"),
+        "{zero}"
+    );
 }
 
 #[test]

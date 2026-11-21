@@ -42,6 +42,25 @@ tavaraan tai palveluun sovelletaan; se, että osto tuli toisesta EU-maasta,
 kerrotaan erikseen. EU-myynnin nollakantaluokat eivät sovi ostolle, ja ohjelma
 torjuu ne ja kertoo sopivan käsittelyn (`VAT_TREATMENT_CLASS_MISMATCH`).
 
+Toisesta EU-maasta ostettu palvelu, jonka myynnin arvonlisäverolaki säätää
+verottomaksi, esimerkiksi vakuutus- tai rahoituspalvelu, kirjataan verottomana
+ostona (`{"type":"no-vat"}`), ei käännettynä verovelvollisuutena. Siitä ei tule
+Suomen ALV:tä eikä vähennettävää veroa, eikä se näy ALV-ilmoituksessa:
+Verohallinnon täyttöohjeen mukaan kohdassa "Palveluostot muista EU-maista" ei
+ilmoiteta yleissäännön mukaisia palveluja, joiden myynti on veroton
+([Näin ilmoitat arvonlisäveron](https://www.vero.fi/yritykset-ja-yhteisot/verot-ja-maksut/arvonlisaverotus/ilmoitus-ja-maksuohjeet/)),
+ja syventävän ohjeen
+[Palvelujen ulkomaankaupan arvonlisäverotus](https://www.vero.fi/syventavat-vero-ohjeet/ohje-hakusivu/48679/)
+luku 9 kuvaa kohdan palveluiksi, joista ostaja on verovelvollinen Suomessa.
+Pelkkä se, ettei myyjän laskulla ole ALV:tä, ei tee ostosta verotonta:
+käännetyssä verovelvollisuudessa laskulla ei ole ALV:tä, koska ostaja tilittää
+sen.
+
+Tavaroissa sääntö on toinen: veroton tavaroiden yhteisöhankinta ilmoitetaan
+kohdassa "Tavaraostot muista EU-maista". Ohjelma ei osaa kirjata sitä:
+verottomana ostona se jäisi pois ilmoituksesta, ja käännetty verovelvollisuus
+torjuu nollakantaluokan. Kysy sellaisesta kirjanpitäjältäsi.
+
 ## Käsittely päätetään sinetöidessä
 
 ALV-käsittely tallentuu tositteeseen sinetöinnin hetkellä, ja ALV-ilmoitus

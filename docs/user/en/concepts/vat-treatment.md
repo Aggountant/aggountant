@@ -45,6 +45,27 @@ given separately. The zero-rate categories of EU sales do not fit a purchase,
 and the program refuses them and names the treatment that fits
 (`VAT_TREATMENT_CLASS_MISMATCH`).
 
+A service bought from another EU country whose supply the Finnish VAT Act
+exempts, for example an insurance or financial service, is recorded as a
+VAT-exempt purchase (`{"type":"no-vat"}`), not as a reverse charge. It gives
+rise to no Finnish VAT and no deductible tax, and it does not appear in the VAT
+return: Verohallinto's (the Finnish Tax Administration's) instructions say that
+services under the general rule whose supply is exempt are not reported under
+"Palveluostot muista EU-maista" (purchases of services from other EU member
+states)
+([Instructions for completing VAT returns](https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/when-to-file-and-pay/instructions-for-completing-the-vat-return/)),
+and section 9 of the detailed guidance
+[Value-added taxation of cross-border supply and acquisition of services](https://www.vero.fi/en/detailed-guidance/guidance/48679/value-added-taxation-of-cross-border-supply-and-acquisition-of-services/)
+describes that box as services on which the buyer is liable for Finnish VAT.
+An invoice without VAT does not by itself make a purchase exempt: under the
+reverse charge the invoice shows no VAT because the buyer accounts for it.
+
+Goods follow a different rule: an exempt intra-Community acquisition of goods
+is reported under "Tavaraostot muista EU-maista" (purchases of goods from
+other EU member states). The program cannot record it: as a VAT-exempt
+purchase it would be left out of the return, and the reverse charge refuses
+the zero-rate category. Ask your bookkeeper about such a purchase.
+
 ## Treatment is decided at sealing
 
 The VAT treatment is stored in the voucher at the moment of sealing, and the

@@ -2,10 +2,12 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: feature
-status: open
+status: done
 priority: normal
 lane: unlaned
 collision: [crates/domain/src/vat/expand.rs, docs/user]
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # Purchases exempt from Finnish VAT from another EU country: guide and hint
@@ -37,3 +39,9 @@ the correct booking. What is missing is that the documentation says so.
 
 - [ ] Concept page and error-code guide updated in both languages.
 - [ ] Any message change covered by the existing tests.
+
+## Resolution
+
+### 2026-11-21T19:10:40Z · @claude-opus-5-5
+
+Guide and message updated; see result.md and review.md.
