@@ -298,7 +298,8 @@ enum SkillCmd {
     /// List the companion skills bundled with this binary.
     List,
     /// Install one skill, or all bundled skills when NAME is omitted.
-    /// capture-receipt also installs aggountant-init for its shared SOUL.md.
+    /// A named skill brings the skills it links to: capture-receipt and vero-fi
+    /// install aggountant-init (the shared SOUL.md), vero-fi also e-services.
     Install {
         /// Skill name; omit to install every bundled skill.
         name: Option<String>,

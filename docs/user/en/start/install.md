@@ -30,13 +30,14 @@ them once, and again every time you upgrade the program.
 
    > Install aggountant's skills.
 
-   There are three skills:
+   There are four skills:
 
    | Skill | What the agent uses it for |
    |---|---|
    | `aggountant-init` | setting up a company home, or continuing an unfinished setup |
    | `capture-receipt` | handling receipts, vouchers and the month's transactions |
    | `vero-fi` | setting up direct VAT filing, the VAT return and Tulorekisteri travel allowances |
+   | `e-services` | working OmaVero and the Incomes Register e-service in your browser: how their pages behave, as dated observations |
 
    By default the skills go into Claude Code's skill directory
    `~/.claude/skills/`. For another agent, give its skill directory with
@@ -60,13 +61,14 @@ If you already have the source code, install from its root with
 `cargo install --locked --path crates/cli`. `skill print` shows a skill's
 content without installing anything. When you install `capture-receipt` on
 its own, `aggountant-init` comes with it, because they share a role
-description.
+description. `vero-fi` also brings `e-services`, which it relies on for
+the steps done in the authorities' web services.
 </details>
 
 ## Done when
 
 - `aggountant --version` prints the version, for example `aggountant 0.1.0`.
-- `aggountant skill list` lists three skills, and they are in the agent's
+- `aggountant skill list` lists four skills, and they are in the agent's
   skill directory.
 
 The skills are written in Finnish, but you can talk to the agent in English.

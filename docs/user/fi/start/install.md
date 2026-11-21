@@ -30,13 +30,14 @@ kerran ja uudelleen aina, kun päivität ohjelman.
 
    > Asenna aggountantin skillit.
 
-   Skillejä on kolme:
+   Skillejä on neljä:
 
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
    | `capture-receipt` | kuittien, tositteiden ja kuukauden tapahtumien käsittely |
    | `vero-fi` | suoran ALV-ilmoittamisen käyttöönotto, ALV-ilmoitus ja Tulorekisterin matkakorvaukset |
+   | `e-services` | OmaVeron ja Tulorekisterin asiointipalvelun käyttö selaimessasi: miten sivut toimivat, päivättyinä havaintoina |
 
    Oletuksena skillit menevät Claude Coden skillihakemistoon
    `~/.claude/skills/`. Muuta agenttia varten anna sen skillihakemisto
@@ -60,12 +61,14 @@ Jos lähdekoodi on jo koneellasi, asennus tehdään sen juuresta komennolla
 `cargo install --locked --path crates/cli`. `skill print` näyttää skillin
 sisällön asentamatta mitään. Kun asennat pelkän `capture-receipt`-skillin,
 mukaan tulee myös `aggountant-init`, koska niillä on yhteinen roolikuvaus.
+`vero-fi` tuo lisäksi `e-services`-skillin, jonka varassa se tekee
+viranomaisten verkkopalveluissa tehtävät vaiheet.
 </details>
 
 ## Valmis, kun
 
 - `aggountant --version` näyttää version, esimerkiksi `aggountant 0.1.0`.
-- `aggountant skill list` listaa kolme skilliä, ja ne löytyvät agentin
+- `aggountant skill list` listaa neljä skilliä, ja ne löytyvät agentin
   skillihakemistosta.
 
 Skillit on kirjoitettu suomeksi, mutta voit puhua agentille myös englanniksi.

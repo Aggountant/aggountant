@@ -107,8 +107,9 @@ ja yritys tekee sopimuksen, hankkii varmenteen ja aktivoi luvan.
 
 ## Käyttöönotto
 
-Portaalitoimet ovat käyttäjän: sopimus ja käyttöehdot ovat yrityksen oikeustoimia, ja
-selainautomaatio on ADR-9:ssä hylätty kanavana. Sinä kokoat ei-salaiset tiedot,
+Portaalitoimet ovat käyttäjän: sopimus ja käyttöehdot ovat yrityksen oikeustoimia, eikä
+selain ole aggountantin asiointikanava (raja on
+[e-services](../e-services/SKILL.md)-skillin alussa). Sinä kokoat ei-salaiset tiedot,
 tarkistat valmiuden, ajat verifioinnit ja kerrot mikä este on kenenkin vuoro.
 
 Järjestyksellä on kaksi syytä. Ensin tarvitaan tuotantonippu paikalleen ja
@@ -309,7 +310,9 @@ muuta mitään eikä koskaan oikeuta uuteen lähetykseen.
 
 Kun suora reitti ei ole käytettävissä tai käyttäjä haluaa asioida itse, esikatselun
 numeroidut kentät ovat ilmoitettavat luvut. Käyttäjä syöttää ne OmaVeroon tai laatii
-Ilmoitin.fi-tiedoston ja maksaa erikseen. Arkistoi hänen toimittamansa kuitti tai muu
+Ilmoitin.fi-tiedoston ja maksaa erikseen. Jos hän pyytää sinua täyttämään OmaVeron
+lomakkeen, [OmaVero-ohje](../e-services/omavero.md) kertoo, miten sivu toimii;
+lähetys on silti hänen. Arkistoi hänen toimittamansa kuitti tai muu
 yksilöity näyttö ja kirjaa ilmoitus tehdyksi:
 
 ```sh
@@ -602,12 +605,14 @@ ilmoittanut, etene tässä järjestyksessä:
    `configure --registered-from <implied_registered_from>` -komennolla.
    `YTJ_UNAVAILABLE` tarkoittaa "ei tiedossa", ei koskaan "ei rekisterissä".
 2. **Raportti 630 asiointipalvelusta.** Kerro käyttäjälle suoraan, että tämä
-   on ainoa vaihe, joka vaatii Tulorekisterin asiointipalvelua: Uusi tilaus →
-   *Maksajan palkkatietojen yhteenveto (csv)* (630), kohdekauden aikaväli
-   rekisteröinnin kattamalta ajalta enintään 24 kuukautta kerrallaan, kieleksi
-   **suomi**, **vastaanottohetken aikaväli tyhjäksi** (rajattu raportti jättää
-   pois muulloin vastaanotetut ilmoitukset, eikä sitä näe tiedostosta), lataus
-   *Tehdyt tilaukset* -sivulta (zip puretaan).
+   on ainoa vaihe, joka vaatii Tulorekisterin asiointipalvelua. Tilauksen
+   rajaukset ratkaisevat, onko tuonti oikein: *Maksajan palkkatietojen
+   yhteenveto (csv)* (630), kohdekauden aikaväli rekisteröinnin kattamalta
+   ajalta enintään 24 kuukautta kerrallaan, kieleksi **suomi** ja
+   **vastaanottohetken aikaväli tyhjäksi** (rajattu raportti jättää pois
+   muulloin vastaanotetut ilmoitukset, eikä sitä näe tiedostosta). Miten
+   raportti tilataan ja ladataan, on
+   [e-services-skillin Tulorekisteri-ohjeessa](../e-services/tulorekisteri.md).
 3. **Tuonti.** `import-transcript` ensin `--dry-run`-valinnalla, sitten ilman.
    Raportissa ei ole maksajan Y-tunnusta: varmista käyttäjältä, että tiedosto
    on tämän yrityksen. Tulos kertoo `recorded` (merkitty annetuksi
