@@ -2,12 +2,14 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: feature
-status: open
+status: done
 priority: high
 preparation: ready
 lane: skills-contract
 lane_seq: 1
 collision: [crates/cli/src/skill.rs, skills/vero-fi/SKILL.md]
+closed: 2026-11-21
+closed_by: claude-opus-5-5
 ---
 
 # ADR-10 slice 1: multi-file bundled skills and the e-services skill
@@ -33,3 +35,9 @@ slice 1: multi-file bundled skills and the seeded `e-services` skill.
 The ADR's rules that the code cannot show move into `skills/e-services/SKILL.md`
 and the nearest `AGENTS.md`. The ADR page is removed only when slice 2 has
 also landed (`docs/AGENTS.md`).
+
+## Resolution
+
+### 2026-11-21T05:00:45Z · @claude-opus-5-5
+
+Slice 1 of ADR-10 landed: multi-file installer with requires, seeded e-services skill, vero-fi linked, packaging and link tests. See result.md; seed-date question raised for the decider.
