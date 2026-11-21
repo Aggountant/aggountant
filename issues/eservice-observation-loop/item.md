@@ -8,6 +8,7 @@ related: ['@agent-feedback-contributions']
 preparation: pending
 lane: skills-contract
 lane_seq: 2
+blocked_by: ['@eservice-skill-bundle']
 ---
 
 # ADR-10 slice 2: e-service observations from company knowledge to a public issue and back
