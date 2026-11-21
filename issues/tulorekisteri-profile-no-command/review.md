@@ -61,7 +61,10 @@ One review covers the three issues landed together in this change:
   new status command would otherwise claim ready: the key load moved into
   `tulorekisteri_xml::signing_key`, used by both signing and readiness
   (`TULOREKISTERI_CREDENTIAL_INVALID`). Tested in
-  `readiness_is_itemised_with_owners`.
+  `readiness_is_itemised_with_owners`. The repository's own VAT mTLS test
+  fixture has an EC key: the VAT transport accepts it, Tulorekisteri signing
+  cannot, so the new CLI test had to switch to the RSA wage fixture. A bundle
+  that works for VAT is therefore not proof that it works here.
 - Noted, not a defect: with its own `credentials_file` the broker no longer
   reads the platform configuration, so a broken platform config no longer
   stops such a send. That file is not a readiness requirement.

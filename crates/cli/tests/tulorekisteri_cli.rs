@@ -8,7 +8,7 @@ mod common;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use aggountant_vero_vat_api_mock::MtlsTestCredentials;
+use aggountant_vero_vat_api_mock::WageTestCredentials;
 use serde_json::{json, Value};
 
 fn invoke(home: &Path, platform: &Path, args: &[&str], stdin: &str) -> (i32, Value, Value) {
@@ -43,9 +43,9 @@ fn write_credential(path: &Path) {
             "target": "production",
             "business_id": "1234567-1",
             "software_key": "fictional-software-key",
-            "client_certificate_pem": String::from_utf8_lossy(MtlsTestCredentials::CLIENT_CERTIFICATE_PEM),
-            "client_private_key_pem": String::from_utf8_lossy(MtlsTestCredentials::CLIENT_PRIVATE_KEY_PEM),
-            "ca_certificate_pem": String::from_utf8_lossy(MtlsTestCredentials::CA_CERTIFICATE_PEM)
+            "client_certificate_pem": WageTestCredentials::CERT,
+            "client_private_key_pem": WageTestCredentials::KEY,
+            "ca_certificate_pem": WageTestCredentials::CA
         })
         .to_string(),
     )
