@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yf4gqpbnqmpjp50392d9xd/review-finding:close-gate-shows-no-content
