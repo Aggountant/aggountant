@@ -9,7 +9,7 @@ provenance_detail: observed in scripts/ci-local.sh while landing skill-month-reb
 source_ref: taskfleet:01m7yfttyc2h090xfx2xtre7aa/gap:employer-report-test-stdin-flake
 originating_run: 01m7yfttyc2h090xfx2xtre7aa
 originating_run_kind: spinoff
-lane: wage-reporting
+lane: test-flakes
 lane_seq: 0
 preparation: ready
 ---

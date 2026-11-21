@@ -2,13 +2,16 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: observed in ci-local during a taskfleet spinoff
 source_ref: taskfleet:01m7yfncx0mmfty92c32wzsm32/ci-flake:company-knowledge-broken-pipe
 originating_run: 01m7yfncx0mmfty92c32wzsm32
 originating_run_kind: spinoff
+lane: test-flakes
+lane_seq: 0
+preparation: ready
 ---
 
 # Flaky company_knowledge_cli test: stdin write hits Broken pipe when the CLI refuses early
