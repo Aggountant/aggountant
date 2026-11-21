@@ -1,6 +1,8 @@
 //! `file-wage employer-report import-transcript` and `missing` end to end. The
 //! YTJ `registration` command needs the network, so only its help is checked
 //! here; its logic is tested in the process crate behind a recorded seam.
+mod common;
+
 use aggountant_ledger::Ledger;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -137,7 +139,6 @@ fn registration_help_names_the_source_and_the_network_failure_code() {
 }
 
 fn run_stdin(home: &Path, args: &[&str], stdin: &str) -> (i32, Value) {
-    use std::io::Write;
     let mut child = Command::new(env!("CARGO_BIN_EXE_aggountant"))
         .arg("--home")
         .arg(home)
@@ -149,12 +150,7 @@ fn run_stdin(home: &Path, args: &[&str], stdin: &str) -> (i32, Value) {
         .stderr(std::process::Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let o = child.wait_with_output().unwrap();
     let out = if o.stdout.is_empty() {
         o.stderr

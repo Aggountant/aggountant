@@ -2,7 +2,8 @@
 //! that a failed authority read is `VAT_STATUS_UNKNOWN`, never "not filed", and
 //! that an unknown filing outcome refuses a new Run.
 
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -30,12 +31,7 @@ fn run(home: &Path, script: Option<&Path>, args: &[&str], stdin: &str) -> (i32, 
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     (

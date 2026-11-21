@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Output, Stdio};
 
 use serde_json::Value;
@@ -22,12 +23,7 @@ fn run(config_home: &std::path::Path, args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     child.wait_with_output().unwrap()
 }
 

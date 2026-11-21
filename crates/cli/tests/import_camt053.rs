@@ -4,7 +4,8 @@
 //! dedup (idempotent re-seal of an overlapping statement) and the no-auto-assign
 //! refusal.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -24,12 +25,7 @@ fn run(home: &std::path::Path, args: &[&str], stdin: &str) -> (i32, String, Stri
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap_or(-1),

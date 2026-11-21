@@ -4,7 +4,8 @@
 //! voucher list/show contract; economic-event
 //! identity remains an agent/user judgment.
 
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
@@ -23,12 +24,7 @@ fn invoke(home: &Path, args: &[&str], stdin: &str) -> Output {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     child.wait_with_output().unwrap()
 }
 

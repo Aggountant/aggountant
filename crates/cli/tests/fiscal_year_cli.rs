@@ -3,7 +3,8 @@
 //! reports year to date and records opening balances; the 18-month rule; and a home
 //! written by the `main` binary before fiscal-year definitions keeps working.
 
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -20,12 +21,7 @@ fn run(home: &Path, args: &[&str], stdin: &str) -> (i32, String, String) {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap_or(-1),

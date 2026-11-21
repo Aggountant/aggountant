@@ -3,7 +3,8 @@
 //! code. `voucher validate` warns, `file-vat preview` reports the discrepancy and
 //! `file-vat start` refuses before contacting the Tax Administration.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
@@ -25,12 +26,7 @@ fn run(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let value = serde_json::from_str(&stdout).unwrap_or(Value::Null);

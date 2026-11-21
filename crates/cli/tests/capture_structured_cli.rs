@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
@@ -15,12 +16,7 @@ fn invoke(home: &Path, args: &[&str], input: &Value) -> Output {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(input.to_string().as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, input.to_string().as_bytes());
     child.wait_with_output().unwrap()
 }
 

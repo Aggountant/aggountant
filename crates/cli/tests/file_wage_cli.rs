@@ -1,10 +1,9 @@
+mod common;
+
 use aggountant_domain::TaxCard;
 use aggountant_ledger::{EmployeeState, Ledger};
 use serde_json::{json, Value};
-use std::{
-    io::Write,
-    process::{Command, Stdio},
-};
+use std::process::{Command, Stdio};
 fn run(home: &std::path::Path, args: &[&str], input: &str) -> (i32, String, String) {
     let mut c = Command::new(env!("CARGO_BIN_EXE_aggountant"));
     c.arg("--home")
@@ -18,7 +17,7 @@ fn run(home: &std::path::Path, args: &[&str], input: &str) -> (i32, String, Stri
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut c = c.spawn().unwrap();
-    c.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+    common::feed_stdin(&mut c, input.as_bytes());
     let o = c.wait_with_output().unwrap();
     (
         o.status.code().unwrap(),

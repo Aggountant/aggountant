@@ -2,7 +2,8 @@
 //! All receipt content is fictional. The artifact byte read is deliberately a read-only
 //! check of the current IdentityCipher/layout, not a public retrieval API guarantee.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Output, Stdio};
 
 use serde_json::{json, Value};
@@ -32,12 +33,7 @@ fn invoke(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     child.wait_with_output().unwrap()
 }
 

@@ -1,5 +1,6 @@
+mod common;
+
 use std::collections::BTreeMap;
-use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -18,12 +19,7 @@ fn run(home: &Path, args: &[&str], stdin: &str) -> (i32, String, String) {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let output = child.wait_with_output().unwrap();
     (
         output.status.code().unwrap_or(-1),

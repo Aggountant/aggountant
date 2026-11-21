@@ -4,7 +4,8 @@
 //! authority transport is supplied through `$AGGOUNTANT_BROKER_SCRIPT` (v1 ships no live
 //! adapter). Also exercises the F7 `employee` master-data commands.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -29,12 +30,7 @@ fn run(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap_or(-1),

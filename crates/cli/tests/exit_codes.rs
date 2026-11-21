@@ -1,6 +1,7 @@
 //! Canon §2 exit-code contract across the complete clap command surface.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Output, Stdio};
 
 fn invoke(args: &[&str]) -> Output {
@@ -16,8 +17,30 @@ fn invoke_with_stdin(args: &[&str], stdin: &[u8]) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("run aggountant");
-    child.stdin.take().unwrap().write_all(stdin).unwrap();
+    common::feed_stdin(&mut child, stdin);
     child.wait_with_output().unwrap()
+}
+
+/// A command that exits before reading stdin must not fail the test that fed
+/// it: the write sees `BrokenPipe`, and the exit code is what is asserted.
+#[test]
+fn stdin_fed_to_a_command_that_already_exited_is_not_a_test_failure() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .arg("--version")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("run aggountant");
+    // Hold stdin open across the wait (`Child::wait` would close it) so the
+    // write deterministically hits a pipe whose reader has exited instead of
+    // racing the child.
+    let stdin = child.stdin.take();
+    let status = child.wait().unwrap();
+    child.stdin = stdin;
+    common::feed_stdin(&mut child, &[b'x'; 1 << 20]);
+    assert!(status.success());
+    assert!(child.wait_with_output().unwrap().status.success());
 }
 
 /// Every command group and executable leaf. Keep this inventory in sync with

@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 use aggountant_vero_vat_api_mock::MtlsTestCredentials;
@@ -24,12 +25,7 @@ fn invoke(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let output = child.wait_with_output().unwrap();
     (
         output.status.code().unwrap(),

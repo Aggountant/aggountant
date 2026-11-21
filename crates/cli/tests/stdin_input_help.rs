@@ -2,7 +2,8 @@
 //! offline in a fresh home are fed their own printed example. That the other
 //! stdin commands parse theirs is checked by the unit tests in `input_help.rs`.
 
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
@@ -22,12 +23,7 @@ fn run(config_home: &Path, args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     child.wait_with_output().unwrap()
 }
 
@@ -120,12 +116,7 @@ fn capture_receipt_start_example_reaches_the_vat_return() {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         let mut child = command.spawn().unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(stdin.as_bytes())
-            .unwrap();
+        common::feed_stdin(&mut child, stdin.as_bytes());
         ok_json(child.wait_with_output().unwrap())
     };
 

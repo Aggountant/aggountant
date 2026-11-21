@@ -1,7 +1,8 @@
 //! Regression coverage for pre-seal diagnostics produced from an approved capture draft.
 //! All fixtures are fictional and use the local scripted consult transport.
 
-use std::io::Write;
+mod common;
+
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -29,12 +30,7 @@ fn run(home: &Path, script: Option<&Path>, args: &[&str], stdin: &str) -> (i32, 
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let output = child.wait_with_output().unwrap();
     (
         output.status.code().unwrap_or(-1),

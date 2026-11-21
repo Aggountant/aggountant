@@ -3,7 +3,8 @@
 //! wiring: primitive-per-command, `--json`, structured
 //! stdin, machine-readable error codes — and the `BROKER_NOT_CONFIGURED` guard.
 
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
@@ -74,12 +75,7 @@ fn run(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().expect("spawn aggountant");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, stdin.as_bytes());
     let out = child.wait_with_output().unwrap();
     (
         out.status.code().unwrap_or(-1),
@@ -472,12 +468,7 @@ fn the_test_seam_is_announced_on_errors_and_in_human_output() {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(FILE_VAT_INPUT.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, FILE_VAT_INPUT.as_bytes());
     let out = child.wait_with_output().unwrap();
     assert!(
         out.status.success(),
@@ -533,12 +524,7 @@ fn obsolete_environment_activation_cannot_enable_production() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(FILE_VAT_INPUT.as_bytes())
-        .unwrap();
+    common::feed_stdin(&mut child, FILE_VAT_INPUT.as_bytes());
     let output = child.wait_with_output().unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8(output.stderr)
