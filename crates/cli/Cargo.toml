@@ -20,12 +20,12 @@ name = "aggountant"
 path = "src/main.rs"
 
 [dependencies]
-aggountant-model = { path = "../model", version = "0.1.0" }
-aggountant-domain = { path = "../domain", version = "0.1.0" }
-aggountant-import = { path = "../import", version = "0.1.0" }
-aggountant-ledger = { path = "../ledger", version = "0.1.0" }
-aggountant-broker = { path = "../broker", version = "0.1.0" }
-aggountant-process = { path = "../process", version = "0.1.0" }
+aggountant-model = { path = "../model" }
+aggountant-domain = { path = "../domain" }
+aggountant-import = { path = "../import" }
+aggountant-ledger = { path = "../ledger" }
+aggountant-broker = { path = "../broker" }
+aggountant-process = { path = "../process" }
 clap = { version = "4", features = ["derive"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -15,10 +15,10 @@ name = "aggountant_process"
 path = "src/lib.rs"
 
 [dependencies]
-aggountant-model = { path = "../model", version = "0.1.0" }
-aggountant-ledger = { path = "../ledger", version = "0.1.0" }
-aggountant-domain = { path = "../domain", version = "0.1.0" }
-aggountant-broker = { path = "../broker", version = "0.1.0" }
+aggountant-model = { path = "../model" }
+aggountant-ledger = { path = "../ledger" }
+aggountant-domain = { path = "../domain" }
+aggountant-broker = { path = "../broker" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
