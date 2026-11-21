@@ -1847,7 +1847,7 @@ fn every_step_names_the_open_gate_what_it_seals_and_the_next_command() {
     let show = format!("aggountant close-year show --run-id {run_id}");
     let answer = |gate: &str| {
         format!(
-            "aggountant close-year answer --run-id {run_id} --gate {gate} --answer approve|reject"
+            "aggountant close-year answer --run-id {run_id} --gate {gate} --answer '<approve|reject>'"
         )
     };
 
@@ -1924,6 +1924,32 @@ fn every_step_names_the_open_gate_what_it_seals_and_the_next_command() {
 }
 
 #[test]
+fn the_answer_placeholder_in_next_command_is_not_a_valid_answer() {
+    let home = init_home();
+    setup_sealed_year(home.path(), 2026);
+    let engine = ProcessEngine::open(home.path());
+    let run_id = engine
+        .start_close_year(&base_input(2026), &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let command = next(&engine, &run_id, CloseYearNextFor::Show)
+        .next_command
+        .unwrap();
+    // The placeholder as a shell would pass it: quoted, one argument.
+    let placeholder = command
+        .rsplit("--answer ")
+        .next()
+        .unwrap()
+        .trim_matches('\'');
+    assert_eq!(placeholder, "<approve|reject>");
+    let err = engine
+        .answer_close_year(&run_id, "ApproveAdjustments", placeholder)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_ANSWER");
+}
+
+#[test]
 fn a_rejected_run_has_no_next_command() {
     let home = init_home();
     setup_sealed_year(home.path(), 2026);
@@ -1966,6 +1992,13 @@ fn a_failed_archive_write_is_reported_and_resume_rewrites_it() {
             .state,
         FiscalYearState::Sealed
     );
+    // While the obstruction stays, the archive is reported missing and resume
+    // fails loudly rather than claiming it is written.
+    let n = next(&engine, &run_id, CloseYearNextFor::Other);
+    assert!(n.message.contains("is missing"), "{}", n.message);
+    let err = engine.resume_close_year(&run_id).unwrap_err();
+    assert!(err.to_string().contains("could not be written"), "{err}");
+
     fs::remove_dir(&archive).unwrap();
     let n = next(&engine, &run_id, CloseYearNextFor::Other);
     assert_eq!(

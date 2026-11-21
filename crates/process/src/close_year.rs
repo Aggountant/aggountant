@@ -748,7 +748,7 @@ impl ProcessEngine {
             self.run_seal_year(&journal, run_id)?;
         } else if seal_done
             && fy.sealed_by_run_id.as_deref() == Some(run_id)
-            && !self.archive_path(state.year).exists()
+            && !self.archive_path(state.year).is_file()
         {
             // The year was sealed by this run but its archive is missing (the write
             // after the seal failed). Rewriting it changes nothing in the books.
@@ -823,17 +823,27 @@ impl ProcessEngine {
             let reject = "Reject ends the run; what it has already sealed stays in the books.";
             return Ok(match reported_by {
                 CloseYearNextFor::Show => {
-                    let command = match unsealed.first() {
-                        Some(id) if gate_id == GATE_APPROVE_ADJ => format!(
-                            "aggountant close-year seal-correction --run-id {run_id} \
-                             --correction {id}"
+                    let (command, how) = match unsealed.first() {
+                        Some(id) if gate_id == GATE_APPROVE_ADJ => (
+                            format!(
+                                "aggountant close-year seal-correction --run-id {run_id} \
+                                 --correction {id}"
+                            ),
+                            "seal each correction the user approves, then answer the gate",
                         ),
-                        _ => answer_command(run_id, gate_id, "approve|reject"),
+                        // A quoted placeholder: run as it is, the command is refused
+                        // (INVALID_ANSWER) instead of a shell reading `approve|reject`
+                        // as a pipe and approving.
+                        _ => (
+                            answer_command(run_id, gate_id, "'<approve|reject>'"),
+                            "answer after their decision, putting approve or reject in place \
+                             of '<approve|reject>'",
+                        ),
                     };
                     next(
                         format!(
-                            "Open gate: {gate_id}. Show the user this content and answer after \
-                             their decision: {approval}{corrections} {reject}"
+                            "Open gate: {gate_id}. Show the user this content and {how}. \
+                             {approval}{corrections} {reject}"
                         ),
                         Some(command),
                     )
@@ -855,7 +865,7 @@ impl ProcessEngine {
                 ),
                 None,
             ),
-            RunStatus::Completed if !self.archive_path(year).exists() => {
+            RunStatus::Completed if !self.archive_path(year).is_file() => {
                 let recorded = f
                     .notes
                     .get(EFFECT_SEAL_YEAR)

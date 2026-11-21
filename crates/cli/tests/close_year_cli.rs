@@ -154,7 +154,7 @@ fn start_and_answer_name_the_open_gate_and_the_next_command() {
     assert_eq!(
         shown["next_command"],
         format!(
-            "aggountant close-year answer --run-id {run_id} --gate ApproveAdjustments --answer approve|reject"
+            "aggountant close-year answer --run-id {run_id} --gate ApproveAdjustments --answer '<approve|reject>'"
         )
     );
 
