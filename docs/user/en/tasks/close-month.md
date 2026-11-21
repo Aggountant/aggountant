@@ -82,7 +82,9 @@ An obligation is marked resolved (`obligation resolve`) only when the matter
 has really been dealt with. `run preview` changes nothing; its `ready` and
 `blockers` say whether a close can start. The close waits at the approval
 `ApproveClose`, and `run start` and `run show` return its content in
-`open_gate.content` and the command that answers it in `next_command`.
+`open_gate.content` and the command that answers it in `next_command`, with
+`'<approve|reject>'` in place of the answer: the agent puts in `approve` or
+`reject` according to your decision, and the placeholder itself is refused.
 Rejecting is `--answer reject`, and it returns the month to `open`.
 Before the close, `file-vat preview` answers with `fileable: false` and the
 attention item `VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` must be

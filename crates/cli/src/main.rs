@@ -398,8 +398,8 @@ enum CloseYearCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Answer the run's open gate with an explicit `--answer approve|reject`; there
-    /// is no default. The gates open in this order: `ApproveAdjustments` (approving
+    /// Answer the run's open gate with an explicit `--answer approve` or
+    /// `--answer reject`; there is no default. The gates open in this order: `ApproveAdjustments` (approving
     /// seals the depreciation and accrual vouchers into the books, permanently: a
     /// sealed voucher is corrected only by a new one), `ApproveTaseErittelyt` (the
     /// balance-sheet breakdowns) and `ApproveLiitetiedot` (the notes), whose
@@ -499,8 +499,8 @@ enum CaptureReceiptCmd {
     /// the `ApproveConsultDisclosure` preview gate.
     #[command(after_help = input_help::CAPTURE_RECEIPT_START)]
     Start,
-    /// Answer a gate (`--gate ApproveConsultDisclosure|ApproveVoucher|ApproveKnowledgePR
-    /// --answer approve|reject`).
+    /// Answer a gate: `--gate` is `ApproveConsultDisclosure`, `ApproveVoucher` or
+    /// `ApproveKnowledgePR`, and `--answer` is `approve` or `reject`.
     Answer {
         #[arg(long)]
         run_id: String,
@@ -521,8 +521,9 @@ enum HuntReceiptsCmd {
     /// Start a run from stdin JSON (`HuntReceiptsInput`); drives the targeted pulls.
     #[command(after_help = input_help::HUNT_RECEIPTS_START)]
     Start,
-    /// Answer a hunt gate (`--gate ApproveMatch:<txn>|Clarify:<txn> --answer
-    /// approve|discard|acknowledge`).
+    /// Answer a hunt gate, giving the gate ID the run returned as `--gate`. An
+    /// `ApproveMatch:…` gate takes `--answer approve` or `--answer discard`; a
+    /// `Clarify:…` gate takes `--answer acknowledge` or `--answer discard`.
     Answer {
         #[arg(long)]
         run_id: String,
@@ -580,8 +581,8 @@ enum RunPayrollCmd {
     /// gross/tulolaji); computes every payslip and parks on the `ApproveRun` gate.
     #[command(after_help = input_help::RUN_PAYROLL_START)]
     Start,
-    /// Approve (or reject) the batch: `--answer approve|reject`. Approve drives every
-    /// employee's payment + report.
+    /// Approve (or reject) the batch: `--answer approve` or `--answer reject`.
+    /// Approve drives every employee's payment + report.
     ApproveRun {
         #[arg(long)]
         run_id: String,
@@ -653,7 +654,8 @@ enum FileVatCmd {
     /// a first return. The Run pays nothing.
     #[command(after_help = input_help::FILE_VAT_REPLACE)]
     Replace,
-    /// Approve (or reject) the filing preview gate: `--answer approve|reject`.
+    /// Approve (or reject) the filing preview gate: `--answer approve` or
+    /// `--answer reject`.
     /// The submit-filing effect's `outcome` carries the Vero receipt
     /// (`unique_identifier`, `accepted_timestamp`) once accepted, or names
     /// `file-vat reconcile` when the outcome is unknown; `run show` reads it later.

@@ -375,16 +375,18 @@ impl ProcessEngine {
         let content_hash = content.content_hash();
         let bound =
             self.snapshot_hash(&ledger, &period, Some(&content_hash))? == gate.snapshot_hash;
+        // A quoted placeholder: run as it is, the command is refused (INVALID_ANSWER)
+        // instead of a shell reading `approve|reject` as a pipe and approving.
         let answer = format!(
-            "aggountant run answer --run-id {} --gate {GATE_APPROVE_CLOSE} --answer approve|reject",
+            "aggountant run answer --run-id {} --gate {GATE_APPROVE_CLOSE} --answer '<approve|reject>'",
             run.run_id
         );
         let (message, next_command) = if bound {
             (
                 format!(
-                    "Show the user this content of {period} and answer after their decision: \
-                     approve seals the period permanently; reject returns it to Open and \
-                     removes nothing."
+                    "Show the user this content of {period} and answer after their decision, \
+                     putting approve or reject in place of '<approve|reject>': approve seals \
+                     the period permanently; reject returns it to Open and removes nothing."
                 ),
                 answer,
             )
@@ -392,7 +394,8 @@ impl ProcessEngine {
             (
                 "This gate was opened by an older version and its hash does not cover the \
                  content; the content is rebuilt from the books now. Show it to the user and \
-                 answer after their decision."
+                 answer after their decision, putting approve or reject in place of \
+                 '<approve|reject>'."
                     .to_string(),
                 answer,
             )
@@ -464,7 +467,16 @@ mod tests {
         let gate = view.open_gate.unwrap();
         assert!(!gate.bound);
         assert!(view.message.unwrap().contains("older version"));
-        assert!(view.next_command.unwrap().contains("approve|reject"));
+        assert_eq!(
+            view.next_command.as_deref(),
+            Some(
+                format!(
+                    "aggountant run answer --run-id {run_id} --gate ApproveClose \
+                     --answer '<approve|reject>'"
+                )
+                .as_str()
+            )
+        );
 
         let done = engine
             .answer(&run_id, GATE_APPROVE_CLOSE, "approve")

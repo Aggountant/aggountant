@@ -301,10 +301,10 @@ fn close_preview_and_gate_show_what_the_user_approves_via_cli() {
     assert_eq!(gate["content_hash"], preview["content_hash"]);
     assert_eq!(gate["snapshot_hash"], started["gates"][0]["snapshot_hash"]);
     let run_id = started["run_id"].as_str().unwrap();
-    assert!(started["next_command"]
-        .as_str()
-        .unwrap()
-        .contains(&format!("--run-id {run_id} --gate ApproveClose")));
+    assert_eq!(
+        started["next_command"],
+        format!("aggountant run answer --run-id {run_id} --gate ApproveClose --answer '<approve|reject>'")
+    );
 
     // `run show` carries the same content; the human form prints it.
     let (_, stdout, _) = run(home, &["run", "show", "--run-id", run_id], "");

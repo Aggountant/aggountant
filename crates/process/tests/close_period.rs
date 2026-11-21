@@ -729,11 +729,31 @@ fn close_preview_changes_nothing_and_matches_the_gate_content() {
     assert_eq!(gate.content, preview.content);
     assert_eq!(gate.content_hash, preview.content_hash);
     assert_eq!(gate.snapshot_hash, view.run.gates[0].snapshot_hash);
-    assert!(view
-        .next_command
-        .as_deref()
+    let command = view.next_command.as_deref().unwrap();
+    assert_eq!(
+        command,
+        format!(
+            "aggountant run answer --run-id {} --gate ApproveClose --answer '<approve|reject>'",
+            view.run.run_id
+        )
+    );
+    // The placeholder as a shell passes it, quoted as one argument, is refused and
+    // leaves the gate open; unquoted, a shell would read `approve|reject` as a pipe
+    // and approve.
+    let placeholder = command
+        .rsplit("--answer ")
+        .next()
         .unwrap()
-        .contains("--gate ApproveClose"));
+        .trim_matches('\'');
+    assert_eq!(placeholder, "<approve|reject>");
+    let err = engine
+        .answer(&view.run.run_id, "ApproveClose", placeholder)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_ANSWER");
+    assert_eq!(
+        ledger.period_view(&july).unwrap().state,
+        PeriodState::Closing
+    );
 
     let done = engine
         .answer(&view.run.run_id, "ApproveClose", "approve")

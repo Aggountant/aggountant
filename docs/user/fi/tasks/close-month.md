@@ -80,7 +80,9 @@ Velvoite merkitään ratkaistuksi (`obligation resolve`) vasta, kun asia on
 oikeasti hoidettu. `run preview` ei muuta mitään; sen `ready` ja `blockers`
 kertovat, voiko sulun aloittaa. Sulku odottaa hyväksyntää `ApproveClose`, ja
 `run start` ja `run show` palauttavat sen sisällön kentässä `open_gate.content`
-sekä vastauskomennon kentässä `next_command`. Hylkäys on `--answer reject`, ja se
+sekä vastauskomennon kentässä `next_command`. Vastauksen paikalla on
+`'<approve|reject>'`: agentti vaihtaa sen tilalle päätöksesi mukaan `approve` tai
+`reject`, ja paikkamerkki itsessään hylätään virheenä. Hylkäys on `--answer reject`, ja se
 palauttaa kuukauden tilaan `open`. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
 Ennen sulkua `file-vat preview` vastaa `fileable: false` ja huomiokohdalla
 `VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` on oltava `reconciled`,
