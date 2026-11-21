@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yzes4qee1wjprvjzqjv88g/review-finding:F1-close-period
@@ -20,6 +20,10 @@ lane: agent-surface
 lane_seq: 0
 collision: [crates/process/src/close_period.rs]
 preparation: ready
+closed: 2026-11-21
+commits:
+- hash: 5a1c367
+  summary: 'close-period: quoted answer placeholder in next_command'
 ---
 
 # close-period next_command: --answer approve|reject runs as a shell pipe and approves
@@ -56,3 +60,9 @@ guide text that shows the command.
 
 Found by the `/llm-review` of the close-year next-command slice (finder
 gpt-6-astra), which raised it for close-year; the same string exists here.
+
+## Resolution
+
+### 2026-11-21T14:54:36Z · @issuectl
+
+Fixed: next_command carries the quoted placeholder '<approve|reject>' that run answer refuses; a|b help texts reworded. See result.md, review.md, assessment.md.
