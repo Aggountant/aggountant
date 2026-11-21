@@ -662,3 +662,160 @@ fn malformed_resolved_obligation_does_not_block() {
         .start_close_period(&PeriodId::parse("2026-07").unwrap(), &PolicySet::default())
         .is_ok());
 }
+
+// --- issue virtually-tidy-owl: the close shows what the user approves --------
+
+#[test]
+fn close_preview_changes_nothing_and_matches_the_gate_content() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    let july = PeriodId::parse("2026-07").unwrap();
+    seal_voucher(&ledger, "2026-06-30", "co:june").unwrap();
+    seal_voucher(&ledger, "2026-07-10", "co:july-1").unwrap();
+    seal_voucher(&ledger, "2026-07-20", "co:july-2").unwrap();
+    seal_voucher(&ledger, "2026-08-01", "co:august").unwrap();
+
+    let preview = engine.preview_close_period(&july).unwrap();
+    assert!(preview.ready, "{:?}", preview.blockers);
+    assert_eq!(preview.state, PeriodState::Open);
+    assert_eq!(
+        preview.next_command.as_deref(),
+        Some("aggountant run start close-period --period 2026-07")
+    );
+    let content = &preview.content;
+    assert_eq!(content.vouchers.count, 2);
+    assert_eq!(content.vouchers.first_number, Some(2));
+    assert_eq!(content.vouchers.last_number, Some(3));
+    // The month's result counts July only; the balance runs to 31 July, so it
+    // includes June but not August.
+    assert_eq!(content.income_statement.result, "-24.80");
+    assert_eq!(content.income_statement.year_to_date_result, "-37.20");
+    let bank = content
+        .balance_sheet
+        .accounts
+        .iter()
+        .find(|a| a.account == "1910")
+        .unwrap();
+    assert_eq!(bank.balance, "-37.20");
+    assert!(content.balance_sheet.balanced);
+    assert!(content.open_obligations.is_empty());
+    // Nothing changed.
+    assert_eq!(ledger.period_view(&july).unwrap().state, PeriodState::Open);
+    assert!(engine.list().unwrap().is_empty());
+
+    let started = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap();
+    let view = engine.close_period_view(started).unwrap();
+    let gate = view.open_gate.as_ref().expect("ApproveClose content");
+    assert!(gate.bound);
+    assert_eq!(gate.content, preview.content);
+    assert_eq!(gate.content_hash, preview.content_hash);
+    assert_eq!(gate.snapshot_hash, view.run.gates[0].snapshot_hash);
+    assert!(view
+        .next_command
+        .as_deref()
+        .unwrap()
+        .contains("--gate ApproveClose"));
+
+    let done = engine
+        .answer(&view.run.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    // A finished close carries no gate content.
+    assert!(engine.close_period_view(done).unwrap().open_gate.is_none());
+}
+
+#[test]
+fn approval_is_refused_when_the_shown_content_changed() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    let july = PeriodId::parse("2026-07").unwrap();
+    seal_voucher(&ledger, "2026-07-10", "co:july").unwrap();
+    let started = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap();
+    let run_id = started.run_id.clone();
+
+    // June is still open; a voucher there changes July's closing balance.
+    seal_voucher(&ledger, "2026-06-15", "co:june-late").unwrap();
+
+    let view = engine
+        .close_period_view(engine.show(&run_id).unwrap())
+        .unwrap();
+    let gate = view.open_gate.unwrap();
+    assert!(!gate.bound);
+    assert!(view.next_command.unwrap().ends_with("--answer reject"));
+
+    let err = engine
+        .answer(&run_id, "ApproveClose", "approve")
+        .unwrap_err();
+    assert_eq!(err.error_code(), "CLOSE_CONTENT_CHANGED");
+    assert_eq!(
+        ledger.period_view(&july).unwrap().state,
+        PeriodState::Closing
+    );
+
+    let rejected = engine.answer(&run_id, "ApproveClose", "reject").unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+    let again = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap();
+    let done = engine
+        .answer(&again.run_id, "ApproveClose", "approve")
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+}
+
+#[test]
+fn close_preview_names_what_blocks_a_close() {
+    let home = init_home();
+    let engine = ProcessEngine::open(home.path());
+    let july = PeriodId::parse("2026-07").unwrap();
+    let obligation = engine
+        .obligations()
+        .create(&july, "missing", "missing receipt", "2026-08-31", "capture")
+        .unwrap();
+    let preview = engine.preview_close_period(&july).unwrap();
+    assert!(!preview.ready);
+    assert_eq!(preview.content.open_obligations, vec![obligation.clone()]);
+    assert!(preview.blockers[0].starts_with("OPEN_OBLIGATION"));
+    assert_eq!(
+        preview.next_command.as_deref(),
+        Some("aggountant obligation list")
+    );
+
+    engine.obligations().resolve(&obligation.id).unwrap();
+    let started = engine
+        .start_close_period(&july, &PolicySet::default())
+        .unwrap();
+    let preview = engine.preview_close_period(&july).unwrap();
+    assert!(!preview.ready);
+    assert_eq!(preview.state, PeriodState::Closing);
+    assert_eq!(
+        preview.next_command,
+        Some(format!("aggountant run show --run-id {}", started.run_id))
+    );
+}
+
+#[test]
+fn a_quarter_spanning_two_fiscal_years_is_refused_before_it_closes() {
+    let home = init_home();
+    let ledger = Ledger::open(home.path()).unwrap();
+    ledger
+        .define_fiscal_year(
+            Date::parse("2026-02-01").unwrap(),
+            Date::parse("2027-01-31").unwrap(),
+            "test",
+        )
+        .unwrap();
+    let engine = ProcessEngine::open(home.path());
+    let err = engine
+        .start_close_period(&q1(), &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "PERIOD_TRANSITION_CONFLICT");
+    assert_eq!(ledger.period_view(&q1()).unwrap().state, PeriodState::Open);
+    assert!(engine.list().unwrap().is_empty());
+}

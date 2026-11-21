@@ -22,7 +22,7 @@ fields and an example in the INPUT section of its help. Every command accepts th
 | `voucher` | voucher draft, validation, sealing, search and the chain check | [Record a sales invoice, payroll or another manual entry](../tasks/record-other-entries.md), [Correct a wrong voucher](../tasks/correct-voucher.md) |
 | `report statements` | the monthly report in HTML or JSON | [See how the month went](../tasks/monthly-report.md) |
 | `obligation` | open obligations and resolving them | [Periods](../concepts/periods.md#obligations) |
-| `run` | the month's close run: start, approval, resume, status and moving to a new version | [Close the month](../tasks/close-month.md) |
+| `run` | the month's close run: preview, start, approval, resume, status and moving to a new version | [Close the month](../tasks/close-month.md) |
 | `period` | a period's state (`open`, `closing`, `sealed`) and its VAT filing status | [Periods](../concepts/periods.md) |
 | `fiscal-year` | a fiscal year's dates and state (`open`, `sealed`); defining a fiscal year that is not the calendar year | [Periods](../concepts/periods.md#fiscal-year-status) |
 | `file-vat` | VAT return preview, direct submission, the status of a filed return, status reconciliation and recording a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [directly](../tasks/file-vat-direct.md) |

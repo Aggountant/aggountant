@@ -24,6 +24,7 @@
 
 mod authority;
 mod capture_receipt;
+mod close_period;
 mod close_year;
 mod company_knowledge;
 mod error;
@@ -41,6 +42,10 @@ pub use capture_receipt::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, PreparedReceipt,
     ReceiptSourceFacts, ReceiptTreatmentProposal, ReceiptVatProposal, StructuredReceiptInput,
     ToolResult,
+};
+pub use close_period::{
+    AccountBalance, ClosePeriodContent, ClosePeriodGate, ClosePeriodPreview, ClosePeriodRunView,
+    PeriodBalance, PeriodIncome, PeriodVouchers,
 };
 pub use close_year::{
     AdjustmentsContent, CloseYearGateView, CloseYearInput, CloseYearShow, CloseYearStart,
@@ -570,6 +575,9 @@ impl ProcessEngine {
         seam: Seam,
     ) -> Result<RunView, ProcessError> {
         self.refuse_open_obligations(period)?;
+        // Build the content the gate will show before anything changes, so a
+        // period whose content cannot be built is refused while still Open.
+        self.close_period_content(&Ledger::open(&self.home)?, period)?;
         let run_id = new_run_id();
         let run_dir = self.run_dir(&run_id);
         fs::create_dir_all(&run_dir).map_err(|e| ProcessError::Store(e.to_string()))?;
@@ -674,16 +682,24 @@ impl ProcessEngine {
 
         let period = self.period_of(&f)?;
         if answer == "approve" {
-            // Resume-check: recompute the snapshot hash and compare to the one the
-            // gate bound to. It must match, because Closing blocked all writes
-            // (`candidate.md §5` step 7) — a mismatch means the close is unsafe.
+            // The approval binds what the gate showed: the period lock and the
+            // close content. Closing blocks writes into the period, but the
+            // content also reads earlier periods' balances and the period's
+            // obligations, so it is recomputed and compared. A gate opened by an
+            // older version bound only the period lock; it is checked as it was.
             let ledger = Ledger::open(&self.home)?;
-            let recomputed = self.snapshot_hash(&ledger, &period)?;
-            if recomputed != gate.snapshot_hash {
-                return Err(ProcessError::JournalCorrupt(format!(
-                    "period {period} snapshot changed under a Closing lock (bound {}, now {recomputed}) — aborting seal",
-                    gate.snapshot_hash
-                )));
+            if self.snapshot_hash(&ledger, &period, None)? != gate.snapshot_hash {
+                let content = self.close_period_content(&ledger, &period)?;
+                let recomputed =
+                    self.snapshot_hash(&ledger, &period, Some(&content.content_hash()))?;
+                if recomputed != gate.snapshot_hash {
+                    return Err(ProcessError::CloseContentChanged(format!(
+                        "what ApproveClose of run {run_id} showed for period {period} has changed \
+                         (bound {}, now {recomputed}); reject this close and start a new one so \
+                         the user approves what the books now say",
+                        gate.snapshot_hash
+                    )));
+                }
             }
         }
 
@@ -898,7 +914,8 @@ impl ProcessEngine {
         period: &PeriodId,
     ) -> Result<(), ProcessError> {
         let ledger = Ledger::open(&self.home)?;
-        let snapshot_hash = self.snapshot_hash(&ledger, period)?;
+        let content = self.close_period_content(&ledger, period)?;
+        let snapshot_hash = self.snapshot_hash(&ledger, period, Some(&content.content_hash()))?;
         journal.append(EventPayload::GateOpened {
             gate_id: GATE_APPROVE_CLOSE.to_string(),
             gate_kind: "Approval".to_string(),
@@ -990,10 +1007,16 @@ impl ProcessEngine {
         }
     }
 
-    /// A thin `PeriodCloseSnapshotV1` stand-in (`candidate.md §3`): the gate binds
-    /// the approval to it, and the resume-check recomputes and compares it. Because
-    /// the Closing lock forbids writes, it is stable across the gate.
-    fn snapshot_hash(&self, ledger: &Ledger, period: &PeriodId) -> Result<String, ProcessError> {
+    /// The `ApproveClose` snapshot hash: the period lock (state, owner, transition
+    /// head, chart version) and the hash of the close content the gate shows. The
+    /// approval recomputes and compares it. `content_hash: None` is the hash a gate
+    /// opened before the content existed bound, kept so such a Run can finish.
+    fn snapshot_hash(
+        &self,
+        ledger: &Ledger,
+        period: &PeriodId,
+        content_hash: Option<&str>,
+    ) -> Result<String, ProcessError> {
         let view = ledger.period_view(period)?;
         let chart_version = ledger.chart_version()?;
         let mut h = Sha256::new();
@@ -1003,7 +1026,10 @@ impl ProcessEngine {
             view.owning_run_id.as_deref().unwrap_or(""),
             &view.head_transition_hash,
             &chart_version,
-        ] {
+        ]
+        .into_iter()
+        .chain(content_hash)
+        {
             h.update((field.len() as u64).to_be_bytes());
             h.update(field.as_bytes());
         }

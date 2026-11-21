@@ -28,17 +28,29 @@ finished.
    > Close March.
 
 2. **The agent checks the month.** It goes through the conditions above and
-   tells you if something is missing. If there are gaps, fix them first. The
-   agent does not start the close until the month is finished or you have
+   tells you if something is missing. The close preview already shows what the
+   close would lock, without changing anything. If there are gaps, fix them
+   first. The agent does not start the close until the month is finished or you have
    decided that something named as open will be recorded later.
 
 3. **The agent starts the close.** The month moves to the state `closing`.
    Nothing more can be recorded in it, and the close waits for your approval.
 
-4. **Check and approve.** The agent should tell you which month is being
-   closed, how many vouchers it has and whether the bank account balance
-   matches. Ask if it does not. Approve when you know nothing more needs to be
-   recorded in the month. After approval the month is locked permanently.
+4. **Check and approve.** The program puts together what you approve: the
+   number and numbers of the month's vouchers, the month's result and the
+   result since the start of the fiscal year, the account balances at the end
+   of the month (for example the bank account and trade payables) and the
+   month's open obligations. The agent shows it and tells you whether the bank
+   account matches the statement, whether the VAT accounts agree with the
+   return, and what stays open. Ask if it does not.
+   Approve when you know nothing more needs to be recorded in the month. After
+   approval the month is locked permanently.
+
+   The approval covers exactly the content shown. If the books change after
+   that (for example a voucher recorded in an earlier open month changes the
+   closing balances), the approval is refused with `CLOSE_CONTENT_CHANGED`.
+   The close is then rejected and started again, so that you approve what the
+   books say now.
 
    > I approve the close.
 
@@ -55,19 +67,23 @@ finished.
 aggountant obligation list
 aggountant obligation resolve --id <identifier>
 aggountant file-vat preview --period 2026-03
+aggountant run preview close-period --period 2026-03
 aggountant run start close-period --period 2026-03
+aggountant run show --run-id cp-…
 aggountant run answer --run-id cp-… --gate ApproveClose --answer approve
 aggountant period show --period 2026-03
 ```
 
 An obligation is marked resolved (`obligation resolve`) only when the matter
-has really been dealt with. The close waits at the approval `ApproveClose`.
+has really been dealt with. `run preview` changes nothing; its `ready` and
+`blockers` say whether a close can start. The close waits at the approval
+`ApproveClose`, and `run start` and `run show` return its content in
+`open_gate.content` and the command that answers it in `next_command`.
 Rejecting is `--answer reject`, and it returns the month to `open`.
 Before the close, `file-vat preview` answers with `fileable: false` and the
 attention item `VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` must be
 `reconciled`, or the postings listed under `VAT_ACCOUNTS_UNRECONCILED` must be
-ones that do not belong in a return. For a
-quarterly period, the period is given as `2026-Q1`.
+ones that do not belong in a return. For a quarterly period, the period is given as `2026-Q1`.
 </details>
 
 ## Done when

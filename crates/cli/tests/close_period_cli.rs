@@ -262,3 +262,72 @@ fn cli_closes_july_without_locking_august_and_rejects_loose_month_syntax() {
         "INVALID_PERIOD_ID"
     );
 }
+
+#[test]
+fn close_preview_and_gate_show_what_the_user_approves_via_cli() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    assert_eq!(run(home, &["voucher", "seal"], SEAL_INPUT).0, 0);
+
+    let (code, stdout, stderr) = run(
+        home,
+        &["run", "preview", "close-period", "--period", "2026-02"],
+        "",
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["ready"], true);
+    assert_eq!(preview["state"], "open");
+    assert_eq!(preview["content"]["vouchers"]["count"], 1);
+    assert_eq!(preview["content"]["income_statement"]["result"], "-100.00");
+    let (_, stdout, _) = run(home, &["period", "show", "--period", "2026-02"], "");
+    assert_eq!(
+        serde_json::from_str::<Value>(&stdout).unwrap()["state"],
+        "open",
+        "a preview changes nothing"
+    );
+
+    let (code, stdout, stderr) = run(
+        home,
+        &["run", "start", "close-period", "--period", "2026-02"],
+        "",
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let started: Value = serde_json::from_str(&stdout).unwrap();
+    let gate = &started["open_gate"];
+    assert_eq!(gate["gate_id"], "ApproveClose");
+    assert_eq!(gate["bound"], true);
+    assert_eq!(gate["content_hash"], preview["content_hash"]);
+    assert_eq!(gate["snapshot_hash"], started["gates"][0]["snapshot_hash"]);
+    let run_id = started["run_id"].as_str().unwrap();
+    assert!(started["next_command"]
+        .as_str()
+        .unwrap()
+        .contains(&format!("--run-id {run_id} --gate ApproveClose")));
+
+    // `run show` carries the same content; the human form prints it.
+    let (_, stdout, _) = run(home, &["run", "show", "--run-id", run_id], "");
+    let shown: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(shown["open_gate"]["content"], gate["content"]);
+    let out = bin()
+        .arg("--home")
+        .arg(home)
+        .args(["run", "show", "--run-id", run_id])
+        .output()
+        .unwrap();
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("1 voucher(s) #1..#1"), "{text}");
+    assert!(text.contains("1910 Pankkitili"), "{text}");
+
+    let (code, _, stderr) = run(
+        home,
+        &["run", "preview", "file-vat", "--period", "2026-02"],
+        "",
+    );
+    assert_eq!(code, 1);
+    assert_eq!(
+        serde_json::from_str::<Value>(&stderr).unwrap()["error_code"],
+        "UNKNOWN_WORKFLOW"
+    );
+}

@@ -27,18 +27,28 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
    > Sulje maaliskuu.
 
 2. **Agentti tarkistaa kuukauden.** Se käy läpi yllä olevat ehdot ja kertoo,
-   jos jokin puuttuu. Jos puutteita on, korjaa ne ensin. Agentti ei aloita
-   sulkua, ennen kuin kuukausi on valmis tai olet päättänyt, että avoimeksi
+   jos jokin puuttuu. Sulun esikatselu näyttää jo tässä vaiheessa, mitä sulku
+   lukitsisi, muuttamatta mitään. Jos puutteita on, korjaa ne ensin. Agentti
+   ei aloita sulkua, ennen kuin kuukausi on valmis tai olet päättänyt, että avoimeksi
    nimetty asia kirjataan myöhemmin.
 
 3. **Agentti aloittaa sulun.** Kuukausi siirtyy tilaan `closing`. Siihen ei voi
    enää kirjata, ja sulku jää odottamaan hyväksyntääsi.
 
-4. **Tarkista ja hyväksy.** Agentin pitää kertoa, mikä kuukausi suljetaan,
-   montako tositetta siinä on ja täsmääkö pankkitilin saldo. Kysy, jos se ei
-   kerro. Hyväksy, kun tiedät, ettei
-   kuukauteen tarvitse enää kirjata mitään. Hyväksynnän jälkeen kuukausi
-   lukitaan pysyvästi.
+4. **Tarkista ja hyväksy.** Ohjelma kokoaa hyväksyttävän sisällön: kuukauden
+   tositteiden määrän ja numerot, kuukauden tuloksen ja tuloksen tilikauden
+   alusta, tilien saldot kuukauden lopussa (esimerkiksi pankkitili ja
+   ostovelat) ja kuukauden avoimet velvoitteet. Agentti näyttää sen ja kertoo,
+   täsmääkö pankkitili tiliotteeseen, täsmäävätkö ALV-tilit ilmoitukseen ja
+   mitä jää avoimeksi. Kysy, jos se ei
+   kerro. Hyväksy, kun tiedät, ettei kuukauteen tarvitse enää kirjata mitään.
+   Hyväksynnän jälkeen kuukausi lukitaan pysyvästi.
+
+   Hyväksyntä koskee juuri näytettyä sisältöä. Jos kirjanpito muuttuu sen
+   jälkeen (esimerkiksi edelliselle avoimelle kuukaudelle kirjataan tosite,
+   joka muuttaa loppusaldoja), hyväksyntä hylätään koodilla
+   `CLOSE_CONTENT_CHANGED`. Silloin sulku hylätään ja aloitetaan uudelleen,
+   jotta hyväksyt sen, mitä kirjanpito nyt sanoo.
 
    > Hyväksyn sulun.
 
@@ -55,13 +65,18 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
 aggountant obligation list
 aggountant obligation resolve --id <tunniste>
 aggountant file-vat preview --period 2026-03
+aggountant run preview close-period --period 2026-03
 aggountant run start close-period --period 2026-03
+aggountant run show --run-id cp-…
 aggountant run answer --run-id cp-… --gate ApproveClose --answer approve
 aggountant period show --period 2026-03
 ```
 
 Velvoite merkitään ratkaistuksi (`obligation resolve`) vasta, kun asia on
-oikeasti hoidettu. Sulku odottaa hyväksyntää `ApproveClose`. Hylkäys on `--answer reject`, ja se
+oikeasti hoidettu. `run preview` ei muuta mitään; sen `ready` ja `blockers`
+kertovat, voiko sulun aloittaa. Sulku odottaa hyväksyntää `ApproveClose`, ja
+`run start` ja `run show` palauttavat sen sisällön kentässä `open_gate.content`
+sekä vastauskomennon kentässä `next_command`. Hylkäys on `--answer reject`, ja se
 palauttaa kuukauden tilaan `open`. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
 Ennen sulkua `file-vat preview` vastaa `fileable: false` ja huomiokohdalla
 `VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` on oltava `reconciled`,

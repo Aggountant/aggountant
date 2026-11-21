@@ -96,6 +96,11 @@ pub enum ProcessError {
     /// the obligation first (e.g. supply the missing ajopäiväkirja).
     #[error("OPEN_OBLIGATION: {0}")]
     OpenObligation(String),
+    /// `ApproveClose` was answered `approve`, but what its gate showed has changed
+    /// since it opened (an earlier period's entries, an obligation, the chart). The
+    /// close is rejected and started again so the user approves current content.
+    #[error("CLOSE_CONTENT_CHANGED: {0}")]
+    CloseContentChanged(String),
     /// A `close-year` step was refused because a precondition is unmet: a subperiod is
     /// not `Sealed`, must-seal intake/obligations are unresolved, or a D7 correction is
     /// unsealed. The message lists the blockers with stable ids (S6, ADR-5).
@@ -134,6 +139,7 @@ impl ProcessError {
             ProcessError::Ledger(e) => e.error_code(),
             ProcessError::Store(_) => "PROCESS_STORE",
             ProcessError::OpenObligation(_) => "OPEN_OBLIGATION",
+            ProcessError::CloseContentChanged(_) => "CLOSE_CONTENT_CHANGED",
             ProcessError::CloseYearBlocked(_) => "CLOSE_YEAR_BLOCKED",
             ProcessError::IncomesRegister { code, .. } => code,
         }

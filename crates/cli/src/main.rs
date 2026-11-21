@@ -38,8 +38,8 @@ use aggountant_model::{
 };
 use aggountant_process::{
     prepare_structured_receipt, record_structured_receipt, CaptureReceiptInput, CloseYearInput,
-    FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, StructuredReceiptInput,
-    SystemClock, VatReconciliationAcknowledgement,
+    FileVatInput, FileVatStatusPlan, HuntReceiptsInput, ProcessEngine, RunView,
+    StructuredReceiptInput, SystemClock, VatReconciliationAcknowledgement,
 };
 
 /// The Vero transport note, a macro so `input_help` can `concat!` it into the
@@ -682,9 +682,21 @@ enum PeriodCmd {
 
 #[derive(Subcommand, Debug)]
 enum RunCmd {
-    /// Start a Run: `run start close-period --period 2026-Q1`.
+    /// Start a Run: `run start close-period --period 2026-03`. Moves the period
+    /// to Closing at once and returns the ApproveClose gate with `open_gate.content`
+    /// (vouchers, income statement, closing balances, open obligations), the
+    /// `message` and the `next_command` that answers it.
     Start {
-        /// Workflow name (S2: only `close-period`).
+        /// Workflow name (only `close-period`).
+        workflow: String,
+        #[arg(long)]
+        period: String,
+    },
+    /// Preview a close without changing anything: `run preview close-period
+    /// --period 2026-03` returns the content ApproveClose would show, its
+    /// `content_hash`, and whether a close can start now (`ready`, `blockers`).
+    Preview {
+        /// Workflow name (only `close-period`).
         workflow: String,
         #[arg(long)]
         period: String,
@@ -975,6 +987,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | InvalidKnowledge(_)
             | KnowledgeNotFound(_)
             | OpenObligation(_)
+            | CloseContentChanged(_)
             | CloseYearBlocked(_)
             | IncomesRegister { .. } => ErrorClass::CallerActionable,
         };
@@ -1750,28 +1763,24 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             let engine = ProcessEngine::open(&home_path(cli)?);
             match cmd {
                 RunCmd::Start { workflow, period } => {
-                    if workflow != "close-period" {
-                        return Err(CliError::user(
-                            "UNKNOWN_WORKFLOW",
-                            format!("S2 ships only `close-period`, got {workflow:?}"),
-                        ));
-                    }
+                    require_close_period(workflow)?;
                     let period = parse_period(period)?;
                     let view = engine.start_close_period(&period, &PolicySet::default())?;
-                    Ok(serde_json::to_value(view).expect("run view serializes"))
+                    close_period_json(&engine, view)
                 }
-                RunCmd::Show { run_id } => {
-                    Ok(serde_json::to_value(engine.show(run_id)?).expect("run view serializes"))
+                RunCmd::Preview { workflow, period } => {
+                    require_close_period(workflow)?;
+                    let period = parse_period(period)?;
+                    Ok(serde_json::to_value(engine.preview_close_period(&period)?)
+                        .expect("close-period preview serializes"))
                 }
+                RunCmd::Show { run_id } => close_period_json(&engine, engine.show(run_id)?),
                 RunCmd::Answer {
                     run_id,
                     gate,
                     answer,
-                } => Ok(serde_json::to_value(engine.answer(run_id, gate, answer)?)
-                    .expect("run view serializes")),
-                RunCmd::Resume { run_id } => {
-                    Ok(serde_json::to_value(engine.resume(run_id)?).expect("run view serializes"))
-                }
+                } => close_period_json(&engine, engine.answer(run_id, gate, answer)?),
+                RunCmd::Resume { run_id } => close_period_json(&engine, engine.resume(run_id)?),
                 RunCmd::List => Ok(json!({ "runs": engine.list()? })),
                 RunCmd::Migrate { run_id, confirm } => {
                     if !confirm {
@@ -2655,6 +2664,91 @@ fn parse_script_steps(
     Ok(out)
 }
 
+fn require_close_period(workflow: &str) -> Result<(), CliError> {
+    if workflow != "close-period" {
+        return Err(CliError::user(
+            "UNKNOWN_WORKFLOW",
+            format!("`run start` and `run preview` take only `close-period`, got {workflow:?}"),
+        ));
+    }
+    Ok(())
+}
+
+/// A Run view as JSON; a `close-period` Run waiting at `ApproveClose` also
+/// carries the gate's content, `message` and `next_command`.
+fn close_period_json(engine: &ProcessEngine, view: RunView) -> Result<Value, CliError> {
+    Ok(serde_json::to_value(engine.close_period_view(view)?).expect("run view serializes"))
+}
+
+/// The human rendering of close-period content (`run preview`, or the open
+/// `ApproveClose` gate).
+fn close_period_content_human(content: &Value) -> String {
+    let mut out = format!(
+        "period {} ({}..{}): {} voucher(s) #{}..#{}",
+        content["period"].as_str().unwrap_or("?"),
+        content["first_date"].as_str().unwrap_or("?"),
+        content["last_date"].as_str().unwrap_or("?"),
+        content["vouchers"]["count"],
+        content["vouchers"]["first_number"],
+        content["vouchers"]["last_number"],
+    );
+    let income = &content["income_statement"];
+    out.push_str(
+        "
+income statement:",
+    );
+    for row in income["rows"].as_array().into_iter().flatten() {
+        out.push_str(&format!(
+            "
+  {}\t{}",
+            row["label"].as_str().unwrap_or("?"),
+            row["amount"].as_str().unwrap_or("?")
+        ));
+    }
+    out.push_str(&format!(
+        "
+  result {}, since fiscal year start {}",
+        income["result"].as_str().unwrap_or("?"),
+        income["year_to_date_result"].as_str().unwrap_or("?")
+    ));
+    let balance = &content["balance_sheet"];
+    out.push_str(&format!(
+        "
+balances at {}:",
+        balance["date"].as_str().unwrap_or("?")
+    ));
+    for account in balance["accounts"].as_array().into_iter().flatten() {
+        out.push_str(&format!(
+            "
+  {} {}\t{}",
+            account["account"].as_str().unwrap_or("?"),
+            account["account_name"].as_str().unwrap_or("?"),
+            account["balance"].as_str().unwrap_or("?")
+        ));
+    }
+    out.push_str(&format!(
+        "
+  assets {}, equity and liabilities {} (balanced {})",
+        balance["assets_total"].as_str().unwrap_or("?"),
+        balance["equity_liabilities_total"].as_str().unwrap_or("?"),
+        balance["balanced"]
+    ));
+    for obligation in content["open_obligations"].as_array().into_iter().flatten() {
+        out.push_str(&format!(
+            "
+open obligation {}: {}",
+            obligation["id"].as_str().unwrap_or("?"),
+            obligation["description"].as_str().unwrap_or("?")
+        ));
+    }
+    out.push_str(&format!(
+        "
+{}",
+        content["locks"].as_str().unwrap_or("")
+    ));
+    out
+}
+
 /// A short human line for non-`--json` mode (best-effort; JSON is the contract).
 fn human_line(command: &Command, value: &Value) -> String {
     match command {
@@ -2764,10 +2858,32 @@ fn human_line(command: &Command, value: &Value) -> String {
         ),
         Command::Run { cmd } => match cmd {
             RunCmd::List => format!("runs: {}", value["runs"]),
-            _ => format!(
-                "run {} — {} [{}]",
-                value["run_id"], value["status"], value["period"]
+            RunCmd::Preview { .. } => format!(
+                "close preview {} — {} (ready {})\n{}\n{}\nnext: {}",
+                value["period"],
+                value["state"],
+                value["ready"],
+                close_period_content_human(&value["content"]),
+                value["message"].as_str().unwrap_or(""),
+                value["next_command"].as_str().unwrap_or("-")
             ),
+            _ => {
+                let mut line = format!(
+                    "run {} — {} [{}]",
+                    value["run_id"], value["status"], value["period"]
+                );
+                if let Some(gate) = value.get("open_gate") {
+                    line.push_str(&format!(
+                        "\ngate {} (bound {})\n{}\n{}\nnext: {}",
+                        gate["gate_id"].as_str().unwrap_or("?"),
+                        gate["bound"],
+                        close_period_content_human(&gate["content"]),
+                        value["message"].as_str().unwrap_or(""),
+                        value["next_command"].as_str().unwrap_or("-")
+                    ));
+                }
+                line
+            }
         },
         Command::FileVat { cmd } => match cmd {
             FileVatCmd::Preview { .. } => {

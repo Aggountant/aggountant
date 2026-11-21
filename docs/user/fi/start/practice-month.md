@@ -227,11 +227,14 @@ aloittaa sulun:
 
 ```
 run "cp-…" — "awaiting_gate" ["2026-03"]
+gate ApproveClose (bound true)
+period 2026-03 (2026-03-01..2026-03-31): … voucher(s) #1..#…
 ```
 
 Kuukausi on nyt tilassa `closing`. Siihen ei voi enää kirjata, ja sulku odottaa
-hyväksyntääsi. Agentti kertoo, mitä hyväksyminen tarkoittaa: kuukausi
-lukitaan pysyvästi, ja myöhemmin huomatut korjaukset kirjataan seuraavalle
+hyväksyntääsi. Agentti näyttää, mitä hyväksyntä lukitsee: tositteet, kuukauden
+tuloksen ja tilien saldot maaliskuun lopussa. Se kertoo myös, mitä
+hyväksyminen tarkoittaa: kuukausi lukitaan pysyvästi, ja myöhemmin huomatut korjaukset kirjataan seuraavalle
 kuukaudelle. Sano:
 
 > Hyväksyn sulun.

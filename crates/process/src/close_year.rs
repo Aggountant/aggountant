@@ -1487,7 +1487,7 @@ fn parse_date(s: &str) -> Result<Date, ProcessError> {
     Date::parse(s).map_err(|e| ProcessError::JournalCorrupt(format!("bad date {s:?}: {e}")))
 }
 
-fn map_domain(e: aggountant_domain::DomainError) -> ProcessError {
+pub(crate) fn map_domain(e: aggountant_domain::DomainError) -> ProcessError {
     match e {
         aggountant_domain::DomainError::Model(m) => {
             ProcessError::Ledger(aggountant_ledger::LedgerError::Model(m))

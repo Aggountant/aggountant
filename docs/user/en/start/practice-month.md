@@ -239,11 +239,15 @@ are no open obligations. Then it starts the close:
 
 ```
 run "cp-…" — "awaiting_gate" ["2026-03"]
+gate ApproveClose (bound true)
+period 2026-03 (2026-03-01..2026-03-31): … voucher(s) #1..#…
 ```
 
 The month is now in the state `closing`. Nothing more can be recorded in it,
-and the close waits for your approval. The agent tells you what approving
-means: the month is locked permanently, and corrections found later are
+and the close waits for your approval. The agent shows what the approval
+locks: the vouchers, the month's result and the account balances at the end
+of March. It also tells you what approving means: the month is locked
+permanently, and corrections found later are
 recorded in the next month. Say:
 
 > I approve the close.

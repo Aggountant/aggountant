@@ -22,7 +22,7 @@ kentät ja esimerkin ohjeensa INPUT-osiossa. Jokainen komento hyväksyy valitsim
 | `voucher` | tositeluonnos, tarkistus, sinetöinti, haku ja ketjun tarkistus | [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](../tasks/record-other-entries.md), [Korjaa virheellinen tosite](../tasks/correct-voucher.md) |
 | `report statements` | kuukausiraportti HTML- tai JSON-muodossa | [Katso, miten kuukausi meni](../tasks/monthly-report.md) |
 | `obligation` | avoimet velvoitteet ja niiden ratkaiseminen | [Kaudet](../concepts/periods.md#velvoitteet) |
-| `run` | kuukauden sulkuajo: aloitus, hyväksyntä, jatkaminen, tila ja siirto uuteen versioon | [Sulje kuukausi](../tasks/close-month.md) |
+| `run` | kuukauden sulkuajo: esikatselu, aloitus, hyväksyntä, jatkaminen, tila ja siirto uuteen versioon | [Sulje kuukausi](../tasks/close-month.md) |
 | `period` | kauden tila (`open`, `closing`, `sealed`) ja ALV-ilmoituksen tila | [Kaudet](../concepts/periods.md) |
 | `fiscal-year` | tilikauden päivät ja tila (`open`, `sealed`); kalenterivuodesta poikkeavan tilikauden määrittely | [Kaudet](../concepts/periods.md#tilikauden-tila) |
 | `file-vat` | ALV-ilmoituksen esikatselu, suora lähetys, lähetetyn ilmoituksen tila, tilan selvitys ja käsin tehdyn ilmoituksen kirjaus | [Tee ALV-ilmoitus OmaVerossa](../tasks/file-vat-omavero.md), [suoraan](../tasks/file-vat-direct.md) |

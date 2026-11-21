@@ -175,17 +175,17 @@ että neljänneksiä. Myöhemmin löytynyt virhe korjataan tositteella seuraaval
 avoimelle kaudelle; jos virhe muuttaa suljetun kauden ALV:tä, `vero-fi` kertoo
 ensin, miten ilmoitus korjataan.
 
-`aggountant run start close-period` ei ole esikatselu: se siirtää kuukauden
-heti suljettavaksi, eikä sille voi sen jälkeen kirjata. Aloita se vasta, kun
-täsmäytys on tehty, `aggountant obligation list` on tyhjä avoimista (avoin
-velvoite estää sulun) ja käyttäjä on päättänyt, mitä `TODO.md`:n avoimille
-kohdille tehdään.
+`aggountant run preview close-period` näyttää sulun sisällön muuttamatta
+mitään. `aggountant run start close-period` sen sijaan siirtää kuukauden heti
+suljettavaksi, eikä sille voi sen jälkeen kirjata. Aloita se vasta, kun
+täsmäytys on tehty, avoimia velvoitteita ei ole (avoin velvoite estää sulun) ja
+käyttäjä on päättänyt, mitä `TODO.md`:n avoimille kohdille tehdään.
 
-Hyväksyntäportti näyttää vain tiivisteen, joten käyttäjän näkemä ehdotus on
-sinun koottavasi: mikä kuukausi suljetaan, montako tositetta siinä on, tulos ja
-pankkitilin täsmäys raportista, ALV-täsmäytyksen tila, ostovelkojen tila ja mitä
-jää avoimeksi. Vastaa
-porttiin komennolla `aggountant run answer` vasta hänen vastauksensa jälkeen.
+Hyväksyntäportti näyttää, mitä hyväksyntä lukitsee, ja sen tiiviste sitoo juuri
+sen sisällön. Näytä se käyttäjälle ja lisää siihen, mitä ohjelma ei kokoa
+porttiin: täsmääkö pankkitili tiliotteeseen, ALV-täsmäytyksen tila,
+selittyvätkö ostovelat ja mitä jää avoimeksi. Vastaa porttiin komennolla
+`aggountant run answer` vasta hänen vastauksensa jälkeen.
 Avoin kohta ei estä sulkua, jos käyttäjä päättää niin tietäen, että se jää pois
 tämän kauden luvuista ja ilmoituksesta. Hylkäys palauttaa kuukauden avoimeksi
 eikä poista mitään, joten se on oikea vastaus, kun kuukaudelle halutaan vielä
