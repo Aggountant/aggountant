@@ -359,26 +359,40 @@ enum CloseYearCmd {
     /// accruals + corrections); computes poistot and parks on `ApproveAdjustments`.
     #[command(after_help = input_help::CLOSE_YEAR_START)]
     Start,
-    /// Answer a check-gate (`--gate ApproveAdjustments|ApproveTaseErittelyt|
-    /// ApproveLiitetiedot|ApproveStatements --answer approve|reject`).
+    /// Answer the run's open gate with an explicit `--answer approve|reject`; there
+    /// is no default. The gates open in this order: `ApproveAdjustments` (approving
+    /// seals the depreciation and accrual vouchers into the books, permanently: a
+    /// sealed voucher is corrected only by a new one), `ApproveTaseErittelyt`,
+    /// `ApproveLiitetiedot`, and `ApproveStatements` (approving seals the fiscal
+    /// year; this cannot be undone). Read the gate with `close-year show` first.
+    /// `reject` declines the close and ends the run; start a new run after fixing
+    /// the books.
     Answer {
+        /// The run to answer, as returned by `close-year start` (`cy-…`).
         #[arg(long)]
         run_id: String,
+        /// The open gate: ApproveAdjustments, ApproveTaseErittelyt,
+        /// ApproveLiitetiedot or ApproveStatements.
         #[arg(long)]
         gate: String,
-        #[arg(long, default_value = "approve")]
+        /// `approve` or `reject`. Required: approving ApproveStatements seals the
+        /// fiscal year irreversibly, so no answer is ever assumed.
+        #[arg(long)]
         answer: String,
     },
     /// Seal one D7 pre-close correction on its own approval (`--correction <id>`).
     SealCorrection {
+        /// The run whose correction is sealed (`cy-…`).
         #[arg(long)]
         run_id: String,
+        /// The correction's `correction_id` from the `close-year start` input.
         #[arg(long)]
         correction: String,
     },
     /// Resume an interrupted run (reconciles `SealYear` to fiscal; lands at the
     /// correct gate).
     Resume {
+        /// The run to resume (`cy-…`).
         #[arg(long)]
         run_id: String,
     },
@@ -386,6 +400,7 @@ enum CloseYearCmd {
     /// depreciation and accruals, tase-erittelyt, liitetiedot or the statements,
     /// exactly as the gate's `snapshot_hash` binds them.
     Show {
+        /// The run to show (`cy-…`).
         #[arg(long)]
         run_id: String,
     },
