@@ -39,7 +39,7 @@ allowances it gives a health insurance contribution of €0:
    The agent writes the home file `.aggountant/tulorekisteri.json` with
    production mode, the Business ID and your confirmation that the reporting
    permission has been granted. There is no command for this file, so the
-   agent writes it as the `vero-fi` skill instructs. **Confirm the permission
+   agent writes it as the `tulorekisteri` skill instructs. **Confirm the permission
    only once it has been granted**, not when the application has been sent.
 
 2. **Add the income earner to the employee register.** The income earner's

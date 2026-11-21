@@ -43,7 +43,7 @@ Avaa vain sen palvelun tiedosto, jonka sivulla olet:
   asetukset ovat käyttäjän.
 
 Tämä skilli kertoo vain, miten sivuja käytetään. Mitä palvelusta haetaan ja miksi on
-tehtäväskillissä (esimerkiksi `vero-fi` kertoo raportin 630 rajaukset, koska ne
+tehtäväskillissä (esimerkiksi `tulorekisteri` kertoo raportin 630 rajaukset, koska ne
 ratkaisevat, onko tuonti oikein). Yrityksen oma käytäntö, kuten kuka kirjautuu tai
 mikä pankkitili on käytössä, on `knowledge company`-tiedoissa.
 

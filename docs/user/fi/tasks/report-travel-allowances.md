@@ -38,7 +38,7 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
    Agentti kirjoittaa kodin tiedostoon `.aggountant/tulorekisteri.json`
    tuotantotilan, Y-tunnuksen ja vahvistuksesi siitä, että ilmoitusoikeus on
    myönnetty. Tiedostolle ei ole omaa komentoa, joten agentti kirjoittaa sen
-   `vero-fi`-skillin ohjeen mukaan. **Vahvista oikeus vasta, kun se on
+   `tulorekisteri`-skillin ohjeen mukaan. **Vahvista oikeus vasta, kun se on
    myönnetty**, ei silloin kun hakemus on lähetetty.
 
 2. **Lisää tulonsaaja työntekijärekisteriin.** Tulonsaajan tiedot ovat

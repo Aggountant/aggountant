@@ -22,15 +22,16 @@ fn list_exposes_bundled_skill_metadata_in_text_and_json() {
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(payload["schema_version"], 1);
     assert_eq!(payload["skills"][0]["name"], "capture-receipt");
-    assert_eq!(payload["skills"].as_array().unwrap().len(), 5);
+    assert_eq!(payload["skills"].as_array().unwrap().len(), 6);
     assert_eq!(payload["skills"][1]["name"], "aggountant-init");
     assert_eq!(payload["skills"][2]["name"], "vero-fi");
-    assert_eq!(payload["skills"][3]["name"], "e-services");
+    assert_eq!(payload["skills"][3]["name"], "tulorekisteri");
+    assert_eq!(payload["skills"][4]["name"], "e-services");
     assert_eq!(
-        payload["skills"][3]["path_in_repo"],
+        payload["skills"][4]["path_in_repo"],
         "skills/e-services/SKILL.md"
     );
-    assert_eq!(payload["skills"][4]["name"], "close-year");
+    assert_eq!(payload["skills"][5]["name"], "close-year");
     assert_eq!(
         payload["skills"][0]["cli_version"],
         env!("CARGO_PKG_VERSION")
@@ -65,7 +66,7 @@ fn install_supports_an_explicit_runtime_root_and_all_by_default() {
     assert_eq!(output.status.code(), Some(0));
     assert!(output.stderr.is_empty());
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(payload["count"], 5);
+    assert_eq!(payload["count"], 6);
     assert_eq!(payload["installed"][0]["action"], "created");
 
     let installed = target.path().join("capture-receipt").join("SKILL.md");
@@ -231,14 +232,28 @@ fn selected_vero_fi_installs_its_shared_role_and_e_services() {
     let output = invoke(&args);
     assert_eq!(output.status.code(), Some(0));
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(payload["count"], 3);
+    assert_eq!(payload["count"], 4);
     let names: Vec<_> = payload["installed"]
         .as_array()
         .unwrap()
         .iter()
         .map(|entry| entry["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["vero-fi", "aggountant-init", "e-services"]);
+    // An install that knew `vero-fi` before the split still gets the Incomes
+    // Register skill, and the VAT skill's own reference files.
+    assert_eq!(
+        names,
+        ["vero-fi", "aggountant-init", "e-services", "tulorekisteri"]
+    );
+    for file in [
+        "vero-fi/kayttoonotto.md",
+        "vero-fi/hairiot.md",
+        "tulorekisteri/SKILL.md",
+        "tulorekisteri/kayttoonotto.md",
+        "tulorekisteri/kiinnikurominen.md",
+    ] {
+        assert!(target.path().join(file).is_file(), "{file}");
+    }
     assert_eq!(
         payload["installed"][2]["files"].as_array().unwrap().len(),
         E_SERVICES.len()
@@ -378,9 +393,12 @@ fn list_json_names_each_skill_file_and_requirement() {
     assert_eq!(init["files"], serde_json::json!(["SKILL.md", "SOUL.md"]));
     assert_eq!(init["requires"], serde_json::json!([]));
     let vero = &payload["skills"][2];
-    assert_eq!(vero["files"], serde_json::json!(["SKILL.md"]));
+    assert_eq!(
+        vero["files"],
+        serde_json::json!(["SKILL.md", "kayttoonotto.md", "hairiot.md"])
+    );
     assert_eq!(
         vero["requires"],
-        serde_json::json!(["aggountant-init", "e-services"])
+        serde_json::json!(["aggountant-init", "e-services", "tulorekisteri"])
     );
 }

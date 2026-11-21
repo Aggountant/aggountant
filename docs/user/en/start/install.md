@@ -30,13 +30,14 @@ them once, and again every time you upgrade the program.
 
    > Install aggountant's skills.
 
-   There are five skills:
+   There are six skills:
 
    | Skill | What the agent uses it for |
    |---|---|
    | `aggountant-init` | setting up a company home, or continuing an unfinished setup |
    | `capture-receipt` | the month's books: receipts, the bank statement, special entries, reconciliation and the month close |
-   | `vero-fi` | setting up direct VAT filing, the VAT return and Tulorekisteri travel allowances |
+   | `vero-fi` | the VAT return to the Tax Administration and setting up direct VAT filing |
+   | `tulorekisteri` | the Incomes Register travel allowance report and the employer's separate report |
    | `close-year` | closing a fiscal year: the year-end entries, the approvals and sealing the year |
    | `e-services` | working OmaVero and the Incomes Register e-service in your browser: how their pages behave, as dated observations |
 
@@ -64,14 +65,15 @@ If you already have the source code, install from its root with
 content without installing anything; `--file` shows its other files, such
 as the shared role `SOUL.md`. When you install `capture-receipt` on
 its own, `aggountant-init` comes with it, because they share a role
-description. `vero-fi` also brings `e-services`, which it relies on for
-the steps done in the authorities' web services.
+description. `vero-fi` and `tulorekisteri` also bring each other and
+`e-services`, which they rely on for the steps done in the authorities' web
+services.
 </details>
 
 ## Done when
 
 - `aggountant --version` prints the version, for example `aggountant 0.1.0`.
-- `aggountant skill list` lists five skills, and they are in the agent's
+- `aggountant skill list` lists six skills, and they are in the agent's
   skill directory.
 
 The skills are written in Finnish, but you can talk to the agent in English.

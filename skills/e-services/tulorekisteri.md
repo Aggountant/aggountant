@@ -12,7 +12,7 @@ Merkintöjen muoto, tuoreus ja raja tiedon ja luvan välillä ovat
 
 Raportti tilataan, sitä ei ladata suoraan: valitse Uusi tilaus ja raportiksi
 *Maksajan palkkatietojen yhteenveto (csv)* (630). Rajaukset (kohdekausi, kieli,
-vastaanottohetki) tulevat tehtäväskillistä; `vero-fi` kertoo ne ja syyn niille.
+vastaanottohetki) tulevat tehtäväskillistä; `tulorekisteri` kertoo ne ja syyn niille.
 Tilaus ei anna tiedostoa heti; valmis raportti haetaan Tehdyt tilaukset -sivulta
 (`tulorekisteri-raportti-lataus`).
 

@@ -64,9 +64,19 @@ const SKILLS: &[BundledSkill] = &[
     },
     BundledSkill {
         name: "vero-fi",
-        description: "Prepare, verify, and safely operate direct own-organisation Vero.fi filing.",
-        files: skill_files!("vero-fi": "SKILL.md"),
-        requires: &["aggountant-init", "e-services"],
+        description: "File the company's VAT return with the Tax Administration, directly or by hand, and settle an uncertain filing.",
+        files: skill_files!("vero-fi": "SKILL.md", "kayttoonotto.md", "hairiot.md"),
+        // `tulorekisteri` held the Incomes Register half of this skill until the
+        // split: an install that names only `vero-fi` must still receive it.
+        requires: &["aggountant-init", "e-services", "tulorekisteri"],
+        schema_version: 1,
+    },
+    BundledSkill {
+        name: "tulorekisteri",
+        description: "Report tax-free travel allowances and the monthly employer's separate report to the Incomes Register.",
+        files: skill_files!("tulorekisteri": "SKILL.md", "kayttoonotto.md", "kiinnikurominen.md"),
+        // `vero-fi` describes the credential file both channels share.
+        requires: &["aggountant-init", "e-services", "vero-fi"],
         schema_version: 1,
     },
     BundledSkill {
@@ -521,7 +531,12 @@ aggountant file-vat help status
         };
         assert_eq!(
             names("vero-fi"),
-            ["vero-fi", "aggountant-init", "e-services"]
+            ["vero-fi", "aggountant-init", "e-services", "tulorekisteri"]
+        );
+        // The two filing skills link to each other; the cycle ends.
+        assert_eq!(
+            names("tulorekisteri"),
+            ["tulorekisteri", "aggountant-init", "e-services", "vero-fi"]
         );
         assert_eq!(
             names("capture-receipt"),

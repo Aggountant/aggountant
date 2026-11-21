@@ -184,4 +184,5 @@ kuukauden ajon: siihen vastataan, uutta ei aloiteta.
 
 Suljetusta kaudesta annetaan ALV-ilmoitus, ja työnantajarekisterissä oleva
 yritys antaa Tulorekisteriin erillisilmoituksen joka kuukausi, myös ilman
-maksuja. Molemmat ovat `vero-fi`-skillin työtä.
+maksuja. ALV-ilmoitus on `vero-fi`-skillin ja erillisilmoitus
+`tulorekisteri`-skillin työtä.

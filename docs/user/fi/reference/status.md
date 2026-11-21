@@ -160,7 +160,7 @@ palkkatosite aggountantiin:
   saa antaa seuraavana pankkipäivänä
   ([Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md)).
 - **Tulorekisteri-profiilille ei ole omaa komentoa.** Agentti kirjoittaa sen
-  `vero-fi`-skillin ohjeen mukaan.
+  `tulorekisteri`-skillin ohjeen mukaan.
 - **Työntekijärekisteriä ei ole salattu.** Tiedot tallentuvat selkokielisinä.
   Suojana on vain se, että tiedosto pidetään erillään gitistä. Pidä
   kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.

@@ -109,5 +109,5 @@ maintainer keeps when editing entries:
 - **Age never fails the build.** The test checks form and order of the dates,
   never against today; an entry older than 180 days is a lead the skill tells
   the agent to treat with caution.
-- **What to obtain and why stays in the task skill** (`vero-fi` keeps the
+- **What to obtain and why stays in the task skill** (`tulorekisteri` keeps the
   report 630 parameters), which links to the entry for how to work the page.

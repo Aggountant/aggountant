@@ -30,13 +30,14 @@ kerran ja uudelleen aina, kun päivität ohjelman.
 
    > Asenna aggountantin skillit.
 
-   Skillejä on viisi:
+   Skillejä on kuusi:
 
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
-   | `vero-fi` | suoran ALV-ilmoittamisen käyttöönotto, ALV-ilmoitus ja Tulorekisterin matkakorvaukset |
+   | `vero-fi` | ALV-ilmoitus Verohallinnolle ja suoran ALV-ilmoittamisen käyttöönotto |
+   | `tulorekisteri` | Tulorekisterin matkakorvausilmoitus ja työnantajan erillisilmoitus |
    | `close-year` | tilikauden päättäminen: tilinpäätöksen kirjaukset, hyväksynnät ja tilikauden sinetöinti |
    | `e-services` | OmaVeron ja Tulorekisterin asiointipalvelun käyttö selaimessasi: miten sivut toimivat, päivättyinä havaintoina |
 
@@ -64,14 +65,14 @@ Jos lähdekoodi on jo koneellasi, asennus tehdään sen juuresta komennolla
 sisällön asentamatta mitään; `--file` näyttää sen muut tiedostot, kuten
 yhteisen roolikuvauksen `SOUL.md`. Kun asennat pelkän `capture-receipt`-skillin,
 mukaan tulee myös `aggountant-init`, koska niillä on yhteinen roolikuvaus.
-`vero-fi` tuo lisäksi `e-services`-skillin, jonka varassa se tekee
-viranomaisten verkkopalveluissa tehtävät vaiheet.
+`vero-fi` ja `tulorekisteri` tuovat lisäksi toisensa ja `e-services`-skillin,
+jonka varassa ne tekevät viranomaisten verkkopalveluissa tehtävät vaiheet.
 </details>
 
 ## Valmis, kun
 
 - `aggountant --version` näyttää version, esimerkiksi `aggountant 0.1.0`.
-- `aggountant skill list` listaa viisi skilliä, ja ne löytyvät agentin
+- `aggountant skill list` listaa kuusi skilliä, ja ne löytyvät agentin
   skillihakemistosta.
 
 Skillit on kirjoitettu suomeksi, mutta voit puhua agentille myös englanniksi.
