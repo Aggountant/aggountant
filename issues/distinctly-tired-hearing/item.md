@@ -17,6 +17,7 @@ assessment_outcome: SPIN_OFF
 review_target: skills/aggountant-init/SKILL.md
 lane: chart-decisions
 lane_seq: 0
+preparation: ready
 ---
 
 # Set-up offers keeping the previous chart of accounts, but no path installs one
@@ -48,3 +49,12 @@ A decision on what v1 supports, then one of: a documented path for a company
 chart (command or guide page the skill can point to), or the question removed
 from the skill and the guide so set-up maps source accounts to the default
 chart and says which distinctions that loses.
+
+## Decision (2026-11-21, Jari Mustonen)
+
+Remove the choice. Set-up states that aggountant uses its default chart and
+that the previous system's accounts are mapped onto it in the opening voucher
+(as the first production company did). The skill (`aggountant-init`), the
+guide's `start/set-up-company.md` (fi, en) and `tasks/upgrade.md`'s mention of
+"a company's own chart" change accordingly. Importing a company's own chart
+stays with `sie4-chart-import` for when a user actually needs it.

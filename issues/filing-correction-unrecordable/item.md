@@ -3,7 +3,7 @@ created: 2026-11-21
 updated: 2026-11-21
 type: bug
 status: open
-priority: normal
+priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yj1dwxfz2vr4z5h867tt8t/review-finding:sha1:d8cfb3cf331def517313168ed7b13c00e28ecadd
 review_source: ai-review
@@ -75,3 +75,33 @@ ohjelma ei kirjaa, vaikka komento onnistuu…") and `skills/vero-fi/SKILL.md`
 note it in the home; remove those sentences when the program records or refuses.
 The sentence in `skills/e-services/SKILL.md` that says a correction is recorded
 with `complete-manual` needs the same change.
+
+## Decision (2026-11-21, Jari Mustonen)
+
+Correcting an accepted filing in the e-service is not the product's way. A
+correction goes through aggountant, like the original filing: previewed,
+approved by the user, sent through the API, receipted and recorded. The
+e-service stays a fallback for what the API cannot do, not the documented
+route.
+
+This issue therefore covers:
+
+1. **Never silent.** `file-wage complete-manual` on an already accepted Run
+   refuses with its own code and a message that nothing was recorded (and why),
+   instead of exit 0. Same principle for any other path that today accepts
+   and discards evidence.
+2. **Corrections through aggountant.** Find, from the authorities' API
+   documentation, what each channel supports: a replacement Tulorekisteri
+   earnings payment report (travel allowances) and its cancellation; a
+   corrected (replacement) VAT return through Vero API (`FileVATReturn` for an
+   already filed period). Build the correction as its own previewed and
+   approved action wherever the API supports it, with the same outbox,
+   reconciliation and "never resend on a guess" rules as the original. If one
+   channel needs more than one slice, land the other channel and file the rest
+   as a follow-up issue with the API facts.
+3. **Guidance.** The skills and the guide stop sending the user to the
+   e-service for corrections the program can make; where the API cannot, they
+   say so and say how the program records the e-service fallback.
+
+The employer's separate report cancellation stays in
+`employer-report-record-cancellation`, but should follow the same decision.
