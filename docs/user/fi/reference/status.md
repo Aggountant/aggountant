@@ -209,6 +209,9 @@ Tilikauden sinetöinti on peruuttamaton. Tee näin:
   (`home-backup-coverage`).
 - **Monivuotisen historian tuonti ei ole valmis.** Käyttöönotto alkaa
   avaavista saldoista (`historical-import`).
+- **Yrityksen omaa tilikarttaa ei voi tuoda.** Kirjanpito käyttää
+  oletustilikarttaa, ja vanhan järjestelmän tilit muunnetaan sille avaavassa
+  tositteessa (`sie4-chart-import`).
 - **Testiympäristön muuttuja voi merkitä ilmoituksen tehdyksi.**
   `AGGOUNTANT_BROKER_SCRIPT` on tarkoitettu vain ohjelman testaukseen. Jos se
   on asetettuna, `file-vat` voi merkitä kauden ilmoitetuksi, vaikka mitään ei

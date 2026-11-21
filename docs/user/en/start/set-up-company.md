@@ -35,19 +35,23 @@ unfinished setup can be continued later.
    [The company home: what is stored where](../concepts/company-home.md).
 
 3. **Give the basic details.** The agent asks for the company's official
-   name, Business ID, fiscal year, the date the aggountant books start from,
-   and whether to continue the old system's chart of accounts. It saves your
-   answers with their sources in the company knowledge store. Give a trade
-   register extract or a report from the old system as the source, not an
-   answer from memory: this information guides the agent's work later. If the
+   name, Business ID, fiscal year and the date the aggountant books start
+   from. It saves your answers with their sources in the company knowledge
+   store. Give a trade register extract or a report from the old system as
+   the source, not an answer from memory: this information guides the
+   agent's work later. If the
    fiscal year is not the calendar year, the agent also records it in the
    books (`fiscal-year define`) before the first voucher. It defines the
    fiscal year the first voucher falls in; later years follow on their own.
 
 4. **Check and approve the opening balances.** If the company comes from
    another system, the agent records the old system's balances as one
-   ordinary voucher and attaches the balance list to it. Before you approve,
-   check:
+   ordinary voucher and attaches the balance list to it. The books use
+   aggountant's default chart of accounts, so the agent maps the old system's
+   accounts onto it and saves the mapping in the home. Several old accounts
+   may merge into one; the agent tells you which distinctions are lost that
+   way, and the mapping file shows where each balance came from. Before you
+   approve, check:
    - The voucher is dated **the old system's last day**. If it is dated the
      first day of the new books, the whole earlier result shows up as the
      first month's result.
@@ -144,8 +148,10 @@ The default home is set in the configuration file whose location
 
 - Importing several years of history from an old system is not ready. The
   setup starts from opening balances.
-- `init` does not repair or update an old home, and there is no separate
-  upgrade command.
+- The old system's chart of accounts cannot be imported. The books use the
+  default chart (`fi-general-2026`).
+- `init` does not repair or update an old home; the upgrade does that
+  ([Upgrade aggountant](../tasks/upgrade.md)).
 
 More detail: [What is ready and what is not](../reference/status.md).
 

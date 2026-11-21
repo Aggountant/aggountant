@@ -74,9 +74,8 @@ aggountant run migrate --run-id cp-… --confirm
 ## Rajoitukset
 
 - Päivitys ei korjaa eikä korvaa tiedostoa, joka on kodissa eri sisältöisenä
-  kuin ohjelman mukana tuleva. Jos yrityksellä on oma tilikartta, jolle
-  ohjelman mukana ei tule ALV-rooleja tai maksutilien rooleja, päivitys ei
-  voi lisätä niitä (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
+  kuin ohjelman mukana tuleva. Jos kodin tilikartalle ei tule ohjelman
+  mukana ALV-rooleja tai maksutilien rooleja, päivitys ei voi lisätä niitä (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua projektin
   [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
 
 ## Katso myös

@@ -72,9 +72,9 @@ aggountant run migrate --run-id cp-… --confirm
 ## Limitations
 
 - The upgrade does not fix or replace a file that differs in the home from
-  the one that comes with aggountant. If the company has its own chart of
-  accounts for which aggountant brings no VAT roles or settlement roles, the
-  upgrade cannot add them (`unavailable`). Do not copy files by hand; ask for help in the
+  the one that comes with aggountant. If the home's chart of accounts is one
+  for which aggountant brings no VAT roles or settlement roles, the upgrade
+  cannot add them (`unavailable`). Do not copy files by hand; ask for help in the
   project's [issue tracker](https://github.com/aggountant/aggountant/issues).
 
 ## See also

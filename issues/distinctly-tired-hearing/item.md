@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: improvement
-status: open
+status: done
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m7yfttmj4acrkhe2exge2c7b/review-finding:chart-retention-no-path
@@ -18,6 +18,7 @@ review_target: skills/aggountant-init/SKILL.md
 lane: chart-decisions
 lane_seq: 0
 preparation: ready
+closed: 2026-11-21
 ---
 
 # Set-up offers keeping the previous chart of accounts, but no path installs one
@@ -58,3 +59,9 @@ that the previous system's accounts are mapped onto it in the opening voucher
 guide's `start/set-up-company.md` (fi, en) and `tasks/upgrade.md`'s mention of
 "a company's own chart" change accordingly. Importing a company's own chart
 stays with `sie4-chart-import` for when a user actually needs it.
+
+## Resolution
+
+### 2026-11-21T10:21:44Z · @issuectl
+
+Choice removed from set-up; skill and guide say the default chart is used and old accounts are mapped in the opening voucher. See result.md.

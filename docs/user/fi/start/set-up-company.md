@@ -33,9 +33,8 @@ myöhemmin.
    [Yrityskoti: mitä tallentuu minne](../concepts/company-home.md).
 
 3. **Kerro perustiedot.** Agentti kysyy yrityksen virallisen nimen, Y-tunnuksen,
-   tilikauden, päivän, josta aggountant-kirjanpito alkaa, ja jatketaanko vanhan
-   järjestelmän tilikarttaa. Se tallentaa vastaukset lähteineen yrityksen
-   tietovarastoon. Anna lähteeksi kaupparekisteriote tai vanhan järjestelmän
+   tilikauden ja päivän, josta aggountant-kirjanpito alkaa. Se tallentaa
+   vastaukset lähteineen yrityksen tietovarastoon. Anna lähteeksi kaupparekisteriote tai vanhan järjestelmän
    raportti, ei muistinvaraista vastausta: tieto ohjaa myöhemmin agentin työtä.
    Jos tilikausi ei ole kalenterivuosi, agentti kirjaa sen myös kirjanpitoon
    (`fiscal-year define`) ennen ensimmäistä tositetta. Se määrittelee
@@ -44,7 +43,11 @@ myöhemmin.
 
 4. **Tarkista ja hyväksy avaavat saldot.** Jos yritys tulee toisesta
    järjestelmästä, agentti kirjaa vanhan järjestelmän saldot yhtenä
-   tavallisena tositteena ja liittää saldoluettelon siihen. Tarkista ennen
+   tavallisena tositteena ja liittää saldoluettelon siihen. Kirjanpito
+   käyttää aggountantin oletustilikarttaa, joten agentti muuntaa vanhan
+   järjestelmän tilit sille ja tallentaa muunnoksen kotiin. Usea vanha tili
+   voi yhdistyä yhdeksi; agentti kertoo, mitkä erottelut näin katoavat, ja
+   muunnostiedostosta näet, mistä kukin saldo tuli. Tarkista ennen
    hyväksyntää:
    - Tositteen päivä on **vanhan järjestelmän viimeinen päivä**. Jos se
      päivätään uuden kirjanpidon ensimmäiselle päivälle, koko aiempi tulos
@@ -137,8 +140,10 @@ Tiedosto on JSON-muotoinen: `{"home": "/polku/kotiin"}`.
 
 - Monivuotisen historian tuonti vanhasta järjestelmästä ei ole valmis.
   Käyttöönotto alkaa avaavista saldoista.
-- `init` ei korjaa eikä päivitä vanhaa kotia, eikä erillistä päivityskomentoa
-  ole.
+- Vanhan järjestelmän tilikarttaa ei voi tuoda. Kirjanpito käyttää
+  oletustilikarttaa (`fi-general-2026`).
+- `init` ei korjaa eikä päivitä vanhaa kotia; se tehdään päivityksellä
+  ([Päivitä aggountant](../tasks/upgrade.md)).
 
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md).
 

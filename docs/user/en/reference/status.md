@@ -211,6 +211,9 @@ Sealing the fiscal year cannot be undone. Do this:
   (`home-backup-coverage`).
 - **Importing several years of history is not ready.** The setup starts from
   opening balances (`historical-import`).
+- **A company's own chart of accounts cannot be imported.** The books use the
+  default chart, and the old system's accounts are mapped onto it in the
+  opening voucher (`sie4-chart-import`).
 - **A test-environment variable can mark a return as filed.**
   `AGGOUNTANT_BROKER_SCRIPT` is meant only for testing the program. If it is
   set, `file-vat` can mark a period as filed even though nothing was sent.

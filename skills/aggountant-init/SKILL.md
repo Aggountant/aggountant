@@ -26,10 +26,9 @@ lähdeaineistosta ja käyttäjältä.
 ## Perustiedot ja tilikausi
 
 Tallenna `knowledge company`-tietueiksi virallinen nimi ja Y-tunnus, tilikausi, aiemman
-järjestelmän viimeinen päivä ja aggountant-kirjanpidon ensimmäinen, sekä
-tilikarttapäätös: jatketaanko aiempaa tilikarttaa vai siirrytäänkö oletustilikarttaan.
-Kaikki myöhempi työ lukee nämä ensin, joten rekisteriote tai aiemman järjestelmän
-raportti on parempi lähde kuin muistinvarainen vastaus.
+järjestelmän viimeinen päivä ja aggountant-kirjanpidon ensimmäinen. Kaikki myöhempi työ
+lukee nämä ensin, joten rekisteriote tai aiemman järjestelmän raportti on parempi lähde
+kuin muistinvarainen vastaus.
 
 Ohjelma olettaa tilikaudeksi kalenterivuoden. Jos se on muu, määrittele
 `aggountant fiscal-year define`lla se tilikausi, johon ensimmäinen tosite osuu, ennen
@@ -66,11 +65,12 @@ riippuu siirtymän hetkestä:
   uuden tilikauden ensimmäiselle päivälle. Siinä on vain tasetilejä, joten kuukauden
   tulos ei vääristy, eikä edellisen kohdan ehtoa tarvita.
 
-Aiemman järjestelmän tilit eivät vastaa aggountantin tilejä yksi yhteen, ja usea
-lähdetili yhdistyy usein yhdeksi. Kirjaa muunnos omaksi tiedostokseen kotiin niin, että
-jokainen lähdetili on siinä kerran summineen ja summat täsmäävät sekä lähderaporttiin
-että avaavaan tositteeseen; muuten erittely katoaa. Pidä verotili ja osakasvelat eri
-tileillä, jos tilikartta sen sallii: yhdistettyinä niitä ei saa myöhemmin täsmäytettyä.
+Kirjanpito käyttää aina oletustilikarttaa, ja aiemman järjestelmän tilit muunnetaan sille
+avaavassa tositteessa. Kirjaa muunnos omaksi tiedostokseen kotiin niin, että jokainen
+lähdetili on siinä kerran summineen ja summat täsmäävät sekä lähderaporttiin että
+avaavaan tositteeseen; muuten erittely katoaa. Kerro käyttäjälle, mitkä erottelut
+yhdistyvät. Jos verotili ja osakasvelat osuisivat samalle tilille, sovi niiden erottelu:
+yhdistettyinä niitä ei saa myöhemmin täsmäytettyä.
 ALV-tilien avaava saldo on aiempien kausien veroa ja näkyy ensimmäisen ALV-ilmoituksen täsmäytyksessä
 merkitsemättömänä vientinä; `vero-fi`-skilli kertoo, miten se kuitataan.
 
