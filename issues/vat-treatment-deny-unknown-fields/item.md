@@ -2,7 +2,7 @@
 created: 2026-11-21
 updated: 2026-11-21
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: ai-review
 source_ref: taskfleet:01m7yedg2ttbhyra7g89krq6t7/review-finding:vat-treatment-unknown-fields
@@ -20,6 +20,7 @@ lane: vat-roles
 lane_seq: 0
 collision: [crates/domain/src/vat/expand.rs]
 preparation: ready
+closed: 2026-11-21
 ---
 
 # VatTreatment accepts unknown fields: a misplaced deductibility on bank import is silently ignored
@@ -63,3 +64,9 @@ refused" from the `import camt053 seal` INPUT help
 (`crates/cli/src/input_help.rs`).
 
 Found by the review of `cli-stdin-input-help`.
+
+## Resolution
+
+### 2026-11-21T15:00:06Z · @issuectl
+
+Fixed: VatTreatment refuses members of other variants (including on no-vat); see result.md.
