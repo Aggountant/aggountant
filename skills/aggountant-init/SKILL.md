@@ -2,187 +2,135 @@
 name: aggountant-init
 description: >-
   Ota yrityksen kirjanpito käyttöön aggountantissa tai jatka keskeneräistä
-  käyttöönottoa: uusi kirjanpitokoti, yrityksen perustiedot, siirto aiemmasta
-  järjestelmästä ja avaavat saldot, aineistolähteiden kuvaus.
+  käyttöönottoa: uusi kirjanpitokoti, yrityksen perustiedot, tilikausi, siirto
+  aiemmasta järjestelmästä ja avaavat saldot, kodin AGENTS.md ja TODO.md.
 cli_version: "0.1.0"
 schema_version: 1
 ---
 
 # Kirjanpidon käyttöönotto
 
-Lue ensin [SOUL.md](SOUL.md), joka kuvaa roolisi kirjanpitoavustajana ja
-`aggountant`-työvälineesi (`aggountant skill print aggountant-init --file SOUL.md`).
+Lue ensin [SOUL.md](SOUL.md): roolisi, kirjanpitokodin pelisäännöt, se mikä tässä
+työssä on pysyvää, ja miten työkalua luetaan.
 
-Käyttöönotto on valmis, kun yrityksen kirjanpitoa voi jatkaa aggountantissa ilman että
-kukaan selvittää enää, mikä yritys tämä on, mistä sen tilikausi ja saldot alkavat ja
-mistä aineisto tulee. Sama skilli palvelee sekä uuden yrityksen käyttöönottoa että
-keskeneräisen jatkamista: katso ensin, mitä kodissa jo on (`aggountant config show`,
-`chart list`, `voucher verify`, `knowledge company list`, kodin `AGENTS.md` ja
-`TODO.md`), ja jatka siitä.
+Käyttöönotto on valmis, kun kirjanpitoa voi jatkaa ilman että kukaan selvittää enää,
+mikä yritys tämä on, mistä sen tilikausi ja saldot alkavat ja mistä aineisto tulee.
+Keskeneräistä käyttöönottoa jatketaan samasta: katso ensin, mitä kodissa jo on.
 
-## Tekninen alustus on pieni osa työtä
+`aggountant init` on tästä pieni osa. Se luo kodin tallennusrakenteet, oletustilikartan
+ja `.gitignore`-tiedoston, joka rajaa ohjelman omat tietokannat ja liitteet pois
+versionhallinnasta. Yrityksestä se ei kysy mitään, eikä se alusta git-repositoriota:
+kodin sijainti ja versionhallinta sovitaan käyttäjän kanssa. Kaikki muu kerätään
+lähdeaineistosta ja käyttäjältä.
 
-`aggountant init` luo kirjanpitokodin tallennusrakenteet, oletustilikartan ja
-`.gitignore`-tiedoston, joka rajaa tositetietokannan, liiteblobit ja PII-varaston pois
-versionhallinnasta. Se ei kysy eikä tallenna yrityksen nimeä, Y-tunnusta, tilikautta,
-katkaisupäivää tai aiemman järjestelmän tietoja, eikä se alusta git-repositoriota.
-Kodin sijainnin ja sen versionhallinnan sovit käyttäjän kanssa; kodin etsintäjärjestys
-on `aggountant --help`-ohjeessa. Komento kieltäytyy ajamasta olemassa olevaan kotiin,
-joten se ei ole tapa korjata tai päivittää vanhaa kotia.
+## Perustiedot ja tilikausi
 
-Kun aggountant on päivitetty, tai olemassa oleva koti antaa `MASTERDATA_CORRUPT`, aja
-`aggountant --json home upgrade --dry-run` ja kerro käyttäjälle, mitä se lisäisi; sitten
-`home upgrade --apply`. Se lisää vain puuttuvat ohjelman mukana tulevat tilikarttakopiot,
-ALV-roolit ja maksutilien roolit (`settlement-account-roles.json`) eikä koske olemassa oleviin tiedostoihin tai käytössä olevaan
-tilikarttaan. `skipped`-rivi (`differs` tai `unavailable`) ja `masterdata_opens: false`
-kerrotaan käyttäjälle sellaisenaan: älä korjaa niitä kopioimalla tai muokkaamalla
-tiedostoja käsin. Lisätyt tiedostot vietään kodin versionhallintaan.
+Tallenna `knowledge company`-tietueiksi virallinen nimi ja Y-tunnus, tilikausi, aiemman
+järjestelmän viimeinen päivä ja aggountant-kirjanpidon ensimmäinen, sekä
+tilikarttapäätös: jatketaanko aiempaa tilikarttaa vai siirrytäänkö oletustilikarttaan.
+Kaikki myöhempi työ lukee nämä ensin, joten rekisteriote tai aiemman järjestelmän
+raportti on parempi lähde kuin muistinvarainen vastaus.
 
-Kaikki muu käyttöönoton tieto kerätään lähdeaineistosta ja käyttäjältä.
+Ohjelma olettaa tilikaudeksi kalenterivuoden. Jos se on muu, määrittele
+`aggountant fiscal-year define`lla se tilikausi, johon ensimmäinen tosite osuu, ennen
+kuin sinetöit mitään: määrittely on pysyvä, eikä sitä voi enää tehdä tavalla, joka
+siirtäisi sinetöidyn tositteen toiselle tilikaudelle. Ensimmäistä määriteltyä tilikautta
+edeltävillä päivillä ei ole tilikautta lainkaan, ellei se ala 1.1., eikä niille voi
+kirjata. Määrittely ratkaisee siis myös sen, mille päivälle avaava tosite voi tulla.
 
-## Mitä valmiiseen lähtötilanteeseen kuuluu
+## Avaavat saldot
 
-**Yrityksen perustiedot** tallennetaan `knowledge company`-tietueiksi lähteineen:
-virallinen nimi ja Y-tunnus, tilikausi, mistä päivästä aggountant-kirjanpito alkaa ja
-mihin aiempi järjestelmä päättyy, sekä tilikarttapäätös (jatketaanko aiempaa tilikarttaa
-vai siirrytäänkö aggountantin oletustilikarttaan). Nämä ovat juuri sitä tietoa, jota
-kaikki myöhemmät skillit lukevat ensin, ja rekisteriote tai aiemman järjestelmän
-raportti on niille parempi lähde kuin muistinvarainen vastaus.
+Toisesta järjestelmästä siirtyvän yrityksen saldot kirjataan tavallisena sinetöitynä
+tositteena, lähdesaldoluettelo liitteenä. Sinetöinti on pysyvä, ja virheellinen avaus
+jättää ketjuun kolme tositetta yhden sijaan. Kysy siksi ensin se, mitä saldoluettelo ei
+kerro (alla), koska vastaukset voivat muuttaa saldoja, ja näytä käyttäjälle tilit ja
+päivä ennen sinetöintiä.
 
-**Tilikausi ohjelmalle**, jos se ei ole kalenterivuosi. Kalenterivuosi on oletus eikä
-vaadi mitään. Muuten määrittele ennen ensimmäistä tositetta se tilikausi, johon
-ensimmäinen tosite osuu: `aggountant fiscal-year define --start <alku> --end <loppu>`.
-Alku on kuukauden ensimmäinen ja loppu kuukauden viimeinen päivä, ja pituus on
-enintään 18 kuukautta (kirjanpitolaki 1:4). Seuraavat tilikaudet jatkuvat 12 kuukauden
-mittaisina. Tilikausi tunnistetaan sen kalenterivuoden mukaan, jona se päättyy:
-1.7.2026–30.6.2027 on tilikausi 2027. Ensimmäistä määriteltyä tilikautta edeltävälle
-päivälle ei ole tilikautta, ellei se ala 1.1., joten tilikauden alussa siirtyvän
-yrityksen avaava tosite päivätään tilikauden ensimmäiselle päivälle (siinä on silloin
-vain tasetilejä). Määrittely on pysyvä, ja ohjelma kieltäytyy määrittelystä, joka
-siirtäisi jo sinetöidyn tositteen toiselle tilikaudelle.
+Päivä on päättyvän järjestelmän viimeinen päivä, ei uuden kirjanpidon ensimmäinen.
+Ensimmäiselle uudelle päivälle päivätty avaus toisi mukanaan tuodut tulostilit
+ensimmäisen kuukauden tulokseen. Kesken kuukauden siirryttäessä niin käy joka
+tapauksessa, joten ehdota siirtymää kuun vaihteeseen. Se, mitä tositteeseen kuuluu,
+riippuu siirtymän hetkestä:
 
-**Avaavat saldot**, kun yritys siirtyy toisesta järjestelmästä. Ne kirjataan tavallisena
-sinetöitynä tositteena `voucher seal`-polkua pitkin, lähdesaldoluettelo liitteenä.
-Muunnos aiemman järjestelmän tileiltä aggountantin tileille kannattaa kirjata omaksi
-tiedostoksi kotiin, jossa jokainen lähdetili esiintyy kerran suuntineen ja summineen ja
-loppusumma täsmää lähderaporttiin: usea lähdetili yhdistyy usein yhdeksi tiliksi, ja
-erittely katoaa muuten. Erityisesti verotilin ja osakasvelkojen yhdistäminen samalle
-tilille tekee myöhemmän täsmäytyksen vaikeaksi, joten pidä ne erillään jos tilikartta
-sen sallii. Avaavan tositteen saldo ALV-tileillä on aiempien kausien veroa, joten
-ensimmäisen kauden ALV-ilmoituksen täsmäytys näyttää sen merkitsemättömänä vientinä;
-`vero-fi`-skilli kertoo, miten se kuitataan.
+- **Kesken tilikauden.** Tosite osuu samalle tilikaudelle kuin uudet tapahtumat, ja
+  siinä on tasetilien lisäksi tilikauden alusta kertyneet tulostilit.
+- **Vuodenvaihteessa**, kun tilikausi on kalenterivuosi ja aiempi järjestelmä kattaa
+  edellisen vuoden loppuun. Tosite päivätään edellisen tilikauden viimeiselle päivälle,
+  ja siinä on vain tasetilejä: edellisen tilikauden tulos on omassa pääomassa. Ohjelma avaa uuden
+  tilikauden näistä saldoista vaatimatta vanhaa tilikautta suljetuksi, mutta vain jos
+  edellisellä tilikaudella ei ole mitään muuta: ei tulostilejä, ei muita päiviä, ei
+  aggountantissa suljettua kautta eikä vanhempia tilikausia. Muuten uuden tilikauden
+  raportit kieltäytyvät koodilla `PERIOD_NOT_SEALED`.
+- **Tilikauden vaihteessa, kun tilikausi ei ala 1.1.** Määrittele ensimmäiseksi uusi
+  tilikausi. Edellistä päivää ei silloin ole ohjelmalle olemassa, ja tosite päivätään
+  uuden tilikauden ensimmäiselle päivälle. Siinä on vain tasetilejä, joten kuukauden
+  tulos ei vääristy, eikä edellisen kohdan ehtoa tarvita.
 
-Avaavan tositteen päivämäärä on päättyvän järjestelmän viimeinen päivä, ei uuden
-kirjanpidon ensimmäinen. Jos tilikauden aiemmat tulostilit tuodaan mukaan ja tosite
-päivätään ensimmäiselle uudelle päivälle, koko aiempi tulos näkyy ensimmäisen kuukauden
-kuukausituloksena.
+Aiemman järjestelmän tilit eivät vastaa aggountantin tilejä yksi yhteen, ja usea
+lähdetili yhdistyy usein yhdeksi. Kirjaa muunnos omaksi tiedostokseen kotiin niin, että
+jokainen lähdetili on siinä kerran summineen ja summat täsmäävät sekä lähderaporttiin
+että avaavaan tositteeseen; muuten erittely katoaa. Pidä verotili ja osakasvelat eri
+tileillä, jos tilikartta sen sallii: yhdistettyinä niitä ei saa myöhemmin täsmäytettyä.
+ALV-tilien avaava saldo on aiempien kausien veroa ja näkyy ensimmäisen ALV-ilmoituksen täsmäytyksessä
+merkitsemättömänä vientinä; `vero-fi`-skilli kertoo, miten se kuitataan.
 
-- **Kesken tilikauden** tosite osuu samalle tilikaudelle kuin uudet tapahtumat, ja siinä
-  on tasetilien lisäksi tilikauden tulostilit.
-- **Tilikauden vaihteessa** (vanha järjestelmä kattaa tilikauden loppuun asti) tosite
-  päivätään edellisen tilikauden viimeiselle päivälle, ja siinä on vain tasetilejä:
-  edellisen tilikauden tulos kirjataan omaan pääomaan, ei tulostileille. Ohjelma käyttää
-  sitä uuden tilikauden avaavina saldoina (`external_cutover` raportin lähteissä) eikä
-  vaadi vanhaa tilikautta suljetuksi. Ehto on tiukka: jos edellisellä tilikaudella on
-  tulostilejä, aiempia päiviä, vanhempia tilikausia tai aggountantissa suljettu kausi,
-  uuden tilikauden raportit kieltäytyvät koodilla `PERIOD_NOT_SEALED`, eikä sinetöityä
-  tositetta voi poistaa. Tarkista siksi tilit ja päivä ennen sinetöintiä.
-- **Tilikauden alussa, kun se ei ala 1.1. ja on ensimmäinen määritelty**, tosite
-  päivätään tilikauden ensimmäiselle päivälle (yllä). Sinetöityä tositetta ei poisteta, joten virhe korjataan
-vastakirjauksella ja uudella tositteella, ja ketjuun jää kolme tositetta yhden sijaan.
-Aja avauksen jälkeen `report statements` ensimmäiselle uudelle kuukaudelle ja katso, että
-sen kuukausitulos on nolla ennen uusia tapahtumia, tilikauden alusta kertynyt tulos ja tase
-vastaavat lähderaporttia ja pankkitilin saldo vastaa tiliotetta.
+Avauksen jälkeen `aggountant report statements` ensimmäiselle uudelle kuukaudelle
+näyttää, onnistuiko se: kuukauden tulos on nolla ennen uusia tapahtumia, tilikauden
+alusta kertynyt tulos on lähderaportin mukainen (tilikauden vaihteessa nolla), tase
+vastaa lähderaporttia ja pankkitilin saldo tiliotetta.
 
-**Katkaisuhetken avoimet asiat**, jotka eivät näy saldoluettelosta. Kysy nämä
-käyttäjältä käyttöönotossa, koska myöhemmin ne paljastuvat vasta täsmäytysvirheinä:
+## Mitä saldoluettelo ei kerro
+
+Nämä selviävät vain kysymällä, ja kysymättä ne paljastuvat kuukausia myöhemmin
+täsmäytysvirheinä:
 
 - Onko yhtiön laskuja maksettu osakkaan omalta tililtä tai kortilta? Pankista puuttuva
-  maksu ei tarkoita maksamatonta laskua, ja vastatili on silloin velka osakkaalle.
-- Onko taseessa verotiliä, vanhaa verovelkaa tai maksujärjestely? Jos on, pyydä
-  katkaisuvuoden kaikki OmaVero-tapahtumaotteet kerralla. Maksujärjestelyn saldo ei ole
-  yhden pääkirjatilin saldo, ja korot on usein kirjattu aiemmassa järjestelmässä kahteen
-  kertaan tai jaksottamatta; se selviää vain katkeamattomasta oteketjusta.
+  maksu ei silloin tarkoita maksamatonta laskua, ja vastatili on velka osakkaalle.
+- Onko taseessa verotiliä, vanhaa verovelkaa tai maksujärjestely? Pyydä silloin
+  katkaisuvuoden kaikki OmaVeron tapahtumaotteet kerralla. Maksujärjestelyn saldo ei ole
+  yhden pääkirjatilin saldo, ja korot on aiemmassa järjestelmässä usein kirjattu kahteen
+  kertaan tai jaksottamatta; se näkyy vain katkeamattomasta oteketjusta.
 - Onko avoimia myyntilaskuja tai ostovelkoja, joita saldoluettelo ei erittele?
 
-Nämä ovat käyttäjän päätettäviä asioita. Kokoa ne yhdeksi kokonaiskuvaksi ehdotuksineen
-sen sijaan että kysyisit joka erää erikseen, ja kirjaa vahvistetut tulkinnat
-`knowledge company`-tietueiksi, jotta niitä ei kysytä uudelleen kuukausittain. Se, mikä
-jää odottamaan (lasku tulossa, saldo selvittämättä), kirjataan kodin `TODO.md`-tiedostoon
-(alla).
+Tulkinnat ovat käyttäjän päätettäviä. Kokoa ne yhdeksi kokonaiskuvaksi ehdotuksineen,
+ja tallenna vahvistetut `knowledge company`-tietueiksi, jotta samaa ei kysytä joka
+kuukausi.
 
-## Yrityksen aineistolähteet: `<AGGOUNTANT_HOME>/AGENTS.md`
+## Kodin `AGENTS.md` ja `TODO.md`
 
-Aggountant ei määrää, mistä kuitit tulevat tai minne käsitelty aineisto viedään.
-Yritys kuvaa oman käytäntönsä kotinsa `AGENTS.md`-tiedostoon, ja `capture-receipt`
-lukee sen ennen kuin paikantaa, kopioi tai siirtää mitään. Ilman tiedostoa myöhempi
-agentti joko kysyy käyttäjältä joka kerta tai arvaa kansion, ja arvaus siirtelee
-tiedostoja paikasta, jota kukaan ei tarkoittanut. Tiedosto on proosaa agentille, ei
-konfiguraatiota, jota ohjelma jäsentäisi.
+SOUL kertoo, mitä näihin kuuluu ja miten niitä pidetään yllä. Käyttöönotossa ne
+perustetaan kodin juureen käyttäjän kanssa ja yrityksen omin sanoin. Olemassa olevaa
+tiedostoa täydennetään.
 
-Jos tiedosto on olemassa, lue ja säilytä se. Jos ei, kirjoita se käyttäjän kanssa
-yrityksen omilla sanoilla. Sen pitää vastata ainakin näihin: minne saapuvat kuitit ja
-laskut päätyvät (sähköposti, pilvikansio, paikallinen polku, vastuuhenkilö); missä
-kulu- ja matkalaskujen luonnokset ovat; missä ajokilometrit kirjataan ja mitä niistä
-kirjataan (verottaja edellyttää ajopäiväkirjalta vähintään ajon alkamis- ja
-päättymisajankohdan, tarkoituksen, lähtö- ja päätepisteen, matkamittarin lukemat ajon
-alussa ja lopussa, kilometrit ja auton käyttäjän, tarvittaessa reitin ja korvaukseen
-vaikuttavat lisätiedot); ja minne käsitelty alkuperäisaineisto arkistoidaan
-ja milloin sen saa siirtää pois lähteestä. Älä ehdota yritykselle pilvipalvelua tai
-kansiorakennetta, jota sillä ei ole.
+`AGENTS.md` vastaa siihen, mitä kuukauden työ muuten kysyisi tai arvaisi joka kerta:
 
-Hyvä hetki on myös sopia, mikä kodissa kuuluu gitiin: raaka tositemateriaali ja
-henkilötiedot eivät, johdettu ja tarkastettava metatieto (mappingit, luettelot,
-yritystieto, valmistelut) kyllä. `init` kirjoittaa vain ohjelman omien tiedostojen
-rajan; yrityksen omat kansiot lisätään `.gitignore`-tiedostoon itse. Sovittu raja
-`AGENTS.md`-tiedostossa säästää jokaisen uuden aineistotyypin kohdalla saman päätöksen.
+- minne saapuvat kuitit ja laskut päätyvät (sähköposti, pilvikansio, paikallinen polku)
+  ja kuka niistä vastaa;
+- missä kulu- ja matkalaskujen luonnokset ovat;
+- missä ajokilometrit kirjataan. Verohallinto edellyttää ajopäiväkirjalta ajon alkamis-
+  ja päättymisajan, tarkoituksen, lähtö- ja päätepisteen, matkamittarin lukemat alussa
+  ja lopussa, kilometrit ja auton käyttäjän, joten sovi, että ne kirjataan;
+- minne käsitelty alkuperäinen arkistoidaan ja milloin sen saa siirtää pois lähteestä;
+- mikä kodista kuuluu gitiin. Raaka tositemateriaali ja henkilötiedot eivät kuulu,
+  johdettu ja tarkastettava tieto (tilimuunnokset, luettelot, valmistelut) kuuluu. `init`
+  rajasi vain ohjelman omat tiedostot, joten yrityksen omat kansiot lisätään
+  `.gitignore`-tiedostoon itse.
 
-Pidä `AGENTS.md`-tiedostossa vain toimintatavat ja reitit; yrityksen faktat ja
-kirjanpitokäytännöt ovat `knowledge company`-tietueissa, jossa niillä on lähde,
-soveltamisala ja historia, ja odottava työ on `TODO.md`-tiedostossa. Kirjoita
-`AGENTS.md`-tiedostoon myös ohje, että jokainen istunto lukee `TODO.md`-tiedoston
-ensin ja päivittää sen heti, kun kohdan ratkaiseva tosite on sinetöity tai toimi tehty;
-jos koti on git-repositorio, muutos commitoidaan samalla kertaa kodin muiden muutosten
-kanssa. Olemassa olevaan `AGENTS.md`-tiedostoon lisätään vain tämä ohje, jos se
-puuttuu. Salasanoja, tunnuksia tai tokeneita ei kirjoiteta mihinkään näistä: koti on
-git-versioitua selkotekstiä ja keskusteluloki päätyy usein talteen.
+Kuvaa se käytäntö, joka yrityksellä on; pilvipalvelua tai kansiorakennetta, jota sillä
+ei ole, ei kannata ehdottaa.
 
-## Odottava työ ja määräajat: `<AGGOUNTANT_HOME>/TODO.md`
+Uuteen `TODO.md`-tiedostoon riittää osio kullekin SOULin nimeämälle asialle. Kirjaa
+sinne heti se, mikä käyttöönotosta jäi odottamaan. Esimerkki Oy:n tiedostossa voisi
+lukea, että perustajan omalta tililtään maksaman rekisteröintimaksun kuitti puuttuu,
+lokakuuta ei suljeta ennen sitä, ja joulukuun ALV-ilmoitus on annettava 12.2. mennessä.
 
-Istuntojen välillä jää asioita kesken: perustajan omalta tililtään maksama
-rekisteröintimaksu, jonka kuittia odotetaan; kuukausi, jota ei voi sulkea ennen kuin
-koko kuun tiliote on haettu; ALV-ilmoituksen tai tilinpäätöksen määräpäivä. Ilman
-sovittua paikkaa seuraava istunto joko kysyy saman uudelleen tai unohtaa sen. Luo siksi
-käyttöönotossa kodin juureen `TODO.md`. Se on yrityksen omaa proosaa kuten `AGENTS.md`,
-ei ohjelman jäsentämä tiedosto, ja se kuuluu gitiin. Jos `TODO.md` on jo olemassa,
-lue se ja täydennä sitä; käyttäjä voi muokata sitä itsekin, joten älä kirjoita sen yli.
-Kolme osiota riittää:
+## Myöhemmin
 
-- **Odottaa muita**: lasku, kuitti tai tieto, jonka joku muu on luvannut, ja mitä sen
-  saapuminen ratkaisee.
-- **Kausien sulkutilanne**: mitkä kuukaudet ovat auki ja mitä kukin vielä tarvitsee
-  ennen sulkua.
-- **Määräajat**: lakisääteiset päivät, kuten kauden ALV-ilmoitus, ensimmäisen
-  tilikauden loppu ja tilinpäätös.
+Suora ilmoittaminen Verolle otetaan käyttöön `vero-fi`-skillillä, kun yritys sitä
+haluaa; käyttöönotto ei edellytä sitä.
 
-Esimerkiksi Esimerkki Oy:n tiedostossa voi lukea, että perustajan rekisteröintimaksun
-kuitti puuttuu, lokakuuta ei suljeta ennen sitä ja joulukuun ALV-ilmoitus on annettava
-12.2. mennessä.
-
-Mikä menee minne:
-
-- **`TODO.md`**: odottava työ. Kohta poistetaan, kun sen tosite on sinetöity tai asia
-  muuten hoidettu.
-- **`knowledge company`**: lähteelliset faktat ja käytännöt. Odottavaa asiaa ei
-  tallenneta tietueeksi: "lasku tulossa" ei ole fakta, ja se jäisi myöhemmin
-  vanhentuneena poistettavaksi (`retire`).
-- **`aggountant obligation`**: ohjelman seuraamat velvoitteet, jotka estävät kauden
-  sulun. Niitä ei luoda käsin eikä kuitin käsittely luo niitä, joten sulkua
-  odottava asia kirjataan `TODO.md`-tiedoston sulkutilanteeseen.
-
-## Vero.fi
-
-Jos yritys haluaa lähettää ALV-ilmoitukset suoraan Verolle, jatka `vero-fi`-skillillä.
-Se kuvaa valmiuden, profiilin ja salaisuuksien käsittelyn; portaalin sopimus-, lupa- ja
-varmennetoimet ovat käyttäjän omia oikeustoimia. Käyttöönotossa riittää, että tämä
-on tiedossa ja että suoraa yhteyttä ei oteta käyttöön ennen kuin valmius on todettu.
+`init` kieltäytyy olemassa olevasta kodista, joten vanhaa kotia ei korjata sillä. Kun
+aggountant on päivitetty, tai koti antaa virheen `MASTERDATA_CORRUPT`, koti tarvitsee
+`aggountant home upgrade`n; sen ohje kertoo loput. Se, minkä päivitys jättää
+lisäämättä, kerrotaan käyttäjälle eikä korjata käsin: tilikartan versio on sen
+sisällöstä laskettu tiiviste, johon sinetöidyt tositteet viittaavat.
