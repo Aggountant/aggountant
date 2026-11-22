@@ -52,6 +52,11 @@ tai haluat asioida itse.
    eikä ota yhteyttä Verohallintoon, joten sillä voi tarkistaa aiemmat
    ilmoitukset.
 
+   Esikatselu ei tarkista, onko suora ilmoittaminen käytössä, joten sen
+   ohjeessa ovat molemmat reitit: suora ilmoitus, kun `aggountant vero-fi
+   status` kertoo valmiuden olevan kunnossa ([Lähetä ALV-ilmoitus suoraan](file-vat-direct.md)),
+   ja muuten tämän sivun käsin tehtävä reitti.
+
 3. **Syötä kentät OmaVeroon** ja lähetä ilmoitus. Voit myös laatia
    Ilmoitin.fi-tiedoston itse. aggountant ei tee sitä.
 
@@ -96,8 +101,6 @@ period "2026-03" — "sealed" (…, vat_filed true)
 
 ## Rajoitukset
 
-- Esikatselun ohjeteksti kehottaa aina syöttämään luvut käsin, myös silloin
-  kun suora ilmoittaminen on käytössä. Teksti on vanhentunut.
 - ALV:n maksun kanssa samalle tositteelle ilman ALV-merkintää kirjattu
   hyvitys menee maksun osana läpi, jos se on pienempi kuin maksettu vero ja
   kirjattu kulutilille (myyntihyvitys) tai tulotilille (ostohyvitys), tai jos

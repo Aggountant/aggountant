@@ -1,12 +1,14 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-22
 type: bug
-status: open
+status: fixed
 priority: high
 lane: vat-filing
 lane_seq: 10
 collision: [crates/process/src/file_vat.rs]
+closed: 2026-11-22
+closed_by: agent
 ---
 
 # file-vat preview tells the user aggountant cannot file
@@ -35,3 +37,9 @@ that readiness was not checked instead of calling the network.
 - [ ] Preview text no longer claims aggountant cannot file.
 - [ ] The text distinguishes the API route from the manual route without network access.
 - [ ] Tests updated.
+
+## Resolution
+
+### 2026-11-22T06:43:40Z · @agent
+
+Preview names the Vero.fi API route and the manual route without checking readiness; see result.md.

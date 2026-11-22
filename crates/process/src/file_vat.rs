@@ -193,8 +193,9 @@ const REPLACEMENT_PAYMENT_NOTE: &str =
      force. This Run does not pay: check the tax account in OmaVero for the amount due or \
      refunded, and pay a difference separately.";
 
-/// Read-only manual filing view. The numbered fields are the same Domain projection
-/// used by direct Vero filing; this type adds only operator-facing instructions.
+/// Read-only offline filing view. The numbered fields are the same Domain projection
+/// used by direct Vero filing; this type adds only operator-facing instructions, which
+/// name both filing routes because the preview does not evaluate Vero.fi readiness.
 #[derive(Debug, Clone, Serialize)]
 pub struct OfflineVatPreview {
     pub period: String,
@@ -350,7 +351,7 @@ impl ProcessEngine {
                 "A replacement changes the tax by the difference to the return in force; check the tax account in OmaVero for what is due or refunded.",
             ),
             PeriodState::Sealed => (
-                "Enter these numbered VAT fields manually in OmaVero, or use an independently prepared Ilmoitin.fi file; aggountant does not create or upload that file.",
+                "Two routes; this preview is offline and did not check which one is available. Direct filing through the Vero.fi API: when `aggountant vero-fi status` reports ready, start the filing with `file-vat start` using these figures and approve it at the `ApproveFiling` gate (`file-vat approve-filing`). Manual filing otherwise: enter these numbered fields in OmaVero (or send an Ilmoitin.fi file you prepared yourself; aggountant does not create one) and record it with `file-vat complete-manual`.",
                 "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
             ),
             PeriodState::Open => (

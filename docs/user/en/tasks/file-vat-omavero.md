@@ -54,6 +54,11 @@ yourself.
    changes nothing and does not contact the Tax Administration, so you can use
    it to check earlier returns.
 
+   The preview does not check whether direct filing is set up, so its
+   guidance names both routes: direct filing when `aggountant vero-fi status`
+   reports ready ([Send the VAT return directly](file-vat-direct.md)), and
+   otherwise the manual route on this page.
+
 3. **Enter the fields in OmaVero** and send the return. You can also prepare
    an Ilmoitin.fi file yourself (Ilmoitin.fi is the Tax Administration's
    service for uploading return files). aggountant does not make one.
@@ -99,8 +104,6 @@ period "2026-03" — "sealed" (…, vat_filed true)
 
 ## Limitations
 
-- The preview's guidance text always tells you to enter the figures by hand,
-  even when direct filing is set up. The text is out of date.
 - A credit booked without a VAT code in the same voucher as a VAT payment
   passes as part of the payment when it is smaller than the VAT paid and is
   booked on an expense account (a sales credit) or an income account (a

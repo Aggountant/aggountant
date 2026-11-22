@@ -107,9 +107,6 @@ lähdekoodista Rust-työkaluilla. Tee näin:
 
 ## ALV-ilmoitus
 
-- **Esikatselun ohjeteksti on vanhentunut.** Se kehottaa aina syöttämään luvut
-  käsin OmaVeroon, vaikka suora ilmoitus olisi käytössä. Suoran reitin käyttö
-  riippuu vain siitä, onko valmius kunnossa (`vat-preview-filing-instruction`).
 - **Suoran ilmoituksen maksuvaihe ei valmistu.** Kun veroa on maksettavaa, ajo
   avaa maksun hyväksynnän, mutta aggountantilla ei ole maksuyhteyttä. Ajo jää
   odottamaan, vaikka ilmoitus on tehty. Maksa vero OmaVeron viitteellä itse

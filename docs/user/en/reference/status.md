@@ -106,10 +106,6 @@ from source with the Rust toolchain. Do this:
 
 ## VAT return
 
-- **The preview's guidance text is out of date.** It always tells you to enter
-  the figures by hand in OmaVero, even when direct filing is set up. Whether
-  you can use the direct route depends only on whether readiness is in order
-  (`vat-preview-filing-instruction`).
 - **The payment step of a direct return never completes.** When there is tax
   to pay, the run opens a payment approval, but aggountant has no payment
   connection. The run keeps waiting even though the return has been filed.

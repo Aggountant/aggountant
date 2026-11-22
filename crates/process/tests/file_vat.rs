@@ -416,6 +416,20 @@ fn offline_preview_is_read_only_and_uses_sealed_ledger_figures() {
         .filing_fields
         .get(aggountant_domain::VatReturnField::Field308)
         .is_some());
+    // Both filing routes are named without checking Vero.fi readiness.
+    let instruction = preview.filing_instruction;
+    assert!(instruction.contains("did not check"), "{instruction}");
+    assert!(instruction.contains("vero-fi status"), "{instruction}");
+    assert!(instruction.contains("file-vat start"), "{instruction}");
+    assert!(instruction.contains("ApproveFiling"), "{instruction}");
+    assert!(
+        instruction.contains("file-vat complete-manual"),
+        "{instruction}"
+    );
+    assert!(
+        !instruction.contains("does not create or upload"),
+        "{instruction}"
+    );
     assert_eq!(std::fs::read(database).unwrap(), before);
     assert!(!home.path().join("process/runs").exists());
 }
