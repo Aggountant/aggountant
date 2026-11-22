@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-22
 type: bug
-status: open
+status: fixed
 priority: high
 lane: cli-canon
 lane_seq: 10
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-22
 ---
 
 # Read-only commands create a stray empty home
@@ -39,6 +40,12 @@ configuration, marker, fallback), so a wrong working directory is obvious.
 
 ## Acceptance criteria
 
-- [ ] Read commands (`employee list/show`, `run show/list`, `period show`, `voucher verify/show`, `file-vat preview`, `report …`) never create `fiscal.sqlite`, `artifacts/` or other files in a non-home directory.
-- [ ] Their error states the resolved home path and its resolution source.
-- [ ] A regression test runs a read command in an empty temporary directory and asserts the directory stays empty.
+- [x] Read commands (`employee list/show`, `run show/list`, `period show`, `voucher verify/show`, `file-vat preview`, `report …`) never create `fiscal.sqlite`, `artifacts/` or other files in a non-home directory.
+- [x] Their error states the resolved home path and its resolution source.
+- [x] A regression test runs a read command in an empty temporary directory and asserts the directory stays empty.
+
+## Resolution
+
+### 2026-11-22T07:28:57Z · @issuectl
+
+Fixed: only init creates a home; other commands refuse with HOME_NOT_INITIALIZED naming path and source. See result.md.
