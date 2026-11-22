@@ -13,6 +13,7 @@
 
 #![forbid(unsafe_code)]
 
+mod bank_event;
 mod employee;
 mod error;
 mod period;
@@ -38,6 +39,11 @@ use aggountant_model::{
     VoucherDraft,
 };
 
+pub use bank_event::{
+    BankBatch, BankBatchReport, BankEventConflict, BankEventConflictCode, BankEventEntry,
+    BankEventOutcome, BankEventResult, BankSourceObservation, LegacyBankIdentity,
+    LegacyBankVoucher, UnbookedBankEvent,
+};
 pub use employee::EmployeeState;
 pub use error::LedgerError;
 pub use period::{
@@ -599,16 +605,6 @@ impl Ledger {
     /// Dry-run validation (Ledger, no write): every posting account exists in the
     /// resolved chart version, and any referenced attachment is present.
     pub fn validate(&self, draft: &VoucherDraft) -> Result<ValidationReport, LedgerError> {
-        self.validate_inner(draft, None)
-    }
-
-    /// `validate`, where an attachment equal to `pending_artifact` counts as
-    /// present: the caller attaches exactly those bytes before it seals.
-    fn validate_inner(
-        &self,
-        draft: &VoucherDraft,
-        pending_artifact: Option<Hash>,
-    ) -> Result<ValidationReport, LedgerError> {
         let chart_version = self.masterdata.chart_version()?;
         for p in draft.postings() {
             if !self.masterdata.account_exists(&p.account)? {
@@ -627,7 +623,7 @@ impl Ledger {
             draft.postings(),
         )?;
         if let Some(attachment) = draft.attachment_ref() {
-            if Some(attachment) != pending_artifact && !self.artifact.exists(&attachment)? {
+            if !self.artifact.exists(&attachment)? {
                 return Err(LedgerError::ArtifactNotFound(attachment.to_hex()));
             }
         }
@@ -655,28 +651,7 @@ impl Ledger {
         draft: &VoucherDraft,
         natural_key: &str,
     ) -> Result<ValidationReport, LedgerError> {
-        self.validate_seal_inner(draft, natural_key, None)
-    }
-
-    /// [`Self::validate_seal`] for a draft whose attachment is not stored yet:
-    /// `pending_artifact` is the [`Self::artifact_address`] of the bytes the
-    /// caller will attach before sealing. Nothing is written.
-    pub fn validate_seal_with_pending_artifact(
-        &self,
-        draft: &VoucherDraft,
-        natural_key: &str,
-        pending_artifact: Hash,
-    ) -> Result<ValidationReport, LedgerError> {
-        self.validate_seal_inner(draft, natural_key, Some(pending_artifact))
-    }
-
-    fn validate_seal_inner(
-        &self,
-        draft: &VoucherDraft,
-        natural_key: &str,
-        pending_artifact: Option<Hash>,
-    ) -> Result<ValidationReport, LedgerError> {
-        let mut report = self.validate_inner(draft, pending_artifact)?;
+        let mut report = self.validate(draft)?;
         let Some(existing) = self.fiscal.read_voucher_by_natural_key(natural_key)? else {
             let gate = PeriodGate {
                 posting_date: draft.posting_date(),
@@ -871,49 +846,8 @@ impl Ledger {
 
         // Pre-commit validation. A failure here is a *refused write* → rejection
         // log, then surface the error (never a silent refusal).
-        for p in draft.postings() {
-            if !self.masterdata.account_exists(&p.account)? {
-                let err = LedgerError::AccountNotFound(format!(
-                    "account {} not in chart_version {}",
-                    p.account, chart_version
-                ));
-                return Err(self.refuse(err, &request_hash, req));
-            }
-        }
-        if let Some(expansion) = draft.vat_expansion() {
-            if expansion.policy_set() != req.policy_set.id {
-                let err =
-                    LedgerError::Model(aggountant_model::ModelError::InvalidVatExpansion(format!(
-                        "VAT expansion resolved policy_set {:?} differs from seal policy_set {:?}",
-                        expansion.policy_set(),
-                        req.policy_set.id
-                    )));
-                return Err(self.refuse(err, &request_hash, req));
-            }
-            let candidate = VoucherBody::from_draft(draft, 1, chart_version.clone())?;
-            if let Err(error) = aggountant_domain::verify_vat_expansion_for_seal_with_role_table(
-                &candidate,
-                self.masterdata.vat_roles(),
-            ) {
-                return Err(self.refuse(LedgerError::Statements(error), &request_hash, req));
-            }
-        }
-        // F25 record-time mistag guard: a generic band VAT code on an account whose
-        // supply has a dedicated rate-class treatment that diverges on this date is a
-        // refused write (logged, then surfaced — never a silent wrong-rate seal).
-        if let Err(e) = aggountant_domain::check_vat_rate_class_mistag_with_role_table(
-            self.masterdata.vat_roles(),
-            &chart_version,
-            draft.document_date(),
-            draft.postings(),
-        ) {
-            return Err(self.refuse(LedgerError::from(e), &request_hash, req));
-        }
-        if let Some(attachment) = draft.attachment_ref() {
-            if !self.artifact.exists(&attachment)? {
-                let err = LedgerError::ArtifactNotFound(attachment.to_hex());
-                return Err(self.refuse(err, &request_hash, req));
-            }
+        if let Err(err) = self.check_seal_content(draft, &req.policy_set.id, &chart_version, None) {
+            return Err(self.refuse(err, &request_hash, req));
         }
 
         let provenance = StoredProvenance {
@@ -978,17 +912,80 @@ impl Ledger {
         }
     }
 
+    /// The content checks a seal makes before its transaction: every account is
+    /// in the chart, a VAT expansion matches the policy set and the role table, no
+    /// VAT code is a rate-class mistag, and the attachment is stored (or is the
+    /// `pending_artifact` the caller attaches before it seals).
+    fn check_seal_content(
+        &self,
+        draft: &VoucherDraft,
+        policy_set: &str,
+        chart_version: &str,
+        pending_artifact: Option<Hash>,
+    ) -> Result<(), LedgerError> {
+        for p in draft.postings() {
+            if !self.masterdata.account_exists(&p.account)? {
+                return Err(LedgerError::AccountNotFound(format!(
+                    "account {} not in chart_version {}",
+                    p.account, chart_version
+                )));
+            }
+        }
+        if let Some(expansion) = draft.vat_expansion() {
+            if expansion.policy_set() != policy_set {
+                return Err(LedgerError::Model(
+                    aggountant_model::ModelError::InvalidVatExpansion(format!(
+                        "VAT expansion resolved policy_set {:?} differs from seal policy_set {:?}",
+                        expansion.policy_set(),
+                        policy_set
+                    )),
+                ));
+            }
+            let candidate = VoucherBody::from_draft(draft, 1, chart_version.to_string())?;
+            aggountant_domain::verify_vat_expansion_for_seal_with_role_table(
+                &candidate,
+                self.masterdata.vat_roles(),
+            )
+            .map_err(LedgerError::Statements)?;
+        }
+        // F25 record-time mistag guard: a generic band VAT code on an account whose
+        // supply has a dedicated rate-class treatment that diverges on this date is a
+        // refused write (logged, then surfaced — never a silent wrong-rate seal).
+        aggountant_domain::check_vat_rate_class_mistag_with_role_table(
+            self.masterdata.vat_roles(),
+            chart_version,
+            draft.document_date(),
+            draft.postings(),
+        )?;
+        if let Some(attachment) = draft.attachment_ref() {
+            if Some(attachment) != pending_artifact && !self.artifact.exists(&attachment)? {
+                return Err(LedgerError::ArtifactNotFound(attachment.to_hex()));
+            }
+        }
+        Ok(())
+    }
+
     /// Record a refused write, then return the original error — or
     /// `AUDIT_UNAVAILABLE` if the rejection could not be persisted.
     fn refuse(&self, err: LedgerError, request_hash: &str, req: &SealRequest) -> LedgerError {
+        self.refuse_as(err, request_hash, &req.actor)
+    }
+
+    fn refuse_as(&self, err: LedgerError, request_hash: &str, actor: &str) -> LedgerError {
         let rec = RejectionRecord {
             reason_code: err.error_code().to_string(),
             request_hash: request_hash.to_string(),
-            actor: req.actor.clone(),
+            actor: actor.to_string(),
             target: "fiscal:main".to_string(),
             note: err.to_string(),
         };
-        match self.fiscal.record_rejection(&rec) {
+        self.record_refusal(err, &rec)
+    }
+
+    /// Persist `rec` for the refused write `err` and return `err`, or
+    /// `AUDIT_UNAVAILABLE` if the record could not be written.
+    fn record_refusal(&self, err: LedgerError, rec: &RejectionRecord) -> LedgerError {
+        match self.fiscal.record_rejection(rec) {
             Ok(()) => err,
             Err(audit_err) => LedgerError::AuditUnavailable(format!(
                 "failed to persist rejection for {}: {audit_err}",

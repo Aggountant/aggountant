@@ -66,6 +66,25 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   is a new chart edition. Without the retired entry every existing home would
   report the file `differs` and never get the target.
 
+## Bank-statement imports
+
+- **A bank transaction is booked once, whatever export it arrives in.** Its
+  event key is the voucher's natural key (bank reference and account). The
+  statement file stays the voucher's attachment and part of its request hash,
+  but whether a second sighting books the same thing is decided only by the
+  source fingerprint and the projection hash (`bank_event.rs`); a match records
+  an observation of the new file, anything else stops the batch. Never relax a
+  conflict into a replay or a second voucher: a changed bank fact or booking is
+  for the user to resolve, by a correction voucher if the books were wrong.
+- **The batch is the import's only write path** and one transaction: no
+  voucher of a statement is sealed unless every transaction resolves.
+- **Vouchers sealed before bank events have their identity read back** from
+  the statement they retained (the CLI parses it, since the ledger cannot
+  depend on `import`) and backfilled in the next import's transaction. One
+  whose transaction cannot be read back is never compared by guess and never
+  booked again: a batch that meets its key stops with
+  `SOURCE_IDENTITY_UNKNOWN`.
+
 ## Refusals
 
 - **Never return `Refused` unless the rejection record committed.** If writing the

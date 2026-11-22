@@ -448,10 +448,33 @@ Example JSON (input-shape demonstration only, not VAT or classification advice):
   ]
 }
 ```
+TRANSACTIONS ALREADY IN THE BOOKS
+  A transaction's event key is its natural_key (bank reference and account), so
+  the same transaction in an overlapping export is recognised. An assignment is
+  still required for it, and it must be the one its voucher was sealed with.
+  Every entry resolves to one outcome:
+    new_voucher                    sealed now, with this file as attachment.
+    duplicate_source_observation   same bank facts and same booking as voucher
+                                   voucher_number: nothing is sealed; the file
+                                   is recorded as a source it was seen in.
+  and any of these stops the whole batch before anything is written (user
+  error; details.conflicts lists every conflicting entry with its voucher):
+    SOURCE_FACTS_CHANGED           the bank's facts differ (amount, dates,
+                                   direction, parties, remittance), or the file
+                                   lists a booked transaction as not booked.
+    POSTING_PROJECTION_CHANGED     same facts, different booking (accounts,
+                                   amounts, VAT, dates or description).
+    SOURCE_IDENTITY_UNKNOWN        a voucher holds the key but its transaction
+                                   cannot be read back from its attachment.
+  Outputs and conflict details carry new_voucher_count,
+  duplicate_observation_count, conflict_count and backfilled_count (vouchers
+  sealed by an earlier release whose identity was read from their statement).
+  `import camt053 observations` lists which transactions each file contained.
+
 PREVIEW AND APPROVAL
   --dry-run prepares and validates every voucher exactly as the seal would
-  (accounts, split totals, VAT expansion, period state, natural keys) and writes
-  nothing. It returns the vouchers, the statement's period and balances, and a
+  (accounts, split totals, VAT expansion, period state, transactions already in
+  the books) and writes nothing. It returns the vouchers, the statement's period and balances, and a
   preparation_hash that binds the actor, the chart, the statement bytes and every
   voucher. Show the vouchers to the user; after approval, seal with
   --approved-preparation-hash. Any change since the preview (statement file,

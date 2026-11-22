@@ -19,6 +19,7 @@ use aggountant_model::{
     Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Money, PeriodId, VoucherBody,
 };
 
+use crate::bank_event::BankEventConflictCode;
 use crate::employee::EmployeeState;
 use crate::error::LedgerError;
 use crate::period::{ClosingAuthority, FiscalYearState, PeriodState};
@@ -325,6 +326,73 @@ pub(crate) struct IdempotencyConflict {
     pub source_conflict: bool,
 }
 
+/// One bank transaction of an import batch, as the Ledger prepared it. The
+/// provenance's `natural_key` is the event key and carries the source fingerprint.
+pub(crate) struct BankEventRequest<'a> {
+    pub provenance: StoredProvenance,
+    pub projection_hash: String,
+    pub gate: PeriodGate<'a>,
+}
+
+/// The identity of a voucher sealed before bank events were recorded, read back
+/// from the statement it retained.
+pub(crate) struct BankEventBackfill {
+    pub event_key: String,
+    pub source_fingerprint: String,
+    pub projection_hash: String,
+    pub artifact_ref: String,
+}
+
+/// A whole import batch: every transaction of one statement file, the identities
+/// to backfill, and the event keys the file lists as not booked.
+pub(crate) struct BankBatchRequest<'a> {
+    pub artifact_ref: String,
+    pub observed_at: String,
+    pub entries: Vec<BankEventRequest<'a>>,
+    pub backfill: Vec<BankEventBackfill>,
+    pub unbooked_event_keys: Vec<String>,
+    /// `false` resolves the batch in a transaction that is rolled back.
+    pub write: bool,
+}
+
+/// How one transaction of a batch resolved.
+pub(crate) enum BankEventResolution {
+    New(StoredVoucher),
+    Duplicate(StoredVoucher),
+    Conflict {
+        code: BankEventConflictCode,
+        existing: StoredVoucher,
+    },
+}
+
+pub(crate) enum BankBatchResult {
+    /// Every entry resolved. Written only when `write` was set and no entry or
+    /// unbooked key conflicts.
+    Resolved {
+        entries: Vec<BankEventResolution>,
+        /// Unbooked event keys that already hold a voucher, with that voucher.
+        unbooked_conflicts: Vec<(usize, StoredVoucher)>,
+        backfilled: usize,
+        committed: bool,
+    },
+    /// The period gate refused an entry; nothing was written. The caller
+    /// records `rejection` when the batch was meant to write.
+    Refused {
+        error: LedgerError,
+        rejection: RejectionRecord,
+    },
+}
+
+/// One recorded sighting of a bank transaction in a retained statement file.
+#[derive(Debug, Clone)]
+pub(crate) struct StoredObservation {
+    pub artifact_ref: String,
+    pub event_key: String,
+    pub voucher_number: u64,
+    pub observed_at: String,
+    pub backfilled: bool,
+}
+
 /// A refused write, recorded append-only (O-25). Carries no raw PII or secrets
 /// (ADR-1 §Rejection log, guardrail 2) — only a `request_hash`, a reason code,
 /// and safe context.
@@ -439,6 +507,28 @@ pub(crate) trait FiscalStore {
         &self,
         req: &AttributionRequest,
     ) -> Result<AttributionResult, LedgerError>;
+
+    /// Resolve a bank-import batch in one `BEGIN IMMEDIATE` transaction: backfill
+    /// identities, then for each entry seal a voucher with its first observation
+    /// (unknown event key), record only the observation (same fingerprint and
+    /// projection) or report a conflict. With any conflict, a refusal or
+    /// `write == false`, the transaction rolls back and nothing is written.
+    fn commit_bank_batch(
+        &self,
+        batch: &BankBatchRequest<'_>,
+        build: &dyn Fn(usize, u64, &Hash) -> Result<BuiltVoucher, LedgerError>,
+    ) -> Result<BankBatchResult, LedgerError>;
+
+    /// Vouchers whose natural key starts with `prefix` and that have no bank
+    /// event recorded: those sealed by an import before events existed.
+    fn vouchers_without_bank_event(&self, prefix: &str) -> Result<Vec<StoredVoucher>, LedgerError>;
+
+    /// Recorded observations, optionally only those in one statement file,
+    /// ordered by file and voucher number.
+    fn bank_source_observations(
+        &self,
+        artifact_ref: Option<&str>,
+    ) -> Result<Vec<StoredObservation>, LedgerError>;
 
     /// A single-transaction snapshot of vouchers + head + rejections, for a
     /// `verify` that cannot be tricked into a spurious break by a concurrent seal.

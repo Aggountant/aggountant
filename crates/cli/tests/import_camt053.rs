@@ -475,9 +475,12 @@ fn dry_run_previews_every_voucher_and_writes_nothing() {
     let replay: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(replay["vouchers"][0]["would_replay"], true);
     assert_eq!(
-        replay["vouchers"][0]["warnings"][0]["code"],
-        "NATURAL_KEY_ALREADY_SEALED"
+        replay["vouchers"][0]["outcome"],
+        "duplicate_source_observation"
     );
+    assert_eq!(replay["vouchers"][0]["voucher_number"], 1);
+    assert_eq!(replay["new_voucher_count"], 0);
+    assert_eq!(replay["duplicate_observation_count"], 2);
     assert_eq!(replay["preparation_hash"], hash.as_str());
 }
 
@@ -576,8 +579,8 @@ fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
     );
     assert_eq!(code, 0, "{stderr}");
 
-    // The second entry is already sealed to 3000; a different account is a
-    // reused natural key with different content, refused before any write.
+    // The second entry is already sealed to 3000; a different account is the
+    // same bank transaction booked differently, refused before any write.
     let changed = ASSIGNMENTS.replace("\"3000\"", "\"3010\"");
     for extra in [&["--dry-run"][..], &[][..]] {
         let mut args = vec!["import", "camt053", "seal", "--file", &file];
@@ -585,7 +588,10 @@ fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
         let (code, stdout, stderr) = run(home, &args, &changed);
         assert_eq!(code, 1, "{stdout}");
         let error: Value = serde_json::from_str(&stderr).unwrap();
-        assert_eq!(error["error_code"], "IDEMPOTENCY_KEY_REUSE");
+        assert_eq!(error["error_code"], "POSTING_PROJECTION_CHANGED");
+        assert_eq!(error["details"]["conflict_count"], 1);
+        assert_eq!(error["details"]["duplicate_observation_count"], 1);
+        assert_eq!(error["details"]["conflicts"][0]["voucher_number"], 2);
     }
     let (_, stdout, _) = run(home, &["voucher", "verify"], "");
     let verify: Value = serde_json::from_str(&stdout).unwrap();
@@ -701,4 +707,389 @@ fn exempt_eu_goods_acquisition_reaches_field_312_with_zero_tax_from_bank_and_rec
     assert_eq!(preview["sales_vat"], "0.00");
     assert_eq!(preview["purchase_vat"], "0.00");
     assert_eq!(preview["vat_reconciliation"]["status"], "reconciled");
+}
+
+// ---------------------------------------------------------------------------
+// Event identity across overlapping exports (issue `camt-event-identity`).
+// ---------------------------------------------------------------------------
+
+const IBAN: &str = "FI2112345600000785";
+
+/// One synthetic statement entry: bank reference, booking date, amount,
+/// `DBIT`/`CRDT` and status.
+#[derive(Clone)]
+struct Entry {
+    bank_ref: &'static str,
+    date: &'static str,
+    amount: &'static str,
+    direction: &'static str,
+    status: &'static str,
+}
+
+const fn entry(bank_ref: &'static str, date: &'static str, amount: &'static str) -> Entry {
+    Entry {
+        bank_ref,
+        date,
+        amount,
+        direction: "DBIT",
+        status: "BOOK",
+    }
+}
+
+/// A camt.053 export of `entries` with a statement id, so two exports of the
+/// same transactions are different files.
+fn export(id: &str, entries: &[Entry]) -> String {
+    let ntry: String = entries
+        .iter()
+        .map(|e| {
+            format!(
+                r#"<Ntry><Amt Ccy="EUR">{}</Amt><CdtDbtInd>{}</CdtDbtInd><Sts>{}</Sts>
+<BookgDt><Dt>{}</Dt></BookgDt><AcctSvcrRef>{}</AcctSvcrRef>
+<NtryDtls><TxDtls><RltdPties><Cdtr><Nm>Toimittaja Oy</Nm></Cdtr></RltdPties>
+<RmtInf><Ustrd>Lasku {}</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry>
+"#,
+                e.amount, e.direction, e.status, e.date, e.bank_ref, e.bank_ref
+            )
+        })
+        .collect();
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02"><BkToCstmrStmt>
+<GrpHdr><MsgId>{id}</MsgId><CreDtTm>2027-01-02T06:00:00</CreDtTm></GrpHdr>
+<Stmt><Id>{id}</Id><Acct><Id><IBAN>{IBAN}</IBAN></Id><Ccy>EUR</Ccy></Acct>
+{ntry}</Stmt></BkToCstmrStmt></Document>
+"#
+    )
+}
+
+/// Assignments for the booked `entries`: money out to 7690, the given account
+/// for one bank reference when `override_ref` names it.
+fn assignments(entries: &[Entry], override_ref: Option<(&str, &str)>) -> String {
+    let rows: Vec<String> = entries
+        .iter()
+        .filter(|e| e.status == "BOOK")
+        .map(|e| {
+            let account = match override_ref {
+                Some((bank_ref, account)) if bank_ref == e.bank_ref => account,
+                _ => "7690",
+            };
+            format!(
+                r#"{{"bank_ref":"{}","bank_account":"1910","contra_postings":[{{"account":"{account}","amount":{{"amount":"{}","currency":"EUR"}}}}]}}"#,
+                e.bank_ref, e.amount
+            )
+        })
+        .collect();
+    format!(
+        r#"{{"actor":"importer","assignments":[{}]}}"#,
+        rows.join(",")
+    )
+}
+
+fn write_export(home: &std::path::Path, name: &str, xml: &str) -> String {
+    let path = home.join(name);
+    std::fs::write(&path, xml).unwrap();
+    path.to_str().unwrap().to_string()
+}
+
+fn seal(home: &std::path::Path, file: &str, input: &str) -> (i32, Value, Value) {
+    let (code, stdout, stderr) = run(home, &["import", "camt053", "seal", "--file", file], input);
+    let parse = |s: &str| serde_json::from_str(s).unwrap_or(Value::Null);
+    (code, parse(&stdout), parse(&stderr))
+}
+
+fn voucher_count(home: &std::path::Path) -> u64 {
+    let (code, stdout, stderr) = run(home, &["voucher", "verify"], "");
+    assert_eq!(code, 0, "verify failed: {stderr}");
+    let verify: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verify["ok"], true);
+    verify["voucher_count"].as_u64().unwrap()
+}
+
+/// Six transactions of year A; the last four are also in year B, which adds three.
+fn yearly_exports() -> (Vec<Entry>, Vec<Entry>) {
+    let shared = [
+        entry("REF-1229-A", "2026-12-29", "10.00"),
+        entry("REF-1230-B", "2026-12-30", "20.00"),
+        entry("REF-1231-C", "2026-12-31", "30.00"),
+        entry("REF-1231-D", "2026-12-31", "40.00"),
+    ];
+    let mut year_a = vec![
+        entry("REF-1201-X", "2026-12-01", "1.00"),
+        entry("REF-1215-Y", "2026-12-15", "2.00"),
+    ];
+    year_a.extend(shared.iter().cloned());
+    let mut year_b = shared.to_vec();
+    year_b.extend([
+        entry("REF-0102-E", "2027-01-02", "5.00"),
+        entry("REF-0103-F", "2027-01-03", "6.00"),
+        entry("REF-0104-G", "2027-01-04", "7.00"),
+    ]);
+    (year_a, year_b)
+}
+
+#[test]
+fn overlapping_yearly_exports_book_each_transaction_once() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let (year_a, year_b) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+    let file_b = write_export(home, "b.xml", &export("YEAR-2027", &year_b));
+
+    let (code, a, err) = seal(home, &file_a, &assignments(&year_a, None));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(a["new_voucher_count"], 6);
+
+    // The preview of year B already tells new from duplicate.
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file_b, "--dry-run"],
+        &assignments(&year_b, None),
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["new_voucher_count"], 3);
+    assert_eq!(preview["duplicate_observation_count"], 4);
+    assert_eq!(preview["conflict_count"], 0);
+    assert_eq!(
+        preview["vouchers"][0]["outcome"],
+        "duplicate_source_observation"
+    );
+    assert_eq!(preview["vouchers"][4]["outcome"], "new_voucher");
+    assert!(preview["vouchers"][4].get("voucher_number").is_none());
+
+    let (code, b, err) = seal(home, &file_b, &assignments(&year_b, None));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(b["new_voucher_count"], 3);
+    assert_eq!(b["duplicate_observation_count"], 4);
+    assert_eq!(b["conflict_count"], 0);
+    assert_eq!(b["created_count"], 3);
+    assert_eq!(b["replayed_count"], 4);
+    let outcomes: Vec<&str> = b["sealed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["outcome"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        outcomes,
+        [
+            "duplicate_source_observation",
+            "duplicate_source_observation",
+            "duplicate_source_observation",
+            "duplicate_source_observation",
+            "new_voucher",
+            "new_voucher",
+            "new_voucher"
+        ]
+    );
+    // A duplicate names the voucher year A sealed for it.
+    assert_eq!(b["sealed"][0]["number"], 3);
+    assert_eq!(b["sealed"][0]["bank_ref"], "REF-1229-A");
+    assert_eq!(voucher_count(home), 9);
+
+    // Each file lists the transactions seen in it; a shared one is in both.
+    let observed = |filter: Option<&str>| -> Vec<Value> {
+        let mut args = vec!["import", "camt053", "observations"];
+        if let Some(hash) = filter {
+            args.extend(["--attachment-ref", hash]);
+        }
+        let (code, stdout, stderr) = run(home, &args, "");
+        assert_eq!(code, 0, "{stderr}");
+        let out: Value = serde_json::from_str(&stdout).unwrap();
+        out["observations"].as_array().unwrap().clone()
+    };
+    let in_a = observed(a["attachment_ref"].as_str());
+    let in_b = observed(b["attachment_ref"].as_str());
+    assert_eq!(in_a.len(), 6);
+    assert_eq!(in_b.len(), 7);
+    assert_eq!(observed(None).len(), 13);
+    let shared_key = format!("bank-import:holvi:{IBAN}:REF-1229-A");
+    assert!(in_a.iter().any(|o| o["event_key"] == shared_key.as_str()));
+    assert!(in_b
+        .iter()
+        .any(|o| o["event_key"] == shared_key.as_str() && o["voucher_number"] == 3));
+
+    // Importing year B again records nothing new and books nothing.
+    let (code, again, err) = seal(home, &file_b, &assignments(&year_b, None));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(again["duplicate_observation_count"], 7);
+    assert_eq!(observed(None).len(), 13);
+    assert_eq!(voucher_count(home), 9);
+}
+
+/// Seal year A, then try year B with `year_b` changed; the batch must stop with
+/// `code` and leave the books and the artifact store as they were.
+fn assert_changed_year_b_stops(year_b: &[Entry], input: &str, code: &str, conflict_ref: &str) {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let (year_a, _) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+    let (status, _, err) = seal(home, &file_a, &assignments(&year_a, None));
+    assert_eq!(status, 0, "{err}");
+    let blobs = artifact_blobs(home).len();
+    let vouchers_before = voucher_count(home);
+
+    let file_b = write_export(home, "b.xml", &export("YEAR-2027", year_b));
+    for extra in [&["--dry-run"][..], &[][..]] {
+        let mut args = vec!["import", "camt053", "seal", "--file", &file_b];
+        args.extend_from_slice(extra);
+        let (status, stdout, stderr) = run(home, &args, input);
+        assert_eq!(status, 1, "{stdout}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(error["error_code"], code, "{stderr}");
+        assert_eq!(error["details"]["conflict_count"], 1);
+        assert_eq!(error["details"]["new_voucher_count"], 3);
+        let conflict = &error["details"]["conflicts"][0];
+        assert_eq!(
+            conflict["event_key"],
+            format!("bank-import:holvi:{IBAN}:{conflict_ref}").as_str()
+        );
+        assert_eq!(conflict["error_code"], code);
+    }
+    assert_eq!(voucher_count(home), vouchers_before);
+    assert_eq!(artifact_blobs(home).len(), blobs, "statement B was stored");
+    let (_, stdout, _) = run(home, &["import", "camt053", "observations"], "");
+    let out: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out["observation_count"], 6);
+}
+
+#[test]
+fn a_changed_amount_stops_the_batch_before_any_write() {
+    let (_, mut year_b) = yearly_exports();
+    year_b[1].amount = "21.00";
+    let input = assignments(&year_b, None);
+    assert_changed_year_b_stops(&year_b, &input, "SOURCE_FACTS_CHANGED", "REF-1230-B");
+}
+
+#[test]
+fn a_changed_date_stops_the_batch_before_any_write() {
+    let (_, mut year_b) = yearly_exports();
+    year_b[2].date = "2027-01-01";
+    let input = assignments(&year_b, None);
+    assert_changed_year_b_stops(&year_b, &input, "SOURCE_FACTS_CHANGED", "REF-1231-C");
+}
+
+#[test]
+fn a_changed_bank_status_stops_the_batch_before_any_write() {
+    let (_, mut year_b) = yearly_exports();
+    year_b[3].status = "PDNG";
+    let input = assignments(&year_b, None);
+    assert_changed_year_b_stops(&year_b, &input, "SOURCE_FACTS_CHANGED", "REF-1231-D");
+}
+
+#[test]
+fn a_changed_assignment_of_a_booked_transaction_stops_the_batch_before_any_write() {
+    let (_, year_b) = yearly_exports();
+    let input = assignments(&year_b, Some(("REF-1229-A", "7600")));
+    assert_changed_year_b_stops(&year_b, &input, "POSTING_PROJECTION_CHANGED", "REF-1229-A");
+}
+
+/// A home whose camt vouchers were sealed by the import before event identity:
+/// the same voucher, under the same natural key, with no source fingerprint and
+/// no recorded event. `voucher seal` with the preview's draft produces exactly
+/// that voucher.
+fn seal_like_the_previous_import(home: &std::path::Path, file: &str, input: &str) {
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", file, "--dry-run"],
+        input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    let (code, _, stderr) = run(home, &["artifact", "attach", "--file", file], "");
+    assert_eq!(code, 0, "{stderr}");
+    for voucher in preview["vouchers"].as_array().unwrap() {
+        let request = json_string(&serde_json::json!({
+            "draft": voucher["draft"],
+            "natural_key": voucher["natural_key"],
+            "actor": "importer",
+        }));
+        let (code, stdout, stderr) = run(home, &["voucher", "seal"], &request);
+        assert_eq!(code, 0, "{stderr}");
+        let sealed: Value = serde_json::from_str(&stdout).unwrap();
+        assert!(sealed.get("source_fingerprint").is_none(), "{stdout}");
+    }
+}
+
+fn json_string(value: &Value) -> String {
+    serde_json::to_string(value).unwrap()
+}
+
+#[test]
+fn vouchers_sealed_before_event_identity_are_recognised_from_their_statement() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let (year_a, year_b) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+    seal_like_the_previous_import(home, &file_a, &assignments(&year_a, None));
+    assert_eq!(voucher_count(home), 6);
+
+    // A changed booking of a legacy voucher is still refused.
+    let file_b = write_export(home, "b.xml", &export("YEAR-2027", &year_b));
+    let (code, _, err) = seal(
+        home,
+        &file_b,
+        &assignments(&year_b, Some(("REF-1231-C", "7600"))),
+    );
+    assert_eq!(code, 1);
+    assert_eq!(err["error_code"], "POSTING_PROJECTION_CHANGED");
+    assert_eq!(err["details"]["backfilled_count"], 6);
+    assert_eq!(voucher_count(home), 6);
+
+    // The unchanged overlap is four duplicates; the legacy identities are
+    // backfilled with the statement they were sealed from.
+    let (code, b, err) = seal(home, &file_b, &assignments(&year_b, None));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(b["new_voucher_count"], 3);
+    assert_eq!(b["duplicate_observation_count"], 4);
+    assert_eq!(b["backfilled_count"], 6);
+    assert_eq!(voucher_count(home), 9);
+    let (_, stdout, _) = run(home, &["import", "camt053", "observations"], "");
+    let out: Value = serde_json::from_str(&stdout).unwrap();
+    let rows = out["observations"].as_array().unwrap();
+    assert_eq!(rows.len(), 13);
+    assert_eq!(
+        rows.iter().filter(|o| o["backfilled"] == true).count(),
+        6,
+        "{out}"
+    );
+
+    // Re-importing the legacy statement itself replays as before.
+    let (code, a, err) = seal(home, &file_a, &assignments(&year_a, None));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(a["duplicate_observation_count"], 6);
+    assert_eq!(a["backfilled_count"], 0);
+}
+
+#[test]
+fn a_booked_key_whose_statement_cannot_be_read_back_is_never_booked_again() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let (_, year_b) = yearly_exports();
+    // A voucher under the event key of REF-1229-A without a retained statement.
+    let request = json_string(&serde_json::json!({
+        "draft": {
+            "document_date": "2026-12-29",
+            "posting_date": "2026-12-29",
+            "description": "Lasku REF-1229-A",
+            "postings": [
+                {"account": "7690", "amount": {"amount": "10.00", "currency": "EUR"}, "side": "debit"},
+                {"account": "1910", "amount": {"amount": "10.00", "currency": "EUR"}, "side": "credit"}
+            ]
+        },
+        "natural_key": format!("bank-import:holvi:{IBAN}:REF-1229-A"),
+    }));
+    let (code, _, stderr) = run(home, &["voucher", "seal"], &request);
+    assert_eq!(code, 0, "{stderr}");
+
+    let file_b = write_export(home, "b.xml", &export("YEAR-2027", &year_b));
+    let (code, _, err) = seal(home, &file_b, &assignments(&year_b, None));
+    assert_eq!(code, 1);
+    assert_eq!(err["error_code"], "SOURCE_IDENTITY_UNKNOWN");
+    assert_eq!(err["details"]["conflicts"][0]["voucher_number"], 1);
+    assert_eq!(voucher_count(home), 1);
 }

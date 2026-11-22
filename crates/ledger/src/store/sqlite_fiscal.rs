@@ -22,15 +22,17 @@ use sha2::{Digest, Sha256};
 
 use aggountant_model::{Date, FiscalCalendar, FiscalYear, Hash, ModelError, PeriodId};
 
+use crate::bank_event::BankEventConflictCode;
 use crate::error::LedgerError;
 use crate::period::{FiscalYearState, PeriodState};
 use crate::store::migrations::{self, Migration};
 use crate::store::{
-    AttributionRequest, AttributionResult, BuiltVoucher, CommitResult, DefinitionResult,
-    FiscalSnapshot, FiscalStore, FiscalYearDefinitionRequest, FiscalYearRow,
-    FiscalYearTransitionRequest, IdempotencyConflict, PeriodGate, PeriodRow, RejectionRecord,
-    StoredAttribution, StoredFiscalYearTransition, StoredPeriodTransition, StoredProvenance,
-    StoredRejection, StoredVoucher, TransitionRequest,
+    AttributionRequest, AttributionResult, BankBatchRequest, BankBatchResult, BankEventResolution,
+    BuiltVoucher, CommitResult, DefinitionResult, FiscalSnapshot, FiscalStore,
+    FiscalYearDefinitionRequest, FiscalYearRow, FiscalYearTransitionRequest, IdempotencyConflict,
+    PeriodGate, PeriodRow, RejectionRecord, StoredAttribution, StoredFiscalYearTransition,
+    StoredObservation, StoredPeriodTransition, StoredProvenance, StoredRejection, StoredVoucher,
+    TransitionRequest,
 };
 
 const SERIES: &str = "main";
@@ -233,6 +235,33 @@ const MIGRATIONS: &[Migration] = &[
                  register_json TEXT NOT NULL
               );",
     },
+    // v9 (issue `camt-event-identity`): bank-transaction identity across
+    // overlapping statement exports. `bank_event` binds an event key (the bank's
+    // entry reference and account, which is also the voucher's natural key) to
+    // the voucher sealed for it, with the source fingerprint and the projection
+    // hash it was sealed with. `bank_source_observation` records every retained
+    // statement file the transaction was seen in. Both are outside the voucher
+    // hash preimage; a voucher sealed before v9 gets its rows by backfill from
+    // the statement it retained (that observation has `origin = 'backfill'`).
+    Migration {
+        version: 9,
+        sql: "CREATE TABLE IF NOT EXISTS bank_event(
+                 event_key TEXT PRIMARY KEY REFERENCES idempotency(natural_key),
+                 voucher_number INTEGER NOT NULL UNIQUE REFERENCES vouchers(number),
+                 source_fingerprint TEXT NOT NULL,
+                 projection_hash TEXT NOT NULL,
+                 recorded_at TEXT NOT NULL
+              );
+              CREATE TABLE IF NOT EXISTS bank_source_observation(
+                 event_key TEXT NOT NULL REFERENCES bank_event(event_key),
+                 artifact_ref TEXT NOT NULL,
+                 origin TEXT NOT NULL CHECK(origin IN ('import','backfill')),
+                 observed_at TEXT NOT NULL,
+                 PRIMARY KEY(event_key, artifact_ref)
+              );
+              CREATE INDEX IF NOT EXISTS bank_source_observation_by_artifact
+                 ON bank_source_observation(artifact_ref);",
+    },
 ];
 
 pub(crate) struct SqliteFiscalStore {
@@ -330,6 +359,339 @@ impl SqliteFiscalStore {
     }
 }
 
+/// The outcome of [`seal_in_tx`]. A refusal carries the rejection record still
+/// to be written, so a caller that rolls its transaction back can record it.
+/// Short-lived, one per seal attempt, so the variant size difference is harmless.
+#[allow(clippy::large_enum_variant)]
+enum TxSeal {
+    Done(CommitResult),
+    Refused {
+        error: LedgerError,
+        rejection: RejectionRecord,
+    },
+}
+
+/// The seal steps of [`FiscalStore::commit`] inside an open writer transaction:
+/// idempotency, period gate, number allocation, insert and CAS. The caller owns
+/// the transaction and decides whether it commits.
+fn seal_in_tx(
+    tx: &Connection,
+    provenance: &StoredProvenance,
+    gate: &PeriodGate<'_>,
+    build: &dyn Fn(u64, &Hash) -> Result<BuiltVoucher, LedgerError>,
+) -> Result<TxSeal, LedgerError> {
+    // Idempotency (natural_key), independently bound to both projected
+    // request content and the pre-projection source event when one is supplied.
+    if let Some((number, existing_rh)) = tx
+        .query_row(
+            "SELECT v.number, v.request_hash
+             FROM idempotency i JOIN vouchers v ON v.number = i.number
+             WHERE i.natural_key = ?1",
+            params![provenance.natural_key],
+            |r| Ok((r.get::<_, u64>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?
+    {
+        let existing = load_voucher(tx, number)?;
+        // A stored NULL means the original seal carried no authenticated source
+        // fingerprint. A later source-aware retry may replay the unchanged fiscal
+        // request, but must not rewrite history by adopting an unverifiable value.
+        // Conversely, once a key is source-bound, omitting its fingerprint is a
+        // conflict rather than a way to bypass source-change detection.
+        let source_conflict = match (
+            existing.provenance.source_fingerprint.as_deref(),
+            provenance.source_fingerprint.as_deref(),
+        ) {
+            (None, _) => false,
+            (Some(stored), Some(incoming)) => stored != incoming,
+            (Some(_), None) => true,
+        };
+        if existing_rh != provenance.request_hash || source_conflict {
+            return Ok(TxSeal::Done(CommitResult::Conflict(IdempotencyConflict {
+                existing,
+                existing_request_hash: existing_rh,
+                incoming_source_fingerprint: provenance.source_fingerprint.clone(),
+                source_conflict,
+            })));
+        }
+
+        return Ok(TxSeal::Done(CommitResult::Replayed(existing)));
+    }
+
+    // ADR-6 period gate (F5), evaluated INSIDE the writer lock so it shares
+    // the seal's transaction domain: a concurrent TransitionPeriod either
+    // committed before us (we see `Closing`/`Sealed` and refuse) or blocks
+    // behind us (it will see our voucher committed into a still-`Open`
+    // period). There is no window where a voucher seals into a period a
+    // close-run believes is `Closing`.
+    // The calendar is read in the writer lock too, so a concurrent fiscal-year
+    // definition cannot slip in.
+    if let Some((refusal, target)) = posting_gate_refusal(tx, gate)? {
+        return Ok(TxSeal::Refused {
+            rejection: RejectionRecord {
+                reason_code: refusal.error_code().to_string(),
+                request_hash: provenance.request_hash.clone(),
+                actor: provenance.actor.clone(),
+                target,
+                note: refusal.to_string(),
+            },
+            error: refusal,
+        });
+    }
+
+    let next_number: u64 = tx.query_row(
+        "SELECT next_number FROM counter WHERE series = ?1",
+        params![SERIES],
+        |r| r.get(0),
+    )?;
+    let (head_blob, head_num): (Vec<u8>, u64) = tx.query_row(
+        "SELECT head_hash, head_num FROM chain_head WHERE series = ?1",
+        params![SERIES],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+
+    // Counter and chain head must agree, or the store is internally
+    // inconsistent — fail loud rather than extend a corrupt state.
+    if head_num.checked_add(1) != Some(next_number) {
+        return Err(LedgerError::Store(format!(
+            "counter/head divergence: next_number={next_number}, head_num={head_num}"
+        )));
+    }
+    let following = next_number
+        .checked_add(1)
+        .filter(|n| *n <= i64::MAX as u64)
+        .ok_or_else(|| LedgerError::Store("voucher number space exhausted".into()))?;
+    let prev_hash = hash_from_blob(&head_blob)?;
+
+    // Pure, deterministic build (wire crate) with the allocated number and
+    // previous hash — the only place the chain hash is computed.
+    let built = build(next_number, &prev_hash)?;
+    if built.body.number() != next_number {
+        return Err(LedgerError::Store(format!(
+            "built voucher number {} != allocated {}",
+            built.body.number(),
+            next_number
+        )));
+    }
+
+    tx.execute(
+        "INSERT INTO vouchers(number, series, prev_hash, hash, canonical_bytes,
+                              chart_version, sealed_at, actor, natural_key, request_hash,
+                              source_fingerprint, policy_set, software_version, sent_hash)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        params![
+            next_number,
+            SERIES,
+            prev_hash.as_bytes().as_slice(),
+            built.hash.as_bytes().as_slice(),
+            built.canonical,
+            provenance.chart_version,
+            provenance.sealed_at,
+            provenance.actor,
+            provenance.natural_key,
+            provenance.request_hash,
+            provenance.source_fingerprint,
+            provenance.policy_set,
+            provenance.software_version,
+            provenance.sent_hash,
+        ],
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::SqliteFailure(f, _)
+            if f.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            LedgerError::VoucherNumberTaken(format!(
+                "number {next_number} or its hash already present"
+            ))
+        }
+        other => LedgerError::from(other),
+    })?;
+
+    // CAS the counter and the chain head on *both* prior values.
+    let counter_updated = tx.execute(
+        "UPDATE counter SET next_number = ?1 WHERE series = ?2 AND next_number = ?3",
+        params![following, SERIES, next_number],
+    )?;
+    if counter_updated != 1 {
+        return Err(LedgerError::CasConflict(format!(
+            "counter advanced under us at number {next_number}"
+        )));
+    }
+    let head_updated = tx.execute(
+        "UPDATE chain_head SET head_hash = ?1, head_num = ?2
+         WHERE series = ?3 AND head_hash = ?4 AND head_num = ?5",
+        params![
+            built.hash.as_bytes().as_slice(),
+            next_number,
+            SERIES,
+            prev_hash.as_bytes().as_slice(),
+            head_num,
+        ],
+    )?;
+    if head_updated != 1 {
+        return Err(LedgerError::CasConflict(format!(
+            "chain head advanced under us at number {next_number}"
+        )));
+    }
+
+    tx.execute(
+        "INSERT INTO idempotency(natural_key, number) VALUES(?1, ?2)",
+        params![provenance.natural_key, next_number],
+    )?;
+    tx.execute(
+        "INSERT INTO git_projection_outbox(number, mirrored_at) VALUES(?1, NULL)",
+        params![next_number],
+    )?;
+
+    let voucher = StoredVoucher {
+        number: next_number,
+        prev_hash,
+        hash: built.hash,
+        canonical: built.canonical,
+        chart_version: provenance.chart_version.clone(),
+        sealed_at: provenance.sealed_at.clone(),
+        provenance: provenance.clone(),
+    };
+    Ok(TxSeal::Done(CommitResult::Sealed(voucher)))
+}
+
+/// The voucher number an idempotency key holds, if any.
+fn voucher_number_for_key(tx: &Connection, natural_key: &str) -> Result<Option<u64>, LedgerError> {
+    Ok(tx
+        .query_row(
+            "SELECT number FROM idempotency WHERE natural_key = ?1",
+            params![natural_key],
+            |r| r.get::<_, u64>(0),
+        )
+        .optional()?)
+}
+
+/// A recorded bank event: voucher number, source fingerprint, projection hash.
+fn read_bank_event(
+    tx: &Connection,
+    event_key: &str,
+) -> Result<Option<(u64, String, String)>, LedgerError> {
+    Ok(tx
+        .query_row(
+            "SELECT voucher_number, source_fingerprint, projection_hash
+             FROM bank_event WHERE event_key = ?1",
+            params![event_key],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_bank_event(
+    tx: &Connection,
+    event_key: &str,
+    voucher_number: u64,
+    source_fingerprint: &str,
+    projection_hash: &str,
+    origin: &str,
+    artifact_ref: &str,
+    recorded_at: &str,
+) -> Result<(), LedgerError> {
+    tx.execute(
+        "INSERT INTO bank_event(event_key, voucher_number, source_fingerprint,
+                                projection_hash, recorded_at)
+         VALUES(?1, ?2, ?3, ?4, ?5)",
+        params![
+            event_key,
+            voucher_number,
+            source_fingerprint,
+            projection_hash,
+            recorded_at
+        ],
+    )?;
+    insert_observation(tx, event_key, artifact_ref, origin, recorded_at)
+}
+
+/// Record that `event_key` was seen in `artifact_ref`. Seeing it again in the
+/// same file is not a new observation.
+fn insert_observation(
+    tx: &Connection,
+    event_key: &str,
+    artifact_ref: &str,
+    origin: &str,
+    observed_at: &str,
+) -> Result<(), LedgerError> {
+    tx.execute(
+        "INSERT OR IGNORE INTO bank_source_observation(event_key, artifact_ref, origin, observed_at)
+         VALUES(?1, ?2, ?3, ?4)",
+        params![event_key, artifact_ref, origin, observed_at],
+    )?;
+    Ok(())
+}
+
+/// Resolve one entry of a bank batch inside the batch transaction.
+fn resolve_bank_event(
+    tx: &Connection,
+    batch: &BankBatchRequest<'_>,
+    index: usize,
+    build: &dyn Fn(usize, u64, &Hash) -> Result<BuiltVoucher, LedgerError>,
+) -> Result<Result<BankEventResolution, TxSeal>, LedgerError> {
+    let request = &batch.entries[index];
+    let event_key = request.provenance.natural_key.as_str();
+    let fingerprint = request
+        .provenance
+        .source_fingerprint
+        .as_deref()
+        .ok_or_else(|| {
+            LedgerError::Store(format!(
+                "bank event {event_key:?} has no source fingerprint"
+            ))
+        })?;
+    if let Some((number, stored_fingerprint, stored_projection)) = read_bank_event(tx, event_key)? {
+        let existing = load_voucher(tx, number)?;
+        let code = if stored_fingerprint != fingerprint {
+            BankEventConflictCode::SourceFactsChanged
+        } else if stored_projection != request.projection_hash {
+            BankEventConflictCode::PostingProjectionChanged
+        } else {
+            insert_observation(
+                tx,
+                event_key,
+                &batch.artifact_ref,
+                "import",
+                &batch.observed_at,
+            )?;
+            return Ok(Ok(BankEventResolution::Duplicate(existing)));
+        };
+        return Ok(Ok(BankEventResolution::Conflict { code, existing }));
+    }
+    // A voucher holds the key but its identity could not be backfilled: never
+    // seal the transaction a second time, and never guess that it is the same.
+    if let Some(number) = voucher_number_for_key(tx, event_key)? {
+        return Ok(Ok(BankEventResolution::Conflict {
+            code: BankEventConflictCode::SourceIdentityUnknown,
+            existing: load_voucher(tx, number)?,
+        }));
+    }
+    let voucher = match seal_in_tx(tx, &request.provenance, &request.gate, &|n, prev| {
+        build(index, n, prev)
+    })? {
+        TxSeal::Done(CommitResult::Sealed(voucher)) => voucher,
+        TxSeal::Done(_) => {
+            return Err(LedgerError::Store(format!(
+                "bank event {event_key:?} found an idempotency row after checking for none"
+            )))
+        }
+        refused @ TxSeal::Refused { .. } => return Ok(Err(refused)),
+    };
+    insert_bank_event(
+        tx,
+        event_key,
+        voucher.number,
+        fingerprint,
+        &request.projection_hash,
+        "import",
+        &batch.artifact_ref,
+        &batch.observed_at,
+    )?;
+    Ok(Ok(BankEventResolution::New(voucher)))
+}
+
 impl FiscalStore for SqliteFiscalStore {
     fn commit(
         &self,
@@ -339,185 +701,15 @@ impl FiscalStore for SqliteFiscalStore {
     ) -> Result<CommitResult, LedgerError> {
         let mut guard = self.conn.lock().unwrap();
         let tx = guard.transaction_with_behavior(TransactionBehavior::Immediate)?;
-
-        // Idempotency (natural_key), independently bound to both projected
-        // request content and the pre-projection source event when one is supplied.
-        if let Some((number, existing_rh)) = tx
-            .query_row(
-                "SELECT v.number, v.request_hash
-                 FROM idempotency i JOIN vouchers v ON v.number = i.number
-                 WHERE i.natural_key = ?1",
-                params![provenance.natural_key],
-                |r| Ok((r.get::<_, u64>(0)?, r.get::<_, String>(1)?)),
-            )
-            .optional()?
-        {
-            let existing = load_voucher(&tx, number)?;
-            // A stored NULL means the original seal carried no authenticated source
-            // fingerprint. A later source-aware retry may replay the unchanged fiscal
-            // request, but must not rewrite history by adopting an unverifiable value.
-            // Conversely, once a key is source-bound, omitting its fingerprint is a
-            // conflict rather than a way to bypass source-change detection.
-            let source_conflict = match (
-                existing.provenance.source_fingerprint.as_deref(),
-                provenance.source_fingerprint.as_deref(),
-            ) {
-                (None, _) => false,
-                (Some(stored), Some(incoming)) => stored != incoming,
-                (Some(_), None) => true,
-            };
-            if existing_rh != provenance.request_hash || source_conflict {
-                tx.commit()?;
-                return Ok(CommitResult::Conflict(IdempotencyConflict {
-                    existing,
-                    existing_request_hash: existing_rh,
-                    incoming_source_fingerprint: provenance.source_fingerprint.clone(),
-                    source_conflict,
-                }));
+        let result = match seal_in_tx(&tx, provenance, gate, build)? {
+            TxSeal::Done(result) => result,
+            TxSeal::Refused { error, rejection } => {
+                insert_rejection(&tx, &rejection)?;
+                CommitResult::Refused(error)
             }
-
-            tx.commit()?;
-            return Ok(CommitResult::Replayed(existing));
-        }
-
-        // ADR-6 period gate (F5), evaluated INSIDE the writer lock so it shares
-        // the seal's transaction domain: a concurrent TransitionPeriod either
-        // committed before us (we see `Closing`/`Sealed` and refuse) or blocks
-        // behind us (it will see our voucher committed into a still-`Open`
-        // period). There is no window where a voucher seals into a period a
-        // close-run believes is `Closing`.
-        // The calendar is read in the writer lock too, so a concurrent fiscal-year
-        // definition cannot slip in.
-        if let Some((refusal, target)) = posting_gate_refusal(&tx, gate)? {
-            insert_rejection(
-                &tx,
-                &RejectionRecord {
-                    reason_code: refusal.error_code().to_string(),
-                    request_hash: provenance.request_hash.clone(),
-                    actor: provenance.actor.clone(),
-                    target,
-                    note: refusal.to_string(),
-                },
-            )?;
-            tx.commit()?;
-            return Ok(CommitResult::Refused(refusal));
-        }
-
-        let next_number: u64 = tx.query_row(
-            "SELECT next_number FROM counter WHERE series = ?1",
-            params![SERIES],
-            |r| r.get(0),
-        )?;
-        let (head_blob, head_num): (Vec<u8>, u64) = tx.query_row(
-            "SELECT head_hash, head_num FROM chain_head WHERE series = ?1",
-            params![SERIES],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )?;
-
-        // Counter and chain head must agree, or the store is internally
-        // inconsistent — fail loud rather than extend a corrupt state.
-        if head_num.checked_add(1) != Some(next_number) {
-            return Err(LedgerError::Store(format!(
-                "counter/head divergence: next_number={next_number}, head_num={head_num}"
-            )));
-        }
-        let following = next_number
-            .checked_add(1)
-            .filter(|n| *n <= i64::MAX as u64)
-            .ok_or_else(|| LedgerError::Store("voucher number space exhausted".into()))?;
-        let prev_hash = hash_from_blob(&head_blob)?;
-
-        // Pure, deterministic build (wire crate) with the allocated number and
-        // previous hash — the only place the chain hash is computed.
-        let built = build(next_number, &prev_hash)?;
-        if built.body.number() != next_number {
-            return Err(LedgerError::Store(format!(
-                "built voucher number {} != allocated {}",
-                built.body.number(),
-                next_number
-            )));
-        }
-
-        tx.execute(
-            "INSERT INTO vouchers(number, series, prev_hash, hash, canonical_bytes,
-                                  chart_version, sealed_at, actor, natural_key, request_hash,
-                                  source_fingerprint, policy_set, software_version, sent_hash)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-            params![
-                next_number,
-                SERIES,
-                prev_hash.as_bytes().as_slice(),
-                built.hash.as_bytes().as_slice(),
-                built.canonical,
-                provenance.chart_version,
-                provenance.sealed_at,
-                provenance.actor,
-                provenance.natural_key,
-                provenance.request_hash,
-                provenance.source_fingerprint,
-                provenance.policy_set,
-                provenance.software_version,
-                provenance.sent_hash,
-            ],
-        )
-        .map_err(|e| match e {
-            rusqlite::Error::SqliteFailure(f, _)
-                if f.code == rusqlite::ErrorCode::ConstraintViolation =>
-            {
-                LedgerError::VoucherNumberTaken(format!(
-                    "number {next_number} or its hash already present"
-                ))
-            }
-            other => LedgerError::from(other),
-        })?;
-
-        // CAS the counter and the chain head on *both* prior values.
-        let counter_updated = tx.execute(
-            "UPDATE counter SET next_number = ?1 WHERE series = ?2 AND next_number = ?3",
-            params![following, SERIES, next_number],
-        )?;
-        if counter_updated != 1 {
-            return Err(LedgerError::CasConflict(format!(
-                "counter advanced under us at number {next_number}"
-            )));
-        }
-        let head_updated = tx.execute(
-            "UPDATE chain_head SET head_hash = ?1, head_num = ?2
-             WHERE series = ?3 AND head_hash = ?4 AND head_num = ?5",
-            params![
-                built.hash.as_bytes().as_slice(),
-                next_number,
-                SERIES,
-                prev_hash.as_bytes().as_slice(),
-                head_num,
-            ],
-        )?;
-        if head_updated != 1 {
-            return Err(LedgerError::CasConflict(format!(
-                "chain head advanced under us at number {next_number}"
-            )));
-        }
-
-        tx.execute(
-            "INSERT INTO idempotency(natural_key, number) VALUES(?1, ?2)",
-            params![provenance.natural_key, next_number],
-        )?;
-        tx.execute(
-            "INSERT INTO git_projection_outbox(number, mirrored_at) VALUES(?1, NULL)",
-            params![next_number],
-        )?;
-
-        let voucher = StoredVoucher {
-            number: next_number,
-            prev_hash,
-            hash: built.hash,
-            canonical: built.canonical,
-            chart_version: provenance.chart_version.clone(),
-            sealed_at: provenance.sealed_at.clone(),
-            provenance: provenance.clone(),
         };
         tx.commit()?;
-        Ok(CommitResult::Sealed(voucher))
+        Ok(result)
     }
 
     fn record_rejection(&self, rej: &RejectionRecord) -> Result<(), LedgerError> {
@@ -1317,6 +1509,118 @@ impl FiscalStore for SqliteFiscalStore {
             ts,
             hash,
         }))
+    }
+
+    fn commit_bank_batch(
+        &self,
+        batch: &BankBatchRequest<'_>,
+        build: &dyn Fn(usize, u64, &Hash) -> Result<BuiltVoucher, LedgerError>,
+    ) -> Result<BankBatchResult, LedgerError> {
+        let mut guard = self.conn.lock().unwrap();
+        // Dropping `tx` without `commit` rolls everything back.
+        let tx = guard.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+        let mut backfilled = 0;
+        for identity in &batch.backfill {
+            if read_bank_event(&tx, &identity.event_key)?.is_some() {
+                continue;
+            }
+            let number = voucher_number_for_key(&tx, &identity.event_key)?.ok_or_else(|| {
+                LedgerError::Store(format!(
+                    "backfill names event {:?}, which holds no voucher",
+                    identity.event_key
+                ))
+            })?;
+            insert_bank_event(
+                &tx,
+                &identity.event_key,
+                number,
+                &identity.source_fingerprint,
+                &identity.projection_hash,
+                "backfill",
+                &identity.artifact_ref,
+                &batch.observed_at,
+            )?;
+            backfilled += 1;
+        }
+
+        let mut entries = Vec::with_capacity(batch.entries.len());
+        for index in 0..batch.entries.len() {
+            match resolve_bank_event(&tx, batch, index, build)? {
+                Ok(resolution) => entries.push(resolution),
+                Err(TxSeal::Refused { error, rejection }) => {
+                    return Ok(BankBatchResult::Refused { error, rejection })
+                }
+                Err(TxSeal::Done(_)) => unreachable!("resolve_bank_event returns only refusals"),
+            }
+        }
+
+        // A file that lists an already booked transaction as not booked says the
+        // bank has changed its status.
+        let mut unbooked_conflicts = Vec::new();
+        for (index, event_key) in batch.unbooked_event_keys.iter().enumerate() {
+            if let Some(number) = voucher_number_for_key(&tx, event_key)? {
+                unbooked_conflicts.push((index, load_voucher(&tx, number)?));
+            }
+        }
+
+        let conflicted = !unbooked_conflicts.is_empty()
+            || entries
+                .iter()
+                .any(|e| matches!(e, BankEventResolution::Conflict { .. }));
+        let committed = batch.write && !conflicted;
+        if committed {
+            tx.commit()?;
+        }
+        Ok(BankBatchResult::Resolved {
+            entries,
+            unbooked_conflicts,
+            backfilled,
+            committed,
+        })
+    }
+
+    fn vouchers_without_bank_event(&self, prefix: &str) -> Result<Vec<StoredVoucher>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        let mut stmt = guard.prepare(
+            "SELECT i.number FROM idempotency i
+             LEFT JOIN bank_event b ON b.event_key = i.natural_key
+             WHERE b.event_key IS NULL
+               AND substr(i.natural_key, 1, length(?1)) = ?1
+             ORDER BY i.number",
+        )?;
+        let numbers = stmt
+            .query_map(params![prefix], |r| r.get::<_, u64>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        numbers
+            .into_iter()
+            .map(|number| load_voucher(&guard, number))
+            .collect()
+    }
+
+    fn bank_source_observations(
+        &self,
+        artifact_ref: Option<&str>,
+    ) -> Result<Vec<StoredObservation>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        let mut stmt = guard.prepare(
+            "SELECT o.artifact_ref, o.event_key, b.voucher_number, o.observed_at, o.origin
+             FROM bank_source_observation o JOIN bank_event b ON b.event_key = o.event_key
+             WHERE ?1 IS NULL OR o.artifact_ref = ?1
+             ORDER BY o.artifact_ref, b.voucher_number",
+        )?;
+        let rows = stmt
+            .query_map(params![artifact_ref], |r| {
+                Ok(StoredObservation {
+                    artifact_ref: r.get(0)?,
+                    event_key: r.get(1)?,
+                    voucher_number: r.get(2)?,
+                    observed_at: r.get(3)?,
+                    backfilled: r.get::<_, String>(4)? == "backfill",
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     fn verification_snapshot(&self) -> Result<FiscalSnapshot, LedgerError> {
@@ -2295,7 +2599,7 @@ mod migration_tests {
         let dir = tempfile::tempdir().unwrap();
         let store = SqliteFiscalStore::open(&dir.path().join("fiscal.sqlite")).unwrap();
         let conn = store.conn.lock().unwrap();
-        assert_eq!(user_version(&conn), 8);
+        assert_eq!(user_version(&conn), 9);
         let next: i64 = conn
             .query_row(
                 "SELECT next_number FROM counter WHERE series='main'",
@@ -2347,7 +2651,7 @@ mod migration_tests {
         let path = dir.path().join("fiscal.sqlite");
         drop(SqliteFiscalStore::open(&path).unwrap());
         let store = SqliteFiscalStore::open(&path).unwrap();
-        assert_eq!(user_version(&store.conn.lock().unwrap()), 8);
+        assert_eq!(user_version(&store.conn.lock().unwrap()), 9);
     }
 
     #[test]
@@ -2366,7 +2670,7 @@ mod migration_tests {
 
         migrations::apply(&mut conn, "fiscal", MIGRATIONS).unwrap();
 
-        assert_eq!(user_version(&conn), 8);
+        assert_eq!(user_version(&conn), 9);
         let version: String = conn
             .query_row(
                 "SELECT software_version FROM vouchers WHERE number = 1",
@@ -2383,6 +2687,50 @@ mod migration_tests {
             )
             .unwrap();
         assert_eq!(source_fingerprint, None);
+    }
+
+    /// v9 adds the bank-event tables to a v8 home without touching its vouchers;
+    /// a voucher sealed before v9 simply has no bank event yet.
+    #[test]
+    fn v9_adds_empty_bank_event_tables_to_a_v8_home() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrations::apply(&mut conn, "fiscal", &MIGRATIONS[..8]).unwrap();
+        conn.execute(
+            "INSERT INTO vouchers(number, series, prev_hash, hash, canonical_bytes,
+                                  chart_version, sealed_at, actor, natural_key, request_hash,
+                                  policy_set, sent_hash)
+             VALUES(1, 'main', ?1, ?2, X'7b7d', 'chart', '2026-01-01T00:00:00Z',
+                    'actor', 'bank-import:holvi:FI00:REF', 'request', 'policy', NULL)",
+            params![vec![0u8; 32], vec![1u8; 32]],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO idempotency(natural_key, number) VALUES('bank-import:holvi:FI00:REF', 1)",
+            [],
+        )
+        .unwrap();
+
+        migrations::apply(&mut conn, "fiscal", MIGRATIONS).unwrap();
+
+        assert_eq!(user_version(&conn), 9);
+        let counts: (u64, u64, u64) = conn
+            .query_row(
+                "SELECT (SELECT count(*) FROM vouchers),
+                        (SELECT count(*) FROM bank_event),
+                        (SELECT count(*) FROM bank_source_observation)",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(counts, (1, 0, 0));
+        let canonical: Vec<u8> = conn
+            .query_row(
+                "SELECT canonical_bytes FROM vouchers WHERE number = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(canonical, b"{}");
     }
 
     /// Runtime foreign-key enforcement is ON after open (set after migrations),

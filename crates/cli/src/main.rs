@@ -363,7 +363,11 @@ enum Camt053Cmd {
     /// VAT-A legs using that source date while the bank date remains the posting
     /// date. Untagged/zero-rate imports may omit it. Sales VAT expansion is
     /// unsupported here; do not import such an assignment. The original XML is
-    /// retained once (KPL 2:5). First run with `--dry-run`: it returns every
+    /// retained once (KPL 2:5). A transaction already in the books from another
+    /// export (same bank reference and account) is not booked again when its bank
+    /// facts and its booking are unchanged; otherwise the batch stops
+    /// (SOURCE_FACTS_CHANGED, POSTING_PROJECTION_CHANGED). The batch is written
+    /// whole or not at all. First run with `--dry-run`: it returns every
     /// voucher it would seal and a `preparation_hash`, writing nothing; after the
     /// user approves, seal with `--approved-preparation-hash`.
     #[command(after_help = input_help::IMPORT_CAMT053_SEAL)]
@@ -379,6 +383,15 @@ enum Camt053Cmd {
         /// those vouchers.
         #[arg(long)]
         approved_preparation_hash: Option<String>,
+    },
+    /// List which bank transactions each retained statement file contained:
+    /// one row per file and transaction, with the voucher that books it. A
+    /// transaction seen in several overlapping exports has a row for each.
+    Observations {
+        /// Only the statement file with this content address (the
+        /// `attachment_ref` of a seal).
+        #[arg(long)]
+        attachment_ref: Option<String>,
     },
 }
 
@@ -937,6 +950,9 @@ struct CliError {
     code: String,
     class: ErrorClass,
     message: String,
+    /// Structured context for a caller that branches on more than the code,
+    /// emitted as the error's `details` member.
+    details: Option<Value>,
 }
 
 impl CliError {
@@ -945,6 +961,7 @@ impl CliError {
             code: code.to_string(),
             class: ErrorClass::CallerActionable,
             message: message.into(),
+            details: None,
         }
     }
     fn system(code: &str, message: impl Into<String>) -> Self {
@@ -952,7 +969,12 @@ impl CliError {
             code: code.to_string(),
             class: ErrorClass::System,
             message: message.into(),
+            details: None,
         }
+    }
+    fn with_details(mut self, details: Value) -> Self {
+        self.details = Some(details);
+        self
     }
 }
 
@@ -1000,6 +1022,7 @@ impl From<aggountant_ledger::LedgerError> for CliError {
             code: e.error_code().to_string(),
             class: classify_ledger_error(&e),
             message: e.to_string(),
+            details: None,
         }
     }
 }
@@ -1060,6 +1083,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             code: e.error_code().to_string(),
             class,
             message: e.to_string(),
+            details: None,
         }
     }
 }
@@ -1966,6 +1990,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                                         e.message,
                                         query.unread_meaning()
                                     ),
+                                    details: None,
                                 })?;
                             engine.query_file_vat_status(&query, &operation.broker)?
                         }
@@ -2268,6 +2293,9 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     *dry_run,
                     approved_preparation_hash.as_deref(),
                 ),
+                Camt053Cmd::Observations { attachment_ref } => {
+                    bank_import::observations(cli, attachment_ref.as_deref())
+                }
             },
         },
     }
@@ -3269,13 +3297,37 @@ fn human_line(command: &Command, value: &Value) -> String {
                         .unwrap_or(0)
                 ),
                 Camt053Cmd::Seal { dry_run: true, .. } => format!(
-                    "would seal {} vouchers from {} — preparation_hash {} (dry-run, no write)",
-                    value["voucher_count"], value["account_iban"], value["preparation_hash"]
+                    "would seal {} new vouchers from {}, {} transactions already in the books — \
+                     preparation_hash {} (dry-run, no write)",
+                    value["new_voucher_count"],
+                    value["account_iban"],
+                    value["duplicate_observation_count"],
+                    value["preparation_hash"]
                 ),
                 Camt053Cmd::Seal { .. } => format!(
-                    "sealed {} vouchers from {} (attachment {})",
-                    value["sealed_count"], value["account_iban"], value["attachment_ref"]
+                    "sealed {} new vouchers from {}, {} transactions already in the books \
+                     (attachment {})",
+                    value["new_voucher_count"],
+                    value["account_iban"],
+                    value["duplicate_observation_count"],
+                    value["attachment_ref"]
                 ),
+                Camt053Cmd::Observations { .. } => value["observations"]
+                    .as_array()
+                    .map(|rows| {
+                        rows.iter()
+                            .map(|o| {
+                                format!(
+                                    "{} {} #{}",
+                                    o["attachment_ref"].as_str().unwrap_or_default(),
+                                    o["event_key"].as_str().unwrap_or_default(),
+                                    o["voucher_number"]
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    })
+                    .unwrap_or_default(),
             },
         },
     }
@@ -3309,6 +3361,9 @@ fn emit_error(error: &CliError) -> std::io::Result<()> {
     // `aggountant explain <CODE>` prints the whole entry.
     if let Some(hint) = explain::hint(&error.code) {
         payload["hint"] = Value::String(hint);
+    }
+    if let Some(details) = &error.details {
+        payload["details"] = details.clone();
     }
     if let Some(marker) = test_seam_marker() {
         payload["test_seam"] = marker;

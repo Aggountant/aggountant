@@ -113,6 +113,16 @@ jokin muuttui esikatselun jälkeen, sinetöinti hylätään
 (`IMPORT_PREPARATION_CHANGED`) ennen kuin mitään kirjoitetaan; tee silloin uusi
 esikatselu ja kysy hyväksyntä uudelleen.
 
+Päällekkäisen tiliotteen jo kirjattu tapahtuma tunnistetaan pankin
+tapahtumatunnisteesta (`outcome: duplicate_source_observation`, tositteen numero
+`voucher_number`), eikä sitä kirjata uudelleen. Sekin tarvitsee kohdistuksen, ja
+sen on oltava sama, jolla tosite sinetöitiin: katso se `voucher show`lla.
+`POSTING_PROJECTION_CHANGED` tarkoittaa, että kohdistus poikkeaa, ja
+`SOURCE_FACTS_CHANGED`, että pankki on muuttanut jo kirjatun tapahtuman tietoja;
+molemmat pysäyttävät koko tiliotteen, ja virheen `details.conflicts` luettelee
+kaikki. Muuttunutta pankkitapahtumaa ei kohdisteta uudelleen arvaamalla, vaan
+kysytään käyttäjältä.
+
 - Myynnin ALV:tä tuonti ei pura. Myyntilasku kirjataan erikoiskirjauksena ja
   asiakkaan maksu tiliotteelta myyntisaamisia vastaan.
 - ALV:n maksu tai palautus kirjataan ALV-tilille niin, että vastatilinä on vain

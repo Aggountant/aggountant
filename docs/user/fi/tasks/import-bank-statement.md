@@ -54,7 +54,8 @@ koko tiliote sinetöidään kerralla tositteiksi.
    > Hyväksyn, kirjaa.
 
 5. **Agentti sinetöi koko tiliotteen kerralla.** Alkuperäinen tiliotetiedosto
-   arkistoidaan ja liitetään jokaiseen sen tapahtumista syntyvään tositteeseen.
+   arkistoidaan ja liitetään jokaiseen sen tapahtumista syntyvään uuteen
+   tositteeseen. Joko koko tiliote sinetöidään tai siitä ei kirjata mitään.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -65,6 +66,7 @@ aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
 aggountant import camt053 seal --file tiliote-2026-03.xml --dry-run < kohdistukset.json
 aggountant import camt053 seal --file tiliote-2026-03.xml \
   --approved-preparation-hash sha256:v1:… < kohdistukset.json
+aggountant import camt053 observations
 ```
 
 Sama komento lukee myös camt.052-tiedostot (myös nimellä `import camt052`).
@@ -72,14 +74,20 @@ Sama komento lukee myös camt.052-tiedostot (myös nimellä `import camt052`).
 
 ## Valmis, kun
 
-- Ohjelma vastaa `sealed N vouchers from "FI…"`, ja tiliotteen jokainen
-  vahvistettu tapahtuma on joko kirjattu tai agentti on nimennyt sen avoimeksi.
+- Ohjelma vastaa `sealed N new vouchers from "FI…", M transactions already in
+  the books`, ja tiliotteen jokainen vahvistettu tapahtuma on joko kirjattu tai
+  agentti on nimennyt sen avoimeksi.
 - Kuukausiraportin pankkitilin saldo vastaa tiliotteen loppusaldoa
   ([Katso, miten kuukausi meni](monthly-report.md)).
 
-Saman tiliotteen voi tuoda uudelleen. Jo sinetöidyt tapahtumat tunnistetaan
-eikä niitä kirjata toista kertaa, vaikka ohjelma tulostaa saman
-`sealed`-rivin.
+Saman tiliotteen voi tuoda uudelleen, ja päällekkäiset tiliotteet (esimerkiksi
+kaksi vuositiliotetta, joissa vuodenvaihteen tapahtumat ovat molemmissa) voi
+tuoda peräkkäin. Ohjelma tunnistaa jo kirjatun tapahtuman pankin
+tapahtumatunnisteesta eikä kirjaa sitä toista kertaa. Se merkitsee vain, että
+tapahtuma näkyi myös tässä tiedostossa; `import camt053 observations` näyttää,
+mitkä tapahtumat kussakin tiliotetiedostossa oli. Jo kirjatulle tapahtumalle
+annetaan sama kohdistus kuin ensimmäisellä kerralla. Esikatselu kertoo
+jokaisesta tapahtumasta, onko se uusi vai jo kirjattu.
 
 ## Rajoitukset
 
@@ -100,6 +108,15 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#pankin-tiliote
 - **Koko tiliote hylättiin.** Jokin tapahtuma jäi ilman kirjausta tai tili
   puuttuu tilikartasta. Mitään ei sinetöity, ja agentti korjaa ehdotuksen:
   [Virhekoodit](../reference/error-codes.md).
+- **Tuonti hylättiin koodilla `SOURCE_FACTS_CHANGED` tai
+  `POSTING_PROJECTION_CHANGED`.** Tiliotteella on tapahtuma, joka on jo
+  kirjattu, mutta pankin tiedot siitä ovat muuttuneet (`SOURCE_FACTS_CHANGED`)
+  tai sille ehdotettiin eri kohdistusta kuin aiemmin
+  (`POSTING_PROJECTION_CHANGED`). Mitään ei sinetöity. Virhe nimeää jokaisen
+  tällaisen tapahtuman ja sen tositteen. Muuttuneet pankin tiedot selvitetään
+  ennen kuin tapahtumalle kirjataan mitään; eri kohdistus korjataan antamalla
+  sama kohdistus kuin tositteella, ja jos aiempi kirjaus oli väärä, se
+  korjataan uudella tositteella ([Virhekoodit](../reference/error-codes.md)).
 - **Sinetöinti hylättiin koodilla `IMPORT_PREPARATION_CHANGED`.** Tiliote,
   ehdotus tai tilikartta muuttui esikatselun jälkeen. Mitään ei sinetöity;
   agentti esikatselee uudelleen ja pyytää hyväksyntäsi uudelle listalle.

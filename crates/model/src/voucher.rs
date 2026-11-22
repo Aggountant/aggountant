@@ -252,6 +252,16 @@ impl VoucherDraft {
     pub fn currency(&self) -> &crate::newtype::Currency {
         self.postings[0].amount.currency()
     }
+
+    /// The same draft without its supporting-document reference. A bank import
+    /// compares bookings this way, because one transaction can arrive in several
+    /// exports whose files differ while the booking does not.
+    pub fn without_attachment(&self) -> VoucherDraft {
+        VoucherDraft {
+            attachment_ref: None,
+            ..self.clone()
+        }
+    }
 }
 
 impl Serialize for VoucherDraft {
@@ -439,6 +449,21 @@ impl VoucherBody {
             draft.vat_expansion.clone(),
             draft.corrects_vat_period.clone(),
         )
+    }
+
+    /// The draft this body was sealed from: every field except the number and
+    /// chart version, which the seal added.
+    pub fn draft(&self) -> VoucherDraft {
+        VoucherDraft {
+            document_date: self.document_date,
+            posting_date: self.posting_date,
+            description: self.description.clone(),
+            postings: self.postings.clone(),
+            attachment_ref: self.attachment_ref,
+            buyer_vat_id: self.buyer_vat_id.clone(),
+            vat_expansion: self.vat_expansion.clone(),
+            corrects_vat_period: self.corrects_vat_period.clone(),
+        }
     }
 
     pub fn wire_version(&self) -> u32 {

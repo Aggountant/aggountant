@@ -142,7 +142,7 @@ esikatselulle tunnisteen. Agentti sinetöi koko tiliotteen kerralla sillä
 tunnisteella, ja ohjelma vastaa:
 
 ```
-sealed 2 vouchers from "FI2112345600000785" (attachment "…")
+sealed 2 new vouchers from "FI2112345600000785", 0 transactions already in the books (attachment "…")
 ```
 
 Kirjanpidossa on nyt kolme tositetta. Alkuperäinen tiliotetiedosto on
@@ -154,9 +154,10 @@ Kokeile vielä, mitä tapahtuu, jos sama tiliote tuodaan uudelleen:
 
 > Tuo sama tiliote vielä kerran samoilla kirjauksilla.
 
-Ohjelma tunnistaa jo sinetöidyt tapahtumat eikä kirjaa niitä toista kertaa.
-Se tulostaa saman rivin kuin äsken, mutta tositteita on edelleen kolme. Sen
-näet ketjun tarkistuksesta (`aggountant voucher verify`).
+Ohjelma tunnistaa jo sinetöidyt tapahtumat eikä kirjaa niitä toista kertaa:
+se vastaa `sealed 0 new vouchers`, ja kaksi tapahtumaa on jo kirjanpidossa.
+Tositteita on edelleen kolme. Sen näet myös ketjun tarkistuksesta
+(`aggountant voucher verify`).
 
 ## 4. Kirjaa kuitti
 

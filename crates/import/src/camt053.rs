@@ -43,13 +43,16 @@ pub enum Direction {
 /// One `Ntry` reduced to canonical, account-free voucher-intent fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BankTransaction {
-    /// Source-based idempotency key (`candidate.md §3`;
-    /// `bank-import:holvi:<iban>:<ref>`). Stable across re-exported / overlapping
+    /// The transaction's event key and the voucher's natural key
+    /// (`bank-import:holvi:<iban>:<ref>`). Stable across re-exported / overlapping
     /// statement ranges, because the uniqueness-bearing part is the bank's own
-    /// per-entry reference — so `Ledger::seal` collapses a duplicate to one voucher.
+    /// per-entry reference — so the Ledger's bank batch finds the transaction
+    /// already booked from another export.
     pub natural_key: String,
     /// The bank's own reference for this entry (`AcctSvcrRef`, else `EndToEndId`),
-    /// preserved verbatim. The uniqueness-bearing part of `natural_key`.
+    /// preserved verbatim. The uniqueness-bearing part of `natural_key`, which is
+    /// the transaction's event key: the same transaction in another export of the
+    /// same account has the same key.
     pub bank_ref: String,
     /// `BookgDt` — the date the bank booked the entry (kirjauspäivä).
     pub booking_date: Date,
@@ -85,9 +88,9 @@ impl BankTransaction {
     /// direction, scale-sensitive amount, currency, counterparty, and remittance.
     /// Fields are name- and length-framed; dates, money, and currency use Model's
     /// documented canonical text forms. Derived `accounting_date` is deliberately
-    /// excluded. Exact replay still requires equal projected draft bytes as well as
-    /// this fingerprint; a caller that attaches a different whole-export artifact
-    /// can therefore conflict on the draft `request_hash` first.
+    /// excluded. Changing what it covers changes the fingerprint of every booked
+    /// transaction, and every overlapping re-import would then stop with
+    /// `SOURCE_FACTS_CHANGED`: a new version needs a decision about stored ones.
     pub fn source_fingerprint(&self) -> String {
         fn field(hasher: &mut Sha256, name: &str, value: Option<&str>) {
             hasher.update((name.len() as u64).to_be_bytes());
@@ -143,6 +146,21 @@ pub struct ParsedStatement {
     /// document order: what the bank says the period and balances were, so the
     /// month can be reconciled against the bank's own closing figure.
     pub statements: Vec<StatementSummary>,
+    /// Entries with a status other than booked (for example pending `PDNG`).
+    /// They are not booked, but an import refuses one whose transaction is
+    /// already in the books: the bank has changed its status.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unbooked: Vec<UnbookedEntry>,
+}
+
+/// An entry the statement lists with a status other than booked. Only entries
+/// with a usable bank reference are kept, since only they can be matched.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UnbookedEntry {
+    pub natural_key: String,
+    pub bank_ref: String,
+    /// The `Sts` code verbatim.
+    pub status: String,
 }
 
 /// The period (`FrToDt`) and balances (`Bal`) of one report block, and whether
@@ -278,8 +296,8 @@ fn statement_iban(stmt: Node) -> Option<String> {
 /// document order. Every report must be for the **same** account IBAN: a
 /// document mixing accounts is refused rather than silently scoping the second
 /// account's entries under the first account's dedup key. Entries with a
-/// non-`BOOK` status (e.g. still-pending `PDNG`) are skipped — only booked
-/// entries are bookable vouchers.
+/// non-`BOOK` status (e.g. still-pending `PDNG`) are not transactions — only
+/// booked entries are bookable vouchers; they are listed in `unbooked`.
 pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
     let doc =
         Document::parse(xml).map_err(|e| ImportError::Camt053(format!("not valid XML: {e}")))?;
@@ -329,6 +347,7 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         .and_then(text);
 
     let mut transactions = Vec::new();
+    let mut unbooked = Vec::new();
     let mut statements = Vec::new();
     for report in &reports {
         // Refuse a multi-account document: every entry's natural_key is scoped by
@@ -348,8 +367,10 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         }
         let first_entry = transactions.len();
         for ntry in children(*report, "Ntry") {
-            if let Some(txn) = parse_entry(ntry, &account_iban, currency.as_deref())? {
-                transactions.push(txn);
+            match parse_entry(ntry, &account_iban, currency.as_deref())? {
+                ParsedEntry::Booked(txn) => transactions.push(txn),
+                ParsedEntry::Unbooked(Some(entry)) => unbooked.push(entry),
+                ParsedEntry::Unbooked(None) => {}
             }
         }
         statements.push(summarize_report(
@@ -378,6 +399,7 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         currency,
         transactions,
         statements,
+        unbooked,
     })
 }
 
@@ -506,12 +528,29 @@ fn parse_balance(bal: Node) -> Result<StatementBalance, ImportError> {
     })
 }
 
-/// Parse one `Ntry`. Returns `Ok(None)` for a non-booked entry (skipped).
+enum ParsedEntry {
+    Booked(BankTransaction),
+    /// A non-booked entry; `None` when it has no usable reference to match by.
+    Unbooked(Option<UnbookedEntry>),
+}
+
+/// The per-entry reference: prefer the account-servicer reference (stable
+/// across re-exports), then the end-to-end id. Placeholder sentinels are
+/// filtered **per candidate**, so a placeholder `AcctSvcrRef` does not shadow a
+/// usable `EndToEndId`.
+fn entry_bank_ref(ntry: Node, tx_dtls: Option<Node>) -> Option<String> {
+    let refs = tx_dtls.and_then(|t| descendant(t, "Refs"));
+    usable_ref(child(ntry, "AcctSvcrRef").and_then(text))
+        .or_else(|| usable_ref(refs.and_then(|r| child(r, "AcctSvcrRef")).and_then(text)))
+        .or_else(|| usable_ref(refs.and_then(|r| child(r, "EndToEndId")).and_then(text)))
+}
+
+/// Parse one `Ntry`.
 fn parse_entry(
     ntry: Node,
     account_iban: &str,
     account_currency: Option<&str>,
-) -> Result<Option<BankTransaction>, ImportError> {
+) -> Result<ParsedEntry, ImportError> {
     // Only booked entries are bookable. A missing <Sts> is treated as booked
     // (some issuers omit it on a fully-booked statement).
     if let Some(status) = child(ntry, "Sts").and_then(|s| {
@@ -519,7 +558,16 @@ fn parse_entry(
         child(s, "Cd").and_then(text).or_else(|| text(s))
     }) {
         if status != "BOOK" {
-            return Ok(None);
+            let first_tx = children(ntry, "NtryDtls")
+                .flat_map(|nd| children(nd, "TxDtls"))
+                .next();
+            return Ok(ParsedEntry::Unbooked(entry_bank_ref(ntry, first_tx).map(
+                |bank_ref| UnbookedEntry {
+                    natural_key: natural_key(account_iban, &bank_ref),
+                    bank_ref,
+                    status,
+                },
+            )));
         }
     }
 
@@ -601,21 +649,14 @@ fn parse_entry(
         None => None,
     };
 
-    // The per-entry reference: prefer the account-servicer reference (stable
-    // across re-exports), then the end-to-end id. Placeholder sentinels are
-    // filtered **per candidate**, so a placeholder `AcctSvcrRef` does not shadow a
-    // usable `EndToEndId`. Without a usable reference there is no stable dedup key,
-    // so the entry is refused rather than double-postable.
-    let refs = tx_dtls.and_then(|t| descendant(t, "Refs"));
-    let bank_ref = usable_ref(child(ntry, "AcctSvcrRef").and_then(text))
-        .or_else(|| usable_ref(refs.and_then(|r| child(r, "AcctSvcrRef")).and_then(text)))
-        .or_else(|| usable_ref(refs.and_then(|r| child(r, "EndToEndId")).and_then(text)))
-        .ok_or_else(|| {
-            ImportError::Camt053(
-                "<Ntry> has no usable AcctSvcrRef / EndToEndId — cannot build a stable dedup key"
-                    .into(),
-            )
-        })?;
+    // Without a usable reference there is no stable dedup key, so the entry is
+    // refused rather than double-postable.
+    let bank_ref = entry_bank_ref(ntry, tx_dtls).ok_or_else(|| {
+        ImportError::Camt053(
+            "<Ntry> has no usable AcctSvcrRef / EndToEndId — cannot build a stable dedup key"
+                .into(),
+        )
+    })?;
 
     // The counterparty is the *other* party: creditor for money out, debtor for
     // money in. Read from the entry-details related-parties block.
@@ -640,10 +681,8 @@ fn parse_entry(
         })
         .filter(|s| !s.is_empty());
 
-    let natural_key = format!("bank-import:holvi:{account_iban}:{bank_ref}");
-
-    Ok(Some(BankTransaction {
-        natural_key,
+    Ok(ParsedEntry::Booked(BankTransaction {
+        natural_key: natural_key(account_iban, &bank_ref),
         bank_ref,
         booking_date,
         value_date,
@@ -654,4 +693,12 @@ fn parse_entry(
         counterparty,
         description,
     }))
+}
+
+/// The prefix of every bank-transaction event key.
+pub const EVENT_KEY_PREFIX: &str = "bank-import:";
+
+/// The event key of an entry: the account and the bank's own reference.
+fn natural_key(account_iban: &str, bank_ref: &str) -> String {
+    format!("{EVENT_KEY_PREFIX}holvi:{account_iban}:{bank_ref}")
 }

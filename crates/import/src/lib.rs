@@ -23,7 +23,7 @@ mod error;
 
 pub use camt053::{
     parse_camt053, BankTransaction, Direction, ParsedStatement, StatementBalance, StatementPeriod,
-    StatementSummary,
+    StatementSummary, UnbookedEntry, EVENT_KEY_PREFIX,
 };
 pub use error::ImportError;
 

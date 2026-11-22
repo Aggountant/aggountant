@@ -151,7 +151,7 @@ amounts and gave the preview an identifier. The agent seals the whole
 statement at once with that identifier, and the program replies:
 
 ```
-sealed 2 vouchers from "FI2112345600000785" (attachment "…")
+sealed 2 new vouchers from "FI2112345600000785", 0 transactions already in the books (attachment "…")
 ```
 
 The books now have three vouchers. The original statement file has been
@@ -164,9 +164,9 @@ Now try what happens when the same statement is imported again:
 > Import the same statement once more with the same entries.
 
 The program recognises the transactions it has already sealed and does not
-record them a second time. It prints the same line as before, but there are
-still three vouchers. You can see that from the chain check
-(`aggountant voucher verify`).
+record them a second time: it replies `sealed 0 new vouchers`, with two
+transactions already in the books. There are still three vouchers. You can
+also see that from the chain check (`aggountant voucher verify`).
 
 ## 4. Record a receipt
 
