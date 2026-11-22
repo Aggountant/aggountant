@@ -60,6 +60,7 @@ omalla sivullaan: [Vero.fi-valmiuden esteet](vero-fi-blockers.md).
 | `FISCAL_YEAR_CONFLICT` | tilikauden määrittely siirtäisi kirjattuja tositteita tai suljetun tilikauden toiselle tilikaudelle | lue viesti; määrittely ei voi muuttaa jo kirjattua |
 | `FISCAL_YEAR_UNDEFINED` | päivä on ennen yrityksen ensimmäistä tilikautta, tai annettuna vuonna ei pääty tilikautta | tarkista päivä tai vuosi; `fiscal-year list` näyttää määrittelyt |
 | `GATE_NOT_OPEN` | hyväksyntään on jo vastattu tai se ei ole auki | pyydä agenttia näyttämään ajon tila |
+| `HOME_NOT_INITIALIZED` | komennon kotipolussa ei ole `init`-komennolla perustettua kotia; mitään ei kirjoitettu | viesti kertoo polun ja miten se valittiin: väärä koti tai väärä hakemisto, korjaa polku ([Kun jokin menee vikaan](../troubleshooting.md#tositteet-näyttävät-kadonneen)); `init` vain uudelle yritykselle |
 | `IMPORT_PREPARATION_CHANGED` | tiliote, ehdotetut kirjaukset, tekijä tai tilikartta muuttui tuonnin esikatselun jälkeen; mitään ei sinetöity | uusi esikatselu ja uusi hyväksyntä ([Tuo pankin tiliote](../tasks/import-bank-statement.md)) |
 | `INVALID_FISCAL_YEAR` | tilikausi on yli 18 kuukautta, ei ala kuukauden ensimmäisenä tai pääty viimeisenä päivänä, tai ei jatka aiempia tilikausia | korjaa päivät (kirjanpitolaki 1:4) |
 | `INVALID_INPUT` | syöte on väärän muotoinen tai siinä on tuntematon kenttä | agentti korjaa syötteen |

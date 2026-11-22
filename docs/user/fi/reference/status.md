@@ -211,12 +211,6 @@ Tilikauden sinetöinti on peruuttamaton. Tee näin:
 
 ## Yrityskoti ja käyttöönotto
 
-- **Väärä kodin polku voi luoda tyhjän kodin.** Jos komento osuu
-  hakemistoon, jossa ei ole kirjanpitoa, ohjelma voi luoda sinne tyhjän
-  tositevaraston. Oikea kirjanpito ei vahingoitu, mutta tositteet näyttävät
-  kadonneen, kunnes huomaat virheen
-  ([Kun jokin menee vikaan](../troubleshooting.md#tositteet-näyttävät-kadonneen),
-  `read-commands-create-home`).
 - **Varmuuskopio- tai vientikomentoa ei ole.** Varmuuskopio on tavallinen
   hakemiston kopio:
   [Varmuuskopioi ja palauta kirjanpito](../tasks/back-up-and-restore.md)

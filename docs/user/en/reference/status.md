@@ -211,12 +211,6 @@ Sealing the fiscal year cannot be undone. Do this:
 
 ## Company home and setup
 
-- **A wrong home path can create an empty home.** If a command hits a
-  directory that holds no books, the program may create an empty voucher
-  store there. The real books are not harmed, but the vouchers seem to have
-  disappeared until you notice the mistake
-  ([When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared),
-  `read-commands-create-home`).
 - **There is no backup or export command.** A backup is an ordinary copy of
   the directory:
   [Back up and restore your books](../tasks/back-up-and-restore.md)

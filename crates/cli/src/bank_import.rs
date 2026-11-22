@@ -182,7 +182,7 @@ pub(crate) fn seal_camt053(
     let xml = decode_camt053(&raw, file)?;
     let statement = parse_camt053(&xml)?;
     let input: ImportSealInput = read_stdin_json()?;
-    let ledger = Ledger::open(&home_path(cli)?)?;
+    let ledger = open_existing_ledger(cli)?;
     let prepared = prepare(&ledger, &statement, &raw, &input)?;
     let backfill = legacy_identities(&ledger)?;
     let unbooked: Vec<UnbookedBankEvent> = statement
@@ -319,7 +319,7 @@ pub(crate) fn observations(cli: &Cli, attachment_ref: Option<&str>) -> Result<Va
             })
         })
         .transpose()?;
-    let ledger = Ledger::open(&home_path(cli)?)?;
+    let ledger = open_existing_ledger(cli)?;
     let observations = ledger.bank_source_observations(filter.as_ref())?;
     Ok(json!({
         "observation_count": observations.len(),

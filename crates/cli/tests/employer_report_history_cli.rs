@@ -222,7 +222,7 @@ fn run_stdin(home: &Path, args: &[&str], stdin: &str) -> (i32, Value) {
 /// crate behind the recorded seam.
 #[test]
 fn configure_writes_only_the_employer_report_block_from_flags_or_stdin() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let h = home.path();
     let profile = h.join(".aggountant/tulorekisteri.json");
     let configure = ["file-wage", "employer-report", "configure", "--offline"];

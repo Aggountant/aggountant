@@ -64,7 +64,7 @@ fn disabled_input(credential: &std::path::Path) -> Value {
 
 #[test]
 fn configure_splits_non_secret_profile_from_platform_credential_path() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let secrets = tempfile::tempdir().unwrap();
     let credential = secrets.path().join("vero.json");
@@ -101,7 +101,7 @@ fn configure_splits_non_secret_profile_from_platform_credential_path() {
 
 #[test]
 fn production_becomes_ready_without_optional_test_verification() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let secrets = tempfile::tempdir().unwrap();
     let credential = secrets.path().join("vero.json");
@@ -180,7 +180,7 @@ fn production_becomes_ready_without_optional_test_verification() {
 
 #[test]
 fn verify_accepts_only_the_explicit_test_target() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let (code, _, stderr) = invoke(
         accounting.path(),
@@ -194,7 +194,7 @@ fn verify_accepts_only_the_explicit_test_target() {
 
 #[test]
 fn portal_verification_help_has_no_target_or_url_and_missing_credentials_stop_early() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_aggountant"))
@@ -238,7 +238,7 @@ fn portal_verification_help_has_no_target_or_url_and_missing_credentials_stop_ea
 
 #[test]
 fn configure_is_strict_and_dry_run_writes_nothing() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let input = json!({
         "schema_version": 1,
@@ -295,7 +295,7 @@ fn onboarded_home() -> (
     tempfile::TempDir,
     Value,
 ) {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let secrets = tempfile::tempdir().unwrap();
     let credential = secrets.path().join("vero.json");
@@ -525,7 +525,7 @@ fn merge_input_stays_strict_and_an_invalid_stored_profile_needs_replace() {
 
 #[test]
 fn a_first_configure_without_mode_is_refused() {
-    let accounting = tempfile::tempdir().unwrap();
+    let accounting = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let (code, _, stderr) = invoke(
         accounting.path(),

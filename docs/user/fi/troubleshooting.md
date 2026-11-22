@@ -57,19 +57,22 @@ kirjata kuukauteen ja aloittaa uuden sulun.
 
 **Mitä todennäköisesti tapahtui.** Komento osui väärään kotiin. Väärin
 kirjoitettu `--home`-polku tai väärästä hakemistosta ajettu komento voi
-osoittaa tyhjään tai juuri syntyneeseen kotiin. Väärä polku voi jopa luoda
-tyhjän hakemiston (tunnettu puute). Oikea kirjanpito on silloin tallessa
-toisessa paikassa. Sama syy on usein koodin `MASTERDATA_NOT_INITIALIZED`
-takana.
+osoittaa hakemistoon, jossa ei ole kirjanpitoa, tai toiseen kotiin. Oikea
+kirjanpito on silloin tallessa toisessa paikassa. Jos polussa ei ole
+perustettua kotia, komento pysähtyy koodiin `HOME_NOT_INITIALIZED` eikä
+kirjoita mitään; viesti kertoo, mitä polkua se katsoi ja miten polku valittiin
+(valitsin, ympäristömuuttuja, asetustiedosto, hakemiston tunniste tai
+alihakemisto `accounting`).
 
 **Tarkista.** Pyydä agenttia ajamaan `aggountant config show`. Se kertoo,
 mikä koti on käytössä ja mistä tieto tuli (valitsin, ympäristömuuttuja,
 asetustiedosto tai hakemiston tunniste).
 
 **Tee näin.** Korjaa polku tai aseta oikea koti oletukseksi
-([Yrityskoti](concepts/company-home.md#miten-ohjelma-löytää-kodin)). Väärään
-paikkaan syntyneen tyhjän hakemiston voi poistaa, kun olet varmistanut, että
-siinä ei ole tositteita.
+([Yrityskoti](concepts/company-home.md#miten-ohjelma-löytää-kodin)).
+Aiemmat versiot saattoivat jättää väärään paikkaan tyhjän kodin
+(`accounting`-hakemiston, jossa on `fiscal.sqlite` ja `artifacts/`). Sen voi
+poistaa, kun olet varmistanut, että siinä ei ole tositteita.
 
 **Älä** aja `init`-komentoa uudelleen "korjataksesi" kotia. Se ei koske
 olemassa olevaan kotiin, mutta väärään paikkaan se perustaa uuden, tyhjän

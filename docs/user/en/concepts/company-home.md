@@ -30,8 +30,9 @@ for the home in this order and uses the first one it finds:
 5. the subdirectory `accounting` of the current directory.
 
 `aggountant config show` tells you which home is in use and where that came
-from, for example `home /…/esimerkki-oy (flag)`. If the path is mistyped, a
-command may hit an empty home, and the vouchers seem to have disappeared
+from, for example `home /…/esimerkki-oy (flag)`. Only `init` creates a home.
+If the path is mistyped, every other command stops with `HOME_NOT_INITIALIZED`
+and names the path it looked at and how that path was chosen
 ([When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared)).
 
 The configuration file is JSON. For the home you write

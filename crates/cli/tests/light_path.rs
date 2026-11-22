@@ -224,7 +224,13 @@ fn commands_before_init_fail_clearly() {
     let (code, _stdout, stderr) = run(home.path(), &["chart", "list"], "");
     assert_eq!(code, 1);
     let err: Value = serde_json::from_str(&stderr).unwrap();
-    assert_eq!(err["error_code"], "MASTERDATA_NOT_INITIALIZED");
+    assert_eq!(err["error_code"], "HOME_NOT_INITIALIZED");
+    assert_eq!(err["details"]["source"], "flag");
+    assert_eq!(
+        std::fs::read_dir(home.path()).unwrap().count(),
+        0,
+        "a refused command writes nothing"
+    );
 }
 
 #[test]

@@ -35,7 +35,7 @@ fn add_input() -> Value {
 
 #[test]
 fn company_knowledge_cli_covers_add_show_search_update_history_and_retire() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let (code, stdout, stderr) = run(
         home.path(),
         &["knowledge", "company", "add"],
@@ -152,7 +152,7 @@ fn company_knowledge_cli_covers_add_show_search_update_history_and_retire() {
 
 #[test]
 fn invalid_input_is_stderr_only_and_does_not_replace_existing_file() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     assert_eq!(
         run(
             home.path(),
@@ -207,7 +207,7 @@ fn old_user_workflow_and_company_binding_commands_are_absent() {
 
 #[test]
 fn consult_knowledge_list_and_show_remain_available() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     std::fs::create_dir_all(home.path().join("knowledge")).unwrap();
     std::fs::write(home.path().join("knowledge/advice.md"), "consult advice").unwrap();
     assert_eq!(
@@ -260,7 +260,7 @@ fn error_code(stderr: &str) -> String {
 
 #[test]
 fn update_and_retire_take_the_id_positionally_or_in_stdin_json() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let (code, _, stderr) = run(
         home.path(),
         &["knowledge", "company", "add"],

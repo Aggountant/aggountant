@@ -88,7 +88,7 @@ fn home_upgrade_of_a_missing_home_is_a_user_error() {
     let (code, _, stderr) = run(&home, &["home", "upgrade", "--dry-run"]);
     assert_eq!(code, 1);
     let error: Value = serde_json::from_str(stderr.trim()).unwrap();
-    assert_eq!(error["error_code"], "MASTERDATA_NOT_INITIALIZED");
+    assert_eq!(error["error_code"], "HOME_NOT_INITIALIZED");
     assert!(!home.exists());
 }
 

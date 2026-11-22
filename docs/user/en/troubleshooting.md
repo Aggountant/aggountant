@@ -57,10 +57,12 @@ in the month and start a new close.
 ## Vouchers seem to have disappeared
 
 **What probably happened.** The command hit the wrong home. A mistyped
-`--home` path or a command run from the wrong directory can point to an empty
-or newly created home. A wrong path can even create an empty directory (a
-known gap). The real books are then safe somewhere else. The same cause is
-often behind the code `MASTERDATA_NOT_INITIALIZED`.
+`--home` path or a command run from the wrong directory can point to a
+directory that holds no books, or to another home. The real books are then
+safe somewhere else. Where no home has been set up, the command stops with the
+code `HOME_NOT_INITIALIZED` and writes nothing; its message names the path it
+looked at and how that path was chosen (option, environment variable,
+configuration file, directory marker or the `accounting` subdirectory).
 
 **Check.** Ask the agent to run `aggountant config show`. It tells you which
 home is in use and where that came from (option, environment variable,
@@ -68,8 +70,9 @@ configuration file or directory marker).
 
 **Do this.** Fix the path or set the right home as the default
 ([The company home](concepts/company-home.md#how-aggountant-finds-the-home)).
-An empty directory created in the wrong place can be deleted once you have
-made sure it holds no vouchers.
+Earlier versions could leave an empty home behind in the wrong place (an
+`accounting` directory with `fiscal.sqlite` and `artifacts/`). It can be
+deleted once you have made sure it holds no vouchers.
 
 **Do not** run `init` again to "fix" the home. It does not touch an existing
 home, but in the wrong place it sets up new, empty books.

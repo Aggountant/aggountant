@@ -1,3 +1,5 @@
+mod common;
+
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -63,6 +65,7 @@ fn config_path_is_inspectable_and_show_reports_per_key_provenance() {
 #[test]
 fn relative_vero_credential_override_is_rejected_by_show_and_status() {
     let config_home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
 
     for args in [
         vec!["--json", "config", "show"],
@@ -70,6 +73,7 @@ fn relative_vero_credential_override_is_rejected_by_show_and_status() {
     ] {
         let output = isolated_command(config_home.path())
             .env("AGGOUNTANT_VERO_CREDENTIALS_FILE", "relative.json")
+            .env("AGGOUNTANT_HOME", home.path())
             .args(args)
             .output()
             .unwrap();

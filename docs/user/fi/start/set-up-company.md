@@ -152,7 +152,7 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md).
 ## Jos jokin menee pieleen
 
 - **`ALREADY_INITIALIZED`.** Koti on jo olemassa. Mitään ei muutettu.
-- **Tositteet näyttävät kadonneen tai `MASTERDATA_NOT_INITIALIZED`.** Komento
+- **Tositteet näyttävät kadonneen tai `HOME_NOT_INITIALIZED`.** Komento
   osui väärään kotiin: [Kun jokin menee vikaan](../troubleshooting.md#tositteet-näyttävät-kadonneen).
 
 ## Katso myös

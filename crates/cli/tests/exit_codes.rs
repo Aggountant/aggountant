@@ -196,7 +196,7 @@ fn usage_errors_exit_one_on_every_command_path() {
 
 #[test]
 fn domain_not_found_and_incomplete_vero_setup_are_caller_actionable() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let home = home.path().to_str().unwrap();
 
     let not_found = invoke(&["--home", home, "run", "show", "--run-id", "does-not-exist"]);
@@ -253,7 +253,7 @@ fn malformed_encoding_and_missing_input_file_are_caller_actionable() {
 
 #[test]
 fn corrupt_process_journal_is_a_system_error() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let run_id = "corrupt-run";
     let events = home
         .path()

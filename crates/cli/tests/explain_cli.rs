@@ -46,7 +46,7 @@ fn error_without_a_guide_entry_has_no_hint() {
     assert_eq!(error["error_code"], "INVALID_INPUT");
     assert_eq!(error["hint"], "agentti korjaa syötteen");
 
-    let (code, _, stderr) = run(&["explain", "HOME_NOT_INITIALIZED"]);
+    let (code, _, stderr) = run(&["explain", "CONFIG_WRITE_ERROR"]);
     assert_eq!(code, 1);
     let error: Value = serde_json::from_str(stderr.trim()).unwrap();
     assert_eq!(error["error_code"], "ERROR_CODE_UNKNOWN");

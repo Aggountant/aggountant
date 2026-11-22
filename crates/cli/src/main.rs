@@ -77,6 +77,8 @@ const VERO_TRANSPORT_HELP: &str = vero_transport_help!();
 struct Cli {
     /// Data home (fiscal + masterdata + artifacts). Precedence: --home,
     /// $AGGOUNTANT_HOME, config-file `home`, nearest .aggountant marker, ./accounting.
+    /// Only `init` creates a home; other commands refuse a path that holds none
+    /// (HOME_NOT_INITIALIZED, naming the path and how it was chosen).
     #[arg(long, global = true)]
     home: Option<PathBuf>,
     /// Emit structured JSON (default output is a concise human line).
@@ -1417,36 +1419,68 @@ fn resolve_discovered_or_default() -> Result<ResolvedHome, CliError> {
     })
 }
 
+/// The resolved home for `init`, the one command that may create it. Every
+/// other command takes its home from [`existing_home`].
 fn home_path(cli: &Cli) -> Result<PathBuf, CliError> {
     Ok(resolve_home(cli)?.value)
 }
 
-/// Open only a complete, already initialized home. Unlike `Ledger::open`, this
-/// preflight cannot fabricate a directory, SQLite file, artifact directory or PII
-/// store as a side effect of a mistyped read path.
-fn open_existing_ledger(home: &Path) -> Result<Ledger, CliError> {
-    let required = [
-        home.join("fiscal.sqlite"),
-        home.join("artifacts"),
-        home.join("masterdata").join("reference"),
-        home.join("masterdata").join("pii.sqlite"),
-    ];
-    let complete = home.is_dir()
-        && required[0].is_file()
-        && required[1].is_dir()
-        && required[2].is_dir()
-        && required[3].is_file();
-    if !complete {
-        return Err(CliError::user(
-            "HOME_NOT_INITIALIZED",
-            format!(
-                "voucher reads require an existing initialized home at {}; run `aggountant --home {} init` with the intended path",
-                home.display(),
-                home.display()
-            ),
-        ));
+/// The resolved home, provided `init` set it up.
+///
+/// `Ledger::open` and the process stores create whatever they miss (the
+/// directory, `fiscal.sqlite`, `artifacts/`, the PII store, `process/`), so a
+/// wrong `--home`, a command run from the wrong directory or the `./accounting`
+/// fallback would otherwise leave a new empty home behind and answer from it as
+/// if the books were empty. Only `init` creates a home; everything else stops
+/// here, writes nothing, and says which path it looked at and why that one.
+///
+/// A home is the voucher database plus the reference masterdata `init` wrote.
+/// Without `fiscal.sqlite` (for example a fresh clone of the company
+/// repository, which ignores it) opening would start empty books. `artifacts/`
+/// and the PII store are not required: an empty `artifacts/` does not survive
+/// a git checkout or some copies, and recreating either inside a real home is
+/// what opening has always done.
+fn existing_home(cli: &Cli) -> Result<PathBuf, CliError> {
+    let resolved = resolve_home(cli)?;
+    let home = &resolved.value;
+    let initialized =
+        home.join("fiscal.sqlite").is_file() && home.join("masterdata").join("reference").is_dir();
+    if initialized {
+        return Ok(resolved.value);
     }
-    Ledger::open(home).map_err(Into::into)
+    // A relative path is shown as the directory it names, so a wrong working
+    // directory is visible in the message itself.
+    let shown = std::path::absolute(home).unwrap_or_else(|_| home.clone());
+    let chosen_by = match (resolved.source, &resolved.marker_path) {
+        ("flag", _) => "the --home option".to_string(),
+        ("env", _) => "$AGGOUNTANT_HOME".to_string(),
+        ("file", _) => match config_path() {
+            Ok(path) => format!("the `home` key of {}", path.display()),
+            Err(_) => "the `home` key of the configuration file".to_string(),
+        },
+        ("discovered", Some(marker)) => format!("the .aggountant marker {}", marker.display()),
+        _ => "the ./accounting fallback, used when no --home, $AGGOUNTANT_HOME, configured home or .aggountant marker applies".to_string(),
+    };
+    Err(CliError::user(
+        "HOME_NOT_INITIALIZED",
+        format!(
+            "no initialized aggountant home at {}, chosen by {chosen_by}; nothing was written. \
+             Point the command at the company home (`aggountant config show` shows how the home is chosen), \
+             or run `aggountant --home {} init` to set up a new company there",
+            shown.display(),
+            shown.display(),
+        ),
+    )
+    .with_details(json!({
+        "home": shown.display().to_string(),
+        "source": resolved.source,
+        "marker_path": resolved.marker_path.map(|path| path.display().to_string()),
+    })))
+}
+
+/// Open the ledger of the resolved, already initialized home.
+fn open_existing_ledger(cli: &Cli) -> Result<Ledger, CliError> {
+    Ledger::open(&existing_home(cli)?).map_err(Into::into)
 }
 
 fn parse_voucher_list_query(
@@ -1511,8 +1545,8 @@ fn draft_to_json(draft: &VoucherDraft) -> Value {
 
 fn run(cli: &Cli) -> Result<Value, CliError> {
     match &cli.command {
-        Command::FileWage { cmd } => wage::execute(cmd, &home_path(cli)?),
-        Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &home_path(cli)?),
+        Command::FileWage { cmd } => wage::execute(cmd, &existing_home(cli)?),
+        Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &existing_home(cli)?),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => Ok(json!({
                 "schema_version": 1,
@@ -1545,7 +1579,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         },
         Command::VeroFi { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             let platform_path = config_path()?;
             let mut platform_config = read_config(&platform_path)?;
             match cmd {
@@ -1736,7 +1770,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                     ),
                     None => None,
                 };
-                let ledger = Ledger::open(&home_path(cli)?)?;
+                let ledger = open_existing_ledger(cli)?;
                 let accounts = ledger.chart_list(at)?;
                 Ok(json!({
                     "chart_version": ledger.chart_version()?,
@@ -1765,11 +1799,11 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 let report = if is_envelope {
                     let input: SealInput = parse_stdin_json(&input)?;
                     let draft = build_draft(input.draft)?;
-                    let ledger = Ledger::open(&home_path(cli)?)?;
+                    let ledger = open_existing_ledger(cli)?;
                     ledger.validate_seal(&draft, &input.natural_key)?
                 } else {
                     let draft: VoucherDraft = parse_stdin_json(&input)?;
-                    let ledger = Ledger::open(&home_path(cli)?)?;
+                    let ledger = open_existing_ledger(cli)?;
                     ledger.validate(&draft)?
                 };
                 Ok(serde_json::to_value(report).expect("report serializes"))
@@ -1777,7 +1811,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             VoucherCmd::Seal => {
                 let input: SealInput = read_stdin_json()?;
                 let draft = build_draft(input.draft)?;
-                let ledger = Ledger::open(&home_path(cli)?)?;
+                let ledger = open_existing_ledger(cli)?;
                 let sealed = ledger.seal(
                     &draft,
                     &SealRequest {
@@ -1795,8 +1829,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         "voucher number must be a positive integer, got 0",
                     ));
                 }
-                let home = home_path(cli)?;
-                let ledger = open_existing_ledger(&home)?;
+                let ledger = open_existing_ledger(cli)?;
                 let mut value = serde_json::to_value(ledger.voucher(*number)?)
                     .expect("voucher view serializes");
                 value["schema_version"] = json!(1);
@@ -1810,8 +1843,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             } => {
                 let query =
                     parse_voucher_list_query(attachment_ref, posting_from, posting_to, *limit)?;
-                let home = home_path(cli)?;
-                let ledger = open_existing_ledger(&home)?;
+                let ledger = open_existing_ledger(cli)?;
                 let result = ledger.list_vouchers(&query)?;
                 Ok(json!({
                     "schema_version": 1,
@@ -1836,7 +1868,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 }))
             }
             VoucherCmd::Verify => {
-                let ledger = Ledger::open(&home_path(cli)?)?;
+                let ledger = open_existing_ledger(cli)?;
                 let report = ledger.verify()?;
                 Ok(serde_json::to_value(report).expect("verify report serializes"))
             }
@@ -1844,7 +1876,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         Command::Artifact { cmd } => match cmd {
             ArtifactCmd::Attach { file } => {
                 let bytes = read_input_file_bytes(file)?;
-                let ledger = Ledger::open(&home_path(cli)?)?;
+                let ledger = open_existing_ledger(cli)?;
                 let addr = ledger.attach_artifact(&bytes)?;
                 Ok(json!({ "artifact_ref": addr.to_hex(), "size": bytes.len() }))
             }
@@ -1852,13 +1884,13 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         Command::Period { cmd } => match cmd {
             PeriodCmd::Show { period } => {
                 let period = parse_period(period)?;
-                let ledger = Ledger::open(&home_path(cli)?)?;
+                let ledger = open_existing_ledger(cli)?;
                 let view = ledger.period_view(&period)?;
                 Ok(serde_json::to_value(view).expect("period view serializes"))
             }
         },
         Command::Run { cmd } => {
-            let engine = ProcessEngine::open(&home_path(cli)?);
+            let engine = ProcessEngine::open(&existing_home(cli)?);
             match cmd {
                 RunCmd::Start { workflow, period } => {
                     require_close_period(workflow)?;
@@ -1892,7 +1924,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::FileVat { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             let engine = ProcessEngine::open(&home);
             // Select the deterministic scripted seam or the readiness-gated live path
             // once for this command. Live operations retain the exact profile which
@@ -2005,7 +2037,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::Employee { cmd } => {
-            let ledger = Ledger::open(&home_path(cli)?)?;
+            let ledger = open_existing_ledger(cli)?;
             match cmd {
                 EmployeeCmd::Add => {
                     let state: EmployeeState = read_stdin_json()?;
@@ -2026,7 +2058,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::RunPayroll { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             let engine = ProcessEngine::open(&home);
             match cmd {
                 RunPayrollCmd::Start => {
@@ -2056,7 +2088,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::CaptureReceipt { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             match cmd {
                 CaptureReceiptCmd::Record {
                     dry_run,
@@ -2116,7 +2148,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::HuntReceipts { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             let engine = ProcessEngine::open(&home);
             match cmd {
                 HuntReceiptsCmd::Start => {
@@ -2146,7 +2178,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::Obligation { cmd } => {
-            let engine = ProcessEngine::open(&home_path(cli)?);
+            let engine = ProcessEngine::open(&existing_home(cli)?);
             match cmd {
                 ObligationCmd::List => {
                     let obligations = engine.obligations().list()?;
@@ -2160,10 +2192,10 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 }
             }
         }
-        Command::Knowledge { cmd } => knowledge::run(cmd, &home_path(cli)?),
-        Command::Home { cmd } => home::run(cmd, &home_path(cli)?),
+        Command::Knowledge { cmd } => knowledge::run(cmd, &existing_home(cli)?),
+        Command::Home { cmd } => home::run(cmd, &existing_home(cli)?),
         Command::Intake { cmd } => {
-            let home = home_path(cli)?;
+            let home = existing_home(cli)?;
             match cmd {
                 IntakeCmd::List => {
                     let intake = aggountant_process::Intake::open(&home);
@@ -2174,7 +2206,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::CloseYear { cmd } => {
-            let engine = ProcessEngine::open(&home_path(cli)?);
+            let engine = ProcessEngine::open(&existing_home(cli)?);
             if let CloseYearCmd::Start { dry_run: true } = cmd {
                 let input: CloseYearInput = read_stdin_json()?;
                 let preview = engine.preview_close_year(&input, &PolicySet::default())?;
@@ -2234,9 +2266,9 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             );
             Ok(value)
         }
-        Command::Report { cmd } => reports::run(cmd, &home_path(cli)?),
+        Command::Report { cmd } => reports::run(cmd, &existing_home(cli)?),
         Command::FiscalYear { cmd } => {
-            let ledger = Ledger::open(&home_path(cli)?)?;
+            let ledger = open_existing_ledger(cli)?;
             match cmd {
                 FiscalYearCmd::Show { year, date } => {
                     let year = match (year, date) {

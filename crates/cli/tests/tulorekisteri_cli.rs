@@ -63,7 +63,7 @@ fn codes(report: &Value) -> Vec<&str> {
 
 #[test]
 fn configure_merges_status_itemises_and_employer_report_survives() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let (h, p) = (home.path(), platform.path());
     let profile_path = h.join(".aggountant/tulorekisteri.json");
@@ -204,7 +204,7 @@ fn configure_merges_status_itemises_and_employer_report_survives() {
 
 #[test]
 fn configure_refuses_what_it_does_not_own_or_cannot_read() {
-    let home = tempfile::tempdir().unwrap();
+    let home = common::initialized_home();
     let platform = tempfile::tempdir().unwrap();
     let (h, p) = (home.path(), platform.path());
     let fails = |args: &[&str], input: &str| {

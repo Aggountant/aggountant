@@ -160,7 +160,7 @@ More detail: [What is ready and what is not](../reference/status.md).
 ## If something goes wrong
 
 - **`ALREADY_INITIALIZED`.** The home already exists. Nothing was changed.
-- **Vouchers seem to have disappeared, or `MASTERDATA_NOT_INITIALIZED`.** The
+- **Vouchers seem to have disappeared, or `HOME_NOT_INITIALIZED`.** The
   command hit the wrong home:
   [When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared).
 

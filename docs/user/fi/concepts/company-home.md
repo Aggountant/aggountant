@@ -28,8 +28,9 @@ löytämänsä:
 5. nykyisen hakemiston alihakemisto `accounting`.
 
 `aggountant config show` kertoo, mikä koti on käytössä ja mistä tieto tuli,
-esimerkiksi `home /…/esimerkki-oy (flag)`. Jos polku on kirjoitettu väärin,
-komento voi osua tyhjään kotiin, jolloin tositteet näyttävät kadonneen
+esimerkiksi `home /…/esimerkki-oy (flag)`. Vain `init` luo kodin. Jos polku
+on kirjoitettu väärin, muut komennot pysähtyvät koodiin `HOME_NOT_INITIALIZED`
+ja kertovat, mitä polkua ne katsoivat ja miten polku valittiin
 ([Kun jokin menee vikaan](../troubleshooting.md#tositteet-näyttävät-kadonneen)).
 
 Asetustiedosto on JSON-muotoinen. Kotia varten siihen kirjoitetaan
