@@ -980,3 +980,61 @@ fn unconfigured_company_is_told_what_to_set() {
     let r = e.missing_employer_reports(CivilDate::constant(2026, 11, 2));
     assert_eq!(code(r.unwrap_err()), "EMPLOYER_REPORT_NOT_CONFIGURED");
 }
+
+#[test]
+fn a_member_added_to_a_stored_unit_variant_is_refused_not_dropped() {
+    let h = home(json!([{"provider_code":46,"policy_number":"12-3456789"}]));
+    let e = ProcessEngine::open(h.path());
+    let at = t("2026-11-02T08:00:00Z");
+    let p = e
+        .preview_employer_report(input("2026-10", MonthPayments::None), at)
+        .unwrap();
+    let (b, _) = broker(h.path(), vec![Answer::Accept(1)], Answer::Accept(1));
+    let status = e
+        .submit_employer_report(
+            input("2026-10", MonthPayments::None),
+            at,
+            &p.record_hash,
+            &b,
+            at,
+        )
+        .unwrap();
+    assert_eq!(status.state, EmployerMonthState::Accepted);
+    let state_path = h
+        .path()
+        .join("process/runs")
+        .join(&status.runs[0].run_id)
+        .join("employer-report.json");
+    let original = std::fs::read(&state_path).unwrap();
+    let stored: serde_json::Value = serde_json::from_slice(&original).unwrap();
+    // What aggountant writes carries the tag alone on both unit variants.
+    assert_eq!(
+        stored["filing"]["report"]["content"],
+        json!({"kind":"no_wages_payable"})
+    );
+    assert_eq!(stored["filing"]["report"]["action"], json!({"kind":"new"}));
+
+    // A member that would mean another report does not change the record, so
+    // dropping it would pass every hash check; it is refused as corruption.
+    for (field, altered) in [
+        (
+            "content",
+            json!({"kind":"no_wages_payable","total":"12.00"}),
+        ),
+        (
+            "action",
+            json!({"kind":"new","ir_report_id":IR_REPORT,"replaces_version":1}),
+        ),
+    ] {
+        let mut tampered = stored.clone();
+        tampered["filing"]["report"][field] = altered;
+        std::fs::write(&state_path, serde_json::to_vec(&tampered).unwrap()).unwrap();
+        let err = e.employer_report_status(month("2026-10")).unwrap_err();
+        assert_eq!(code(err), "JOURNAL_CORRUPT", "{field}");
+    }
+    std::fs::write(&state_path, &original).unwrap();
+    assert_eq!(
+        e.employer_report_status(month("2026-10")).unwrap().state,
+        EmployerMonthState::Accepted
+    );
+}

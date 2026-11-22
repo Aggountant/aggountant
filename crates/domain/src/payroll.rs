@@ -596,8 +596,14 @@ pub enum MonthPayments {
 /// reimbursements of expenses does not, and reports the health insurance
 /// contribution (102) as EUR 0.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// Serde's `deny_unknown_fields` does not reach a unit variant of an internally
+// tagged enum, so the unit variants here refuse members explicitly. These types
+// are never command input; they are read back from a Run's stored state and the
+// outbox envelope, which aggountant itself serialized, so a member there means
+// the record was altered and is refused rather than silently dropped.
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EmployerReportContent {
+    #[serde(deserialize_with = "aggountant_model::de::deny_members")]
     NoWagesPayable,
     HealthInsuranceContribution {
         /// Canonical 2-dp EUR amount, never negative.
@@ -672,8 +678,10 @@ impl PensionInsurance {
 
 /// New report or replacement of the month's accepted report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// Unit variant refuses members explicitly; see `EmployerReportContent`.
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EmployerReportAction {
+    #[serde(deserialize_with = "aggountant_model::de::deny_members")]
     New,
     /// Replaces the report the Incomes Register knows as `ir_report_id`. When the
     /// replaced version is known it is sent, so the register refuses to replace
@@ -1021,6 +1029,44 @@ mod tests {
             "pension_insurances":[{"provider_code":46,"policy_number":"12-345678"}]
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn employer_report_unit_variants_refuse_members() {
+        use serde_json::json;
+        let content = |v| serde_json::from_value::<EmployerReportContent>(v);
+        let action = |v| serde_json::from_value::<EmployerReportAction>(v);
+        assert_eq!(
+            content(json!({"kind":"no_wages_payable"})).unwrap(),
+            EmployerReportContent::NoWagesPayable
+        );
+        assert_eq!(
+            action(json!({"kind":"new"})).unwrap(),
+            EmployerReportAction::New
+        );
+        // A member of another variant, or an unknown one, is refused instead of
+        // being dropped from a unit variant.
+        for bad in [
+            json!({"kind":"no_wages_payable","total":"0.00"}),
+            json!({"kind":"no_wages_payable","extra":null}),
+        ] {
+            assert!(content(bad.clone()).is_err(), "{bad}");
+        }
+        for bad in [
+            json!({"kind":"new","ir_report_id":"0123456789abcdef0123456789abcdef"}),
+            json!({"kind":"new","replaces_version":1}),
+        ] {
+            assert!(action(bad.clone()).is_err(), "{bad}");
+        }
+        // The stored and sent form is unchanged: the tag alone.
+        assert_eq!(
+            serde_json::to_value(EmployerReportContent::NoWagesPayable).unwrap(),
+            json!({"kind":"no_wages_payable"})
+        );
+        assert_eq!(
+            serde_json::to_value(EmployerReportAction::New).unwrap(),
+            json!({"kind":"new"})
+        );
     }
 
     #[test]
