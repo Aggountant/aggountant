@@ -2,10 +2,15 @@
 created: 2026-11-21
 updated: 2026-11-22
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: unlaned
 collision: [crates/domain/src/payroll.rs]
+closed: 2026-11-22
+closed_by: worker
+commits:
+- hash: d1a8cb0
+  summary: 'payroll: employer report unit variants refuse members'
 ---
 
 # Employer report unit variants drop members silently
@@ -32,3 +37,9 @@ the VAT expansion case.
 ### 2026-11-22T04:29:46Z · @conductor
 
 Accepted by the product owner (2026-11-22).
+
+## Resolution
+
+### 2026-11-22T04:39:34Z · @worker
+
+Neither type is command input; stored state and envelope are written only by Serialize, so deny_members was applied to both unit variants. A member now reads as JOURNAL_CORRUPT. See result.md.
