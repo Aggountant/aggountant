@@ -80,9 +80,18 @@ impl<'de> Deserialize<'de> for VatExpansionDeductibility {
     }
 }
 
+// `deny_unknown_fields` does not reach the unit variant of an internally tagged
+// enum, so `NoVat` refuses members through `deny_members`. This is read from sealed
+// vouchers, and tightening it reinterprets none: the derived `Serialize` writes a
+// unit variant as its tag alone, and every stored body is decoded through
+// `aggountant_wire::decode_voucher_body`, which re-encodes it and refuses bytes
+// that differ. A stored `no-vat` with a member would re-encode without it, so it
+// was refused as non-canonical before this attribute and is refused while
+// decoding now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum VatExpansionTreatment {
+    #[serde(deserialize_with = "crate::de::deny_members")]
     NoVat,
     DomesticInput {
         rate_class: String,

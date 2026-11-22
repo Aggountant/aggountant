@@ -469,3 +469,27 @@ fn imported_goods_cannot_select_the_non_eu_service_treatment() {
         assert!(serde_json::from_str::<VatExpansionTreatment>(&json).is_err());
     }
 }
+
+#[test]
+fn no_vat_treatment_refuses_members_instead_of_dropping_them() {
+    assert_eq!(
+        serde_json::from_str::<VatExpansionTreatment>(r#"{"type":"no-vat"}"#).unwrap(),
+        VatExpansionTreatment::NoVat
+    );
+    assert_eq!(
+        serde_json::to_string(&VatExpansionTreatment::NoVat).unwrap(),
+        r#"{"type":"no-vat"}"#,
+        "the writer emits the tag alone"
+    );
+    for member in [
+        r#"{"type":"no-vat","rate_class":"domestic-standard"}"#,
+        r#"{"type":"no-vat","scope":"eu-goods"}"#,
+        r#"{"type":"no-vat","deductibility":null}"#,
+    ] {
+        let error = serde_json::from_str::<VatExpansionTreatment>(member).unwrap_err();
+        assert!(
+            error.to_string().contains("unknown field"),
+            "{member}: {error}"
+        );
+    }
+}

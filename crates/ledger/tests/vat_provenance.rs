@@ -107,3 +107,76 @@ fn ledger_refuses_a_seal_policy_that_disagrees_with_expansion_provenance() {
     assert_eq!(error.error_code(), "INVALID_VAT_EXPANSION");
     assert!(error.to_string().contains("differs from seal policy_set"));
 }
+
+/// Every `vat_expansion.treatment` object of type `no-vat` in a fiscal store's
+/// sealed bodies, as raw JSON.
+fn stored_no_vat_treatments(home: &std::path::Path) -> Vec<serde_json::Value> {
+    let connection = Connection::open(home.join("fiscal.sqlite")).unwrap();
+    let mut statement = connection
+        .prepare("SELECT canonical_bytes FROM vouchers ORDER BY number")
+        .unwrap();
+    let bodies: Vec<Vec<u8>> = statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    bodies
+        .iter()
+        .filter_map(|bytes| {
+            let body: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+            let treatment = body.get("vat_expansion")?.get("treatment")?.clone();
+            (treatment["type"] == "no-vat").then_some(treatment)
+        })
+        .collect()
+}
+
+#[test]
+fn a_stored_no_vat_expansion_carries_no_members_and_a_member_never_decoded() {
+    // The write path: a no-vat expansion sealed through the ledger stores its
+    // treatment as the tag alone. A scan of the synthetic store finds no member.
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let d = Date::parse("2026-02-15").unwrap();
+    let draft = vat_expand(&VatExpandInput {
+        amount: Money::parse("40.00", Currency::new("EUR").unwrap()).unwrap(),
+        net_account: AccountId::new("7690").unwrap(),
+        contra_account: AccountId::new("1910").unwrap(),
+        treatment: VatTreatment::NoVat,
+        document_date: d,
+        posting_date: d,
+        description: "Fictional exempt purchase".into(),
+        attachment_ref: None,
+    })
+    .unwrap();
+    let sealed = ledger
+        .seal(
+            &draft,
+            &SealRequest {
+                natural_key: "no-vat-provenance".into(),
+                actor: "test".into(),
+                policy_set: PolicySet::default(),
+            },
+        )
+        .unwrap();
+    let treatments = stored_no_vat_treatments(home.path());
+    assert_eq!(treatments, vec![serde_json::json!({"type":"no-vat"})]);
+
+    // A body whose no-vat treatment carries a member is not what the ledger writes
+    // and never decodes: the strict decoder refuses it before any hash check.
+    let canonical: Vec<u8> = Connection::open(home.path().join("fiscal.sqlite"))
+        .unwrap()
+        .query_row(
+            "SELECT canonical_bytes FROM vouchers WHERE number = ?1",
+            [sealed.number],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let canonical = String::from_utf8(canonical).unwrap();
+    assert_eq!(canonical.matches(r#"{"type":"no-vat"}"#).count(), 1);
+    let with_member = canonical.replacen(
+        r#"{"type":"no-vat"}"#,
+        r#"{"rate_class":"domestic-standard","type":"no-vat"}"#,
+        1,
+    );
+    assert!(aggountant_wire::decode_voucher_body(with_member.as_bytes()).is_err());
+}

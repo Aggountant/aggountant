@@ -2,11 +2,13 @@
 created: 2026-11-21
 updated: 2026-11-22
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: vat-goods
 collision: [crates/model/src/vat_expansion.rs, crates/domain/src/vat/expand.rs]
 lane_seq: 2
+closed: 2026-11-22
+closed_by: worker
 ---
 
 # VatExpansionTreatment no-vat drops members: check stored vouchers, then refuse
@@ -32,3 +34,9 @@ stop and describe it instead.
 ### 2026-11-22T04:29:46Z · @conductor
 
 Accepted by the product owner (2026-11-22); done together in one change.
+
+## Resolution
+
+### 2026-11-22T04:45:41Z · @worker
+
+Proved no stored no-vat expansion can carry members (writer emits the tag alone; decode_voucher_body refuses non-canonical bytes); deny_members applied. See result.md.
