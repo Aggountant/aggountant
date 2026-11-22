@@ -394,6 +394,10 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         }
     }
 
+    // A reference the document also lists as booked (an interim report may show
+    // it pending before a later one books it) is booked, not unbooked.
+    unbooked.retain(|u| !seen.contains(u.natural_key.as_str()));
+
     Ok(ParsedStatement {
         account_iban,
         currency,

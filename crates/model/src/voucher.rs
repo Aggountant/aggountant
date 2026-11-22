@@ -252,16 +252,6 @@ impl VoucherDraft {
     pub fn currency(&self) -> &crate::newtype::Currency {
         self.postings[0].amount.currency()
     }
-
-    /// The same draft without its supporting-document reference. A bank import
-    /// compares bookings this way, because one transaction can arrive in several
-    /// exports whose files differ while the booking does not.
-    pub fn without_attachment(&self) -> VoucherDraft {
-        VoucherDraft {
-            attachment_ref: None,
-            ..self.clone()
-        }
-    }
 }
 
 impl Serialize for VoucherDraft {

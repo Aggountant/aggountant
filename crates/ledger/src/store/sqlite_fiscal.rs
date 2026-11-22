@@ -1544,6 +1544,15 @@ impl FiscalStore for SqliteFiscalStore {
             backfilled += 1;
         }
 
+        // A file that lists an already booked transaction as not booked says the
+        // bank has changed its status.
+        let mut unbooked_conflicts = Vec::new();
+        for (index, event_key) in batch.unbooked_event_keys.iter().enumerate() {
+            if let Some(number) = voucher_number_for_key(&tx, event_key)? {
+                unbooked_conflicts.push((index, load_voucher(&tx, number)?));
+            }
+        }
+
         let mut entries = Vec::with_capacity(batch.entries.len());
         for index in 0..batch.entries.len() {
             match resolve_bank_event(&tx, batch, index, build)? {
@@ -1552,15 +1561,6 @@ impl FiscalStore for SqliteFiscalStore {
                     return Ok(BankBatchResult::Refused { error, rejection })
                 }
                 Err(TxSeal::Done(_)) => unreachable!("resolve_bank_event returns only refusals"),
-            }
-        }
-
-        // A file that lists an already booked transaction as not booked says the
-        // bank has changed its status.
-        let mut unbooked_conflicts = Vec::new();
-        for (index, event_key) in batch.unbooked_event_keys.iter().enumerate() {
-            if let Some(number) = voucher_number_for_key(&tx, event_key)? {
-                unbooked_conflicts.push((index, load_voucher(&tx, number)?));
             }
         }
 

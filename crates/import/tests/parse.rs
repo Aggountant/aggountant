@@ -1142,3 +1142,34 @@ fn project_voucher_without_a_treatment_is_the_simple_projection() {
     let draft = project_voucher(out, &assignment(&out.bank_ref, "7690"), None).unwrap();
     assert_eq!(draft.postings().len(), 2);
 }
+
+#[test]
+fn an_unbooked_entry_is_listed_unless_the_document_also_books_it() {
+    let pending = |status: &str, reference: &str| {
+        format!(
+            r#"<Ntry><Amt Ccy="EUR">5.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>{status}</Sts>
+<BookgDt><Dt>2026-03-02</Dt></BookgDt><AcctSvcrRef>{reference}</AcctSvcrRef></Ntry>"#
+        )
+    };
+    let document = |entries: &str| {
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02"><BkToCstmrAcctRpt>
+<Rpt><Id>1</Id><Acct><Id><IBAN>FI2112345600000785</IBAN></Id><Ccy>EUR</Ccy></Acct>{entries}</Rpt>
+</BkToCstmrAcctRpt></Document>"#
+        )
+    };
+    let only_pending = parse_camt053(&document(&pending("PDNG", "REF-1"))).unwrap();
+    assert!(only_pending.transactions.is_empty());
+    assert_eq!(only_pending.unbooked.len(), 1);
+    assert_eq!(only_pending.unbooked[0].status, "PDNG");
+    assert_eq!(
+        only_pending.unbooked[0].natural_key,
+        "bank-import:holvi:FI2112345600000785:REF-1"
+    );
+
+    let both = format!("{}{}", pending("PDNG", "REF-1"), pending("BOOK", "REF-1"));
+    let booked = parse_camt053(&document(&both)).unwrap();
+    assert_eq!(booked.transactions.len(), 1);
+    assert!(booked.unbooked.is_empty());
+}

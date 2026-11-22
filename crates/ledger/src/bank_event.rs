@@ -20,7 +20,10 @@
 
 use serde::Serialize;
 
-use aggountant_model::{Hash, Instant, VoucherDraft};
+use aggountant_model::{
+    AccountId, Date, GeneratedVatLeg, Hash, Instant, Money, PeriodId, Posting,
+    VatExpansionTreatment, VoucherDraft,
+};
 
 use crate::store::{
     ArtifactStore, BankBatchRequest, BankBatchResult, BankEventBackfill, BankEventRequest,
@@ -130,7 +133,8 @@ pub struct BankBatchReport {
     /// `conflicts` is empty.
     pub results: Vec<BankEventResult>,
     pub conflicts: Vec<BankEventConflict>,
-    /// Vouchers sealed before bank events whose identity this batch recorded.
+    /// Vouchers sealed before bank events whose identity this batch recorded
+    /// (in a preview or a refused batch: would have recorded).
     pub backfilled_count: usize,
     /// Whether the batch was written; never with a conflict or in a preview.
     pub written: bool,
@@ -153,10 +157,59 @@ pub struct BankSourceObservation {
     pub backfilled: bool,
 }
 
+/// What a booking of a bank transaction consists of: dates, description,
+/// postings (accounts, amounts, sides, VAT codes) and the VAT treatment with its
+/// resolved rate and generated legs. Deliberately left out: the attachment (one
+/// transaction arrives in several export files) and the software state a VAT
+/// expansion records (`policy_set`, `vat_rates_hash`, expansion `version`),
+/// which change with a release while the booking does not.
+#[derive(Serialize)]
+struct Projection<'a> {
+    document_date: Date,
+    posting_date: Date,
+    description: &'a str,
+    postings: &'a [Posting],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    buyer_vat_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    corrects_vat_period: Option<&'a PeriodId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vat: Option<VatProjection<'a>>,
+}
+
+#[derive(Serialize)]
+struct VatProjection<'a> {
+    treatment: &'a VatExpansionTreatment,
+    source_amount: &'a Money,
+    net_account: &'a AccountId,
+    contra_account: &'a AccountId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_percent: Option<&'a str>,
+    generated_vat_legs: &'a [GeneratedVatLeg],
+}
+
 /// The hash that decides whether two sightings of a transaction book the same
-/// thing: the voucher draft's canonical bytes without its attachment.
+/// thing. Stored in `bank_event`, so what [`Projection`] covers is frozen: a
+/// change re-keys every booked transaction and needs a new version prefix and a
+/// decision about the stored hashes.
 pub(crate) fn projection_hash(draft: &VoucherDraft) -> Result<String, LedgerError> {
-    let bytes = aggountant_wire::canonical_bytes(&draft.without_attachment())?;
+    let projection = Projection {
+        document_date: draft.document_date(),
+        posting_date: draft.posting_date(),
+        description: draft.description(),
+        postings: draft.postings(),
+        buyer_vat_id: draft.buyer_vat_id(),
+        corrects_vat_period: draft.corrects_vat_period(),
+        vat: draft.vat_expansion().map(|e| VatProjection {
+            treatment: e.treatment(),
+            source_amount: e.source_amount(),
+            net_account: e.net_account(),
+            contra_account: e.contra_account(),
+            resolved_percent: e.resolved_percent(),
+            generated_vat_legs: e.generated_vat_legs(),
+        }),
+    };
+    let bytes = aggountant_wire::canonical_bytes(&projection)?;
     Ok(format!("sha256:v1:{}", sha256_hex(&bytes)))
 }
 
@@ -252,10 +305,19 @@ impl Ledger {
                     )));
                 return Err(refusal(err, &request_hash));
             }
-            if let Err(err) =
-                self.check_seal_content(&entry.draft, batch.policy_set, &chart_version, pending)
-            {
-                return Err(refusal(err, &request_hash));
+            // A transaction already booked seals nothing, so today's chart, VAT
+            // roles and policy need not accept its booking again: the stored
+            // projection decides whether it is the same.
+            let booked = self
+                .fiscal
+                .read_voucher_by_natural_key(&entry.event_key)?
+                .is_some();
+            if !booked {
+                if let Err(err) =
+                    self.check_seal_content(&entry.draft, batch.policy_set, &chart_version, pending)
+                {
+                    return Err(refusal(err, &request_hash));
+                }
             }
             warnings.push(self.untagged_vat_warnings(&entry.draft, &chart_version)?);
             requests.push(BankEventRequest {
@@ -345,9 +407,15 @@ impl Ledger {
             };
 
         let mut conflicts = Vec::new();
+        // The request hash each conflict's rejection record names: the incoming
+        // draft's, or for an unbooked entry the booked voucher's.
+        let mut conflict_request_hashes = Vec::new();
         let mut results = Vec::with_capacity(resolutions.len());
-        for ((resolution, entry), warnings) in
-            resolutions.into_iter().zip(batch.entries).zip(warnings)
+        for (((resolution, entry), warnings), request_hash) in resolutions
+            .into_iter()
+            .zip(batch.entries)
+            .zip(warnings)
+            .zip(&request_hashes)
         {
             let (outcome, voucher) = match resolution {
                 BankEventResolution::New(voucher) => (
@@ -360,6 +428,7 @@ impl Ledger {
                 ),
                 BankEventResolution::Conflict { code, existing } => {
                     conflicts.push(entry_conflict(&entry.event_key, code, &existing));
+                    conflict_request_hashes.push(request_hash.clone());
                     continue;
                 }
             };
@@ -372,6 +441,7 @@ impl Ledger {
         }
         for (index, existing) in unbooked_conflicts {
             let unbooked = &batch.unbooked[index];
+            conflict_request_hashes.push(existing.provenance.request_hash.clone());
             conflicts.push(BankEventConflict {
                 event_key: unbooked.event_key.clone(),
                 error_code: BankEventConflictCode::SourceFactsChanged.as_str(),
@@ -386,17 +456,13 @@ impl Ledger {
         }
 
         // Each conflict of a batch meant to write is an audited refused write.
+        // (The CLI previews before it seals, so in practice a conflict is
+        // refused there, without a record, as any other import refusal is.)
         if write {
-            for conflict in &conflicts {
-                let request_hash = batch
-                    .entries
-                    .iter()
-                    .position(|e| e.event_key == conflict.event_key)
-                    .map(|i| request_hashes[i].as_str())
-                    .unwrap_or_default();
+            for (conflict, request_hash) in conflicts.iter().zip(&conflict_request_hashes) {
                 let rejection = RejectionRecord {
                     reason_code: conflict.error_code.to_string(),
-                    request_hash: request_hash.to_string(),
+                    request_hash: request_hash.clone(),
                     actor: batch.actor.to_string(),
                     target: "fiscal:main".to_string(),
                     note: conflict.message.clone(),
@@ -450,5 +516,67 @@ fn entry_conflict(
         code,
         voucher_number: number,
         message,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aggountant_domain::{vat_expand, VatExpandInput, VatTreatment};
+    use aggountant_model::{Currency, VatExpansion};
+
+    fn expanded(attachment: Option<Hash>, net_account: &str) -> VoucherDraft {
+        let date = Date::parse("2026-12-30").unwrap();
+        vat_expand(&VatExpandInput {
+            amount: Money::parse("124.00", Currency::new("EUR").unwrap()).unwrap(),
+            net_account: AccountId::new(net_account).unwrap(),
+            contra_account: AccountId::new("1910").unwrap(),
+            treatment: VatTreatment::DomesticInput {
+                rate_class: "domestic-standard".into(),
+            },
+            document_date: date,
+            posting_date: date,
+            description: "Bank payment".into(),
+            attachment_ref: attachment,
+        })
+        .unwrap()
+    }
+
+    /// The same draft with the software state of its VAT expansion changed, as
+    /// a later release with another rates file or policy set would project it.
+    fn with_other_release(draft: &VoucherDraft) -> VoucherDraft {
+        let e = draft.vat_expansion().unwrap();
+        let other = VatExpansion::new(
+            e.version(),
+            e.treatment().clone(),
+            e.source_amount().clone(),
+            e.net_account().clone(),
+            e.contra_account().clone(),
+            e.resolved_percent().map(str::to_owned),
+            "fi.core.2027-01".into(),
+            Hash::from_bytes([7; 32]),
+            e.generated_vat_legs().to_vec(),
+        )
+        .unwrap();
+        VoucherDraft::new(
+            draft.document_date(),
+            draft.posting_date(),
+            draft.description().to_owned(),
+            draft.postings().to_vec(),
+            draft.attachment_ref(),
+        )
+        .unwrap()
+        .with_vat_expansion(other)
+        .unwrap()
+    }
+
+    #[test]
+    fn the_projection_ignores_the_statement_file_and_the_release() {
+        let a = expanded(Some(Hash::from_bytes([1; 32])), "7690");
+        let b = expanded(Some(Hash::from_bytes([2; 32])), "7690");
+        let hash = projection_hash(&a).unwrap();
+        assert_eq!(hash, projection_hash(&b).unwrap());
+        assert_eq!(hash, projection_hash(&with_other_release(&a)).unwrap());
+        assert_ne!(hash, projection_hash(&expanded(None, "7600")).unwrap());
     }
 }
