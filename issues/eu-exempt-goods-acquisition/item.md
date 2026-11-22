@@ -1,9 +1,12 @@
 ---
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 type: feature
-status: untriaged
+status: open
 priority: normal
+lane: vat-goods
+collision: [crates/model/src/vat_expansion.rs, crates/domain/src/vat/expand.rs]
+lane_seq: 1
 ---
 
 # Exempt intra-Community goods acquisitions: report the value with zero tax
@@ -32,3 +35,9 @@ needs.
 - [ ] Such a purchase can be recorded through capture-receipt and the bank import.
 - [ ] It appears in the EU goods purchase box with zero tax in `file-vat preview`.
 - [ ] Guide (fi/en) and error message describe it.
+
+## Decisions
+
+### 2026-11-22T04:29:46Z · @conductor
+
+Accepted by the product owner (2026-11-22); done together in one change.

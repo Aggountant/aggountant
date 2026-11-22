@@ -1,9 +1,12 @@
 ---
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 type: bug
-status: untriaged
+status: open
 priority: normal
+lane: vat-goods
+collision: [crates/model/src/vat_expansion.rs, crates/domain/src/vat/expand.rs]
+lane_seq: 2
 ---
 
 # VatExpansionTreatment no-vat drops members: check stored vouchers, then refuse
@@ -23,3 +26,9 @@ treatment (a read-only scan of a fiscal store, or proof from the write path
 that none can exist), then apply `aggountant_model::de::deny_members` to the
 variant with a regression test. If a stored record can carry such members,
 stop and describe it instead.
+
+## Decisions
+
+### 2026-11-22T04:29:46Z · @conductor
+
+Accepted by the product owner (2026-11-22); done together in one change.

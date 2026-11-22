@@ -1,9 +1,11 @@
 ---
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 type: bug
-status: untriaged
+status: open
 priority: normal
+lane: unlaned
+collision: [crates/domain/src/payroll.rs]
 ---
 
 # Employer report unit variants drop members silently
@@ -24,3 +26,9 @@ only built internally. Where it is input, refuse members with
 `aggountant_model::de::deny_members` and INVALID_INPUT, with a regression
 test. Where it is read from stored data, check stored records first, as in
 the VAT expansion case.
+
+## Decisions
+
+### 2026-11-22T04:29:46Z · @conductor
+
+Accepted by the product owner (2026-11-22).
