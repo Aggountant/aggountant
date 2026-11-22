@@ -100,21 +100,23 @@ allowances it gives a health insurance contribution of €0:
 ```sh
 aggountant employee add < employee.json
 aggountant employee list
-aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
-aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < report.json
 aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json \
-  | jq -r .record_hash | aggountant file-wage approve wr-… --record-hash-file -
+  | tee >(jq -r .record_hash > HASH_FILE) | jq 'del(.record_hash)'
+aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < report.json
+aggountant file-wage approve wr-… --record-hash-file HASH_FILE
 aggountant run show --run-id wr-…
 ```
 
 In the employee input the identifier is `employee_id` and the withholding
 percentage `tax_card.withholding_pct`. The preview gives the checksum in the
 field `record_hash`. The checksum is derived from the personal identity code,
-so it is sensitive: it is used only for the approval and is not stored, logged
+so it is sensitive: it is used only for the approval and is not kept, logged
 or shared. The preview says the same in the field `sensitive.record_hash`.
-That is why the approval reads it on stdin (`--record-hash-file -`), piped
-from the same preview, instead of on the command line, where it would end up
-in shell history and in the conversation.
+That is why the agent keeps it off the command line, where it would end up
+in shell history and in the conversation: it captures the checksum of the
+preview you review into a private temporary file (made with `mktemp`, outside
+the home), shows you the preview without it, gives the file to the approval
+(`--record-hash-file`) and deletes the file afterwards.
 The preview and the start get the same timestamp.
 `aggountant employee show --employee <identifier>` shows the personal identity
 code and bank account number in plain text, so the agent does not run it
@@ -160,17 +162,14 @@ only then. A correction is as final as the original report.
 
 ```sh
 aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < corrected.json
-aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z \
-  --record-hash-file <(aggountant --json file-wage correction preview wr-… --action replace \
-  --timestamp 2026-11-02T08:00:00Z < corrected.json | jq -r .record_hash) < corrected.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash-file HASH_FILE < corrected.json
 aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
 aggountant file-wage correction status  wr-…
 ```
 
 `wr-…` is the run of the original report. The input of a replacement is the
-whole report, corrected, and its checksum is sensitive like the original's.
-Since stdin already carries the report, the checksum comes in through process
-substitution (`--record-hash-file <(…)`). A cancellation reads no input. `correction status` shows what Tulorekisteri
+whole report, corrected, and its checksum is sensitive like the original's,
+so it is captured to a file the same way. A cancellation reads no input. `correction status` shows what Tulorekisteri
 holds now (`accepted`, `replaced`, `cancelled`), the receipt in force and the
 report's whole history. `run show` of the original run shows the state
 `superseded` once its receipt is no longer the one in force. After a

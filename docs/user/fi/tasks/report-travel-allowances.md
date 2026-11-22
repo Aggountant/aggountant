@@ -93,20 +93,23 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
 ```sh
 aggountant employee add < tyontekija.json
 aggountant employee list
-aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
-aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
 aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json \
-  | jq -r .record_hash | aggountant file-wage approve wr-… --record-hash-file -
+  | tee >(jq -r .record_hash > TIEDOSTO) | jq 'del(.record_hash)'
+aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
+aggountant file-wage approve wr-… --record-hash-file TIEDOSTO
 aggountant run show --run-id wr-…
 ```
 
 Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
 `tax_card.withholding_pct`. Esikatselu antaa tarkisteen kentässä `record_hash`.
 Tarkiste on johdettu henkilötunnuksesta, joten se on arkaluonteinen: sitä
-käytetään vain hyväksyntään, eikä sitä tallenneta, kirjata lokiin tai jaeta.
-Esikatselu sanoo saman kentässä `sensitive.record_hash`. Siksi hyväksyntä
-lukee sen syötteestä (`--record-hash-file -`) saman esikatselun putkesta eikä
-komentoriviltä, jolta se jäisi komentohistoriaan ja keskusteluun.
+käytetään vain hyväksyntään, eikä sitä tallenneta pysyvästi, kirjata lokiin tai jaeta.
+Esikatselu sanoo saman kentässä `sensitive.record_hash`. Siksi agentti
+pitää sen poissa komentoriviltä, jolta se jäisi komentohistoriaan ja
+keskusteluun: se ottaa näkemäsi esikatselun tarkisteen talteen yksityiseen
+väliaikaistiedostoon (`mktemp`, kodin ulkopuolella), näyttää esikatselun ilman
+sitä, antaa tiedoston hyväksynnälle (`--record-hash-file`) ja poistaa sen
+lopuksi.
 Esikatselulle ja käynnistykselle annetaan sama aikaleima.
 `aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
 tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
@@ -152,17 +155,14 @@ hyväksy vasta sitten. Korjaus on yhtä lopullinen kuin alkuperäinen ilmoitus.
 
 ```sh
 aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < korjattu.json
-aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z \
-  --record-hash-file <(aggountant --json file-wage correction preview wr-… --action replace \
-  --timestamp 2026-11-02T08:00:00Z < korjattu.json | jq -r .record_hash) < korjattu.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash-file TIEDOSTO < korjattu.json
 aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
 aggountant file-wage correction status  wr-…
 ```
 
 `wr-…` on alkuperäisen ilmoituksen ajo. Korvaavan ilmoituksen syöte on koko
-ilmoitus korjattuna, ja sen tarkiste on arkaluonteinen kuten alkuperäisen.
-Koska syötteessä on jo ilmoitus, tarkiste annetaan prosessikorvauksella
-(`--record-hash-file <(…)`).
+ilmoitus korjattuna, ja sen tarkiste on arkaluonteinen kuten alkuperäisen,
+joten se otetaan talteen tiedostoon samalla tavalla.
 Mitätöinti ei lue syötettä. `correction status` näyttää, mitä Tulorekisterissä
 nyt on (`accepted`, `replaced`, `cancelled`), voimassa olevan kuittauksen ja
 ilmoituksen koko historian. Alkuperäisen ajon `run show` näyttää tilan

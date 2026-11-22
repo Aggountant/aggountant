@@ -28,7 +28,7 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Approve exactly the record hash and dispatch once. The record_hash is sensitive, so pipe it in rather than typing it: --record-hash-file - takes it from the pipe. The effect's `outcome` carries the Incomes Register receipt (ir_delivery_id, ir_report_id, version) once accepted, or names `file-wage reconcile` when the outcome is unknown; read it again offline with `run show --run-id wr-DIGEST`. Example: aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json | jq -r .record_hash | aggountant --json file-wage approve wr-DIGEST --record-hash-file -
+    /// Approve exactly the record hash and dispatch once. The record_hash is sensitive: give it with --record-hash-file, the file the reviewed preview's hash was captured to, so it never appears in argv. The effect's `outcome` carries the Incomes Register receipt (ir_delivery_id, ir_report_id, version) once accepted, or names `file-wage reconcile` when the outcome is unknown; read it again offline with `run show --run-id wr-DIGEST`. Example: file-wage approve wr-DIGEST --record-hash-file HASH_FILE
     Approve {
         run_id: String,
         #[command(flatten)]
@@ -110,7 +110,7 @@ pub enum CorrectionCmd {
         #[command(flatten)]
         args: CorrectionArgs,
     },
-    /// Approve the previewed record_hash and send the correction once. A replacement's record_hash is sensitive and stdin carries the report, so give the hash through process substitution (--record-hash-file <(...)); a cancellation can read it on stdin (--record-hash-file -). The answer is the report's history with the new receipt, or an unknown outcome that only `file-wage correction status` settles; nothing is ever resent. Example: aggountant --json file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash-file <(aggountant --json file-wage correction preview wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z < report.json | jq -r .record_hash) < report.json
+    /// Approve the previewed record_hash and send the correction once. A replacement's record_hash is sensitive like the one of `file-wage approve`: give it with --record-hash-file. The answer is the report's history with the new receipt, or an unknown outcome that only `file-wage correction status` settles; nothing is ever resent. Example: file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash-file HASH_FILE < report.json
     #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
     Submit {
         #[command(flatten)]
@@ -181,7 +181,7 @@ pub enum EmployerReportCmd {
         #[command(flatten)]
         args: EmployerReportArgs,
     },
-    /// Approve the previewed record_hash and send once. Refused when the month already has an accepted report or an unsettled send. This record_hash holds no personal data; --record-hash-file - takes it from a pipe like the other approvals. Example: file-wage employer-report submit --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z --record-hash HASH
+    /// Approve the previewed record_hash and send once. Refused when the month already has an accepted report or an unsettled send. This record_hash holds no personal data, so --record-hash is fine; --record-hash-file works as in the other approvals. Example: file-wage employer-report submit --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z --record-hash HASH
     Submit {
         #[command(flatten)]
         args: EmployerReportArgs,
@@ -267,7 +267,7 @@ pub struct RecordHash {
     /// The previewed record_hash. On the command line it ends up in shell history and process listings; prefer --record-hash-file.
     #[arg(long, value_name = "HASH")]
     record_hash: Option<String>,
-    /// Read the previewed record_hash from PATH, or from stdin when PATH is `-`; surrounding whitespace is ignored. Pipe it from the preview (`jq -r .record_hash`) so it never appears in argv. Where stdin carries a report, use process substitution: --record-hash-file <(...).
+    /// Read the record_hash from PATH (`-`: stdin, unless stdin carries the report); surrounding whitespace is ignored. Capture it from the very preview the user reviews, keeping it out of view, into a private file made by mktemp: aggountant --json file-wage preview ... < report.json | tee >(jq -r .record_hash > HASH_FILE) | jq 'del(.record_hash)'. Delete the file after the approval. Do not regenerate the hash from a new preview at approval time: that would approve whatever the input is by then.
     #[arg(long, value_name = "PATH")]
     record_hash_file: Option<std::path::PathBuf>,
 }
@@ -284,7 +284,7 @@ impl RecordHash {
             if let Some(input) = stdin_carries {
                 return Err(CliError::user(
                     "INVALID_INPUT",
-                    format!("stdin carries {input} here, so it cannot also carry the record_hash; give --record-hash-file a path or process substitution (<(...))"),
+                    format!("stdin carries {input} here, so it cannot also carry the record_hash; give --record-hash-file the path of the captured hash"),
                 ));
             }
             let mut bytes = Vec::new();

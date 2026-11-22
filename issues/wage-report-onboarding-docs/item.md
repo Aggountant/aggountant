@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-21
+updated: 2026-11-22
 type: task
-status: open
+status: done
 priority: high
 lane: wage-reporting
 lane_seq: 10
 collision: [crates/cli/src/wage.rs, skills/tulorekisteri/SKILL.md]
+closed: 2026-11-22
 ---
 
 # Tulorekisteri onboarding facts and safe record-hash input for file-wage
@@ -40,6 +41,12 @@ from stdin or from the stored preview, so it never has to appear in argv.
 
 ## Acceptance criteria
 
-- [ ] Skill text matches the certificate-service flow and labels above.
-- [ ] Production use described without personal data.
-- [ ] `file-wage approve` can take the hash without argv (stdin or stored preview), or the plan records why not.
+- [x] Skill text matches the certificate-service flow and labels above.
+- [x] Production use described without personal data.
+- [x] `file-wage approve` can take the hash without argv (stdin or stored preview), or the plan records why not.
+
+## Resolution
+
+### 2026-11-22T06:52:11Z · @issuectl
+
+Done: --record-hash-file on the three approvals, onboarding labels and production use in the tulorekisteri skill; see result.md, review.md, assessment.md.
