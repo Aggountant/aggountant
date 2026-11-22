@@ -5,13 +5,18 @@ Tehdään kerran. Sen jälkeen ilmoitukset kulkevat [SKILL.md](SKILL.md)-tiedost
 ## Rajapintaoikeus
 
 Oikeuden hakee käyttäjä Verohallinnon varmennepalvelussa: Tuotantovarmenteet →
-organisaatio → Näytä tiedot → Tee korvaava hakemus. Tulorekisterin rajapinnoista
-valitaan Palkkatiedot (Web service) käyttötarkoituksella "ilmoitan itse maksamiani
-tuloja", ja jos yritys käyttää Vero API:a, sen valinta pidetään ennallaan. Uutta
-varmennetta ei tarvita: sama kelpaa molempiin kanaviin, kun oikeus on myönnetty.
-Erillinenkin varmenne on sallittu. Hakemus voi tulla hyväksytyksi heti, mutta lähetetty
-hakemus ei vielä ole myönnetty oikeus: profiiliin se merkitään vasta, kun käyttäjä
-kertoo vahvistuksen näyttävän oikeuden.
+organisaatio → Näytä tiedot → **Tee korvaava hakemus**. Lomake luettelee
+Tulorekisterin rajapinnat neljänä valintana: Palkkatiedot (SFTP), Palkkatiedot (Web
+service), Etuustiedot (SFTP) ja Etuustiedot (Web service). `file-wage` tarvitsee
+**Palkkatiedot (Web service)** käyttötarkoituksella "ilmoitan itse maksamiani
+tuloja". Etuustiedot ovat etuuksien maksajille, eikä SFTP ole aggountantin kanava.
+Jos yritys käyttää Vero API:a, sen valinta jätetään lomakkeella rastitetuksi. Uutta varmennetta ei tarvita: sama kelpaa molempiin
+kanaviin, kun oikeus on myönnetty. Erillinenkin varmenne on sallittu.
+
+Hakemuksen voi hyväksyä heti. Myönnetyt oikeudet näkyvät vahvistuksessa nimillä
+"Palkkatiedot tuottaja (Web service)" ja, jos Vero API pidettiin, "Vero API (Web
+service)". Lähetetty hakemus ei vielä ole myönnetty oikeus: profiiliin se merkitään
+vasta, kun käyttäjä kertoo vahvistuksen näyttävän Palkkatiedot tuottaja -oikeuden.
 
 ## Profiili
 

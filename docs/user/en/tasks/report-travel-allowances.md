@@ -16,12 +16,15 @@ allowances it gives a health insurance contribution of €0:
 
 ## Before you start
 
-- **API permission.** In the Tax Administration's certificate service, apply
-  with a replacement application for your production certificate to also
-  cover the Tulorekisteri wage reporting interface (purpose: reporting income
-  I pay myself). Keep the Vero API selected if you use it. The same
-  certificate works for both once the permission is granted. A separate
-  certificate is also possible.
+- **API permission.** In the Tax Administration's certificate service, open
+  Tuotantovarmenteet → your organisation → Näytä tiedot → Tee korvaava
+  hakemus. Of the Tulorekisteri interfaces (Palkkatiedot and Etuustiedot, each
+  as SFTP or Web service) choose **Palkkatiedot (Web service)**, purpose
+  "ilmoitan itse maksamiani tuloja". Keep Vero API ticked if you use it. Once
+  granted, the confirmation lists "Palkkatiedot tuottaja (Web service)" (and
+  "Vero API (Web service)" if you kept it). The application can be approved
+  at once, and no new certificate is needed: the same one works for both. A
+  separate certificate is also possible.
 - **Credentials.** By default the same credential file is used as for the VAT
   return ([Set up direct VAT filing](set-up-vero-api.md)). The path of a
   separate file is given in the profile. The credential file must be outside
@@ -99,7 +102,8 @@ aggountant employee add < employee.json
 aggountant employee list
 aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json
 aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < report.json
-aggountant file-wage approve wr-… --record-hash <checksum>
+aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json \
+  | jq -r .record_hash | aggountant file-wage approve wr-… --record-hash-file -
 aggountant run show --run-id wr-…
 ```
 
@@ -108,6 +112,9 @@ percentage `tax_card.withholding_pct`. The preview gives the checksum in the
 field `record_hash`. The checksum is derived from the personal identity code,
 so it is sensitive: it is used only for the approval and is not stored, logged
 or shared. The preview says the same in the field `sensitive.record_hash`.
+That is why the approval reads it on stdin (`--record-hash-file -`), piped
+from the same preview, instead of on the command line, where it would end up
+in shell history and in the conversation.
 The preview and the start get the same timestamp.
 `aggountant employee show --employee <identifier>` shows the personal identity
 code and bank account number in plain text, so the agent does not run it
@@ -153,14 +160,17 @@ only then. A correction is as final as the original report.
 
 ```sh
 aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < corrected.json
-aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash <checksum> < corrected.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z \
+  --record-hash-file <(aggountant --json file-wage correction preview wr-… --action replace \
+  --timestamp 2026-11-02T08:00:00Z < corrected.json | jq -r .record_hash) < corrected.json
 aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
 aggountant file-wage correction status  wr-…
 ```
 
 `wr-…` is the run of the original report. The input of a replacement is the
-whole report, corrected, and its checksum is sensitive like the original's. A
-cancellation reads no input. `correction status` shows what Tulorekisteri
+whole report, corrected, and its checksum is sensitive like the original's.
+Since stdin already carries the report, the checksum comes in through process
+substitution (`--record-hash-file <(…)`). A cancellation reads no input. `correction status` shows what Tulorekisteri
 holds now (`accepted`, `replaced`, `cancelled`), the receipt in force and the
 report's whole history. `run show` of the original run shows the state
 `superseded` once its receipt is no longer the one in force. After a

@@ -28,11 +28,11 @@ pub enum WageCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Approve exactly the record hash and dispatch once. The effect's `outcome` carries the Incomes Register receipt (ir_delivery_id, ir_report_id, version) once accepted, or names `file-wage reconcile` when the outcome is unknown; read it again offline with `run show --run-id wr-DIGEST`. Example: file-wage approve wr-DIGEST --record-hash HASH
+    /// Approve exactly the record hash and dispatch once. The record_hash is sensitive, so pipe it in rather than typing it: --record-hash-file - takes it from the pipe. The effect's `outcome` carries the Incomes Register receipt (ir_delivery_id, ir_report_id, version) once accepted, or names `file-wage reconcile` when the outcome is unknown; read it again offline with `run show --run-id wr-DIGEST`. Example: aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < report.json | jq -r .record_hash | aggountant --json file-wage approve wr-DIGEST --record-hash-file -
     Approve {
         run_id: String,
-        #[arg(long)]
-        record_hash: String,
+        #[command(flatten)]
+        approval: RecordHash,
         #[arg(long)]
         dry_run: bool,
     },
@@ -110,13 +110,13 @@ pub enum CorrectionCmd {
         #[command(flatten)]
         args: CorrectionArgs,
     },
-    /// Approve the previewed record_hash and send the correction once. The answer is the report's history with the new receipt, or an unknown outcome that only `file-wage correction status` settles; nothing is ever resent. Example: file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash HASH < report.json
+    /// Approve the previewed record_hash and send the correction once. A replacement's record_hash is sensitive and stdin carries the report, so give the hash through process substitution (--record-hash-file <(...)); a cancellation can read it on stdin (--record-hash-file -). The answer is the report's history with the new receipt, or an unknown outcome that only `file-wage correction status` settles; nothing is ever resent. Example: aggountant --json file-wage correction submit wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z --record-hash-file <(aggountant --json file-wage correction preview wr-DIGEST --action replace --timestamp 2026-11-02T08:00:00Z < report.json | jq -r .record_hash) < report.json
     #[command(after_help = crate::input_help::FILE_WAGE_REPORT)]
     Submit {
         #[command(flatten)]
         args: CorrectionArgs,
-        #[arg(long)]
-        record_hash: String,
+        #[command(flatten)]
+        approval: RecordHash,
         #[arg(long)]
         dry_run: bool,
     },
@@ -181,12 +181,12 @@ pub enum EmployerReportCmd {
         #[command(flatten)]
         args: EmployerReportArgs,
     },
-    /// Approve the previewed record_hash and send once. Refused when the month already has an accepted report or an unsettled send. Example: file-wage employer-report submit --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z --record-hash HASH
+    /// Approve the previewed record_hash and send once. Refused when the month already has an accepted report or an unsettled send. This record_hash holds no personal data; --record-hash-file - takes it from a pipe like the other approvals. Example: file-wage employer-report submit --month 2026-10 --payments none --timestamp 2026-11-02T08:00:00Z --record-hash HASH
     Submit {
         #[command(flatten)]
         args: EmployerReportArgs,
-        #[arg(long)]
-        record_hash: String,
+        #[command(flatten)]
+        approval: RecordHash,
         #[arg(long)]
         dry_run: bool,
     },
@@ -256,6 +256,74 @@ pub enum EmployerReportCmd {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+/// The record_hash an approval names, from argv or read from a file or stdin.
+/// A travel report's hash is derived from the income earner's identity code, so
+/// the file form keeps it out of shell history, process listings and transcripts.
+#[derive(clap::Args, Debug)]
+#[group(required = true, multiple = false)]
+pub struct RecordHash {
+    /// The previewed record_hash. On the command line it ends up in shell history and process listings; prefer --record-hash-file.
+    #[arg(long, value_name = "HASH")]
+    record_hash: Option<String>,
+    /// Read the previewed record_hash from PATH, or from stdin when PATH is `-`; surrounding whitespace is ignored. Pipe it from the preview (`jq -r .record_hash`) so it never appears in argv. Where stdin carries a report, use process substitution: --record-hash-file <(...).
+    #[arg(long, value_name = "PATH")]
+    record_hash_file: Option<std::path::PathBuf>,
+}
+
+impl RecordHash {
+    /// The hash, read when it comes from a file. `stdin_carries` names what the
+    /// command already reads on stdin, which then cannot also carry the hash.
+    /// Errors never contain what was read.
+    fn resolve(&self, stdin_carries: Option<&str>) -> Result<String, CliError> {
+        let Some(path) = &self.record_hash_file else {
+            return Ok(self.record_hash.clone().unwrap_or_default());
+        };
+        let bytes = if path.as_os_str() == "-" {
+            if let Some(input) = stdin_carries {
+                return Err(CliError::user(
+                    "INVALID_INPUT",
+                    format!("stdin carries {input} here, so it cannot also carry the record_hash; give --record-hash-file a path or process substitution (<(...))"),
+                ));
+            }
+            let mut bytes = Vec::new();
+            std::io::stdin().read_to_end(&mut bytes).map_err(|e| {
+                CliError::system(
+                    "IO_ERROR",
+                    format!("could not read the record_hash on stdin: {}", e.kind()),
+                )
+            })?;
+            bytes
+        } else {
+            std::fs::read(path).map_err(|e| {
+                CliError::user(
+                    "INVALID_INPUT",
+                    format!(
+                        "could not read the record_hash from {}: {}",
+                        path.display(),
+                        e.kind()
+                    ),
+                )
+            })?
+        };
+        parse_record_hash(&bytes)
+    }
+}
+
+/// One token, trimmed of surrounding whitespace (the newline `jq -r` adds).
+fn parse_record_hash(bytes: &[u8]) -> Result<String, CliError> {
+    let hash = std::str::from_utf8(bytes)
+        .map(str::trim)
+        .ok()
+        .filter(|h| !h.is_empty() && !h.chars().any(char::is_whitespace))
+        .ok_or_else(|| {
+            CliError::user(
+                "INVALID_INPUT",
+                "--record-hash-file must hold exactly one record_hash (the preview's record_hash field); what it holds is not repeated here because the hash is sensitive",
+            )
+        })?;
+    Ok(hash.to_string())
 }
 
 fn parse_month(s: &str) -> Result<ReportMonth, String> {
@@ -351,9 +419,10 @@ fn employer_report(cmd: &EmployerReportCmd, home: &Path) -> Result<Value, CliErr
         }
         EmployerReportCmd::Submit {
             args,
-            record_hash,
+            approval,
             dry_run,
         } => {
+            let record_hash = &approval.resolve(None)?;
             let preview = engine.preview_employer_report(args.input(), args.timestamp)?;
             if *dry_run {
                 return Ok(
@@ -484,9 +553,13 @@ fn correction(cmd: &CorrectionCmd, home: &Path) -> Result<Value, CliError> {
         )?),
         CorrectionCmd::Submit {
             args,
-            record_hash,
+            approval,
             dry_run,
         } => {
+            let record_hash = &approval.resolve(match args.action {
+                CorrectionAction::Replace => Some("the replacement report"),
+                CorrectionAction::Cancel => None,
+            })?;
             let input = args.input()?;
             let preview = engine.preview_wage_correction(&args.run_id, &input, args.timestamp)?;
             if *dry_run {
@@ -566,11 +639,12 @@ pub fn execute(cmd: &WageCmd, home: &Path) -> Result<Value, CliError> {
         }
         WageCmd::Approve {
             run_id,
-            record_hash,
+            approval,
             dry_run,
         } => {
             refuse_dry_run(*dry_run)?;
-            serde_json::to_value(engine.approve_wage(run_id, record_hash, &broker(home)?)?)
+            let record_hash = approval.resolve(None)?;
+            serde_json::to_value(engine.approve_wage(run_id, &record_hash, &broker(home)?)?)
         }
         WageCmd::Reconcile { run_id, dry_run } => {
             refuse_dry_run(*dry_run)?;

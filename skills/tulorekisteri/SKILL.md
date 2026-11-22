@@ -22,6 +22,12 @@ asiointipalvelussa, ei OmaVerossa. Kumpikin ilmoitus on annettu, kun se on lähe
 joten käyttäjä hyväksyy jokaisen esikatselusta. Käyttöönotto on tiedostossa
 [kayttoonotto.md](kayttoonotto.md).
 
+Kanava on käytössä tuotannossa. Marraskuuhun 2026 mennessä matkakorvausilmoitus
+(tulolajit 311 ja 331) on hyväksytty Tulorekisterissä synkronisesti: lähetyksen tila
+3, ilmoitus voimassa olevien joukossa versiona 1, ja vastaus toi lähetyksen ja
+ilmoituksen tunnisteet (`ir_delivery_id`, `ir_report_id`). Kun `file-wage approve`
+palauttaa kuittauksen, ilmoitus on rekisterissä.
+
 ## Matkakorvausilmoitus
 
 Yksi ilmoitus on yksi maksu yhdelle tulonsaajalle (`aggountant file-wage preview`,
@@ -44,6 +50,20 @@ työntekijärekisteristä. Esikatselun tarkiste `record_hash` on johdettu
 henkilötunnuksesta, ja koska tunnusten avaruus on pieni, se on itsekin arkaluonteinen.
 Käytä sitä vain hyväksyntäkomennossa; älä kirjoita sitä `TODO.md`:hen, gitiin tai
 viesteihin. Vastauksen `sensitive`-kenttä sanoo saman.
+
+Älä myöskään lue tarkistetta esikatselusta itse ja kirjoita sitä komentoriville:
+`--record-hash HASH` jää komentohistoriaan ja keskusteluun. Näytä käyttäjälle
+esikatselun sisältö ilman tarkistetta ja putkita tarkiste hyväksynnän jälkeen samasta
+esikatselusta suoraan hyväksyntään, jolloin se ei kulje sinun kauttasi:
+
+```sh
+aggountant --json file-wage preview --timestamp T < ilmoitus.json \
+  | jq -r .record_hash | aggountant --json file-wage approve wr-… --record-hash-file -
+```
+
+Jos ilmoitus on esikatselun jälkeen muuttunut, tarkiste ei vastaa käynnistettyä ajoa ja
+hyväksyntä hylätään. Korvaavan korjauksen syötteessä on jo ilmoitus, joten siellä
+tarkiste annetaan prosessikorvauksella (alla).
 
 Käyttäjä hyväksyy rivit, jakson, maksupäivän ja osakkuustiedon. Esikatselulle ja
 käynnistykselle annetaan sama aikaleima, koska tarkiste sitoo sen.
@@ -108,6 +128,13 @@ lähetetään kerran (`aggountant file-wage correction preview` ja `submit`).
   ei ollutkaan tai kun pitää muuttaa jotain, mitä korvaava ei saa muuttaa. Uusi
   ilmoitus annetaan sen jälkeen tavalliseen tapaan omalla `source_reference`-arvollaan,
   koska mitätöidyn ilmoituksen tunniste on käytetty.
+
+Korvaavan korjauksen `submit` lukee korjatun ilmoituksen syötteestä, joten tarkiste
+ei mahdu samaan putkeen: anna se prosessikorvauksella, esimerkiksi
+`--record-hash-file <(aggountant --json file-wage correction preview wr-… --action
+replace --timestamp T < korjattu.json | jq -r .record_hash) < korjattu.json`.
+Mitätöinnin tarkiste ei ole arkaluonteinen, mutta senkin voi putkittaa
+(`--record-hash-file -`).
 
 Esikatselu näyttää rinnakkain rekisterissä olevan ja korjatun ilmoituksen sekä version,
 jota korjataan; näytä käyttäjälle, mikä muuttuu. `aggountant file-wage correction

@@ -16,12 +16,15 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
 
 ## Ennen kuin aloitat
 
-- **Rajapintaoikeus.** Hae Verohallinnon varmennepalvelussa
-  tuotantovarmenteelle korvaavalla hakemuksella myös Tulorekisterin
-  palkkatietojen ilmoittamisen rajapinta (käyttötarkoitus: ilmoitan itse
-  maksamiani tuloja). Pidä Vero API valittuna, jos käytät sitä. Sama varmenne
-  kelpaa molempiin, kun oikeus on myönnetty. Myös erillinen varmenne on
-  mahdollinen.
+- **Rajapintaoikeus.** Avaa Verohallinnon varmennepalvelussa
+  Tuotantovarmenteet → organisaatiosi → Näytä tiedot → Tee korvaava hakemus.
+  Tulorekisterin rajapinnoista (Palkkatiedot ja Etuustiedot, kumpikin SFTP tai
+  Web service) valitse **Palkkatiedot (Web service)**, käyttötarkoitus
+  "ilmoitan itse maksamiani tuloja". Pidä Vero API valittuna, jos käytät sitä.
+  Kun oikeus on myönnetty, vahvistuksessa lukee "Palkkatiedot tuottaja (Web
+  service)" (ja "Vero API (Web service)", jos pidit sen). Hakemuksen voi
+  hyväksyä heti, eikä uutta varmennetta tarvita: sama kelpaa molempiin. Myös
+  erillinen varmenne on mahdollinen.
 - **Tunnukset.** Oletuksena käytetään samaa tunnustiedostoa kuin
   ALV-ilmoituksessa ([Ota suora ALV-ilmoittaminen käyttöön](set-up-vero-api.md)).
   Erillisen tiedoston polku annetaan profiilissa. Tunnustiedoston pitää olla
@@ -92,7 +95,8 @@ aggountant employee add < tyontekija.json
 aggountant employee list
 aggountant file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
 aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
-aggountant file-wage approve wr-… --record-hash <tarkiste>
+aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json \
+  | jq -r .record_hash | aggountant file-wage approve wr-… --record-hash-file -
 aggountant run show --run-id wr-…
 ```
 
@@ -100,7 +104,9 @@ Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
 `tax_card.withholding_pct`. Esikatselu antaa tarkisteen kentässä `record_hash`.
 Tarkiste on johdettu henkilötunnuksesta, joten se on arkaluonteinen: sitä
 käytetään vain hyväksyntään, eikä sitä tallenneta, kirjata lokiin tai jaeta.
-Esikatselu sanoo saman kentässä `sensitive.record_hash`.
+Esikatselu sanoo saman kentässä `sensitive.record_hash`. Siksi hyväksyntä
+lukee sen syötteestä (`--record-hash-file -`) saman esikatselun putkesta eikä
+komentoriviltä, jolta se jäisi komentohistoriaan ja keskusteluun.
 Esikatselulle ja käynnistykselle annetaan sama aikaleima.
 `aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
 tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
@@ -146,13 +152,17 @@ hyväksy vasta sitten. Korjaus on yhtä lopullinen kuin alkuperäinen ilmoitus.
 
 ```sh
 aggountant file-wage correction preview wr-… --action replace --timestamp 2026-11-02T08:00:00Z < korjattu.json
-aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z --record-hash <tarkiste> < korjattu.json
+aggountant file-wage correction submit  wr-… --action replace --timestamp 2026-11-02T08:00:00Z \
+  --record-hash-file <(aggountant --json file-wage correction preview wr-… --action replace \
+  --timestamp 2026-11-02T08:00:00Z < korjattu.json | jq -r .record_hash) < korjattu.json
 aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-11-02T08:00:00Z
 aggountant file-wage correction status  wr-…
 ```
 
 `wr-…` on alkuperäisen ilmoituksen ajo. Korvaavan ilmoituksen syöte on koko
 ilmoitus korjattuna, ja sen tarkiste on arkaluonteinen kuten alkuperäisen.
+Koska syötteessä on jo ilmoitus, tarkiste annetaan prosessikorvauksella
+(`--record-hash-file <(…)`).
 Mitätöinti ei lue syötettä. `correction status` näyttää, mitä Tulorekisterissä
 nyt on (`accepted`, `replaced`, `cancelled`), voimassa olevan kuittauksen ja
 ilmoituksen koko historian. Alkuperäisen ajon `run show` näyttää tilan

@@ -99,6 +99,36 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     );
     assert_eq!(code, 1);
     assert!(err.contains("TULOREKISTERI_NOT_READY"));
+    // The sensitive hash can stay out of argv: `--record-hash-file -` reads it on
+    // stdin, as `jq -r` prints it (with a trailing newline). It is read before
+    // the broker is built, so a readable hash reaches the profile check.
+    let hash = p["record_hash"].as_str().unwrap();
+    let approve_stdin = ["file-wage", "approve", id, "--record-hash-file", "-"];
+    let (code, _, err) = run(home.path(), &approve_stdin, &format!("{hash}\n"));
+    assert_eq!(code, 1);
+    assert!(err.contains("TULOREKISTERI_NOT_READY"), "{err}");
+    for bad in ["", " \n", "first second\n"] {
+        let (code, _, err) = run(home.path(), &approve_stdin, bad);
+        assert_eq!(code, 1, "{bad:?}");
+        let refused: Value = serde_json::from_str(&err).unwrap();
+        assert_eq!(refused["error_code"], "INVALID_INPUT", "{bad:?}");
+        assert!(
+            !err.contains("first second"),
+            "the input is not echoed: {err}"
+        );
+    }
+    // Exactly one of the two forms: both or neither is a usage error.
+    let (code, _, err) = run(
+        home.path(),
+        &[&approve_stdin[..], &["--record-hash", hash]].concat(),
+        hash,
+    );
+    assert_eq!(code, 1);
+    assert!(err.contains("cannot be used with"), "{err}");
+    assert!(!err.contains(hash), "the hash is not echoed: {err}");
+    let (code, _, err) = run(home.path(), &["file-wage", "approve", id], "");
+    assert_eq!(code, 1);
+    assert!(err.contains("--record-hash-file"), "{err}");
     let (code, out, err) = run(
         home.path(),
         &[
@@ -178,6 +208,27 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     assert_eq!(cancel["ir_report_id"], "22222222222233334444555555555555");
     assert!(cancel["corrects_version"].is_null());
     assert!(cancel.get("sensitive").is_none());
+    // A cancellation reads nothing else on stdin, so the hash can come from there.
+    let (code, out, err) = run(
+        home.path(),
+        &[
+            "file-wage",
+            "correction",
+            "submit",
+            id,
+            "--action",
+            "cancel",
+            "--timestamp",
+            at,
+            "--record-hash-file",
+            "-",
+            "--dry-run",
+        ],
+        &format!("{}\n", cancel["record_hash"].as_str().unwrap()),
+    );
+    assert_eq!(code, 0, "{err}");
+    let dry: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(dry["would"][0]["matches_approval"], true);
     let corrected = report.replace(
         r#""amount":"120.00","income_type":"311","kilometers":200"#,
         r#""amount":"96.00","income_type":"311","kilometers":160"#,
@@ -217,6 +268,55 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     assert_eq!(code, 0, "{err}");
     let dry: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(dry["would"][0]["matches_approval"], true);
+    // A replacement's stdin is the report, so the hash comes from a path (in use,
+    // process substitution); `-` is refused rather than mixing the two.
+    let hash_file = home.path().join("hash.txt");
+    std::fs::write(&hash_file, format!("{hash}\n")).unwrap();
+    let (code, out, err) = run(
+        home.path(),
+        &[
+            &["file-wage", "correction", "submit", id],
+            &replace[..],
+            &[
+                "--record-hash-file",
+                hash_file.to_str().unwrap(),
+                "--dry-run",
+            ],
+        ]
+        .concat(),
+        &corrected,
+    );
+    assert_eq!(code, 0, "{err}");
+    let dry: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(dry["would"][0]["matches_approval"], true);
+    let (code, _, err) = run(
+        home.path(),
+        &[
+            &["file-wage", "correction", "submit", id],
+            &replace[..],
+            &["--record-hash-file", "-", "--dry-run"],
+        ]
+        .concat(),
+        &corrected,
+    );
+    assert_eq!(code, 1);
+    let refused: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(refused["error_code"], "INVALID_INPUT");
+    let (code, _, err) = run(
+        home.path(),
+        &[
+            &["file-wage", "correction", "submit", id],
+            &replace[..],
+            &[
+                "--record-hash-file",
+                home.path().join("absent").to_str().unwrap(),
+            ],
+        ]
+        .concat(),
+        &corrected,
+    );
+    assert_eq!(code, 1);
+    assert!(err.contains("INVALID_INPUT"), "{err}");
     // Without a profile and credential nothing is sent and nothing is recorded.
     let (code, _, err) = run(
         home.path(),
@@ -342,6 +442,13 @@ fn employer_report_preview_missing_manual_evidence_and_offline_guards() {
     let dry = ok(&submit);
     assert_eq!(dry["would"][0]["matches_approval"], true);
     assert!(!h.join("process").exists());
+    let mut from_stdin: Vec<&str> = preview.to_vec();
+    from_stdin[2] = "submit";
+    from_stdin.extend(["--record-hash-file", "-", "--dry-run"]);
+    let (code, out, err) = run(h, &from_stdin, &format!("{hash}\n"));
+    assert_eq!(code, 0, "{err}");
+    let dry: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(dry["would"][0]["matches_approval"], true);
     submit.pop();
     // No credential: refused before anything is written or sent.
     assert_eq!(fails(&submit), "MISSING_CREDENTIAL");
