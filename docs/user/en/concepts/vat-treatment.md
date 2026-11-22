@@ -41,9 +41,10 @@ statement.
 
 For a reverse-charge purchase too, the rate category is the Finnish rate that
 applies to the goods or service; whether it came from another EU country is
-given separately. The zero-rate categories of EU sales do not fit a purchase,
+given separately. The zero-rate categories of sales do not fit a purchase,
 and the program refuses them and names the treatment that fits
-(`VAT_TREATMENT_CLASS_MISMATCH`).
+(`VAT_TREATMENT_CLASS_MISMATCH`). The one exception is the exempt
+intra-Community acquisition of goods described below.
 
 A service bought from another EU country whose supply the Finnish VAT Act
 exempts, for example an insurance or financial service, is recorded as a
@@ -61,10 +62,24 @@ An invoice without VAT does not by itself make a purchase exempt: under the
 reverse charge the invoice shows no VAT because the buyer accounts for it.
 
 Goods follow a different rule: an exempt intra-Community acquisition of goods
-is reported under "Tavaraostot muista EU-maista" (purchases of goods from
-other EU member states). The program cannot record it: as a VAT-exempt
-purchase it would be left out of the return, and the reverse charge refuses
-the zero-rate category. Ask your bookkeeper about such a purchase.
+is reported in the VAT return, but no tax is paid or deducted on it. Its value
+is reported only under "Tavaraostot muista EU-maista" (purchases of goods from
+other EU member states) (detailed guidance
+[Arvonlisäverotus EU-tavarakaupassa](https://www.vero.fi/syventavat-vero-ohjeet/ohje-hakusivu/48691/arvonlisaverotus-eu-tavarakaupassa4/),
+in Finnish, chapters 6.6 and 12). An acquisition is exempt, for example, when
+importing the goods into Finland would be exempt or the goods are placed in a
+VAT warehouse. It is recorded as a reverse charge with the zero-rate category:
+`{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}`.
+The amount is the price without VAT, and no VAT account is posted. In the
+return the value shows under "Tavaraostot muista EU-maista", the tax on goods
+purchases is zero and the deductible tax does not change. This is the only
+purchase treatment that accepts the zero-rate category, and it cannot carry a
+partial deduction, because there is no tax to deduct. A taxable
+intra-Community acquisition of goods uses the Finnish rate category (for
+example `domestic-standard`), also when the seller's invoice shows no VAT.
+So the exempt booking is used only when the exemption has been confirmed: the
+program cannot tell it from a taxable acquisition given `zero-rated` by
+mistake.
 
 ## Treatment is decided at sealing
 

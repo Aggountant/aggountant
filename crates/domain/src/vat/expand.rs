@@ -353,14 +353,29 @@ pub const PURCHASE_RATE_CLASSES: [&str; 5] = [
 /// Rate classes of the dated table that name a zero-rated **sale**: `zero-rated`
 /// (0 % turnover such as exports) and `eu-goods` / `eu-services` (the
 /// intra-Community supply, AVL 72 b §). They exist so a sales code resolves to
-/// 0 %. No purchase treatment admits them: on `domestic-input` they would seal an
-/// EU acquisition as a domestic purchase without VAT, and on `reverse-charge` they
-/// would report the base with zero self-assessed tax. An acquisition that is
-/// exempt from Finnish VAT is not a modelled reverse-charge case, so it is refused
-/// too. Every class of the bundled table is in exactly one of these two lists
-/// (pinned by a unit test), so a new class needs this decision before it is used.
+/// 0 %. A purchase treatment admits only one of them in one place, see
+/// [`EXEMPT_EU_GOODS_ACQUISITION`]: on `domestic-input` they would seal an EU
+/// acquisition as a domestic purchase without VAT, and on any other reverse charge
+/// they would report the base with zero self-assessed tax. Every class of the
+/// bundled table is in exactly one of these two lists (pinned by a unit test), so a
+/// new class needs this decision before it is used.
 pub(super) const ZERO_RATED_SALE_RATE_CLASSES: [&str; 3] =
     ["zero-rated", "eu-goods", "eu-services"];
+
+/// The one booking of an intra-Community acquisition of goods that is exempt in
+/// Finland (for example goods whose supply AVL 94 § exempts, or goods placed in a
+/// VAT warehouse). Verohallinto's guidance *Arvonlisäverotus EU-tavarakaupassa*
+/// (chapters 6.6 and 12) says its value is reported only in "Tavaraostot muista
+/// EU-maista" (field 312), with no tax and no deduction. The full reverse charge
+/// with scope `eu-goods` already files the source amount in field 312; at the 0 %
+/// of `zero-rated` it generates no VAT legs, so field 305 is reported as zero and
+/// the deductible tax (307) does not move. The Domain cannot tell this booking from
+/// a taxable acquisition mistyped as `zero-rated` because the invoice shows 0 %, so
+/// the guide and INPUT help reserve it for a confirmed exemption. A
+/// partial deduction of zero tax is meaningless and stays refused, and an exempt
+/// EU or non-EU service is not reported at all, so it is `no-vat`.
+pub(super) const EXEMPT_EU_GOODS_ACQUISITION: &str =
+    r#"{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}"#;
 
 /// Refuse a treatment whose rate class belongs to another treatment, naming the
 /// treatment that fits. A class the table does not know is left to
@@ -372,6 +387,10 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
         VatTreatment::DomesticInputPartial { rate_class, .. } => {
             ("domestic-input-partial", rate_class, None)
         }
+        VatTreatment::ReverseCharge {
+            rate_class,
+            scope: ReverseChargeScope::EuGoods,
+        } if rate_class == "zero-rated" => return Ok(()),
         VatTreatment::ReverseCharge { rate_class, scope } => {
             ("reverse-charge", rate_class, Some(*scope))
         }
@@ -395,34 +414,51 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
         ("reverse-charge", "")
     };
     let domestic_classes = PURCHASE_RATE_CLASSES.join(", ");
+    let exempt_goods = format!(
+        "an intra-Community acquisition of goods that is exempt in Finland is reported \
+         in the VAT return's EU goods purchases with no tax: use {EXEMPT_EU_GOODS_ACQUISITION}"
+    );
     let fits = match (scope, rate_class.as_str()) {
         (None, eu @ ("eu-goods" | "eu-services")) => format!(
             "an EU {} purchase is a reverse charge, not a domestic purchase: use \
              {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{eu}\"}}\
              {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes}); \
-             source.amount is then the net",
-            if eu == "eu-goods" { "goods" } else { "services" }
+             source.amount is then the net{}",
+            if eu == "eu-goods" { "goods" } else { "services" },
+            if eu == "eu-goods" {
+                format!("; {exempt_goods}")
+            } else {
+                String::new()
+            }
         ),
         (None, _) => format!(
             "a purchase that carries no Finnish VAT, including a service bought from another \
-             EU state whose supply the Finnish VAT Act exempts, is {{\"type\":\"no-vat\"}}, \
-             but an exempt intra-Community acquisition of goods is still reported in the VAT \
-             return and no treatment models it; a purchase from abroad on which the buyer \
-             self-assesses VAT is {reverse_type} with the domestic class whose Finnish rate \
-             applies ({domestic_classes})"
+             EU state whose supply the Finnish VAT Act exempts, is {{\"type\":\"no-vat\"}}; \
+             {exempt_goods}; a purchase from abroad on which the buyer self-assesses VAT is \
+             {reverse_type} with the domestic class whose Finnish rate applies ({domestic_classes})"
         ),
         (Some(scope), "eu-goods" | "eu-services") => format!(
             "rate_class is the Finnish rate the buyer self-assesses and scope already says \
              the acquisition is {}: use \
              {{\"type\":\"{reverse_type}\",\"rate_class\":\"domestic-standard\",\"scope\":\"{}\"}}\
-             {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes})",
+             {keep_deductibility} with the domestic class whose Finnish rate applies ({domestic_classes}){}",
             scope.label(),
-            scope.label()
+            scope.label(),
+            if scope == ReverseChargeScope::EuGoods {
+                format!("; {exempt_goods}")
+            } else {
+                String::new()
+            }
+        ),
+        // Only the partial type reaches here with scope eu-goods and class zero-rated:
+        // an exempt acquisition has no tax, so there is nothing to deduct partially.
+        (Some(ReverseChargeScope::EuGoods), _) => format!(
+            "an exempt acquisition carries no tax to deduct, so it takes no deductibility; \
+             {exempt_goods}; a taxable acquisition self-assesses the Finnish rate of the goods, \
+             one of {domestic_classes}"
         ),
         // An exempt service bought from another EU state is outside the reverse charge
-        // and outside the return's EU services box, so `no-vat` is its booking. An exempt
-        // intra-Community acquisition of goods is still reported (in the EU goods
-        // purchases box), which no treatment models, so it gets no `no-vat` advice.
+        // and outside the return's EU services box, so `no-vat` is its booking.
         (Some(ReverseChargeScope::EuServices), _) => format!(
             "a reverse charge self-assesses the Finnish rate of the service, one of \
              {domestic_classes}, also when the seller's invoice shows no VAT because the \
@@ -431,10 +467,13 @@ fn check_treatment_rate_class(treatment: &VatTreatment) -> Result<(), DomainErro
              the VAT return's EU services purchases: use {{\"type\":\"no-vat\"}} with no \
              other member"
         ),
-        (Some(_), _) => format!(
-            "a reverse charge self-assesses the Finnish rate of the goods or service, one \
-             of {domestic_classes}; an acquisition exempt from Finnish VAT is not a modelled \
-             reverse-charge case and is refused rather than reported with zero tax"
+        // A non-EU service that is exempt in Finland is outside the reverse charge and
+        // reported nowhere in the return.
+        (Some(ReverseChargeScope::NonEuServices), _) => format!(
+            "a reverse charge self-assesses the Finnish rate of the service, one of \
+             {domestic_classes}; a service whose supply the Finnish VAT Act exempts carries \
+             no Finnish VAT and is not reported in the VAT return: use \
+             {{\"type\":\"no-vat\"}} with no other member"
         ),
     };
     Err(DomainError::VatTreatmentClassMismatch(format!(

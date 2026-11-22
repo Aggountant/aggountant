@@ -623,3 +623,82 @@ fn domestic_input_with_an_eu_class_is_refused_before_sealing() {
     }
     assert_no_fiscal_vouchers(home);
 }
+
+#[test]
+fn exempt_eu_goods_acquisition_reaches_field_312_with_zero_tax_from_bank_and_receipt() {
+    // An intra-Community acquisition of goods that is exempt in Finland is reported
+    // only in "Tavaraostot muista EU-maista" (312), with no tax and no deduction.
+    // Both intake routes record it, and the return preview moves only 312 (305 is
+    // reported as zero; 307 and 308 stay zero).
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let exempt = r#"{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}"#;
+    let input = format!(
+        r#"{{"actor":"importer","assignments":[
+      {{"bank_ref":"HLV-2026-0314-001","bank_account":"1910","document_date":"2026-03-14",
+       "contra_postings":[{{"account":"4000","amount":{{"amount":"124.00","currency":"EUR"}}}}],
+       "vat_treatment":{exempt}}},
+      {{"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
+        {{"account":"3000","amount":{{"amount":"2480.00","currency":"EUR"}}}}]}}
+    ]}}"#
+    );
+    let (code, _, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file],
+        &input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    let receipt = format!(
+        r#"{{"natural_key":"receipt:fictional-eu-goods-1","actor":"cli-test-agent",
+      "source":{{"amount":{{"amount":"356.00","currency":"EUR"}},"document_date":"2026-03-20",
+        "description":"Fictional exempt goods from another EU state"}},
+      "proposal":{{"posting_date":"2026-03-20","net_account":"4000","contra_account":"1910",
+        "vat":{exempt}}}}}"#
+    );
+    let (code, stdout, stderr) = run(home, &["capture-receipt", "record", "--dry-run"], &receipt);
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["projection_valid"], true, "{preview}");
+    let hash = preview["preparation_hash"].as_str().unwrap();
+    let (code, _, stderr) = run(
+        home,
+        &[
+            "capture-receipt",
+            "record",
+            "--approved-preparation-hash",
+            hash,
+        ],
+        &receipt,
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    let (code, stdout, stderr) = run(home, &["voucher", "verify"], "");
+    assert_eq!(code, 0, "{stderr}");
+    let verify: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verify["voucher_count"], 3, "{verify}");
+
+    let (code, stdout, stderr) = run(home, &["file-vat", "preview", "--period", "2026-03"], "");
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    let fields = preview["filing_fields"].as_object().unwrap();
+    let amounts: Vec<(&str, &str)> = fields
+        .iter()
+        .map(|(field, money)| (field.as_str(), money["amount"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        amounts,
+        vec![
+            ("305", "0.00"),
+            ("307", "0.00"),
+            ("308", "0.00"),
+            ("312", "480.00")
+        ],
+        "{preview}"
+    );
+    assert_eq!(preview["sales_vat"], "0.00");
+    assert_eq!(preview["purchase_vat"], "0.00");
+    assert_eq!(preview["vat_reconciliation"]["status"], "reconciled");
+}

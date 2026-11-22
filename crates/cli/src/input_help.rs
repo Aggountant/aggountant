@@ -169,7 +169,13 @@ pub(crate) const CAPTURE_RECEIPT_RECORD: &str = r#"INPUT (JSON on stdin)
     dated VAT rate table such as domestic-standard, domestic-reduced-1 or
     domestic-reduced-2, also for a reverse charge (scope says EU or non-EU).
     An unknown class is refused; the zero-rated sale classes eu-goods,
-    eu-services and zero-rated are refused as VAT_TREATMENT_CLASS_MISMATCH.
+    eu-services and zero-rated are refused as VAT_TREATMENT_CLASS_MISMATCH,
+    except for one booking: an intra-Community acquisition of goods that is
+    exempt in Finland is
+      {"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}
+    and files its value in the EU goods purchases with zero tax. Use it only
+    when the exemption is confirmed: an invoice without VAT does not make the
+    acquisition exempt, and a taxable one takes the domestic class.
 
 Example JSON (input-shape demonstration only, not VAT or classification advice):
 ```json
@@ -415,7 +421,11 @@ pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
                      that does not belong to the type is refused. rate_class
                      is a domestic class (domestic-standard, ...), also for a
                      reverse charge; eu-goods, eu-services and zero-rated are
-                     sale classes, refused as VAT_TREATMENT_CLASS_MISMATCH.
+                     sale classes, refused as VAT_TREATMENT_CLASS_MISMATCH,
+                     except an intra-Community acquisition of goods exempt in
+                     Finland: {"type":"reverse-charge","rate_class":
+                     "zero-rated","scope":"eu-goods"} (zero tax, value in the
+                     EU goods purchases), only when the exemption is confirmed.
                      Sales VAT is not expanded here; do not import such an entry.
     document_date    YYYY-MM-DD, the source document's date. Required with
                      vat_treatment (it selects the VAT rate; the bank date stays

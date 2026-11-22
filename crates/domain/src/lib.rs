@@ -99,7 +99,9 @@ pub enum DomainError {
     /// A VAT expansion names a rate class that does not belong to its treatment,
     /// for example `domestic-input` with the zero-rated EU-sale class `eu-goods`.
     /// Refused before the seal, because the pair would resolve to 0 % and seal a
-    /// purchase with no VAT legs. The message names the treatment that fits.
+    /// purchase with no VAT legs. The one admitted 0 % purchase is the exempt
+    /// intra-Community goods acquisition (`reverse-charge`, `zero-rated`,
+    /// `eu-goods`). The message names the treatment that fits.
     #[error("VAT_TREATMENT_CLASS_MISMATCH: {0}")]
     VatTreatmentClassMismatch(String),
     /// The dated statutory rate table could not resolve an edition for a

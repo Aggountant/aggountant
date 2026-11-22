@@ -857,6 +857,9 @@ fn purchase_treatment_with_a_zero_rated_sale_class_is_refused_before_a_draft() {
     // have sealed an EU acquisition as a domestic purchase without VAT legs.
     for class in ZERO_RATED_SALE_RATE_CLASSES {
         for treatment in purchase_treatments(class) {
+            if treatment == exempt_eu_goods() {
+                continue; // the one admitted pair, pinned below
+            }
             let input = expand_input("10.00", "7690", "1910", treatment.clone(), "2026-07-15");
             for error in [
                 vat_expand(&input).unwrap_err(),
@@ -925,17 +928,42 @@ fn treatment_class_refusal_names_the_treatment_that_fits() {
         ),
         "{class_as_scope}"
     );
-    let zero_reverse = message(VatTreatment::ReverseCharge {
-        rate_class: "zero-rated".into(),
+    // An exempt intra-Community goods acquisition is still reported in the return, so
+    // every goods refusal names its one booking and never advises no-vat; an exempt
+    // EU service is not reported, so its refusal does.
+    let goods_class_as_scope = message(VatTreatment::ReverseCharge {
+        rate_class: "eu-goods".into(),
         scope: ReverseChargeScope::EuGoods,
     });
+    let zero_partial_goods = message(VatTreatment::ReverseChargePartial {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::EuGoods,
+        deductibility: half_deductible(),
+    });
+    for goods in [&eu_goods, &zero, &goods_class_as_scope, &zero_partial_goods] {
+        assert!(goods.contains(EXEMPT_EU_GOODS_ACQUISITION), "{goods}");
+    }
     assert!(
-        zero_reverse.contains("domestic-standard") && zero_reverse.contains("not a modelled"),
-        "{zero_reverse}"
+        zero_partial_goods.contains("no tax to deduct") && !zero_partial_goods.contains("no-vat"),
+        "{zero_partial_goods}"
     );
-    // An exempt intra-Community goods acquisition is still reported in the return, so
-    // the goods scope must not advise no-vat; an exempt EU service is not, so it does.
-    assert!(!zero_reverse.contains("no-vat"), "{zero_reverse}");
+    assert!(
+        !goods_class_as_scope.contains("no-vat"),
+        "{goods_class_as_scope}"
+    );
+    assert!(
+        !eu_services.contains(EXEMPT_EU_GOODS_ACQUISITION),
+        "{eu_services}"
+    );
+    let zero_non_eu = message(VatTreatment::ReverseCharge {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::NonEuServices,
+    });
+    assert!(
+        zero_non_eu.contains(r#"{"type":"no-vat"}"#)
+            && !zero_non_eu.contains(EXEMPT_EU_GOODS_ACQUISITION),
+        "{zero_non_eu}"
+    );
     let zero_reverse_services = message(VatTreatment::ReverseCharge {
         rate_class: "zero-rated".into(),
         scope: ReverseChargeScope::EuServices,
@@ -1010,5 +1038,56 @@ fn purchase_treatments_keep_every_domestic_class_including_a_dated_zero_rate() {
                 result.unwrap_or_else(|e| panic!("{treatment:?} must expand: {e}"));
             }
         }
+    }
+}
+
+fn exempt_eu_goods() -> VatTreatment {
+    VatTreatment::ReverseCharge {
+        rate_class: "zero-rated".into(),
+        scope: ReverseChargeScope::EuGoods,
+    }
+}
+
+#[test]
+fn exempt_eu_goods_acquisition_is_one_documented_treatment_with_no_vat_legs() {
+    // The constant the refusals quote is the treatment the expansion admits.
+    assert_eq!(
+        serde_json::from_str::<VatTreatment>(EXEMPT_EU_GOODS_ACQUISITION).unwrap(),
+        exempt_eu_goods()
+    );
+    let input = expand_input("480.00", "4000", "1910", exempt_eu_goods(), "2026-07-15");
+    for draft in [
+        vat_expand(&input).unwrap(),
+        vat_expand_with_role_table(&input, DEFAULT_TEST_CHART, vat_account_role_table()).unwrap(),
+    ] {
+        let expansion = draft.vat_expansion().unwrap();
+        assert!(expansion.generated_vat_legs().is_empty());
+        assert_eq!(expansion.resolved_percent(), Some("0.0"));
+        assert_eq!(
+            expansion.treatment(),
+            &VatExpansionTreatment::ReverseCharge {
+                rate_class: "zero-rated".into(),
+                scope: VatExpansionScope::EuGoods,
+            }
+        );
+        // The net amount goes to the net account in full; no VAT account moves.
+        let legs: Vec<_> = draft
+            .postings()
+            .iter()
+            .map(|p| {
+                (
+                    p.account.as_str().to_string(),
+                    p.side,
+                    p.amount.amount_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            legs,
+            vec![
+                ("4000".to_string(), Side::Debit, "480.00".to_string()),
+                ("1910".to_string(), Side::Credit, "480.00".to_string()),
+            ]
+        );
     }
 }

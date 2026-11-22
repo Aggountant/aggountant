@@ -39,8 +39,9 @@ kuittireitillä eikä tiliotteen ostoissa.
 
 Myös käännetyssä verovelvollisuudessa kantaluokka on se Suomen kanta, jota
 tavaraan tai palveluun sovelletaan; se, että osto tuli toisesta EU-maasta,
-kerrotaan erikseen. EU-myynnin nollakantaluokat eivät sovi ostolle, ja ohjelma
+kerrotaan erikseen. Myynnin nollakantaluokat eivät sovi ostolle, ja ohjelma
 torjuu ne ja kertoo sopivan käsittelyn (`VAT_TREATMENT_CLASS_MISMATCH`).
+Ainoa poikkeus on alla kuvattu veroton tavaroiden yhteisöhankinta.
 
 Toisesta EU-maasta ostettu palvelu, jonka myynnin arvonlisäverolaki säätää
 verottomaksi, esimerkiksi vakuutus- tai rahoituspalvelu, kirjataan verottomana
@@ -57,9 +58,23 @@ käännetyssä verovelvollisuudessa laskulla ei ole ALV:tä, koska ostaja tilitt
 sen.
 
 Tavaroissa sääntö on toinen: veroton tavaroiden yhteisöhankinta ilmoitetaan
-kohdassa "Tavaraostot muista EU-maista". Ohjelma ei osaa kirjata sitä:
-verottomana ostona se jäisi pois ilmoituksesta, ja käännetty verovelvollisuus
-torjuu nollakantaluokan. Kysy sellaisesta kirjanpitäjältäsi.
+ALV-ilmoituksella, mutta siitä ei suoriteta eikä vähennetä veroa. Sen arvo
+ilmoitetaan ainoastaan kohdassa "Tavaraostot muista EU-maista" (syventävä ohje
+[Arvonlisäverotus EU-tavarakaupassa](https://www.vero.fi/syventavat-vero-ohjeet/ohje-hakusivu/48691/arvonlisaverotus-eu-tavarakaupassa4/),
+luvut 6.6 ja 12). Hankinta on veroton esimerkiksi silloin, kun tavaran
+maahantuonti olisi Suomessa veroton tai tavara viedään
+arvonlisäverovarastoon. Se kirjataan käännettynä verovelvollisuutena
+nollakantaluokalla:
+`{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}`.
+Summa on veroton hankintahinta, eikä ALV-tilejä kirjata. Ilmoituksessa arvo
+näkyy kohdassa "Tavaraostot muista EU-maista", vero tavaraostoista on nolla
+eikä vähennettävä vero muutu. Tämä on ainoa ostokäsittely, joka hyväksyy
+nollakantaluokan. Osittaista vähennystä siihen ei voi liittää, koska
+vähennettävää veroa ei ole. Verollinen tavaroiden yhteisöhankinta kirjataan
+Suomen kantaluokalla (esim. `domestic-standard`) silloinkin, kun myyjän
+laskulla ei ole ALV:tä. Siksi verotonta käsittelyä käytetään vain, kun
+verottomuus on varmistettu: ohjelma ei erota sitä verollisesta hankinnasta,
+jonka kantaluokaksi on vahingossa annettu `zero-rated`.
 
 ## Käsittely päätetään sinetöidessä
 

@@ -1866,14 +1866,17 @@ fn a_voucher_sealed_before_the_treatment_class_check_still_verifies_and_files() 
     // Vouchers sealed before the check may carry domestic-input + eu-goods or a
     // zero-rated reverse charge. Reading, verifying and filing them re-runs only the
     // sealed arithmetic, so an existing fiscal store keeps opening and reporting;
-    // only a new seal applies the check.
+    // only a new seal applies the check. A zero-rated eu-goods reverse charge is the
+    // exempt intra-Community acquisition the check now admits, so it also re-seals;
+    // the zero-rated eu-services one stays refused.
     use sha2::{Digest, Sha256};
     let sealed = |chart: &str, number: u64, treatment: VatTreatment| {
         let input = expand_input("10.00", "4000", "1910", treatment, "2026-02-15");
         let roles = test_role_table();
+        // The table's 0 % as the resolver wrote it into vouchers sealed back then.
         let draft = vat_expand_resolved_with_roles(
             &input,
-            Some(Decimal::ZERO),
+            Some(Decimal::new(0, 1)),
             crate::PolicySet::default().id,
             Hash::from_bytes(Sha256::digest(VAT_RATES_JSON.as_bytes()).into()),
             Some(roles.resolve(chart).unwrap()),
@@ -1888,23 +1891,141 @@ fn a_voucher_sealed_before_the_treatment_class_check_still_verifies_and_files() 
             rate_class: "eu-goods".into(),
         },
     );
-    let reverse = sealed(
+    let services = sealed(
         CUSTOM_CHART_VERSION,
         2,
+        VatTreatment::ReverseCharge {
+            rate_class: "zero-rated".into(),
+            scope: ReverseChargeScope::EuServices,
+        },
+    );
+    let goods = sealed(
+        CUSTOM_CHART_VERSION,
+        3,
         VatTreatment::ReverseCharge {
             rate_class: "zero-rated".into(),
             scope: ReverseChargeScope::EuGoods,
         },
     );
-    for body in [&domestic, &reverse] {
+    for body in [&domestic, &services, &goods] {
         assert!(matches!(
             test_verify(body).unwrap(),
             VatRecompute::Verified { .. }
         ));
+        test_derive(&q1(), std::slice::from_ref(body)).unwrap();
+    }
+    for body in [&domestic, &services] {
         let error =
             verify_vat_expansion_for_seal_with_role_table(body, &test_role_table()).unwrap_err();
         assert_eq!(error.error_code(), "VAT_TREATMENT_CLASS_MISMATCH");
     }
-    test_derive(&q1(), std::slice::from_ref(&domestic)).unwrap();
-    test_derive(&q1(), std::slice::from_ref(&reverse)).unwrap();
+    assert!(matches!(
+        verify_vat_expansion_for_seal_with_role_table(&goods, &test_role_table()).unwrap(),
+        VatRecompute::Verified { .. }
+    ));
+}
+
+#[test]
+fn exempt_eu_goods_acquisition_files_its_value_in_field_312_and_moves_nothing_else() {
+    // Verohallinto: an exempt intra-Community acquisition of goods is reported only
+    // in "Tavaraostot muista EU-maista" (312), with no tax (305) and no deduction.
+    let taxable = custom_expand_body(
+        1,
+        &expand_input(
+            "100.00",
+            "4000",
+            "1910",
+            reverse_charge(ReverseChargeScope::EuGoods),
+            "2026-02-10",
+        ),
+    );
+    let domestic = custom_expand_body(
+        2,
+        &expand_input(
+            "125.50",
+            "7690",
+            "1910",
+            VatTreatment::DomesticInput {
+                rate_class: "domestic-standard".into(),
+            },
+            "2026-02-11",
+        ),
+    );
+    let exempt_input = expand_input(
+        "480.00",
+        "4000",
+        "1910",
+        VatTreatment::ReverseCharge {
+            rate_class: "zero-rated".into(),
+            scope: ReverseChargeScope::EuGoods,
+        },
+        "2026-02-12",
+    );
+    let exempt = custom_expand_body(3, &exempt_input);
+    assert!(matches!(
+        verify_vat_expansion_for_seal_with_role_table(&exempt, &test_role_table()).unwrap(),
+        VatRecompute::Verified { .. }
+    ));
+
+    let filing = |vouchers: &[VoucherBody]| {
+        compute_derived_vat_filing(&test_derive(&q1(), vouchers).unwrap()).unwrap()
+    };
+    let alone = filing(std::slice::from_ref(&exempt));
+    let field = |filing: &VatFiling, field| {
+        filing
+            .fields
+            .get(field)
+            .map(|money: &Money| money.amount_str())
+    };
+    assert_eq!(
+        field(&alone, VatReturnField::Field312).as_deref(),
+        Some("480.00")
+    );
+    assert_eq!(
+        field(&alone, VatReturnField::Field305).as_deref(),
+        Some("0.00")
+    );
+    assert_eq!(
+        field(&alone, VatReturnField::Field307).as_deref(),
+        Some("0.00")
+    );
+    assert_eq!(
+        field(&alone, VatReturnField::Field308).as_deref(),
+        Some("0.00")
+    );
+    for other in VatReturnField::ALL.iter().copied().filter(|f| {
+        ![
+            VatReturnField::Field312,
+            VatReturnField::Field305,
+            VatReturnField::Field307,
+            VatReturnField::Field308,
+        ]
+        .contains(f)
+    }) {
+        assert_eq!(field(&alone, other), None, "field {}", other.number());
+    }
+
+    // Beside a taxable EU goods purchase and a domestic one, the exempt value adds to
+    // 312 only; every other field is what the two others file without it.
+    let without = filing(&[taxable.clone(), domestic.clone()]);
+    let with = filing(&[taxable, domestic, exempt]);
+    assert_eq!(
+        field(&without, VatReturnField::Field312).as_deref(),
+        Some("100.00")
+    );
+    assert_eq!(
+        field(&with, VatReturnField::Field312).as_deref(),
+        Some("580.00")
+    );
+    for other in VatReturnField::ALL.iter().copied() {
+        if other != VatReturnField::Field312 {
+            assert_eq!(
+                field(&with, other),
+                field(&without, other),
+                "field {}",
+                other.number()
+            );
+        }
+    }
+    assert_eq!(with.net_vat, without.net_vat);
 }
