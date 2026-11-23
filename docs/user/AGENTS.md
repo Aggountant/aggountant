@@ -126,6 +126,9 @@ the domain.
 
 ## Writing
 
+How to write so the prose reads as written by a person, and the lessons
+collected from cleaning up pages, are in [`AGENTS-STYLE.md`](AGENTS-STYLE.md).
+
 Write to the owner as "sinä", plain Finnish bookkeeping language, and call the
 assistant "agentti". For each task say what the user asks, what the agent does
 on its own, and what the user checks before each approval and why. Prompts to
