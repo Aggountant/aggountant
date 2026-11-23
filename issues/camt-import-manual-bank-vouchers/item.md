@@ -2,12 +2,13 @@
 created: 2026-11-22
 updated: 2026-11-23
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: conductor
 source_ref: stint-2026-11-22:camt-legacy-keys
 lane: bank-import
 collision: [crates/import, crates/cli/src/bank_import.rs, crates/ledger]
+closed: 2026-11-23
 ---
 
 # camt import does not recognise bank vouchers sealed through voucher seal
@@ -37,3 +38,9 @@ Either the import detects a voucher that already books the same bank entry
 writing with a visible conflict, or there is a supported way to bind existing
 vouchers to their bank event keys before switching to camt import. The
 bank-import guide states which.
+
+## Resolution
+
+### 2026-11-23T19:13:42Z · @issuectl
+
+Import stops with BANK_ENTRY_POSSIBLY_BOOKED on a voucher sealed outside the import that may book a new entry; existing_vouchers binds an entry to such a voucher, not_booked_by rules one out. See result.md.
