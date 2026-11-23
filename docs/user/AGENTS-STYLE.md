@@ -117,8 +117,9 @@ Wave 1 (division-of-work, close-month, is-it-for-you):
 - **Version numbers in prose go stale.** Say "varhainen 0.x-versio" in
   running text; `reference/status.md` is the one place that names the
   version.
-- **"Katso myös" has at most three links** (`AGENTS.md`). Check it; drop the
-  one the body already links.
+- **"Katso myös" has at most three links** (`AGENTS.md`): the most useful
+  next pages. It may repeat a page the body links when that page is the
+  natural next step; drop a repeat only to stay within three.
 
 Wave 2 (front page, install, status, early-users, monthly-routine,
 sealing-and-approval):
@@ -196,4 +197,17 @@ findings repeated earlier lessons; these were new or needed a ruling:
 - **Intensifiers and cross-page comparisons** ("Kirjanpitolaki edellyttää
   juuri tätä", "kuten kuittien kohdalla") add nothing unless the comparison is
   the point.
+
+Wave 4 rulings (the reporting and filing tasks), for questions several
+workers raised:
+
+- **Labels on screen** (a menu path, an option to pick in OmaVero) are quoted
+  as the service shows them, "Lomakkeet > Arvonlisävero", not bolded.
+- **"Valmis, kun" with one check** is one sentence; a list needs two items.
+- **Actor in Finnish:** "aggountant" when the tool is named for the first time
+  in a section, "ohjelma" after that; "agentti" is always the agent.
+- **A limitation on a task page** is one sentence and a link to its section of
+  `reference/status.md`; the details live there, not in both places.
+- **Word count is not a quality signal** on how-to pages; moving the user's
+  checks and decisions into the steps often makes a page longer and better.
 
