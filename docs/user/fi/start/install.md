@@ -8,10 +8,10 @@ ohjelman.
 ## Ennen kuin aloitat
 
 - Mac, jossa on Applen oma suoritin (arm64), tai Linux-kone (arm64 tai
-  x86_64). Näille on valmis asennuspaketti. Intel-Macille ja Windowsille
-  pakettia ei ole, ja niissä aggountant käännetään lähdekoodista. Siihen
-  tarvitset Rust-työkalut, version 1.89 tai uudemman, joiden asennusohje on
-  osoitteessa <https://rustup.rs>.
+  x86_64). Näille on valmis asennuspaketti. Intel-Macilla aggountant
+  käännetään lähdekoodista, ja siihen tarvitset Rust-työkalut, version 1.89
+  tai uudemman, joiden asennusohje on osoitteessa <https://rustup.rs>.
+  Windowsia ei ole testattu.
 - Agentti, joka osaa lukea skillejä, esimerkiksi Claude Code.
 
 ## Näin teet sen

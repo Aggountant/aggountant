@@ -8,10 +8,10 @@ program.
 ## Before you start
 
 - A Mac with an Apple processor (arm64) or a Linux machine (arm64 or x86_64).
-  These have a prebuilt package. Intel Macs and Windows do not, and there
-  aggountant is compiled from source. For that you need the Rust toolchain,
-  version 1.89 or newer; installation instructions are at
-  <https://rustup.rs>.
+  These have a prebuilt package. On an Intel Mac aggountant is compiled from
+  source, and for that you need the Rust toolchain, version 1.89 or newer;
+  installation instructions are at <https://rustup.rs>. Windows has not been
+  tested.
 - An agent that can read skills, for example Claude Code.
 
 ## How to do it

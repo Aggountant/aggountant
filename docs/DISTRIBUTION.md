@@ -23,8 +23,9 @@ After changing `distributions` in `OSS-RELEASE.md`, refresh all three with
 Each release carries archives for macOS arm64 (`aarch64-apple-darwin`) and statically
 linked Linux on arm64 and x86_64 (`aarch64-unknown-linux-musl`,
 `x86_64-unknown-linux-musl`), an `aggountant-installer.sh` shell installer, and SHA-256
-checksums. Intel macOS and Windows have no prebuilt binary; build from source with
+checksums. Intel macOS has no prebuilt binary; build from source with
 `cargo install --git https://github.com/aggountant/aggountant aggountant --locked`.
+Supported platforms are macOS and Linux; Windows has not been tested.
 Dropping one of the three triples without another install path for it is a release
 gap.
 

@@ -31,9 +31,10 @@ real bookkeeping. They are described below.
 
 ## Installation
 
-There is a ready-made installation package for Apple Silicon Macs and for
-Linux (arm64 and x86_64). There is none for Intel Macs or Windows, so on
-those aggountant is compiled from source with the Rust toolchain. The
+aggountant runs on macOS and Linux. There is a ready-made installation
+package for Apple Silicon Macs and for Linux (arm64 and x86_64); on an Intel
+Mac aggountant is compiled from source with the Rust toolchain. Windows has
+not been tested. The
 instructions are in
 [Install aggountant and its skills](../start/install.md).
 

@@ -33,9 +33,9 @@ oikeaan kirjanpitoon. Niistä kerrotaan alla.
 
 ## Asennus
 
-Valmis asennuspaketti on Apple Silicon -Macille ja Linuxille (arm64 ja
-x86_64). Intel-Macille ja Windowsille pakettia ei ole, joten niillä aggountant
-käännetään lähdekoodista Rust-työkaluilla. Ohjeet ovat sivulla
+aggountant toimii macOS:llä ja Linuxilla. Valmis asennuspaketti on Apple
+Silicon -Macille ja Linuxille (arm64 ja x86_64); Intel-Macilla aggountant
+käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohjeet ovat sivulla
 [Asenna aggountant ja skillit](../start/install.md).
 
 ## Pankin tiliote
