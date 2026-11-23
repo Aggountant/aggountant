@@ -10,3 +10,22 @@ priority: normal
 
 ## Description
 
+In November 2026 every page of the user guide (`docs/user/`, 35 page pairs)
+was rewritten for readable prose, one worker per page, following
+`docs/user/AGENTS-STYLE.md`. The workers fixed the stale facts they could
+verify and left the rest as questions. `attachments/open-questions.md` holds
+them by page.
+
+Most are factual questions a worker can settle against the code and `--help`
+(for example whether `close-year` is presented as fully in use, whether the
+installer replaces a binary first installed with `cargo install`, what
+"Sulun aikana tehdyt kirjaukset säilyvät" refers to, whether the bank-import
+preparation hash is always passed in the skill flow). A few are product
+decisions for the maintainer (which platforms are supported, the response
+time promised on the early-users page).
+
+## Acceptance Criteria
+
+- [ ] Each question in the attachment is answered: the page is corrected, or
+      the question is closed as not needing a change.
+- [ ] The guide gate (`scripts/check-user-guide.sh`) passes.
