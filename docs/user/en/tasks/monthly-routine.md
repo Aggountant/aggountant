@@ -1,13 +1,12 @@
 # Do a month's bookkeeping from start to finish
 
-A month's bookkeeping goes in the same order every month. This page shows the
-order and takes you to each step's own page. If the material is all there, an
-ordinary month is recorded, closed and filed in one session.
+A month's bookkeeping goes in the same order every month, and each step has
+a page of its own. If the material is all there, an ordinary month is
+recorded, closed and filed in one session.
 
 ## Before you start
 
-- Your company's books are set up
-  ([Set up your company's books](../start/set-up-company.md)).
+- Your company's books are [set up](../start/set-up-company.md).
 - The month's bank statement is available as a camt.053 or camt.052 file, and
   the receipts are where the home's `AGENTS.md` says.
 
@@ -19,44 +18,42 @@ ordinary month is recorded, closed and filed in one session.
 
    The agent uses the `capture-receipt` skill. It does on its own whatever the
    sources are enough for, and brings you the questions and the vouchers to
-   approve all together, not one receipt at a time.
+   approve together instead of one receipt at a time.
 
-2. **Receipts and invoices.** Every receipt and purchase invoice is recorded
-   as a voucher of its own. One paid from the company's account is recorded
-   as a trade payable, one paid with your own money as a debt to you:
-   [Record receipts and purchase invoices](record-receipts.md).
+2. **The agent records the receipts and purchase invoices**, each as
+   [a voucher of its own](record-receipts.md). A purchase paid from the
+   company's account is recorded as a trade payable, and one paid with your
+   own money as a debt to you.
 
-3. **Bank statement.** The agent reads the statement, looks for the receipts
-   and proposes an entry for every transaction. A receipt's payment row clears
-   the receipt's payable. You approve the list:
-   [Import the bank statement](import-bank-statement.md).
+3. **The agent reads the bank statement**, looks for the receipts and
+   [proposes an entry for every transaction](import-bank-statement.md). A
+   receipt's payment row clears the receipt's payable. You approve the list.
 
-4. **Other entries**, such as sales invoices, payroll vouchers and
-   corrections:
-   [Record a sales invoice, payroll or another manual entry](record-other-entries.md).
+4. **The agent records the other vouchers**, such as
+   [sales invoices, payroll vouchers and corrections](record-other-entries.md).
 
-5. **Open items.** The agent tells you which transactions were left open and
-   what is missing for them, for example a receipt it could not find. Get
-   what is missing, or decide that it will be recorded later. The agent keeps
-   the home's `TODO.md` up to date: it removes the items settled during the
-   month and adds what is left waiting, so the next month starts from there
-   ([The company home](../concepts/company-home.md#the-homes-todomd)).
+5. **Go through the open items.** The agent tells you which transactions were
+   left open and what is missing for them, for example a receipt it could not
+   find. Get what is missing, or decide that it will be recorded later. The
+   agent removes the items settled during the month from
+   [the home's `TODO.md`](../concepts/company-home.md#the-homes-todomd) and
+   adds what is left waiting, so the next month starts from there.
 
-6. **Check.** Check in the monthly report that the bank account balance
-   matches the statement's closing balance and that trade payables are only
-   the invoices not yet paid:
-   [See how the month went](monthly-report.md).
+6. **Check the month.** Look at [the monthly report](monthly-report.md): the
+   bank account balance should match the statement's closing balance, and
+   trade payables should hold only invoices not yet paid.
 
-7. **Close**, when the month is finished: [Close the month](close-month.md).
+7. **Ask the agent to [close the month](close-month.md)** when it is
+   finished.
 
-8. **VAT return** from the closed month's figures:
+8. **File the VAT return** from the closed month's figures, either
    [in OmaVero](file-vat-omavero.md) or
    [directly to the Tax Administration](file-vat-direct.md). Pay the tax
    yourself.
 
-9. **Employer's separate report** to Tulorekisteri, if the company is in the
-   employer register. It is filed every month, also without payments:
-   [File the employer's separate report](file-employer-report.md).
+9. **File [the employer's separate report](file-employer-report.md) to
+   Tulorekisteri** if the company is in the employer register. It is filed
+   every month, also without payments.
 
 ## Done when
 
