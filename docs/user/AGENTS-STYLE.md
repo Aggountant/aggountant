@@ -166,3 +166,34 @@ sealing-and-approval):
 - **Invitation and about pages** keep their motive paragraph; it is content,
   not warm-up. Move it after what the reader can do.
 
+Wave 3 (periods, filings, vat-treatment, company-home, for-bookkeepers,
+record-receipts, import-bank-statement, correct-voucher, upgrade). Most
+findings repeated earlier lessons; these were new or needed a ruling:
+
+- **Error and limitation lists.** An error item opens with the code in
+  backticks, not bold, followed by a plain sentence: "`CAPTURE_PREPARATION_CHANGED`:
+  jokin muuttui …". One code per item. Other reference items may keep one
+  short bold term.
+- **A real warning may stay bold.** One sentence on a page that warns of data
+  loss or leaked secrets ("git ei ole varmuuskopio") may be bold. Everything
+  else is not a warning.
+- **Name who acts, and whether the program enforces it.** An agentless
+  passive hides whether the program refuses something or the agent is
+  expected to do it. "Kuitti kirjataan …" → "Agentti kirjaa …" or "Ohjelma
+  hylkää …".
+- **One name per thing.** "maksutili", "vastatili" and "pankkitili" for the
+  same role in one step is synonym cycling; pick the name the output uses.
+- **Content in the wrong section.** An instruction under "Rajoitukset", an
+  agent's action under "Ennen kuin aloitat", a conditional step ("Jos jokin
+  ajo oli kuitenkin …") among the steps: move each where the reader looks for
+  it, the last to "Jos jokin menee pieleen".
+- **A step or bullet that carries a whole contract** (twenty lines of field
+  names and conditions) is split: what the user sees and decides stays in
+  the step, the command detail goes to the `<details>` notes.
+- **Prose notation.** Write states in words ("`open`, sitten `closing` ja
+  lopuksi `sealed`"), not arrows. In `en/`, dates and percentages use English
+  notation (1 July 2026 to 30 June 2027, 25.5%).
+- **Intensifiers and cross-page comparisons** ("Kirjanpitolaki edellyttää
+  juuri tätä", "kuten kuittien kohdalla") add nothing unless the comparison is
+  the point.
+
