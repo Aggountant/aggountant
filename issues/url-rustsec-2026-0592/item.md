@@ -2,9 +2,10 @@
 created: 2026-11-23
 updated: 2026-11-23
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: unlaned
+closed: 2026-11-23
 ---
 
 # cargo-deny: url 2.5.8 hits RUSTSEC-2026-0592
@@ -26,3 +27,9 @@ error[vulnerability]: Stack overflow in `Url::origin()` on nested `blob:` URLs
 ## Fix
 
 `cargo update -p url` (to ≥ 2.5.9), confirm `cargo deny check` passes, commit the lockfile.
+
+## Resolution
+
+### 2026-11-23T18:47:32Z · @issuectl
+
+url 2.5.9 in Cargo.lock; cargo-deny passes. See result.md.
