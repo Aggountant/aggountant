@@ -2,15 +2,15 @@
 
 The monthly report has the month's income statement, the result accumulated
 since the start of the fiscal year, and the balance sheet at the end of the
-month. The report tells you how the company is doing, and it is the best
-check before closing the month.
+month. Use it to check the month before you close it.
 
 ## Before you start
 
 - The month's transactions are recorded. You can also make the report in the
-  middle of the month, when it shows what has been recorded so far.
-- For a month of a new fiscal year, the previous fiscal year is sealed with
-  the year-end close. Until then the report is refused, see below.
+  middle of the month, and it then shows what has been recorded so far.
+- If the month belongs to a new fiscal year, the previous fiscal year is
+  sealed with the year-end close. Before that the program does not make the
+  report ([`PERIOD_NOT_SEALED`](#if-something-goes-wrong)).
 
 ## How to do it
 
@@ -23,20 +23,21 @@ check before closing the month.
    function turns it into a PDF. The report is in Finnish, like the chart of
    accounts.
 
-3. **Check in the report:**
-   - **Pankkitili** (bank account) equals the statement's closing balance. If
-     it differs, a transaction is missing or recorded twice.
-   - **Ostovelat** (trade payables) are only the sum of invoices not yet paid.
+3. **Check the report.**
+   - The balance of Pankkitili (bank account) equals the statement's closing
+     balance. If it differs, a transaction is missing or recorded twice.
+   - Ostovelat (trade payables) holds only the sum of invoices not yet paid.
      If an amount already paid stays there, the same purchase was probably
-     recorded both from the receipt and as an expense from the statement row
-     ([When the purchase is also on the bank statement](record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)).
-   - **The balance sheet totals** are the same on both sides.
-   - **The month's result** looks reasonable. If an expense or income item is
+     recorded as an expense both from the receipt and from the statement row.
+     See
+     [When the purchase is also on the bank statement](record-receipts.md#when-the-purchase-is-also-on-the-bank-statement).
+   - The balance sheet totals are the same on both sides.
+   - The month's result looks reasonable. If an expense or income item is
      unexpectedly large, ask the agent to show its vouchers.
 
 At the top of the report it says "Kattavuus: varmistamaton" (completeness:
-unverified). The program cannot know whether all the material has been
-recorded. You and the agent judge that against the sources.
+unverified), because the program cannot know whether all the material has
+been recorded. You and the agent judge that against the sources.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -49,10 +50,12 @@ aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
 `--format native-json` produces the same content in machine-readable form.
 `--history-start` says from which date the bookkeeping history is in
 aggountant, and `--limitation` adds a note to the report, for example
-"Opening balances from the previous system". The program never writes over an
-existing file, so a new report gets a new name. Without `--output` the report
-is printed instead of saved, as native JSON unless `--format html` is given;
-the agent uses that for a quick look at the month.
+"Opening balances from the previous system".
+
+The program does not write over an existing file, so a new report gets a new
+name. Without `--output` the program prints the report and does not save it,
+as native JSON unless `--format html` is given. The agent uses that for a
+quick look at the month.
 </details>
 
 ## Done when
@@ -62,21 +65,19 @@ the agent uses that for a quick look at the month.
 
 ## If something goes wrong
 
-- **`OUTPUT_EXISTS`.** A file with the same name already exists. Give a new
-  name.
-- **`PERIOD_NOT_SEALED` for a month of the new fiscal year.** The balance
-  sheet starts from the previous fiscal year's closing balances, and they are
-  final only once that year is sealed. The report therefore waits until the
-  year-end close of the previous year has sealed it
-  ([Prepare the financial statements](year-end.md)). Nothing is wrong with the
-  books: meanwhile you record, close and file VAT for the new year's months as
-  usual; the month close shows only this year's movements and says so. In a
-  calendar-year company this meets you every January until the year-end
-  close is done. It does not apply to the first year you keep in aggountant
-  when it was opened with opening balances
-  ([Set up your company's books](../start/set-up-company.md)).
-- **The bank account balance does not match.**
-  [When something goes wrong](../troubleshooting.md#the-bank-balance-does-not-match-the-statement)
+- `OUTPUT_EXISTS`: a file with the same name already exists. Give a new name.
+- `PERIOD_NOT_SEALED` for a month of the new fiscal year: the previous fiscal
+  year is not sealed yet. The balance sheet starts from the previous fiscal
+  year's closing balances, and they are final only once the year-end close
+  has sealed that year
+  ([Prepare the financial statements](year-end.md)). In a calendar-year
+  company you meet this every January until the year-end close is done.
+  Meanwhile you record, close and file VAT for the new year's months as usual.
+  The month close then shows only this year's movements and says so. The
+  error does not apply to the first year you keep in aggountant when it was
+  opened with [opening balances](../start/set-up-company.md).
+- If the bank account balance does not match, see
+  [The bank balance does not match the statement](../troubleshooting.md#the-bank-balance-does-not-match-the-statement).
 
 ## See also
 
