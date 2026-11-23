@@ -22,15 +22,16 @@ times, so start in good time. Until then you file the return
 
 1. **Register your software** in the Vero API portal and keep the software
    key it gives you.
-2. **Make the company's API agreement**, that is, the Vero API agreement or
-   application.
+2. **Make the company's API agreement**, that is, the Vero API agreement. A
+   submitted application is not enough: the agreement must be in force
+   before you confirm it to the agent.
 3. **Apply for a production certificate** for your company from the Tax
    Administration's certificate service. You get the certificate, its private
    key and the certificate authority's (CA) certificate.
 4. **Choose the VAT interface's acceptance tests in the portal.** The agent
    runs them in step 3 below.
-5. **Get production permission.** Once the tests have been accepted,
-   production use is activated in the portal.
+5. **Get production permission.** Once the tests have been accepted, you
+   activate production use in the portal.
 
 ## How to do it
 
@@ -120,8 +121,11 @@ bound to the old certificate is no longer valid:
 
 1. Put the new certificate and key in the credential file.
 2. Ask the agent to run the acceptance tests again and switch to production
-   with the new fingerprint.
-3. Confirm to the agent the portal steps that concern the new certificate.
+   with the new fingerprint. The program binds the test evidence and the
+   production activation to the new certificate.
+
+Your confirmations of the registration, the agreement and the production
+permission stay valid, and you do not need to give them again.
 
 When you need an identifier for the certificate, for example for the Tax
 Administration's support, use the SHA-256 fingerprint that `vero-fi status`

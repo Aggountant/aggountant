@@ -85,9 +85,10 @@ in Finnish). This is the only purchase treatment that accepts the zero-rate
 category. It cannot carry a partial deduction, because there is no tax to
 deduct.
 
-The exempt treatment is used only when the exemption has been confirmed,
-because the program cannot tell it from a taxable acquisition given
-`zero-rated` by mistake.
+The agent uses this treatment only when the exemption is clear from the
+invoice or the company's practices, and otherwise asks you, because the
+program cannot tell it from a taxable acquisition given `zero-rated` by
+mistake.
 
 ## Treatment is decided at sealing
 

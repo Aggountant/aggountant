@@ -2,7 +2,9 @@
 
 A month's bookkeeping goes in the same order every month, and each step has
 a page of its own. If the material is all there, an ordinary month is
-recorded, closed and filed in one session.
+recorded, closed and filed in one session. If the company closes its books
+[by quarter](../concepts/periods.md#the-fiscal-year-and-periods), the close
+and the VAT return (steps 7 and 8) come after the last month of the quarter.
 
 ## Before you start
 

@@ -32,7 +32,7 @@ yritykselle, ja päätät, mitä kirjanpitoon jää.
 ## Agentti toimii kirjanpitoa tuntevan työtoverin tavoin
 
 Agentti saa ohjeensa aggountantin mukana tulevista skilleistä, joilla on
-yhteinen roolikuvaus (`SOUL.md`). Sen mukaan agentti ratkaisee itse sen, mihin
+yhteinen roolikuvaus. Sen mukaan agentti ratkaisee itse sen, mihin
 lähteet ja yrityksen aiempi kirjanpito riittävät, ja kysyy sinulta vain sen,
 mitä se ei voi päätellä.
 

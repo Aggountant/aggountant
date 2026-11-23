@@ -11,12 +11,9 @@ muutaman vartin työllä kuukaudessa.
 
 ## Mitä tarjoamme
 
-- Jos harkitset aggountantia omaan yritykseesi, sovitaan tapaaminen ja
-  käydään yrityksesi tilanne läpi yhdessä.
-- Ominaisuudet syntyvät siitä, mihin käyttäjien kirjanpidossa törmätään. Kun
-  yrityksesi kohtaa tilanteen, jota aggountant ei vielä osaa, se nousee
-  työjonoon.
-- Vastaamme kysymyksiin ja vikailmoituksiin yleensä muutaman päivän sisällä.
+Ominaisuudet syntyvät siitä, mihin käyttäjien kirjanpidossa törmätään. Kun
+yrityksesi kohtaa tilanteen, jota aggountant ei vielä osaa, se nousee
+työjonoon.
 
 ## Mitä toivomme
 
@@ -35,8 +32,8 @@ tai avaa [issue](https://github.com/aggountant/aggountant/issues). Voit myös
 lähettää sähköpostia osoitteeseen jari.mustonen@iki.fi.
 
 Discussions ja issuet ovat julkisia, joten älä lähetä niihin oikeaa
-kirjanpitoaineistoa. Kerro tilanne yleisellä tasolla. Yksityiskohdat voidaan
-käydä läpi tapaamisessa.
+kirjanpitoaineistoa. Kerro tilanne yleisellä tasolla. Yksityiskohdat voit
+kertoa sähköpostilla.
 
 ## Katso myös
 

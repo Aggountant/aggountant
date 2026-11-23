@@ -255,7 +255,8 @@ identity code.
 
 **Do not** make a new original report in the e-service before you have
 checked whether an uncertain API submission already got through. Do not
-change the payment identifier or the payment date either.
+change the payment identifier or the payment date to get round the rejection
+either, because that would quietly create a new report.
 
 ## The VAT return run waits for payment
 

@@ -20,7 +20,8 @@ with an accounting firm or a bookkeeper, or by yourself.
    > Show the state of the months of 2026 and check the voucher chain.
 
    The agent shows each month's state and checks the chain. Every month must
-   be `sealed` and `vat_filed true`.
+   be `sealed` and `vat_filed true`. The year-end run requires only that the
+   months are closed, so checking the VAT returns is up to you.
 
 2. **Ask for the report for the fiscal year's last month.**
 
@@ -72,8 +73,12 @@ with an accounting firm or a bookkeeper, or by yourself.
    3. the notes (liitetiedot): the depreciation methods and rates
    4. the financial statements: the income statement and the balance sheet
 
-   An approval covers exactly the content the agent showed you. The last
-   approval seals the fiscal year, and it cannot be undone. The run then
+   An approval covers exactly the content the agent showed you. The first
+   approval seals the depreciation and accrual vouchers into the books
+   permanently. Each correction is sealed as a voucher of its own before
+   that, and the agent asks for your approval of each one separately. If you
+   reject a step, the run ends, but the vouchers already sealed stay in the
+   books. The last approval seals the fiscal year, and it cannot be undone. The run then
    writes the approved statements, balance sheet breakdowns and notes to
    `archive/<year>/tilinpaatos.json` in the company home.
 

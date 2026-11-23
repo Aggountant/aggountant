@@ -20,14 +20,15 @@ teet ilmoituksen [OmaVerossa](file-vat-omavero.md).
 
 1. **Rekisteröi ohjelmistosi** Vero API -portaalissa ja ota talteen sen
    antama ohjelmistoavain.
-2. **Tee yrityksellesi rajapintasopimus**, eli Vero API -sopimus tai
-   -hakemus.
+2. **Tee yrityksellesi rajapintasopimus**, eli Vero API -sopimus. Lähetetty
+   hakemus ei riitä, vaan sopimuksen on oltava voimassa, ennen kuin
+   vahvistat sen agentille.
 3. **Hae yrityksellesi tuotantovarmenne** Verohallinnon varmennepalvelusta.
    Saat varmenteen, sen yksityisen avaimen ja varmentajan (CA) varmenteen.
 4. **Valitse portaalissa ALV-rajapinnan hyväksyntätestit.** Agentti ajaa ne
    alempana vaiheessa 3.
-5. **Hanki tuotantolupa.** Kun testit on hyväksytty, tuotantokäyttö
-   aktivoidaan portaalissa.
+5. **Hanki tuotantolupa.** Kun testit on hyväksytty, aktivoit tuotantokäytön
+   portaalissa.
 
 ## Näin teet sen
 
@@ -115,8 +116,11 @@ vanhaan varmenteeseen sidottu näyttö ei kelpaa:
 
 1. Päivitä uusi varmenne ja avain tunnustiedostoon.
 2. Pyydä agenttia ajamaan hyväksyntätestit uudelleen ja siirtymään tuotantoon
-   uudella sormenjäljellä.
-3. Vahvista agentille ne portaalitoimet, jotka koskevat uutta varmennetta.
+   uudella sormenjäljellä. Ohjelma sitoo testien näytön ja
+   tuotantoaktivoinnin uuteen varmenteeseen.
+
+Rekisteröinnin, sopimuksen ja tuotantoluvan vahvistukset pysyvät voimassa,
+eikä niitä tarvitse antaa uudelleen.
 
 Kun tarvitset varmenteen tunnistetta esimerkiksi Verohallinnon tuelle, käytä
 `vero-fi status` -komennon näyttämää SHA-256-sormenjälkeä. Se ei ole salainen.

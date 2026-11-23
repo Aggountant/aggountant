@@ -34,7 +34,8 @@ kuten kirjanpitolaki edellyttää.
 
    Kirjanpidon korjaus ei korjaa jo annettua ALV-ilmoitusta. Jos virhe koskee
    kuukautta, jonka ALV-ilmoitus on annettu, kerro se agentille ennen
-   sinetöintiä ja anna korvaava ilmoitus kohdan
+   sinetöintiä, koska agentti merkitsee sen tositteeseen eikä merkintää voi
+   lisätä jälkikäteen. Anna sitten korvaava ilmoitus kohdan
    [Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)
    mukaan.
 

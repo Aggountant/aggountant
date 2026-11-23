@@ -7,12 +7,16 @@ A backup is an ordinary copy of the home directory, because aggountant has
 
 ## Before you start
 
-- No aggountant command is running. Ask the agent to wait until the copy has
-  been taken.
+- No aggountant command is running, because a copy of the voucher database
+  taken in the middle of a write can be broken. Ask the agent to wait until
+  the copy has been taken.
 - You have somewhere to put the copy other than where the home is, for
   example an external disk or encrypted cloud storage that only you use.
 
 ## Make a backup
+
+Take a copy at least after every month close and
+[before every upgrade](upgrade.md).
 
 1. **Copy the whole home directory** yourself or ask the agent:
 
@@ -23,8 +27,11 @@ A backup is an ordinary copy of the home directory, because aggountant has
    `fiscal.sqlite-`), the attachments (`artifacts/`) and the personal data
    (`masterdata/pii.sqlite`).
 
-2. **Keep the copy** for as long as the Accounting Act requires records to be
-   kept. The copy contains personal data, so keep it for your own use only.
+2. **Keep the copies** for the Accounting Act's
+   [retention period](../start/move-from-another-program.md#what-to-collect):
+   at least 10 years for the financial statements and the books, and at
+   least six years for the vouchers. The copy contains personal data, so keep
+   it for your own use only.
 
 ## Restore a backup
 
@@ -35,9 +42,11 @@ A backup is an ordinary copy of the home directory, because aggountant has
 
    > Check the voucher chain.
 
-4. **Check that everything is there.** The agent shows the state of the
-   periods and the number of the last voucher. If the copy is older than the
-   latest entries, record the missing transactions again from their sources.
+4. **Check that everything is there.** The agent first checks that the
+   restored home is the one in use, then shows the state of the periods and
+   the number of the last voucher. If the copy is older than the latest
+   entries, record the missing transactions again from the
+   [receipts](record-receipts.md) and [bank statements](import-bank-statement.md).
    If a return was filed with an authority after the backup was taken, tell
    the agent before it sends anything again.
 

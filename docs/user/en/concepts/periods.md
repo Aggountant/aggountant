@@ -23,7 +23,8 @@ same year. Monthly is the recommended and tried option. A fiscal year that is
 not the calendar year is always closed monthly.
 
 The VAT return is made for the same period the books are closed by, a month
-or a quarter. Direct VAT filing has been tried with monthly periods.
+or a quarter. Direct VAT filing works for both, but in real use it has been
+tried with monthly periods.
 
 ## Period states
 
@@ -45,9 +46,9 @@ can they no longer change.
 
 A period moves from `open` to `closing` and from there to `sealed`. While a
 close waits for your approval you can still reject it. A rejection means the
-month is not ready yet, and it returns the period to `open`. Entries made
-during the close are kept, and nothing is removed. An approved close cannot be
-undone, and a sealed period is not reopened.
+month is not ready yet, and it returns the period to `open`. Nothing is
+removed. An approved close cannot be undone, and a sealed period is not
+reopened.
 
 ## Why nothing is recorded in a closed period
 

@@ -18,8 +18,8 @@ a liability that
 
 1. **Ask the agent.**
 
-   > Record the receipt kuitti-toimistotarvike-2026-03.pdf. I paid with my own
-   > card.
+   > Record the invoice lasku-ohjelmistolisenssi-2026-03.pdf. It is paid from
+   > the company's account.
 
 2. **The agent archives the file.** The program recognises the same file
    later, so the agent notices if the receipt has already been recorded.
@@ -142,8 +142,11 @@ The limitations are described in full on
 
 - `CAPTURE_PREPARATION_CHANGED`: something changed after the preview. The
   agent makes a new preview, and you approve again.
-- `PERIOD_CLOSING` or `PERIOD_SEALED`: the month's close is in progress or the
-  month is closed. Record the receipt in the next open month.
+- `PERIOD_CLOSING`: the month's close is waiting for your approval. If the
+  receipt belongs to this month, [reject the close](close-month.md) and
+  record the receipt. Otherwise record it in the next open month.
+- `PERIOD_SEALED`: the month is closed. Record the receipt in the next open
+  month.
 - Other codes are explained on [Error codes](../reference/error-codes.md).
 
 ## See also

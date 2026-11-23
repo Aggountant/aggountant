@@ -48,3 +48,4 @@ tavan kertoo [Mitä on valmista ja mitä ei](status.md).
 
 - [Sanasto](glossary.md)
 - [Virhekoodit](error-codes.md)
+- [Mitä on valmista ja mitä ei](status.md)

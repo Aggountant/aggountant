@@ -116,6 +116,7 @@ jakaminen kuluksi usealle vuodelle.
 Tulorekisterin tulolaji 331.
 
 **Pääomaosakkuus.** Tieto siitä, että tulonsaaja omistaa osan yrityksestä.
+Tulorekisterin asiointipalvelussa sen nimi on "Osakasasemassa maksajaan".
 Tulorekisteri-ilmoituksessa se kerrotaan aina erikseen, eikä aggountant päättele
 sitä.
 
@@ -190,7 +191,8 @@ tunnistautuu rajapintaan. Varmenne on voimassa kaksi vuotta. Sen yksityinen
 avain on salainen.
 
 **Velvoite.** Avoin asia määräpäivineen, esimerkiksi puuttuva ajopäiväkirja.
-Avoin velvoite estää kautensa sulun.
+Avoin velvoite estää kautensa sulun. Tavallisessa käytössä velvoitteita ei
+vielä synny ([Velvoitteet](../concepts/periods.md#velvoitteet)).
 
 **Vero API.** Verohallinnon rajapinta, jonka kautta aggountant lähettää
 ALV-ilmoituksen suoraan.

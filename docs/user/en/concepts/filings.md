@@ -53,12 +53,18 @@ it has:
 A VAT filing run is closed as not filed when the Tax Administration has
 answered "not found" twice, at least one bank day apart. The second query
 counts from the same time of day on the next bank day at the earliest. Bank
-days are Monday to Friday, except Finnish bank holidays such as Good Friday,
-Easter Monday, Ascension Day, Midsummer Eve and the Christmas days. A query
+days are Monday to Friday, except the Finnish bank holidays: New Year's Day,
+Epiphany, Good Friday, Easter Monday, 1 May, Ascension Day, Midsummer Eve,
+Independence Day, Christmas Eve, Christmas Day and St Stephen's Day. A query
 that fails, or an answer the program cannot read, does not count. Once the run
 is closed, a new filing run may send the period's return. Until then,
 aggountant refuses to start or approve a new filing for the same period
 (`VAT_FILING_UNRESOLVED`).
+
+A Tulorekisteri report run is not closed by "not found" answers. It stays
+open until a status query finds the report or reports that Tulorekisteri
+rejected it, or until the agent records the identifiers of a report made in
+the e-service in the run.
 
 What you do yourself is described under
 [The outcome of a filing is uncertain](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain).

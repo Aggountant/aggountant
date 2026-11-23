@@ -22,8 +22,8 @@ vuonna ei voi käyttää molempia. Kuukausi on suositeltu ja koeteltu vaihtoehto
 Kalenterivuodesta poikkeava tilikausi suljetaan aina kuukausittain.
 
 ALV-ilmoitus tehdään samalle kaudelle, jolla kirjanpito suljetaan, eli
-kuukaudelle tai neljännekselle. Suoraa ALV-ilmoittamista on koeteltu
-kuukausikausilla.
+kuukaudelle tai neljännekselle. Suora ALV-ilmoittaminen toimii molemmille,
+mutta oikeassa käytössä sitä on koeteltu kuukausikausilla.
 
 ## Kauden tilat
 
@@ -45,8 +45,8 @@ muuttua.
 
 Kausi etenee tilasta `open` tilaan `closing` ja siitä tilaan `sealed`. Kun
 sulku odottaa hyväksyntääsi, voit vielä hylätä sen. Hylkäys tarkoittaa, ettei
-kuukausi ole vielä valmis, ja se palauttaa kauden tilaan `open`. Sulun aikana
-tehdyt kirjaukset säilyvät, eikä mitään poisteta. Hyväksyttyä sulkua ei voi
+kuukausi ole vielä valmis, ja se palauttaa kauden tilaan `open`. Mitään ei
+poisteta. Hyväksyttyä sulkua ei voi
 perua, eikä suljettua kautta avata uudelleen.
 
 ## Miksi suljettuun kauteen ei kirjata

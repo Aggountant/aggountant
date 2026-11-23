@@ -41,8 +41,9 @@ palkkatietoilmoitus on eri ilmoitus eikä korvaa erillisilmoitusta.
 
 Jos rekisterissä on eri alkukuukausi kuin annoit, ohjelma ei tallenna
 asetuksia. Agentti näyttää vertailun ja tallentaa sinun kuukautesi vain, jos
-vahvistat sen. Jos YTJ ei vastaa, ohjelma ei tallenna mitään, ellette sovi
-agentin kanssa tallentamisesta ilman tarkistusta.
+vahvistat sen (`EMPLOYER_REGISTER_MISMATCH`). Jos YTJ ei vastaa
+(`YTJ_UNAVAILABLE`), ohjelma ei tallenna mitään, ellette sovi agentin kanssa
+tallentamisesta ilman tarkistusta.
 
 <details>
 <summary>Komento, jonka agentti ajaa</summary>
@@ -119,7 +120,8 @@ aggountant file-wage employer-report registration
    - Jos maksoit palkkaa, tee ilmoitus Tulorekisterin asiointipalvelussa.
      Ohjelma
      [ei vielä laske sairausvakuutusmaksua](../reference/status.md#tulorekisteri-ja-työntekijät),
-     joten se ei tee tällaisen kuukauden ilmoitusta.
+     joten se ei tee tällaisen kuukauden ilmoitusta
+     (`EMPLOYER_REPORT_WAGES_UNSUPPORTED`).
 
 3. **Agentti esikatselee ilmoituksen.** Esikatselu ei ota verkkoyhteyttä eikä
    tallenna mitään. Se näyttää kuukauden, sisällön, yhteyshenkilön, mahdolliset
@@ -262,7 +264,9 @@ tarkistaa ilmoituksen myös Tulorekisterin asiointipalvelusta.
 - Jos ilmoitus pitää korjata, pyydä agentilta korvaava ilmoitus, esimerkiksi
   kun "Ei palkanmaksua" -kuukaudelle selviää maksetun matkakorvauksia.
   Korvaava ilmoitus toistaa korvattavan ilmoituksen eläkevakuutustiedot.
-  Eläkevakuutustiedot korjaat ja ilmoituksen mitätöit asiointipalvelussa.
+  Eläkevakuutustiedot korjaat ja ilmoituksen mitätöit asiointipalvelussa:
+  korvaava ilmoitus, joka muuttaisi eläkevakuutustietoja, hylätään
+  (`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`).
 - Jos Tulorekisteri hylkäsi ilmoituksen, katso
   [Tulorekisteri hylkäsi ilmoituksen](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
 

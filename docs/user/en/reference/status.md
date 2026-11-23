@@ -134,8 +134,8 @@ instructions are in
   voucher still fixes it. A closed month cannot be reopened for correction,
   so then
   [file the return in OmaVero with corrected figures](../tasks/file-vat-omavero.md#if-something-goes-wrong).
-- Direct filing has been tried with monthly periods, and less with quarterly
-  ones.
+- Direct filing also works for quarterly periods, but in real use it has
+  been tried with monthly periods.
 - aggountant does not prepare Ilmoitin.fi files.
 
 ## Payroll
@@ -219,6 +219,11 @@ steps are in [Prepare the financial statements](../tasks/year-end.md).
   opening balances, and the old system's history is kept as an archive:
   [Move your books from another program](../start/move-from-another-program.md)
   (`historical-import`).
+- [Upgrading the home](../tasks/upgrade.md) does not fix or replace a file it
+  left as it was. If aggountant brings no VAT roles or settlement roles for
+  the home's chart of accounts, the upgrade cannot add them either
+  (`unavailable`). Do not copy files by hand; ask for help in the project's
+  [issue tracker](https://github.com/aggountant/aggountant/issues).
 - A company's own chart of accounts cannot be imported. The books use the
   default chart, and the old system's accounts are mapped onto it in the
   opening voucher (`sie4-chart-import`).

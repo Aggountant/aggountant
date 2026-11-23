@@ -74,8 +74,9 @@ quick look at the month.
   company you meet this every January until the year-end close is done.
   Meanwhile you record, close and file VAT for the new year's months as usual.
   The month close then shows only this year's movements and says so. The
-  error does not apply to the first year you keep in aggountant when it was
-  opened with [opening balances](../start/set-up-company.md).
+  error does not apply to the first year you keep in aggountant, whether the
+  company is new or the books were opened with
+  [opening balances](../start/set-up-company.md).
 - If the bank account balance does not match, see
   [The bank balance does not match the statement](../troubleshooting.md#the-bank-balance-does-not-match-the-statement).
 

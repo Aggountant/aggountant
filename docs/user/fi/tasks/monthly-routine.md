@@ -2,7 +2,10 @@
 
 Kuukauden kirjanpito etenee joka kuukausi samassa järjestyksessä, ja
 jokaisella vaiheella on oma sivunsa. Jos aineisto on koossa, tavallinen
-kuukausi on kirjattu, suljettu ja ilmoitettu yhdessä istunnossa.
+kuukausi on kirjattu, suljettu ja ilmoitettu yhdessä istunnossa. Jos yritys
+sulkee kirjanpidon [neljännesvuosittain](../concepts/periods.md#tilikausi-ja-kaudet),
+sulku ja ALV-ilmoitus (vaiheet 7 ja 8) tehdään neljänneksen viimeisen
+kuukauden jälkeen.
 
 ## Ennen kuin aloitat
 

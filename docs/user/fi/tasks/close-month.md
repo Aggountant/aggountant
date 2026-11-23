@@ -37,10 +37,9 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
 
 4. **Tarkista ja hyväksy.** Ohjelma kokoaa sisällön, jonka hyväksyt: kuukauden
    tositteiden määrän ja numerot, kuukauden tuloksen ja tuloksen tilikauden
-   alusta, tilien saldot kuukauden lopussa (esimerkiksi pankkitili ja
-   ostovelat) ja kuukauden avoimet velvoitteet. Agentti näyttää sen ja kertoo,
-   täsmääkö pankkitili tiliotteeseen, täsmäävätkö ALV-tilit ilmoitukseen ja
-   mitä jää avoimeksi. Kysy, jos se ei kerro. Hyväksy, kun tiedät, ettei
+   alusta sekä tilien saldot kuukauden lopussa (esimerkiksi pankkitili ja
+   ostovelat). Agentti näyttää sen ja kertoo, täsmääkö pankkitili
+   tiliotteeseen, täsmäävätkö ALV-tilit ilmoitukseen ja mitä jää avoimeksi. Kysy, jos se ei kerro. Hyväksy, kun tiedät, ettei
    kuukauteen tarvitse enää kirjata mitään, sillä hyväksyntä lukitsee
    kuukauden pysyvästi.
 
@@ -121,8 +120,11 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tilikausi-ja-k
 
 - Jos huomaat virheen sulun jälkeen, kirjaa korjaus seuraavalle avoimelle
   kuukaudelle: [Korjaa virheellinen tosite](correct-voucher.md).
-- Jos kirjaus kieltäytyy koodilla `PERIOD_CLOSING` tai `PERIOD_SEALED`,
-  kuukauden sulku on kesken tai tehty. Kirjaa seuraavalle kuukaudelle.
+- `PERIOD_CLOSING`: kuukauden sulku odottaa hyväksyntääsi. Jos kirjaus
+  kuuluu tälle kuukaudelle, hylkää sulku, kirjaa ja aloita sulku alusta.
+  Muuten kirjaa seuraavalle kuukaudelle.
+- `PERIOD_SEALED`: kuukausi on suljettu. Kirjaa seuraavalle avoimelle
+  kuukaudelle.
 - Jos kone kaatui tai yhteys katkesi sulun aikana, mitään ei menetetty, ja
   agentti jatkaa ajoa: [Ajo keskeytyi](../troubleshooting.md#ajo-keskeytyi).
 - Jos kuukausi jäi tilaan `closing`, katso

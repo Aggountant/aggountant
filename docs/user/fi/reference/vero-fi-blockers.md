@@ -12,6 +12,11 @@ Verohallinnon portaalissa. Este `agent` on asetus, jonka agentti voi korjata.
 Käyttöönoton vaiheet ovat sivulla
 [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md).
 
+Esteet voivat tulla näkyviin vaiheittain. Jos tunnustiedostoa ei voi lukea tai
+se on virheellinen, ohjelma ei tarkista sen jälkeisiä asioita, kuten
+varmennetta ja sen sormenjälkeä, joten niiden esteet näkyvät vasta, kun
+tunnustiedosto on kunnossa.
+
 ## Sinun esteesi (`human`)
 
 | Este | Mitä se tarkoittaa |
@@ -22,7 +27,7 @@ Käyttöönoton vaiheet ovat sivulla
 | `VERO_CONTACT_PHONE_MISSING` | yhteyshenkilön puhelinnumero puuttuu asetuksista |
 | `VERO_SOFTWARE_REGISTRATION_UNATTESTED` | et ole vahvistanut ohjelmiston rekisteröintiä |
 | `VERO_API_AGREEMENT_UNATTESTED` | et ole vahvistanut rajapintasopimusta |
-| `VERO_PRODUCTION_VERIFICATION_UNATTESTED` | hyväksyntätestejä ei ole kirjattu hyväksytyiksi |
+| `VERO_PRODUCTION_VERIFICATION_UNATTESTED` | hyväksyntätestejä ei ole kirjattu hyväksytyiksi; ohjelma kirjaa ne, kun agentti ajaa testit luvallasi ja ajo onnistuu |
 | `VERO_PRODUCTION_PERMISSION_UNATTESTED` | et ole vahvistanut tuotantolupaa |
 | `VERO_CREDENTIAL_BUSINESS_ID_MISMATCH` | tunnustiedoston Y-tunnus ei vastaa asetuksia |
 | `VERO_DELEGATED_USE_UNSUPPORTED` | tunnuksissa on valtuutustunniste, eikä ohjelma tue ilmoittamista toisen puolesta |

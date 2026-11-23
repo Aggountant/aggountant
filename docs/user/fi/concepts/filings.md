@@ -51,12 +51,18 @@ ALV-ilmoituksen ajo suljetaan ilmoittamattomana, kun Verohallinto on vastannut
 "ei löydy" kahdesti vähintään yhden pankkipäivän välein. Toinen kysely
 lasketaan aikaisintaan samasta kellonajasta seuraavana pankkipäivänä.
 Pankkipäiviä ovat maanantaista perjantaihin, paitsi suomalaiset pankkien
-vapaapäivät, kuten pitkäperjantai, toinen pääsiäispäivä, helatorstai,
-juhannusaatto ja joulunpyhät. Epäonnistunutta kyselyä tai vastausta, jota
+vapaapäivät: uudenvuodenpäivä, loppiainen, pitkäperjantai, toinen
+pääsiäispäivä, vappu, helatorstai, juhannusaatto, itsenäisyyspäivä,
+jouluaatto, joulupäivä ja tapaninpäivä. Epäonnistunutta kyselyä tai vastausta, jota
 ohjelma ei pysty lukemaan, ei lasketa. Kun ajo on suljettu, uusi ilmoitusajo
 saa lähettää kauden ilmoituksen. Siihen asti aggountant kieltäytyy
 aloittamasta tai hyväksymästä samalle kaudelle uutta ilmoitusta
 (`VAT_FILING_UNRESOLVED`).
+
+Tulorekisteri-ilmoituksen ajo ei sulkeudu "ei löydy" -vastauksista. Se pysyy
+auki, kunnes tilakysely löytää ilmoituksen tai kertoo Tulorekisterin
+hylänneen sen, tai kunnes agentti kirjaa asiointipalvelussa tehdyn
+ilmoituksen tunnisteet ajoon.
 
 Mitä teet itse, on kohdassa
 [Ilmoituksen lopputulos on epävarma](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).

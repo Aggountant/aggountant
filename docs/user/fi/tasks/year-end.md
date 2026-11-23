@@ -18,7 +18,8 @@ tilitoimiston tai kirjanpitäjän kanssa tai itse.
    > Näytä vuoden 2026 kuukausien tila ja tarkista tositeketju.
 
    Agentti näyttää jokaisen kuukauden tilan ja tarkistaa ketjun. Jokaisen
-   kuukauden pitää olla `sealed` ja `vat_filed true`.
+   kuukauden pitää olla `sealed` ja `vat_filed true`. Tilinpäätösajo vaatii
+   vain, että kuukaudet on suljettu, joten ALV-ilmoitukset tarkistat itse.
 
 2. **Pyydä tilikauden viimeisen kuukauden raportti.**
 
@@ -68,6 +69,10 @@ tilitoimiston tai kirjanpitäjän kanssa tai itse.
    4. tilinpäätöslaskelmat: tuloslaskelma ja tase
 
    Hyväksyntä koskee täsmälleen sitä sisältöä, jonka agentti näytti.
+   Ensimmäinen hyväksyntä sinetöi poisto- ja jaksotustositteet pysyvästi
+   kirjanpitoon. Jokainen oikaisu sinetöidään omana tositteenaan ennen sitä,
+   ja agentti pyytää hyväksyntäsi kullekin erikseen. Jos hylkäät jonkin
+   vaiheen, ajo päättyy, mutta jo sinetöidyt tositteet jäävät kirjanpitoon.
    Viimeinen hyväksyntä sinetöi tilikauden, eikä sitä voi perua. Sen jälkeen
    ajo kirjoittaa hyväksytyt laskelmat, tase-erittelyt ja liitetiedot
    kirjanpitokodin tiedostoon `archive/<vuosi>/tilinpaatos.json`.

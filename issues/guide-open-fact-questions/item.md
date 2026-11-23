@@ -2,10 +2,12 @@
 created: 2026-11-23
 updated: 2026-11-23
 type: task
-status: open
+status: done
 priority: normal
 lane: unlaned
 collision: [docs/user]
+closed: 2026-11-23
+closed_by: agent:01m84vp50mcdtw2pzc5wrncwt1
 ---
 
 # User guide: open factual questions from the prose cleanup
@@ -41,3 +43,9 @@ Product owner decisions (2026-11-23) on the maintainer questions: (1) Platforms:
 ### 2026-11-23T18:52:05Z · @conductor
 
 Jari 2026-11-23: supported platforms are macOS and Linux; the guide says Windows has not been tested (install, status, DISTRIBUTION.md updated). The personal email address on the early-users page stays.
+
+## Resolution
+
+### 2026-11-23T19:02:13Z · @agent:01m84vp50mcdtw2pzc5wrncwt1
+
+Every question answered against code and --help; per-question answers in result.md. Three factual items need a maintainer (listed at the end of result.md).

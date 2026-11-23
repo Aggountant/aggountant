@@ -7,12 +7,16 @@ tavallinen kopio kotihakemistosta, koska aggountantissa
 
 ## Ennen kuin aloitat
 
-- Mikään aggountant-komento ei ole käynnissä. Pyydä agenttia odottamaan, kunnes
-  kopio on otettu.
+- Mikään aggountant-komento ei ole käynnissä, koska kesken kirjoituksen
+  otettu kopio tositetietokannasta voi olla rikki. Pyydä agenttia odottamaan,
+  kunnes kopio on otettu.
 - Kopiolle on paikka muualla kuin siellä, missä koti on, esimerkiksi ulkoinen
   levy tai salattu pilvitallennus, jota vain sinä käytät.
 
 ## Ota varmuuskopio
+
+Ota kopio ainakin jokaisen kuukauden sulun jälkeen ja
+[ennen jokaista päivitystä](upgrade.md).
 
 1. **Kopioi koko kotihakemisto** itse tai pyydä agenttia:
 
@@ -23,8 +27,11 @@ tavallinen kopio kotihakemistosta, koska aggountantissa
    tiedostot), liitteet (`artifacts/`) ja henkilötiedot
    (`masterdata/pii.sqlite`).
 
-2. **Säilytä kopio** kirjanpitolain säilytysajan. Kopiossa on henkilötietoja,
-   joten pidä se vain omassa käytössäsi.
+2. **Säilytä kopiot** kirjanpitolain
+   [säilytysajan](../start/move-from-another-program.md#mitä-kerätään):
+   tilinpäätös ja kirjanpidot vähintään 10 vuotta ja tositteet vähintään
+   kuusi vuotta. Kopiossa on henkilötietoja, joten pidä se vain omassa
+   käytössäsi.
 
 ## Palauta varmuuskopio
 
@@ -35,9 +42,11 @@ tavallinen kopio kotihakemistosta, koska aggountantissa
 
    > Tarkista tositeketju.
 
-4. **Tarkista, että kaikki on mukana.** Agentti näyttää kausien tilan ja
-   viimeisen tositteen numeron. Jos kopio on vanhempi kuin viimeiset
-   kirjaukset, kirjaa puuttuvat tapahtumat uudelleen lähteistään. Jos
+4. **Tarkista, että kaikki on mukana.** Agentti varmistaa ensin, että
+   käytössä on palautettu koti, ja näyttää sitten kausien tilan ja viimeisen
+   tositteen numeron. Jos kopio on vanhempi kuin viimeiset kirjaukset, kirjaa
+   puuttuvat tapahtumat uudelleen [kuiteista](record-receipts.md) ja
+   [tiliotteista](import-bank-statement.md). Jos
    varmuuskopion jälkeen on lähetetty viranomaisilmoitus, kerro siitä
    agentille, ennen kuin se lähettää mitään uudelleen.
 

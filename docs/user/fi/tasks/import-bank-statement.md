@@ -89,8 +89,9 @@ tiliotetiedostossa oli.
 ## Valmis, kun
 
 - Ohjelma vastaa `sealed N new vouchers from "FI…", M transactions already in
-  the books`, ja tiliotteen jokainen vahvistettu tapahtuma on joko kirjattu tai
-  agentti on nimennyt sen avoimeksi.
+  the books`, ja tiliotteen jokainen vahvistettu tapahtuma on kirjattu. Jos
+  tapahtuman kuitti puuttuu vielä, agentti on nimennyt sen avoimeksi kodin
+  `TODO.md`-tiedostoon.
 - [Kuukausiraportin](monthly-report.md) pankkitilin saldo on sama kuin
   tiliotteen loppusaldo.
 
@@ -110,10 +111,10 @@ Tiliotteen tuonnin kaikki rajoitukset ovat sivulla
 
 ## Jos jokin menee pieleen
 
-- Jos koko tiliote hylättiin, jokin tapahtuma jäi ilman kirjausta tai
-  kirjaus viittaa tiliin, jota tilikartassa ei ole. Mitään ei sinetöity, ja
-  agentti korjaa ehdotuksen. Koodit selittää sivu
-  [Virhekoodit](../reference/error-codes.md).
+- `MISSING_ASSIGNMENT`: jokin tapahtuma jäi ilman kirjausta, joten koko
+  tiliote hylättiin. Mitään ei sinetöity, ja agentti täydentää ehdotuksen.
+- `ACCOUNT_NOT_FOUND`: kirjaus viittaa tiliin, jota tilikartassa ei ole.
+  Mitään ei sinetöity, ja agentti valitsee tilin tilikartasta.
 - `SOURCE_FACTS_CHANGED` tarkoittaa, että tiliotteella on jo kirjattu
   tapahtuma, josta pankin tiedot ovat muuttuneet. Mitään ei sinetöity, ja
   virhe nimeää jokaisen tällaisen tapahtuman ja sen tositteen. Selvitä, mikä
@@ -130,6 +131,7 @@ Tiliotteen tuonnin kaikki rajoitukset ovat sivulla
   on kirjattu kahdesti. Vianetsinnän kohta
   [Pankkitilin saldo ei täsmää tiliotteeseen](../troubleshooting.md#pankkitilin-saldo-ei-täsmää-tiliotteeseen)
   neuvoo, miten syy löytyy.
+- Muut koodit selitetään sivulla [Virhekoodit](../reference/error-codes.md).
 
 ## Katso myös
 

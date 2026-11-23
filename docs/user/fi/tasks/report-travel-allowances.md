@@ -93,8 +93,11 @@ tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
    riveille.
 
    Ilmoituksessa ovat myös maksupäivä, ansaintajakson alku ja loppu, tieto
-   pääomaosakkuudesta ja yhteyshenkilö. Pääomaosakkuuden agentti kysyy
-   sinulta, koska aggountant ei päättele sitä. Henkilötunnusta agentti ei
+   pääomaosakkuudesta ja yhteyshenkilö. Tulorekisterin asiointipalvelussa
+   pääomaosakkuus on nimellä "Osakasasemassa maksajaan". Se ei ole
+   työttömyysturvalain osaomistajuus. Ansaintajaksoa ja pääomaosakkuutta
+   aggountant ei päättele, joten agentti kysyy pääomaosakkuuden sinulta ja
+   ansaintajakson, jos se ei käy ilmi matkalaskusta. Henkilötunnusta agentti ei
    kirjoita ilmoitukseen, vaan ohjelma hakee sen työntekijärekisteristä.
 
 3. **Agentti esikatselee ilmoituksen.** Esikatselu ei ota verkkoyhteyttä. Se

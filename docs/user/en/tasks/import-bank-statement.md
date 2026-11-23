@@ -95,7 +95,8 @@ contained.
 
 - The program replies `sealed N new vouchers from "FI…", M transactions
   already in the books`, and every confirmed transaction on the statement is
-  either recorded or named as open by the agent.
+  recorded. If a transaction's receipt is still missing, the agent has named
+  it as open in the home's `TODO.md`.
 - The bank account balance in the [monthly report](monthly-report.md) is the
   same as the statement's closing balance.
 
@@ -116,10 +117,12 @@ All the limitations of statement import are on the page
 
 ## If something goes wrong
 
-- If the whole statement was rejected, a transaction was left without an
-  entry or an entry refers to an account that is not in the chart of
-  accounts. Nothing was sealed, and the agent fixes the proposal. The codes
-  are explained on the page [Error codes](../reference/error-codes.md).
+- `MISSING_ASSIGNMENT`: a transaction was left without an entry, so the
+  whole statement was rejected. Nothing was sealed, and the agent completes
+  the proposal.
+- `ACCOUNT_NOT_FOUND`: an entry refers to an account that is not in the
+  chart of accounts. Nothing was sealed, and the agent picks an account from
+  the chart.
 - `SOURCE_FACTS_CHANGED` means the statement has a transaction that is
   already recorded and the bank's facts about it have changed. Nothing was
   sealed, and the error names each such transaction and its voucher. Find out
@@ -136,6 +139,7 @@ All the limitations of statement import are on the page
   missing or recorded twice. The troubleshooting section
   [The bank balance does not match the statement](../troubleshooting.md#the-bank-balance-does-not-match-the-statement)
   explains how to find the cause.
+- Other codes are explained on [Error codes](../reference/error-codes.md).
 
 ## See also
 

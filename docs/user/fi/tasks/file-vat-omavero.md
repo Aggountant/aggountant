@@ -140,8 +140,9 @@ Muut ALV-ilmoituksen rajoitukset ovat sivulla
   korjauksesta. Kirjanpito voi silti olla kunnossa. Jos käytössä on
   aggountantin vakiotilikartta, pyydä agenttia
   [päivittämään kodin perustiedot](upgrade.md) ja ajamaan esikatselu
-  uudelleen. Yrityksen omalla tilikartalla maksutilit merkitään tiedostoon
-  `masterdata/reference/settlement-account-roles.json`. Jos tositteet ovat
+  uudelleen. Yrityksen omalla tilikartalla agentti merkitsee maksutilit
+  käsin tiedostoon `masterdata/reference/settlement-account-roles.json`,
+  koska siihen ei ole komentoa. Jos tositteet ovat
   ALV:n maksuja tai palautuksia, agentti voi myös kuitata ne ilmoitusajossa
   kuten muut ilmoitukseen kuulumattomat viennit.
 - Komento vaatii näytön Verohallinnon tilasta, koska samalle kuukaudelle on

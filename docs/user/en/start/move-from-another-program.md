@@ -43,7 +43,12 @@ fiscal year whose retention period is still running.
 
 ## How to do it
 
-1. **Ask the agent to make an inventory.**
+1. **Sign in to the old program and the bank yourself** and complete the
+   multi-factor authentication. Do not give the agent your password. Neither
+   of you copies cookies, sign-in tokens or links that carry a sign-in into
+   files, notes or the conversation. If the session expires, sign in again.
+
+2. **Ask the agent to make an inventory.**
 
    > We are moving Esimerkki Oy's books to aggountant. The old system covers
    > up to 31 December 2025. Let's first list everything we need to export
@@ -54,11 +59,6 @@ fiscal year whose retention period is still running.
    attachments. It takes the figures from the old system, for example the
    last number in the voucher list. The collection is done only when every
    item on the list is saved or marked missing with a reason.
-
-2. **Sign in to the old program and the bank yourself** and complete the
-   multi-factor authentication. Do not give the agent your password. Neither
-   of you copies cookies, sign-in tokens or links that carry a sign-in into
-   files, notes or the conversation. If the session expires, sign in again.
 
 3. **The agent exports the material.** It uses the program's own export or
    API first, because those keep working when the service's interface

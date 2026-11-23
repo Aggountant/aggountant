@@ -25,8 +25,11 @@ kesken.
 
 2. **Agentti asentaa uuden version** samalla tavalla kuin
    [ensimmäisellä kerralla](../start/install.md). Asennusohjelma hakee
-   GitHubista uusimman julkaisun. Jos koneellesi ei ole valmista pakettia,
-   agentti kääntää uuden version lähdekoodista.
+   GitHubista uusimman julkaisun ja asentaa sen hakemistoon `~/.cargo/bin`.
+   Se on sama hakemisto, johon lähdekoodista käännetty versio asentuu, joten
+   asennusohjelma korvaa myös aiemmin lähdekoodista asennetun version. Jos
+   koneellesi ei ole valmista pakettia, agentti kääntää uuden version
+   lähdekoodista.
 
 3. **Agentti asentaa skillit uudelleen.** Skillit on kirjoitettu saman
    version komentoja varten, joten ne asennetaan jokaisen päivityksen
@@ -97,11 +100,10 @@ tiedostot ovat kohdassa `skipped`. Toinen ajo ei tee mitään.
 
 ## Rajoitukset
 
-- Päivitys ei korjaa eikä korvaa tiedostoa, jonka se jätti ennalleen. Jos
-  ohjelman mukana ei tule ALV-rooleja tai maksutilien rooleja kodin
-  tilikartalle, päivitys ei myöskään voi lisätä niitä (`unavailable`). Älä
-  kopioi tiedostoja käsin, vaan pyydä apua projektin
-  [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
+- Päivitys ei korjaa eikä korvaa tiedostoa, jonka se jätti ennalleen, eikä
+  se voi lisätä ALV-rooleja tai maksutilien rooleja, joita ohjelman mukana ei
+  tule kodin tilikartalle. Tarkemmin:
+  [Yrityskoti ja käyttöönotto](../reference/status.md#yrityskoti-ja-käyttöönotto).
 
 ## Jos jokin menee pieleen
 

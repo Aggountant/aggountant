@@ -160,7 +160,10 @@ record it with its receipt (`file-vat complete-manual --replacement`).
   aggountant has no payment connection, so this step never completes and the
   run keeps showing a waiting state. The return has still been filed. A
   return that gives a refund ends without a payment step.
-- Direct filing has been tried with monthly periods.
+- Direct filing also works for quarterly periods, but in real use it has
+  been tried with monthly periods.
+- A replacement return has not yet been sent to the Tax Administration's
+  production service.
 
 The limitations are described in full on
 [What is ready and what is not](../reference/status.md#vat-return).

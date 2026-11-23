@@ -49,3 +49,4 @@ do instead are on [What is ready and what is not](status.md).
 
 - [Glossary](glossary.md)
 - [Error codes](error-codes.md)
+- [What is ready and what is not](status.md)

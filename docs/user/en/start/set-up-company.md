@@ -18,7 +18,9 @@ setup can be continued later.
   old system's list of accounts and its balance list (balance sheet) for the
   last day the old system covers.
   [Move your books from another program](move-from-another-program.md) says
-  what else to export from the old program and how.
+  what else to export from the old program and how. Pick a month boundary
+  for the move: if you move in the middle of a month, the old system's part
+  of that month shows in the first month's result.
 
 ## How to do it
 
@@ -78,7 +80,9 @@ setup can be continued later.
 5. **Tell the agent about open matters** that the balance list does not show.
    The agent asks whether company bills have been paid from your own account,
    whether the company owes anything on its tax account or has a payment
-   arrangement, and whether there are open sales or purchase invoices.
+   arrangement, and whether there are open sales or purchase invoices. If the
+   tax account has a balance or a payment arrangement, the agent asks for all
+   of OmaVero's transaction statements for the year of the move.
 
 6. **Describe where the material comes from.** Together with you, the agent
    writes an `AGENTS.md` file at the root of the home, where you say in your
@@ -137,9 +141,10 @@ year.
 ## Done when
 
 - `aggountant config show` shows your company's home.
-- In the first month's report, before any new transactions, the month's
-  result is zero, the balance sheet matches the old system's report and the
-  bank account balance matches the bank statement.
+- If the company moved from another program, the first month's report,
+  before any new transactions, shows a result of zero, a balance sheet that
+  matches the old system's report and a bank account balance that matches
+  the bank statement.
 - There is an `AGENTS.md` at the root of the home that names the sources of
   your material, and a `TODO.md` that says what is waiting.
 

@@ -26,7 +26,9 @@ program.
    aggountant from source. Compiling takes a few minutes.
 
 2. **Check that the program is found.** `aggountant --version` prints the
-   version. `aggountant --help` lists all commands, and every command has its
+   version. The program goes into `~/.cargo/bin`, and the installer adds
+   that directory to your command path. If the command is not found, open a
+   new terminal. `aggountant --help` lists all commands, and every command has its
    own help. The agent reads it itself, so you do not need to learn the
    commands.
 

@@ -35,8 +35,9 @@ Accounting Act requires.
 
    Correcting the books does not correct a VAT return that has been filed. If
    the mistake concerns a month whose VAT return has been filed, tell the
-   agent before the voucher is sealed and make a replacement return as
-   described in
+   agent before the voucher is sealed, because the agent marks it on the
+   voucher and the marking cannot be added afterwards. Then make a
+   replacement return as described in
    [Correct a return that has been filed](file-vat-direct.md#correct-a-return-that-has-been-filed).
 
 4. **The agent seals the correction.**

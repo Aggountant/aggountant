@@ -24,7 +24,7 @@ yrityksen kirjanpitoa, jolla ei ole tilitoimistoa. Ominaisuuksia lisätään
 sitä mukaa kuin nämä yritykset kohtaavat uusia tilanteita, joten tavallinen
 kuukausityö on hyvässä kunnossa ja harvinaisemmat tapaukset täydentyvät
 vähitellen. Komennot ja tiedostomuodot voivat vielä muuttua versioiden
-välillä. Jos haluat mukaan ensimmäisten joukossa, voimme myös tavata:
+välillä. Jos haluat mukaan ensimmäisten joukossa, lue
 [Lähde mukaan ensimmäisten joukossa](early-users.md).
 
 ## Kenelle se sopii

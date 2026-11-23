@@ -130,8 +130,8 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   tosite vielä korjaa sen. Suljettua kuukautta ei voi avata korjattavaksi,
   joten tee silloin
   [ilmoitus OmaVerossa korjatuin luvuin](../tasks/file-vat-omavero.md#jos-jokin-menee-pieleen).
-- Suoraa ilmoittamista on koeteltu kuukausikausilla, neljännesvuosikausilla
-  vähemmän.
+- Suora ilmoittaminen toimii myös neljännesvuosikausille, mutta oikeassa
+  käytössä sitä on koeteltu kuukausikausilla.
 - Ilmoitin.fi-tiedostoa aggountant ei laadi.
 
 ## Palkat
@@ -213,6 +213,11 @@ tilikauden. Sinetöintiä ei voi perua. Vaiheet ovat sivulla
   saldoista, ja vanhan järjestelmän historia säilytetään arkistona:
   [Siirrä kirjanpito toisesta ohjelmasta](../start/move-from-another-program.md)
   (`historical-import`).
+- [Kodin päivitys](../tasks/upgrade.md) ei korjaa eikä korvaa tiedostoa,
+  jonka se jätti ennalleen. Jos ohjelman mukana ei tule ALV-rooleja tai
+  maksutilien rooleja kodin tilikartalle, päivitys ei myöskään voi lisätä
+  niitä (`unavailable`). Älä kopioi tiedostoja käsin, vaan pyydä apua
+  projektin [issue-seurannasta](https://github.com/aggountant/aggountant/issues).
 - Yrityksen omaa tilikarttaa ei voi tuoda. Kirjanpito käyttää
   oletustilikarttaa, ja vanhan järjestelmän tilit muunnetaan sille avaavassa
   tositteessa (`sie4-chart-import`).

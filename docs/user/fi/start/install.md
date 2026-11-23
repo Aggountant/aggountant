@@ -25,6 +25,8 @@ ohjelman.
    aggountant lähdekoodista. Kääntäminen kestää muutamia minuutteja.
 
 2. **Tarkista, että ohjelma löytyy.** `aggountant --version` kertoo version.
+   Ohjelma asentuu hakemistoon `~/.cargo/bin`, ja asennusohjelma lisää sen
+   komentopolkuun. Jos komentoa ei löydy, avaa uusi pääte.
    `aggountant --help` listaa kaikki komennot, ja jokaisella komennolla on oma
    ohjeensa. Agentti lukee ne itse, joten sinun ei tarvitse opetella
    komentoja.

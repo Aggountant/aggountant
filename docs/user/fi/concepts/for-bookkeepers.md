@@ -60,7 +60,10 @@ Pyydä omistajaa tai agenttia
 - Virallinen tilinpäätösasiakirja ja liitetietojen sanallinen osa tehdään
   muualla. Tilinpäätösajo kirjaa poistot, jaksotukset ja oikaisut
   päättyneelle vuodelle, laskee tuloslaskelman ja taseen ja sinetöi
-  tilikauden.
+  tilikauden. Koska vuoden kuukaudet on jo suljettu, ajo kirjaa nämä
+  tositteet seuraavan tilikauden ensimmäiselle avoimelle kaudelle ja
+  kohdistaa ne päättyneelle vuodelle. Tositeluettelossa ne ovat siksi
+  seuraavan vuoden alussa ([Tilinpäätös](../reference/status.md#tilinpäätös)).
 - Palkat lasketaan, maksetaan ja ilmoitetaan muualla, ja aggountantiin
   kirjataan palkkatosite. Tulorekisteriin aggountant ilmoittaa vain
   verovapaat matkakorvaukset ja työnantajan erillisilmoituksen kuukausilta,

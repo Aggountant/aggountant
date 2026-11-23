@@ -69,8 +69,9 @@ tätä, kun se haluaa nopeasti katsoa kuukauden tilanteen.
   tulee vastaan joka tammikuu, kunnes tilinpäätösajo on tehty. Sillä välin
   kirjaat, suljet ja ilmoitat ALV:n uuden vuoden kuukausilta tavalliseen
   tapaan. Kuukauden sulku näyttää silloin vain tämän vuoden tapahtumat ja
-  sanoo sen. Virhe ei koske ensimmäistä aggountantissa pidettävää vuotta, joka
-  avattiin [avaavilla saldoilla](../start/set-up-company.md).
+  sanoo sen. Virhe ei koske ensimmäistä aggountantissa pidettävää vuotta,
+  olipa yritys uusi tai kirjanpito avattu
+  [avaavilla saldoilla](../start/set-up-company.md).
 - Jos pankkitilin saldo ei täsmää, katso
   [Pankkitilin saldo ei täsmää tiliotteeseen](../troubleshooting.md#pankkitilin-saldo-ei-täsmää-tiliotteeseen).
 

@@ -32,7 +32,7 @@ company, and you decide what stays in the books.
 ## The agent works like a colleague who knows bookkeeping
 
 The agent takes its instructions from the skills that come with aggountant,
-which share a role description (`SOUL.md`). It tells the agent to settle on
+which share a role description. It tells the agent to settle on
 its own what the sources and the company's earlier books are enough for, and
 to ask you only what it cannot work out.
 

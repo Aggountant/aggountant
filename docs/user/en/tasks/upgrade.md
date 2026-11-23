@@ -25,8 +25,11 @@ progress.
 
 2. **The agent installs the new version** the same way as
    [the first time](../start/install.md). The installer fetches the latest
-   release from GitHub. If there is no prebuilt package for your machine, the
-   agent compiles the new version from source.
+   release from GitHub and installs it in `~/.cargo/bin`. That is the same
+   directory a version compiled from source goes into, so the installer also
+   replaces a version you first installed from source. If there is no
+   prebuilt package for your machine, the agent compiles the new version from
+   source.
 
 3. **The agent installs the skills again.** The skills are written for the
    commands of the same version, so they are installed with every upgrade.
@@ -96,11 +99,10 @@ upgrade.
 
 ## Limitations
 
-- The upgrade does not fix or replace a file it left as it was. If aggountant
-  brings no VAT roles or settlement roles for the home's chart of accounts,
-  the upgrade cannot add them either (`unavailable`). Do not copy files by
-  hand; ask for help in the project's
-  [issue tracker](https://github.com/aggountant/aggountant/issues).
+- The upgrade does not fix or replace a file it left as it was, and it
+  cannot add VAT roles or settlement roles that aggountant does not bring for
+  the home's chart of accounts. Details are under
+  [Company home and setup](../reference/status.md#company-home-and-setup).
 
 ## If something goes wrong
 

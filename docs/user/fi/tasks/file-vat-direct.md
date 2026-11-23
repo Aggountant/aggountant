@@ -155,7 +155,9 @@ se kuitteineen (`file-vat complete-manual --replacement`).
   ei ole maksuyhteyttä, joten vaihe ei valmistu ja ajo jää näyttämään
   odottavaa tilaa. Ilmoitus on silti tehty. Palautukseen oikeuttava ilmoitus
   päättyy ilman maksuvaihetta.
-- Suoraa ilmoittamista on koeteltu kuukausikausilla.
+- Suora ilmoittaminen toimii myös neljännesvuosikausille, mutta oikeassa
+  käytössä sitä on koeteltu kuukausikausilla.
+- Korvaavaa ilmoitusta ei ole vielä lähetetty Verohallinnon tuotantoon.
 
 Rajoitukset ovat kokonaisuudessaan sivulla
 [Mitä on valmista ja mitä ei](../reference/status.md#alv-ilmoitus).

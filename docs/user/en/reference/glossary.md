@@ -123,7 +123,9 @@ own car for work journeys. Tulorekisteri income type 311.
 statements in the financial statements.
 
 **Obligation (velvoite).** An open matter with a deadline, for example a
-missing mileage log. An open obligation blocks the close of its period.
+missing mileage log. An open obligation blocks the close of its period. In
+ordinary use no obligations arise yet
+([Obligations](../concepts/periods.md#obligations)).
 
 **OmaVero.** The Tax Administration's online service. There you see your
 returns and pay tax.
@@ -185,8 +187,9 @@ gets a number and is added to the voucher chain, and it can no longer be
 changed.
 
 **Shareholding (pääomaosakkuus).** Whether the income earner owns part of the
-company. In a Tulorekisteri report it is always stated explicitly, and
-aggountant does not infer it.
+company. Tulorekisteri's e-service calls it "Osakasasemassa maksajaan" (joint
+owner with the payer). In a Tulorekisteri report it is always stated
+explicitly, and aggountant does not infer it.
 
 **Skill (skilli).** Instructions for the agent that come with aggountant, for
 example `capture-receipt` for handling receipts.

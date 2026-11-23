@@ -11,6 +11,11 @@ take care of the matter in the Tax Administration's portal. An `agent` blocker i
 The setup steps are on
 [Set up direct VAT filing](../tasks/set-up-vero-api.md).
 
+Blockers can appear in stages. If the credential file cannot be read or is
+invalid, the program does not check what comes after it, such as the
+certificate and its fingerprint, so their blockers show only once the
+credential file is in order.
+
 ## Your blockers (`human`)
 
 | Blocker | What it means |
@@ -21,7 +26,7 @@ The setup steps are on
 | `VERO_CONTACT_PHONE_MISSING` | the contact person's phone number is missing from the settings |
 | `VERO_SOFTWARE_REGISTRATION_UNATTESTED` | you have not confirmed the software registration |
 | `VERO_API_AGREEMENT_UNATTESTED` | you have not confirmed the API agreement |
-| `VERO_PRODUCTION_VERIFICATION_UNATTESTED` | the acceptance tests have not been recorded as passed |
+| `VERO_PRODUCTION_VERIFICATION_UNATTESTED` | the acceptance tests have not been recorded as passed; the program records them when the agent runs the tests with your permission and the run succeeds |
 | `VERO_PRODUCTION_PERMISSION_UNATTESTED` | you have not confirmed the production permission |
 | `VERO_CREDENTIAL_BUSINESS_ID_MISMATCH` | the Business ID in the credential file does not match the settings |
 | `VERO_DELEGATED_USE_UNSUPPORTED` | the credentials carry a delegation identifier, and the program does not support filing on behalf of another company |

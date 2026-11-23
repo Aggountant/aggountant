@@ -41,7 +41,13 @@ jokainen tilikausi, jonka säilytysaika on vielä kesken.
 
 ## Näin teet sen
 
-1. **Pyydä agenttia tekemään luettelo.**
+1. **Kirjaudu vanhaan ohjelmaan ja pankkiin itse** ja hoida tunnistautuminen
+   (MFA). Älä anna agentille salasanaasi. Evästeitä, kirjautumistunnisteita
+   ja kirjautumisen sisältäviä linkkejä ei kopioi tiedostoihin,
+   muistiinpanoihin eikä keskusteluun kumpikaan teistä. Jos istunto vanhenee,
+   kirjaudu uudelleen.
+
+2. **Pyydä agenttia tekemään luettelo.**
 
    > Siirrämme Esimerkki Oy:n kirjanpidon aggountantiin. Vanha järjestelmä
    > kattaa 31.12.2025 asti. Tehdään ensin luettelo kaikesta, mitä vanhasta
@@ -52,12 +58,6 @@ jokainen tilikausi, jonka säilytysaika on vielä kesken.
    liitteet. Luvut se ottaa vanhasta järjestelmästä, esimerkiksi
    tositeluettelon viimeisestä numerosta. Keruu on valmis vasta, kun luettelon
    jokainen kohta on tallessa tai merkitty puuttuvaksi syineen.
-
-2. **Kirjaudu vanhaan ohjelmaan ja pankkiin itse** ja hoida tunnistautuminen
-   (MFA). Älä anna agentille salasanaasi. Evästeitä, kirjautumistunnisteita
-   ja kirjautumisen sisältäviä linkkejä ei kopioi tiedostoihin,
-   muistiinpanoihin eikä keskusteluun kumpikaan teistä. Jos istunto vanhenee,
-   kirjaudu uudelleen.
 
 3. **Agentti vie aineiston.** Se käyttää ensisijaisesti ohjelman omaa vientiä
    tai rajapintaa, koska ne toimivat, vaikka palvelun käyttöliittymä muuttuu.

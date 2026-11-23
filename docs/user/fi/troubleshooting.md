@@ -247,7 +247,8 @@ Tulorekisterin virhetekstiä, koska siinä voi olla henkilötunnus.
 
 **Älä** tee asiointipalvelussa uutta alkuperäistä ilmoitusta, ennen kuin olet
 tarkistanut, onko epävarma rajapintalähetys jo mennyt perille. Älä myöskään
-vaihda maksun tunnistetta tai maksupäivää.
+vaihda maksun tunnistetta tai maksupäivää kiertääksesi hylkäyksen, koska
+silloin syntyisi huomaamatta uusi ilmoitus.
 
 ## ALV-ilmoitusajo jää odottamaan maksua
 

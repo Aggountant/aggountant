@@ -11,11 +11,8 @@ few quarter-hours of work a month.
 
 ## What we offer
 
-- If you are considering aggountant for your company, we can set up a meeting
-  and go through your company's situation together.
-- Features come from what users' bookkeeping runs into. When your company
-  meets a situation aggountant cannot handle yet, it goes into the work queue.
-- We usually answer questions and bug reports within a few days.
+Features come from what users' bookkeeping runs into. When your company meets
+a situation aggountant cannot handle yet, it goes into the work queue.
 
 ## What we hope for
 
@@ -34,8 +31,8 @@ or open an [issue](https://github.com/aggountant/aggountant/issues). You can
 also send email to jari.mustonen@iki.fi.
 
 Discussions and issues are public, so do not post real bookkeeping material
-there. Describe the situation in general terms. The details can be gone
-through in a meeting.
+there. Describe the situation in general terms. You can send the
+details by email.
 
 ## See also
 

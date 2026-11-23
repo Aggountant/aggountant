@@ -96,8 +96,13 @@ needlessly.
    belong on these rows.
 
    The report also has the payment date, the start and end of the earning
-   period, the shareholding (pääomaosakkuus) and a contact person. The agent
-   asks you about the shareholding, because aggountant does not infer it. The
+   period, the shareholding (pääomaosakkuus) and a contact person. In
+   Tulorekisteri's e-service the shareholding is called "Osakasasemassa
+   maksajaan" (joint owner with the payer). It is not the partial ownership
+   (osaomistaja) of unemployment security law. aggountant infers neither the
+   earning period nor the shareholding, so the agent asks you about the
+   shareholding, and about the earning period if the travel claim does not
+   show it. The
    agent does not write the personal identity code into the report; the
    program takes it from the employee register.
 

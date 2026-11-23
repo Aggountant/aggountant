@@ -71,8 +71,9 @@ of repeating it. The fixed homes:
   the same order in both languages, and only codes some crate's source
   names. The tests in `crates/cli/src/explain.rs` fail otherwise.
 - why a sealed voucher cannot be edited and what needs approval:
-  `concepts/sealing-and-approval.md`; period and run states:
-  `concepts/periods.md`; the company-home layout and home resolution:
+  `concepts/sealing-and-approval.md`; period states:
+  `concepts/periods.md` (a run's state is explained where the user meets it,
+  in `troubleshooting.md`); the company-home layout and home resolution:
   `concepts/company-home.md`.
 - terms a user actually meets: `reference/glossary.md`.
 

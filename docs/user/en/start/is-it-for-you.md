@@ -25,7 +25,7 @@ aggountant is an early 0.x version and already keeps the books of a few companie
 that have no accounting firm. Features are added as these companies meet new
 situations, so ordinary monthly work is in good shape and rarer cases are
 filled in step by step. Commands and file formats may still change between
-versions. If you want to join early, we can also meet:
+versions. If you want to join early, read
 [Join as an early user](early-users.md).
 
 ## Who it suits

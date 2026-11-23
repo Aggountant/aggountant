@@ -287,8 +287,8 @@ The deductible tax of €31.50 is the server rental's €25.20 plus the
 receipt's €6.30. There were no sales, so there is nothing to pay.
 
 In the exercise you send nothing. In your real books you enter these fields
-in OmaVero, or let the agent send the return directly if direct filing is set
-up.
+in OmaVero, or let the agent send the return directly if
+[direct filing](../tasks/set-up-vero-api.md) is set up.
 
 ## What you learned
 

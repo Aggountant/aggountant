@@ -17,8 +17,8 @@ kirjataan velaksi, jonka
 
 1. **Pyydä agenttia.**
 
-   > Kirjaa kuitti kuitti-toimistotarvike-2026-03.pdf. Maksoin sen omalla
-   > kortillani.
+   > Kirjaa lasku lasku-ohjelmistolisenssi-2026-03.pdf. Se maksetaan
+   > yrityksen tililtä.
 
 2. **Agentti arkistoi tiedoston.** Ohjelma tunnistaa saman tiedoston
    myöhemmin, joten agentti huomaa, jos kuitti on jo kirjattu.
@@ -134,8 +134,11 @@ Rajoitukset on kuvattu tarkemmin sivulla
 
 - `CAPTURE_PREPARATION_CHANGED`: jokin muuttui esikatselun jälkeen. Agentti
   tekee uuden esikatselun, ja sinä hyväksyt uudelleen.
-- `PERIOD_CLOSING` tai `PERIOD_SEALED`: kuukauden sulku on kesken tai kuukausi
-  on suljettu. Kirjaa seuraavalle avoimelle kuukaudelle.
+- `PERIOD_CLOSING`: kuukauden sulku odottaa hyväksyntääsi. Jos kuitti kuuluu
+  tälle kuukaudelle, [hylkää sulku](close-month.md) ja kirjaa kuitti. Muuten
+  kirjaa se seuraavalle avoimelle kuukaudelle.
+- `PERIOD_SEALED`: kuukausi on suljettu. Kirjaa seuraavalle avoimelle
+  kuukaudelle.
 - Muut koodit selitetään sivulla [Virhekoodit](../reference/error-codes.md).
 
 ## Katso myös

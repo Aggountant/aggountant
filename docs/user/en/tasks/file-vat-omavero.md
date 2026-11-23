@@ -145,8 +145,9 @@ The other limitations of the VAT return are in
   or refund from a correction. The books may still be in order. If you use
   aggountant's standard chart, ask the agent to
   [upgrade the home's master data](upgrade.md) and run the preview again.
-  With the company's own chart, the settlement accounts are marked in
-  `masterdata/reference/settlement-account-roles.json`. If the vouchers are
+  With the company's own chart, the agent marks the settlement accounts by
+  hand in `masterdata/reference/settlement-account-roles.json`, because there
+  is no command for it. If the vouchers are
   VAT payments or refunds, the agent can also acknowledge them in the filing
   run like other postings that do not belong in a return.
 - The command asks for evidence of the Tax Administration's status, because a

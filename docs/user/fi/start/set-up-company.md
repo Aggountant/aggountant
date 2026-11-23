@@ -18,7 +18,9 @@ myöhemmin.
   järjestelmän tililuettelo ja saldoluettelo (tase) viimeiseltä päivältä,
   jonka vanha järjestelmä kattaa. Sivu
   [Siirrä kirjanpito toisesta ohjelmasta](move-from-another-program.md)
-  kertoo, mitä muuta vanhasta ohjelmasta viedään talteen ja miten.
+  kertoo, mitä muuta vanhasta ohjelmasta viedään talteen ja miten. Valitse
+  siirtymälle kuun vaihde: kesken kuukauden siirryttäessä vanhan
+  järjestelmän osuus kuukaudesta näkyy ensimmäisen kuukauden tuloksessa.
 
 ## Näin teet sen
 
@@ -74,7 +76,9 @@ myöhemmin.
 
 5. **Kerro avoimet asiat**, jotka eivät näy saldoluettelosta. Agentti kysyy,
    onko yrityksen laskuja maksettu omalta tililtäsi, onko verotilillä velkaa
-   tai maksujärjestely ja onko avoimia myynti- tai ostolaskuja.
+   tai maksujärjestely ja onko avoimia myynti- tai ostolaskuja. Jos
+   verotilillä on saldoa tai maksujärjestely, agentti pyytää siirtovuoden
+   kaikki OmaVeron tapahtumaotteet.
 
 6. **Kuvaa, mistä aineisto tulee.** Agentti kirjoittaa kanssasi kodin juureen
    tiedoston `AGENTS.md`, jossa kerrot omin sanoin:
@@ -129,9 +133,9 @@ Tiedosto on JSON-muotoinen: `{"home": "/polku/kotiin"}`.
 ## Valmis, kun
 
 - `aggountant config show` näyttää yrityksesi kodin.
-- Ensimmäisen kuukauden raportissa, ennen uusia tapahtumia, kuukauden tulos on
-  nolla, tase vastaa vanhan järjestelmän raporttia ja pankkitilin saldo
-  tiliotetta.
+- Jos yritys siirtyi toisesta ohjelmasta, ensimmäisen kuukauden raportissa,
+  ennen uusia tapahtumia, kuukauden tulos on nolla, tase vastaa vanhan
+  järjestelmän raporttia ja pankkitilin saldo tiliotetta.
 - Kodin juuressa on `AGENTS.md`, joka kertoo aineiston lähteet, ja
   `TODO.md`, joka kertoo, mikä odottaa.
 

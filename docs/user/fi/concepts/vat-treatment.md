@@ -79,9 +79,10 @@ luvut 6.6 ja 12). Tämä on ainoa ostokäsittely, joka hyväksyy
 nollakantaluokan. Osittaista vähennystä siihen ei voi liittää, koska
 vähennettävää veroa ei ole.
 
-Verotonta käsittelyä käytetään vain, kun verottomuus on varmistettu, koska
-ohjelma ei erota sitä verollisesta hankinnasta, jonka kantaluokaksi on
-vahingossa annettu `zero-rated`.
+Agentti käyttää tätä käsittelyä vain, kun verottomuus käy ilmi laskusta tai
+yrityksen käytännöistä, ja kysyy muuten sinulta, koska ohjelma ei erota sitä
+verollisesta hankinnasta, jonka kantaluokaksi on vahingossa annettu
+`zero-rated`.
 
 ## Käsittely päätetään sinetöidessä
 

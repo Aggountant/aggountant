@@ -64,7 +64,11 @@ Ask the owner or the agent to
 - The official financial statements document and the written part of the
   notes are done elsewhere. The year-end run records depreciation, accruals
   and corrections in the year that has ended, calculates the income statement
-  and balance sheet, and seals the fiscal year.
+  and balance sheet, and seals the fiscal year. Because the year's months are
+  already closed, the run records these vouchers in the first open period of
+  the next fiscal year and attributes them to the year that has ended. In the
+  voucher list they therefore appear at the start of the next year
+  ([Year-end financial statements](../reference/status.md#year-end-financial-statements)).
 - Payroll is calculated, paid and reported elsewhere, and a payroll voucher
   is recorded in aggountant. To Tulorekisteri (the Incomes Register),
   aggountant reports only tax-free travel allowances and the employer's

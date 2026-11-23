@@ -37,9 +37,9 @@ figures. A close cannot be undone, so do it only when the month is finished.
 
 4. **Check and approve.** The program puts together what you approve: the
    count and numbers of the month's vouchers, the month's result and the
-   result since the start of the fiscal year, the account balances at the end
-   of the month (for example the bank account and trade payables) and the
-   month's open obligations. The agent shows it and tells you whether the bank
+   result since the start of the fiscal year, and the account balances at the
+   end of the month (for example the bank account and trade payables). The
+   agent shows it and tells you whether the bank
    account matches the statement, whether the VAT accounts agree with the
    return, and what stays open. Ask if it does not. Approve when you know
    nothing more needs to be recorded in the month, because approval locks the
@@ -122,8 +122,11 @@ More detail: [What is ready and what is not](../reference/status.md#fiscal-year-
 
 - If you notice a mistake after the close, record the correction in the next
   open month: [Correct a wrong voucher](correct-voucher.md).
-- If an entry is refused with `PERIOD_CLOSING` or `PERIOD_SEALED`, the month's
-  close is in progress or done. Record the entry in the next month.
+- `PERIOD_CLOSING`: the month's close is waiting for your approval. If the
+  entry belongs to this month, reject the close, record the entry and start
+  the close again. Otherwise record it in the next month.
+- `PERIOD_SEALED`: the month is closed. Record the entry in the next open
+  month.
 - If the computer crashed or the connection dropped during the close, nothing
   was lost, and the agent continues the run:
   [A run was interrupted](../troubleshooting.md#a-run-was-interrupted).

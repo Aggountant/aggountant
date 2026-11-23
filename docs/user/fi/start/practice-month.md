@@ -277,8 +277,8 @@ Vähennettävä vero 31,50 € on palvelinvuokran 25,20 € ja kuitin 6,30 € s
 Myyntiä ei ollut, joten maksettavaa ei ole.
 
 Harjoituksessa et lähetä mitään. Oikeassa kirjanpidossa syötät nämä kentät
-OmaVeroon tai annat agentin lähettää ilmoituksen suoraan, jos suora
-ilmoittaminen on käytössä.
+OmaVeroon tai annat agentin lähettää ilmoituksen suoraan, jos
+[suora ilmoittaminen](../tasks/set-up-vero-api.md) on käytössä.
 
 ## Mitä opit
 

@@ -45,8 +45,9 @@ replace the separate report.
 
 If the register has a different first month from the one you gave, aggountant
 does not save the settings. The agent shows you the comparison and saves your
-month only if you confirm it. If YTJ does not answer, aggountant saves nothing
-unless you and the agent agree to save without the check.
+month only if you confirm it (`EMPLOYER_REGISTER_MISMATCH`). If YTJ does not
+answer (`YTJ_UNAVAILABLE`), aggountant saves nothing unless you and the agent
+agree to save without the check.
 
 <details>
 <summary>The command the agent runs</summary>
@@ -122,7 +123,7 @@ aggountant file-wage employer-report registration
    - If you paid wages, file the report in Tulorekisteri's e-service.
      aggountant
      [does not yet compute the health insurance contribution](../reference/status.md#tulorekisteri-and-employees),
-     so it does not file such a month.
+     so it does not file such a month (`EMPLOYER_REPORT_WAGES_UNSUPPORTED`).
 
 3. **The agent previews the report.** The preview uses no network connection
    and saves nothing. It shows the month, the content, the contact person, any
@@ -265,7 +266,9 @@ check the report in Tulorekisteri's e-service.
   example when travel allowances turn out to have been paid in a month
   reported as "No wages payable". A replacement repeats the pension insurance
   details of the report it replaces. You correct the pension insurance details
-  themselves, and cancel a report, in the e-service.
+  themselves, and cancel a report, in the e-service: a replacement that would
+  change the pension insurance details is refused
+  (`EMPLOYER_REPORT_REPLACEMENT_NOT_ALLOWED`).
 - If Tulorekisteri rejected the report, see
   [Tulorekisteri rejected the report](../troubleshooting.md#tulorekisteri-rejected-the-report).
 
