@@ -37,3 +37,7 @@ time promised on the early-users page).
 ### 2026-11-23T18:43:37Z · @conductor
 
 Product owner decisions (2026-11-23) on the maintainer questions: (1) Platforms: the guide says aggountant is developed and tested on macOS and Linux; Windows support could be added later but is not offered now, so do not send Windows users to cargo install as if it worked. (2) The early-users page keeps the maintainer's email address. (3) The page promises no response time at all; remove 'usually within a few days'. (4) Remove the meeting offer ('Sovitaan tapaaminen'); the page just says how to get in touch.
+
+### 2026-11-23T18:52:05Z · @conductor
+
+Jari 2026-11-23: supported platforms are macOS and Linux; the guide says Windows has not been tested (install, status, DISTRIBUTION.md updated). The personal email address on the early-users page stays.
