@@ -1,9 +1,10 @@
 # Valmistele tilinpäätös
 
-Tilinpäätös tehdään toistaiseksi aggountantin ulkopuolella, tilitoimiston tai
-kirjanpitäjän kanssa tai itse. aggountantista saat sille aineiston:
-kuukausiraportit ja sinetöidyt tositteet liitteineen. Tällä sivulla kokoat
-aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
+Kun tilikauden kaikki kuukaudet on suljettu, kokoat aineiston tilinpäätöksen
+tekijälle ja kirjaat poistot, jaksotukset ja oikaisut tilinpäätösajolla.
+Aineisto on kuukausiraportit ja sinetöidyt tositteet liitteineen. Virallinen
+tilinpäätösasiakirja tehdään toistaiseksi aggountantin ulkopuolella,
+tilitoimiston tai kirjanpitäjän kanssa tai itse.
 
 ## Ennen kuin aloitat
 
@@ -23,74 +24,53 @@ aineiston, luovutat sen ja kirjaat tilinpäätöksen kirjaukset.
 
    > Tee joulukuusta kuukausiraportti HTML-muodossa.
 
-   Raportissa on tilikauden viimeisen kuukauden lopun tase ja tuloslaskelma
+   Raportissa on tase tilikauden viimeisen kuukauden lopussa ja tuloslaskelma
    tilikauden alusta.
 
 3. **Kokoa luovutettava aineisto.** Pyydä agenttia kokoamaan kuukausiraportit,
    tositeluettelo ja arkistoidut liitteet kansioon, jonka voit antaa
-   tilinpäätöksen tekijälle. Kerro samalla avaavat saldot ja muut asiat, jotka
-   tekijän pitää tietää, esimerkiksi hankinnat, joista tehdään poistoja.
+   tilinpäätöksen tekijälle. Kerro tekijälle samalla avaavat saldot ja muu,
+   mitä hänen pitää tietää, esimerkiksi hankinnat, joista tehdään poistoja.
 
-4. **Kirjaa tilinpäätöksen kirjaukset tilinpäätösajolla.** Poistot,
+4. **Sovi tekijän kanssa, mitä tilinpäätösajoon annetaan.** Poistot,
    jaksotukset ja oikaisut kuuluvat päättyneelle vuodelle, jonka kuukaudet on
    jo suljettu. Tilinpäätösajo (`close-year`) kirjaa ne seuraavan vuoden
-   ensimmäiselle avoimelle kaudelle ja kohdistaa ne päättyneelle vuodelle, joten
-   ne näkyvät oikean vuoden tuloksessa. Tavallisena tositteena seuraavan
-   vuoden kaudelle kirjattuina ne näkyisivät seuraavan vuoden tuloksessa.
-   Sovi tekijän kanssa, antaako hän poistettavat hyödykkeet, jaksotukset ja
-   oikaisut ajoa varten.
+   ensimmäiselle avoimelle kaudelle ja kohdistaa ne päättyneelle vuodelle,
+   joten ne näkyvät oikean vuoden tuloksessa. Sovi, antaako tekijä
+   poistettavat hyödykkeet, jaksotukset ja oikaisut ajoa varten.
 
-   Hyödykkeet annetaan vain kerran. Kun vuosi sinetöidään, aggountant
-   tallentaa sen hyödykkeet ja niiden menojäännöksen vuoden lopussa, ja
-   seuraavan vuoden ajo jatkaa niistä: anna silloin vain uudet hankinnat ja
-   kerro, mitkä hyödykkeet on myyty tai poistettu käytöstä. Ensimmäisessä
-   aggountantilla tehtävässä tilinpäätöksessä annat jokaisen hyödykkeen ja
-   sen menojäännöksen vuoden alussa edellisestä tilinpäätöksestä. Jos annat
-   siirtyneelle hyödykkeelle eri luvun kuin sinetöity vuosi, ajo kieltäytyy.
-   Pyydä agenttia näyttämään poistolaskelma ennen ajon käynnistämistä:
-   hyödykkeet, menetelmä, prosentti ja poisto näkyvät ilman, että mitään
-   kirjataan.
+   Ensimmäisessä aggountantilla tehtävässä tilinpäätöksessä annat jokaisen
+   hyödykkeen ja sen menojäännöksen vuoden alussa edellisestä
+   tilinpäätöksestä. Kun vuosi sinetöidään, aggountant tallentaa hyödykkeet
+   ja niiden menojäännöksen vuoden lopussa, ja seuraavan vuoden ajo jatkaa
+   niistä. Silloin annat vain uudet hankinnat ja kerrot, mitkä hyödykkeet on
+   myyty tai poistettu käytöstä.
+
+5. **Tarkista poistolaskelma ennen ajoa.**
+
+   > Näytä vuoden 2026 poistolaskelma: kone 2 000,00 euroa koneisiin ja
+   > kalustoon.
+
+   Agentti näyttää hyödykkeet, menetelmän, prosentin ja poiston. Mitään ei
+   vielä kirjata.
+
+6. **Käynnistä ajo ja hyväksy sen vaiheet.**
 
    > Tee vuoden 2026 tilinpäätösajo: kone 2 000,00 euroa koneisiin ja
    > kalustoon, ei jaksotuksia eikä oikaisuja.
 
-   Sen jälkeen ajo pyytää vuorollaan neljä hyväksyntää, ja ennen jokaista
-   agentti näyttää, mitä olet hyväksymässä:
+   Ajo pyytää hyväksynnät vuorollaan, ja ennen jokaista agentti näyttää,
+   mitä olet hyväksymässä:
 
    1. oikaisukirjaukset: lasketut poistot, jaksotukset ja oikaisut
    2. tase-erittelyt
    3. liitetiedot: poistomenetelmät ja -prosentit
    4. tilinpäätöslaskelmat: tuloslaskelma ja tase
 
-   Näytetty sisältö on juuri se, jonka hyväksyntä sitoo. Jos ajo keskeytyy,
-   agentti voi näyttää avoimen vaiheen myöhemmin uudelleen. Jos sisältö on
-   muuttunut vaiheen avautumisen jälkeen, agentti ei voi näyttää sitä etkä
-   voi hyväksyä sitä; hylkää vaihe ja aloita ajo alusta. Viimeinen hyväksyntä
-   sinetöi tilikauden, eikä sitä voi perua. Sen jälkeen ajo kirjoittaa
-   hyväksytyt laskelmat, tase-erittelyt ja liitetiedot kirjanpitokodin
-   tiedostoon `archive/<vuosi>/tilinpaatos.json`. Jos kirjoitus epäonnistuu,
-   agentti kertoo sen ja kirjoittaa tiedoston uudelleen jatkamalla ajoa;
-   kirjanpito on joka tapauksessa oikein.
-
-   Ennen kuin vuosi on sinetöity, seuraavan tilikauden kuukausien
-   kuukausiraportti torjutaan koodilla `PERIOD_NOT_SEALED`, koska sen tase
-   alkaa tämän vuoden loppusaldoista. Kirjaaminen, kuukausien sulku ja
-   ALV-ilmoitukset uudella vuodella eivät odota
-   ([Katso, miten kuukausi meni](monthly-report.md#jos-jokin-menee-pieleen)).
-
-   Jos aiempi, kesken jäänyt tilinpäätösajo on jo kirjannut osan
-   kirjauksista, uuteen ajoon on otettava samat hyödykkeet, jaksotukset ja
-   oikaisut samoin summin. Näin hyväksymäsi sisältö kattaa jokaisen
-   kirjanpidossa olevan tilinpäätöskirjauksen, myös sellaisen, jonka aiempi
-   ajo kirjasi uudelle vuodelle mutta ei vielä kohdistanut päätettävään
-   vuoteen ja joka muuten jäisi uuden vuoden tulokseen. Muuten ajo ei
-   käynnisty tai sinetöi vuotta ja nimeää puuttuvat kirjaukset. Jos
-   tällainen kirjaus oli virheellinen, ota se silti mukaan ja peru se
-   oikaisulla uudessa ajossa. Kun yksi ajo on sinetöinyt vuoden, muut saman
-   vuoden avoimet ajot voi vain hylätä.
-
-Myös virallisen tilinpäätösasiakirjan laatiminen ja allekirjoitus, ilmoitus
-kaupparekisteriin ja yhtiön veroilmoitus tehdään aggountantin ulkopuolella.
+   Hyväksyntä koskee täsmälleen sitä sisältöä, jonka agentti näytti.
+   Viimeinen hyväksyntä sinetöi tilikauden, eikä sitä voi perua. Sen jälkeen
+   ajo kirjoittaa hyväksytyt laskelmat, tase-erittelyt ja liitetiedot
+   kirjanpitokodin tiedostoon `archive/<vuosi>/tilinpaatos.json`.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -102,6 +82,7 @@ aggountant voucher verify
 aggountant voucher list --posting-from 2026-01-01 --posting-to 2026-12-31
 aggountant report statements --period 2026-12 --company "Esimerkki Oy" \
   --format html --output esimerkki-2026-12.html
+aggountant close-year start --dry-run < tilinpaatos-2026.json
 aggountant close-year start < tilinpaatos-2026.json
 aggountant close-year seal-correction --run-id cy-… --correction <id>
 aggountant close-year show --run-id cy-…
@@ -123,9 +104,39 @@ aggountant close-year answer --run-id cy-… --gate ApproveStatements --answer a
 
 ## Rajoitukset
 
-Ajo kohdistaa päättyneelle vuodelle vain omat kirjauksensa. Tilikauden
-sinetöinti on peruuttamaton.
+- Ajo kohdistaa päättyneelle vuodelle vain omat kirjauksensa. Tosite, jonka
+  kirjaat itse seuraavan vuoden kaudelle, näkyy seuraavan vuoden tuloksessa.
+- Virallisen tilinpäätösasiakirjan laatiminen ja allekirjoitus, ilmoitus
+  kaupparekisteriin ja yhtiön veroilmoitus tehdään aggountantin ulkopuolella.
+
 Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tilinpäätös).
+
+## Jos jokin menee pieleen
+
+- Jos ajo keskeytyy, agentti voi näyttää avoimen vaiheen myöhemmin
+  uudelleen.
+- Jos sisältö on muuttunut vaiheen avautumisen jälkeen, agentti ei voi
+  näyttää sitä etkä voi hyväksyä sitä. Hylkää vaihe ja aloita ajo alusta.
+- Jos annat edelliseltä vuodelta siirtyneelle hyödykkeelle eri luvun kuin
+  sinetöity vuosi, ajo kieltäytyy.
+- Jos tiedoston `tilinpaatos.json` kirjoitus epäonnistuu, agentti kertoo sen
+  ja kirjoittaa tiedoston uudelleen jatkamalla ajoa. Kirjanpito on joka
+  tapauksessa oikein.
+- `PERIOD_NOT_SEALED`: seuraavan tilikauden kuukausien kuukausiraportti
+  torjutaan, kunnes tämä vuosi on sinetöity, koska sen tase alkaa tämän
+  vuoden loppusaldoista. Kirjaaminen, kuukausien sulku ja ALV-ilmoitukset
+  uudella vuodella eivät odota. Tarkemmin sivulla
+  [Katso, miten kuukausi meni](monthly-report.md#jos-jokin-menee-pieleen).
+- Jos aiempi, kesken jäänyt tilinpäätösajo on jo kirjannut osan
+  kirjauksista, ota uuteen ajoon samat hyödykkeet, jaksotukset ja oikaisut
+  samoin summin. Muuten ajo ei käynnisty tai sinetöi vuotta ja nimeää
+  puuttuvat kirjaukset. Hyväksymäsi sisällön pitää kattaa jokainen
+  kirjanpidossa oleva tilinpäätöskirjaus, myös sellainen, jonka aiempi ajo
+  kirjasi uudelle vuodelle mutta ei vielä kohdistanut päätettävään vuoteen
+  ja joka muuten jäisi uuden vuoden tulokseen. Jos tällainen kirjaus oli
+  virheellinen, ota se silti mukaan ja peru se oikaisulla uudessa ajossa.
+  Kun yksi ajo on sinetöinyt vuoden, muut saman vuoden avoimet ajot voi vain
+  hylätä.
 
 ## Katso myös
 
