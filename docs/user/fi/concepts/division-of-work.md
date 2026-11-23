@@ -1,52 +1,49 @@
 # Sinä, agentti ja aggountant
 
-aggountantia käyttäessäsi kirjanpitoa tekee kolme osapuolta: sinä, agentti ja
-aggountant-ohjelma. Tämä sivu kertoo, mikä kuuluu kenellekin ja miksi
-työnjako on tällainen.
+Kirjanpitoa tekee kolme osapuolta: sinä, agentti ja aggountant-ohjelma.
 
 ## Kolme osapuolta
 
-- **Sinä** tuot aineiston tai kerrot, mistä se löytyy, vastaat kysymyksiin,
-  joihin vain yrityksen omistaja tietää vastauksen, ja hyväksyt jokaisen
-  pysyvän muutoksen ennen kuin se tehdään.
-- **Agentti** (esimerkiksi Claude Code) tekee rutiinityön: lukee kuitit,
-  tiliotteet ja muun aineiston, ehdottaa tilit ja ALV-käsittelyn, kokoaa
-  kysymykset yhteen ja näyttää sinulle hyväksyttävän kokonaisuuden. Se ajaa
-  aggountantin komentoja puolestasi.
-- **aggountant** tekee sen, minkä pitää mennä täsmälleen oikein: numeroi
-  tositteet aukottomasti, tarkistaa debetin ja kreditin tasapainon, laskee
-  ALV:n verokantataulukosta, sulkee kaudet ja lähettää ilmoitukset vasta
-  hyväksynnän jälkeen.
+Sinä tuot aineiston tai kerrot, mistä se löytyy. Vastaat kysymyksiin, joihin
+vain yrityksen omistaja tietää vastauksen, ja hyväksyt jokaisen pysyvän
+muutoksen ennen kuin se tehdään.
 
-aggountant ei sisällä tekoälyä. Tekoäly on agentissa, jota käytät. Agentti
-puolestaan ei kirjoita kirjanpitoa itse vaan pyytää aggountantia
-tallentamaan, ja aggountant kieltäytyy kaikesta, mikä ei täsmää.
+Agentti (esimerkiksi Claude Code) tekee rutiinityön. Se lukee kuitit,
+tiliotteet ja muun aineiston, ehdottaa tilit ja ALV-käsittelyn ja näyttää
+sinulle hyväksyttävän kokonaisuuden. aggountantin komennot se ajaa puolestasi.
+
+aggountant tekee sen, minkä pitää mennä täsmälleen oikein. Se numeroi
+tositteet aukottomasti, tarkistaa, että debet ja kredit ovat tasan, laskee
+ALV:n verokantataulukosta, sulkee kaudet ja lähettää ilmoitukset vasta
+hyväksynnän jälkeen.
+
+aggountantissa ei ole tekoälyä, vaan se on agentissa, jota käytät. Agentti
+taas ei kirjoita kirjanpitoa itse. Se pyytää aggountantia tallentamaan, ja
+aggountant kieltäytyy kaikesta, mikä ei täsmää.
 
 ## Miksi työ on jaettu näin
 
-Agentti on hyvä lukemaan sekalaista aineistoa ja päättelemään, mitä tapahtuma
-on, mutta se voi erehtyä. aggountant ei päättele mitään, mutta se laskee ja
-tarkistaa aina samalla tavalla. Kun agentti ehdottaa ja aggountant tarkistaa,
-kumpikin tekee sitä, missä se on luotettava. Sinä teet sen, mitä kumpikaan ei
-voi: tiedät, kuuluuko kulu yritykselle, ja päätät, mitä kirjanpitoon jää.
+Agentti osaa lukea sekalaista aineistoa ja päätellä, mikä tapahtuma on
+kyseessä, mutta se voi erehtyä. aggountant ei päättele mitään, mutta laskee ja
+tarkistaa joka kerta samalla tavalla. Siksi agentti ehdottaa ja aggountant
+tarkistaa. Sinulle jää se, mitä kumpikaan ei voi tehdä: tiedät, kuuluuko kulu
+yritykselle, ja päätät, mitä kirjanpitoon jää.
 
 ## Agentti toimii kirjanpitoa tuntevan työtoverin tavoin
 
-aggountantin mukana tulevat skillit kertovat agentille, miten se toimii.
-Kaikilla skilleillä on yhteinen roolikuvaus (`SOUL.md`): agentti toimii kuin
-kirjanpitoa tunteva työtoveri. Se ratkaisee itse sen, mihin lähteet ja
-yrityksen aiempi kirjanpito riittävät, ja kysyy sinulta vain sen, mitä se ei
-voi päätellä.
+Agentti saa ohjeensa aggountantin mukana tulevista skilleistä, joilla on
+yhteinen roolikuvaus (`SOUL.md`). Sen mukaan agentti ratkaisee itse sen, mihin
+lähteet ja yrityksen aiempi kirjanpito riittävät, ja kysyy sinulta vain sen,
+mitä se ei voi päätellä.
 
-Agentti ajaa ilman lupaa kaiken, mikä vain lukee tai esikatselee eikä jätä
-pysyviä jälkiä, esimerkiksi:
+Lupaa kysymättä agentti ajaa kaiken, mikä vain lukee tai esikatselee eikä jätä
+pysyviä jälkiä. Se esimerkiksi
 
-- tilikartan, aiempien tositteiden ja yrityksen tallennettujen tietojen
-  lukeminen
-- tositteen esikatselu ja tarkistus
-- ALV-ilmoituksen lukujen esikatselu suljetusta kuukaudesta
-- suoran ilmoittamisen valmiuden tarkistus ilman verkkoyhteyttä
-- raporttien tekeminen.
+- lukee tilikartan, aiemmat tositteet ja yrityksen tallennetut tiedot
+- esikatselee ja tarkistaa tositteen
+- esikatselee suljetun kuukauden ALV-ilmoituksen luvut
+- tarkistaa suoran ilmoittamisen valmiuden ilman verkkoyhteyttä
+- tekee raportteja.
 
 Pysyvät teot, kuten tositteen sinetöinti, kuukauden sulku ja ilmoituksen
 lähetys, odottavat hyväksyntääsi:
@@ -54,19 +51,20 @@ lähetys, odottavat hyväksyntääsi:
 
 ## Agentti kokoaa kysymykset
 
-Kuukauden aineistossa voi olla kymmeniä tapahtumia, eikä agentin kuulu
-keskeyttää sinua jokaisen kuitin kohdalla. Se kysyy, kun vaihtoehdot eroavat
-tavalla, jolla on sinulle merkitystä (tili, ALV-käsittely, kuuluuko kulu
-yritykselle), eikä se voi päätellä valintaasi. Kysymykset tulevat koottuina,
-ja vastauksesi agentti voi tallentaa yrityksen tietovarastoon, jotta samaa ei
-kysytä uudelleen ([Yrityskoti](company-home.md#yrityksen-tietovarasto)).
+Kuukauden aineistossa voi olla kymmeniä tapahtumia, joten agentti ei keskeytä
+sinua jokaisen kuitin kohdalla. Se kysyy silloin, kun vaihtoehtojen erolla on
+sinulle merkitystä (tili, ALV-käsittely, kuuluuko kulu yritykselle) eikä se
+voi päätellä, minkä valitsisit. Kysymykset se esittää kerralla. Vastauksesi se
+voi tallentaa [yrityksen tietovarastoon](company-home.md#yrityksen-tietovarasto),
+jotta samaa ei kysytä uudelleen.
 
 ## Mitä tämä tarkoittaa sinulle
 
-- Kerro agentille tavoite, älä komentoja: "kirjataan maaliskuu" riittää.
-- Vastaa kysymyksiin tarkasti. Vastauksesi ohjaa myös tulevia kirjauksia.
-- Katso hyväksyntäpyynnöt aina. Agentti voi erehtyä, ja hyväksyntä on se
-  kohta, jossa virhe pysähtyy.
+- Kerro agentille tavoite, älä komentoja. "Kirjataan maaliskuu" riittää.
+- Vastaa kysymyksiin tarkasti, koska vastauksesi ohjaa myös tulevia
+  kirjauksia.
+- Katso jokainen hyväksyntäpyyntö. Hyväksyntä on se kohta, jossa agentin virhe
+  pysähtyy.
 
 ## Katso myös
 
