@@ -1,49 +1,46 @@
 # Sealing and approval
 
-When you use aggountant, you notice two things straight away. The agent asks
-for your approval before every recording, and a voucher, once recorded,
-cannot be changed. This page explains why and what that means in daily work.
+The agent asks for your approval before it records anything, and a voucher,
+once recorded, cannot be changed. Both follow from recording being permanent.
 
 ## What sealing is
 
-When a voucher is recorded, it is **sealed**. It gets a permanent running
-number, and a hash is calculated from its content and chained to the previous
-voucher's hash. This forms the **voucher chain**, in which every voucher
-depends on all the earlier ones.
+When a voucher is recorded, it is sealed. It gets a permanent running number,
+and a hash is calculated from its content and chained to the previous
+voucher's hash. This forms the voucher chain, in which every voucher depends
+on all the earlier ones.
 
-If someone changed or deleted an old voucher afterwards, the chain would no
-longer add up. The agent can check the chain at any time, and the check tells
-you whether everything is intact:
+If an old voucher is changed or deleted afterwards, the chain no longer adds
+up. The agent can check the chain at any time. When everything is intact, the
+check prints:
 
 ```
 chain ok — 3 vouchers, head #3
 ```
 
-Sealing is not aggountant's own invention. The Finnish Accounting Act
-(kirjanpitolaki) requires entries to be based on dated and numbered vouchers,
-to be made in a permanent way, and a correction to leave the original entry
-visible. In paper bookkeeping the same was done by writing in ink. aggountant
-makes it technically certain.
+The requirement comes from the Finnish Accounting Act (kirjanpitolaki):
+entries must be based on dated and numbered vouchers and made in a permanent
+way, and a correction must leave the original entry visible. Paper
+bookkeeping did this by writing in ink; aggountant does it with the voucher
+chain.
 
 ## A mistake is corrected with a new voucher
 
-Because a sealed voucher is not edited, a mistake is corrected with a
-**correcting voucher**. If Esimerkki Oy's server rental had been recorded as
-office expenses, a new voucher moves the amount to the right account and
-refers to the original. Both stay in the books, and anyone can see later what
-happened and when.
+A mistake in a sealed voucher is corrected with a correcting voucher. If
+Esimerkki Oy's server rental was recorded as office expenses, a new voucher
+moves the amount to the right account and refers to the original. Both stay
+in the books, and anyone can see later what happened and when.
 
-The same goes for whole months. Nothing is recorded in a closed month, so the
-correction goes into the next open month.
+Nothing is recorded in a closed month, so the correction of a mistake there
+goes into the next open month.
 
 ## Why approval comes before sealing
 
-Because sealing is permanent, the only moment to influence what stays in the
-books is before sealing. That is why the agent seals nothing without your
-explicit approval. The approval is the moment you decide what stays in the
-books permanently.
+After sealing you can no longer affect the voucher, so you decide before it
+what stays in the books. That is why the agent seals only once you have
+explicitly approved the voucher.
 
-The same principle applies to other steps that cannot be undone:
+Other steps that cannot be undone wait for your approval too:
 
 | Step | Why approval is required |
 |---|---|
@@ -53,46 +50,44 @@ The same principle applies to other steps that cannot be undone:
 | sending a Tulorekisteri report | same as the VAT return |
 | switching Vero.fi to production, and the attestations it needs | the program relies on your attestations and cannot check them |
 
-Everything else is the agent's own work, which it does without asking:
-reading the chart of accounts and earlier vouchers, previewing entries,
-reports and checks. They leave no permanent trace.
+The agent does everything else without asking: it reads the chart of accounts
+and earlier vouchers, previews entries, and runs reports and checks. None of
+that leaves a permanent trace.
 
 ## You approve what you were shown
 
-An approval is not a general permission. It is bound to exactly the content
-the agent showed you. When the agent previews a receipt entry, the program
-calculates a hash from the preview. When sealing, the agent gives the same
-hash back. If the receipt details, the agent's proposal or the chart of
-accounts have changed in between, the program refuses:
+An approval covers exactly the content the agent showed you. When the agent
+previews a receipt entry, the program calculates a hash from the preview, and
+when sealing, the agent gives the same hash back. If the receipt details, the
+agent's proposal or the chart of accounts have changed in between, the program
+refuses:
 
 ```
 CAPTURE_PREPARATION_CHANGED
 ```
 
-The agent must then show a new preview and ask for approval again. So you
-cannot approve one thing and get another, even if the agent makes a mistake.
+The agent then shows a new preview and asks for approval again. So you cannot
+approve one thing and get another, even if the agent makes a mistake.
 
-For filings the binding is the same: the approval of the VAT return covers
-exactly the content that is sent, and the program calculates the figures from
-the books once more before sending.
+The bank statement import works the same way. Its preview shows every voucher
+the statement would produce, and if anything changes after the preview, the
+program seals nothing (`IMPORT_PREPARATION_CHANGED`).
 
-The bank statement import works the same way: its preview shows every voucher
-the statement would produce, and sealing with the preview's hash refuses
-anything that changed in between (`IMPORT_PREPARATION_CHANGED`).
+Filings are bound to the approval in the same way: the approval of the VAT
+return covers exactly the content that is sent, and the program calculates the
+figures from the books once more before sending.
 
 ## What this means for you
 
-- **Look at what you approve.** A good approval request shows each voucher's
+- Look at what you approve. A good approval request shows each voucher's
   date, amount, counterparty, account and VAT treatment. A bare "shall I
-  record 14 vouchers?" is not enough. Ask to see the rows if the agent does
+  record 14 vouchers?" is not enough, so ask to see the rows if the agent does
   not show them.
-- **When you refuse or correct, nothing has been stored yet.** Before
-  approval you can change the proposal freely.
-- **A mistake in a sealed voucher is not a disaster.** It is corrected with a
-  new voucher, as always in bookkeeping.
-- **Do not try to fix the voucher database by hand.** The chain check reveals
-  the change, and the books must then be restored from a backup
-  ([Back up and restore your books](../tasks/back-up-and-restore.md)).
+- Before approval you can change the proposal freely or reject it, because
+  nothing has been stored yet.
+- Do not fix the voucher database by hand. The chain check reveals the
+  change, and the books must then be
+  [restored from a backup](../tasks/back-up-and-restore.md).
 
 ## See also
 

@@ -1,48 +1,47 @@
 # Sinetöinti ja hyväksyntä
 
-aggountantia käyttäessäsi huomaat kaksi asiaa heti. Agentti pyytää
-hyväksyntääsi ennen jokaista tallennusta, ja kerran tallennettua tositetta ei
-voi muuttaa. Tämä sivu kertoo, miksi näin on ja mitä se tarkoittaa
-päivittäisessä työssä.
+Agentti pyytää hyväksyntääsi ennen jokaista tallennusta, eikä kerran
+tallennettua tositetta voi muuttaa. Molemmat johtuvat siitä, että tallennus on
+pysyvä.
 
 ## Mitä sinetöinti on
 
-Kun tosite tallennetaan, se **sinetöidään**. Se saa pysyvän juoksevan numeron,
-ja sen sisällöstä lasketaan tunniste, joka ketjutetaan edellisen tositteen
-tunnisteeseen. Näin syntyy **tositeketju**, jossa jokainen tosite riippuu
-kaikista aiemmista.
+Kun tosite tallennetaan, se sinetöidään. Se saa pysyvän juoksevan numeron, ja
+sen sisällöstä lasketaan tunniste, joka ketjutetaan edellisen tositteen
+tunnisteeseen. Näin syntyy tositeketju, jossa jokainen tosite riippuu kaikista
+aiemmista.
 
-Jos joku muuttaisi tai poistaisi vanhan tositteen jälkikäteen, ketju ei enää
-täsmäisi. Agentti voi tarkistaa ketjun milloin tahansa, ja tarkistus kertoo,
-onko kaikki ennallaan:
+Jos vanhaa tositetta muutetaan tai se poistetaan jälkikäteen, ketju ei enää
+täsmää. Agentti voi tarkistaa ketjun milloin tahansa. Kun kaikki on ennallaan,
+tarkistus tulostaa:
 
 ```
 chain ok — 3 vouchers, head #3
 ```
 
-Sinetöinti ei ole aggountantin oma keksintö. Kirjanpitolaki edellyttää, että
-kirjaukset perustuvat päivättyihin ja numeroituihin tositteisiin, ne tehdään
-pysyvällä tavalla ja virheen korjaus jättää alkuperäisen kirjauksen näkyviin. Paperikirjanpidossa sama tehtiin
-kirjoittamalla musteella. aggountant tekee siitä teknisesti varman.
+Vaatimus tulee kirjanpitolaista: kirjausten on perustuttava päivättyihin ja
+numeroituihin tositteisiin, ne on tehtävä pysyvällä tavalla, ja virheen
+korjauksen on jätettävä alkuperäinen kirjaus näkyviin. Paperikirjanpidossa
+tämä hoidettiin kirjoittamalla musteella, aggountantissa sen tekee
+tositeketju.
 
 ## Virhe korjataan uudella tositteella
 
-Koska sinetöityä tositetta ei muokata, virhe korjataan **korjaustositteella**.
-Jos Esimerkki Oy:n palvelinvuokra olisi kirjattu toimistokuluihin, uusi tosite
-siirtää summan oikealle tilille ja viittaa alkuperäiseen. Kirjanpitoon jää
-kumpikin, ja kuka tahansa näkee myöhemmin, mitä tapahtui ja milloin.
+Sinetöidyn tositteen virhe korjataan korjaustositteella. Jos Esimerkki Oy:n
+palvelinvuokra on kirjattu toimistokuluihin, uusi tosite siirtää summan
+oikealle tilille ja viittaa alkuperäiseen. Kirjanpitoon jäävät molemmat, ja
+kuka tahansa näkee myöhemmin, mitä tapahtui ja milloin.
 
-Sama koskee kokonaisia kuukausia. Suljetulle kuukaudelle ei kirjata, joten
-korjaus menee seuraavalle avoimelle kuukaudelle.
+Suljetulle kuukaudelle ei kirjata, joten sen virheen korjaus menee seuraavalle
+avoimelle kuukaudelle.
 
 ## Miksi hyväksyntä tulee ennen sinetöintiä
 
-Koska sinetöinti on pysyvä, ainoa hetki vaikuttaa siihen, mitä kirjanpitoon
-jää, on ennen sinetöintiä. Siksi agentti ei sinetöi mitään ilman sinun
-nimenomaista hyväksyntääsi. Hyväksyntä on se hetki, jolloin päätät, mitä
-kirjanpitoon jää pysyvästi.
+Sinetöinnin jälkeen tositteeseen ei voi enää vaikuttaa, joten päätät ennen
+sitä, mitä kirjanpitoon jää. Siksi agentti sinetöi vasta, kun olet
+nimenomaisesti hyväksynyt tositteen.
 
-Sama periaate koskee muitakin tekoja, joita ei voi perua:
+Hyväksyntääsi odottavat muutkin teot, joita ei voi perua:
 
 | Teko | Miksi hyväksyntä vaaditaan |
 |---|---|
@@ -52,46 +51,43 @@ Sama periaate koskee muitakin tekoja, joita ei voi perua:
 | Tulorekisteri-ilmoituksen lähetys | sama kuin ALV-ilmoituksessa |
 | Vero.fi-tuotantoon siirtyminen ja sitä koskevat vakuutukset | ohjelma luottaa vakuutuksiisi eikä voi tarkistaa niitä |
 
-Kaikki muu on agentin omaa työtä, jota se tekee kysymättä: tilikartan ja aiempien
-tositteiden lukeminen, kirjausten esikatselu, raportit ja tarkistukset. Ne eivät
-jätä pysyviä jälkiä.
+Kaiken muun agentti tekee kysymättä: se lukee tilikarttaa ja aiempia
+tositteita, esikatselee kirjauksia ja ajaa raportteja ja tarkistuksia. Niistä
+ei jää pysyvää jälkeä.
 
 ## Hyväksyt sen, mitä sinulle näytettiin
 
-Hyväksyntä ei ole yleinen lupa. Se on sidottu täsmälleen siihen sisältöön, jonka
-agentti näytti. Kun agentti esikatselee kuitin kirjauksen, ohjelma laskee
-esikatselusta tunnisteen. Sinetöidessään agentti antaa saman tunnisteen takaisin.
-Jos kuitin tiedot, agentin ehdotus tai tilikartta ovat muuttuneet välissä, ohjelma
-kieltäytyy:
+Hyväksyntä koskee täsmälleen sitä sisältöä, jonka agentti näytti. Kun agentti
+esikatselee kuitin kirjauksen, ohjelma laskee esikatselusta tunnisteen, ja
+sinetöidessään agentti antaa saman tunnisteen takaisin. Jos kuitin tiedot,
+agentin ehdotus tai tilikartta ovat muuttuneet välissä, ohjelma kieltäytyy:
 
 ```
 CAPTURE_PREPARATION_CHANGED
 ```
 
-Agentin on silloin näytettävä uusi esikatselu ja pyydettävä hyväksyntä
-uudelleen. Et siis voi hyväksyä yhtä ja saada toista, vaikka agentti erehtyisi.
+Agentti näyttää silloin uuden esikatselun ja pyytää hyväksyntää uudelleen. Et
+siis voi hyväksyä yhtä ja saada toista, vaikka agentti erehtyisi.
 
-Viranomaisilmoituksissa sidonta on sama: ALV-ilmoituksen hyväksyntä koskee
-juuri sitä sisältöä, joka lähetetään, ja ohjelma laskee luvut vielä kerran
-kirjanpidosta ennen lähetystä.
+Pankin tiliotteen tuonti toimii samoin. Sen esikatselu näyttää jokaisen
+tositteen, jonka tiliote tuottaisi, ja jos jokin muuttuu esikatselun jälkeen,
+ohjelma ei sinetöi mitään (`IMPORT_PREPARATION_CHANGED`).
 
-Pankin tiliotteen tuonti toimii samoin: sen esikatselu näyttää jokaisen
-tositteen, jonka tiliote tuottaisi, ja esikatselun tunnisteella sinetöinti
-hylkää kaiken, mikä muuttui välissä (`IMPORT_PREPARATION_CHANGED`).
+Viranomaisilmoituksissa hyväksyntä sidotaan samalla tavalla: ALV-ilmoituksen
+hyväksyntä koskee juuri sitä sisältöä, joka lähetetään, ja ohjelma laskee
+luvut vielä kerran kirjanpidosta ennen lähetystä.
 
 ## Mitä tämä tarkoittaa sinulle
 
-- **Katso, mitä hyväksyt.** Hyvä hyväksyntäpyyntö näyttää jokaisesta
-  tositteesta päivän, summan, vastapuolen, tilin ja ALV-käsittelyn. Pelkkä
-  "kirjaanko 14 tositetta?" ei riitä. Pyydä rivit nähtäväksi, jos agentti ei
-  näytä niitä.
-- **Kun kieltäydyt tai korjaat, mitään ei ole vielä tallentunut.** Ennen
-  hyväksyntää voit muuttaa ehdotusta vapaasti.
-- **Virhe sinetöidyssä tositteessa ei ole katastrofi.** Se korjataan uudella
-  tositteella, kuten kirjanpidossa aina.
-- **Älä yritä korjata tositetietokantaa käsin.** Ketjun tarkistus paljastaa
-  muutoksen, ja kirjanpito on silloin palautettava varmuuskopiosta
-  ([Varmuuskopioi ja palauta kirjanpito](../tasks/back-up-and-restore.md)).
+- Katso, mitä hyväksyt. Hyvä hyväksyntäpyyntö näyttää jokaisesta tositteesta
+  päivän, summan, vastapuolen, tilin ja ALV-käsittelyn. Pelkkä "kirjaanko 14
+  tositetta?" ei riitä, joten pyydä rivit nähtäväksi, jos agentti ei näytä
+  niitä.
+- Ennen hyväksyntää voit muuttaa ehdotusta vapaasti tai hylätä sen, sillä
+  mitään ei ole vielä tallentunut.
+- Älä korjaa tositetietokantaa käsin. Ketjun tarkistus paljastaa muutoksen,
+  ja kirjanpito on silloin
+  [palautettava varmuuskopiosta](../tasks/back-up-and-restore.md).
 
 ## Katso myös
 
