@@ -90,8 +90,10 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   a bank reference in its natural key or description, or the same amount on
   the same side of the same bank account within `DATE_TOLERANCE_DAYS`, and
   stops on any candidate (`BANK_ENTRY_POSSIBLY_BOOKED`). A bound voucher
-  stays a candidate while it has more postings on the bank account than bound
-  events, because one hand voucher can book several payments. A false stop is the intended price; do not
+  stays a candidate: one hand voucher can book several payments, and which
+  posting a binding stands for is not recorded, so counting postings against
+  bindings misses duplicates (an overlapping export repeats a binding; a
+  transfer posts two bank accounts). A false stop is the intended price; do not
   narrow the match to avoid one. The user resolves it explicitly: a binding
   (`BankEventBooking::Existing`) whose voucher's bank leg passes the same
   match, or `not_booked_by` naming the voucher. A binding writes an extra

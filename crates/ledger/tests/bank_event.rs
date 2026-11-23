@@ -492,8 +492,8 @@ fn an_entry_binds_to_the_voucher_that_books_it_without_changing_it() {
     let number = seal_by_hand(&ledger, "bank:REF-B", "Office rent", &booked);
     let hash_before = ledger.voucher(number).unwrap().voucher_hash;
 
-    // The binding also takes the voucher out of the candidates of the batch's
-    // other entry with the same amount and date.
+    // A bound voucher stays a candidate for the batch's other entry with the
+    // same amount and date until the user rules it out.
     let statement = ledger.attach_artifact(b"<statement/>").unwrap();
     let entries = [
         bound_entry(
@@ -502,10 +502,11 @@ fn an_entry_binds_to_the_voucher_that_books_it_without_changing_it() {
             facts("REF-B", "2026-12-30", "20.00"),
             number,
         ),
-        entry(
+        new_entry(
             "REF-E",
             "fp-e",
             draft("2026-12-30", "20.00", "7690", statement),
+            vec![number],
         ),
     ];
     let request = BankBatch {
@@ -755,9 +756,92 @@ fn a_voucher_booking_two_payments_still_stops_the_other_after_one_is_bound() {
     assert!(!report.written);
     assert_eq!(report.conflicts[0].voucher_number, number);
     assert!(
-        report.conflicts[0].message.contains("already bound"),
+        report.conflicts[0].message.contains("correction voucher"),
         "{}",
         report.conflicts[0].message
     );
+
+    // An overlapping export repeats the binding of the first payment.
+    let overlap = ledger.attach_artifact(b"<overlapping statement/>").unwrap();
+    let third = [
+        bind_twenty(),
+        entry(
+            "REF-C",
+            "fp-c",
+            draft("2026-12-30", "30.00", "7690", overlap),
+        ),
+    ];
+    let report = ledger
+        .seal_bank_batch(&BankBatch {
+            policy_set: &policy,
+            ..batch(overlap, &third)
+        })
+        .unwrap();
+    assert!(!report.written);
+    assert_eq!(report.conflicts.len(), 1, "{:?}", report.conflicts);
+    assert_eq!(report.conflicts[0].event_key, key("REF-C"));
     assert_eq!(ledger.verify().unwrap().voucher_count, 1);
+}
+
+#[test]
+fn a_voucher_bound_to_one_bank_account_stays_a_candidate_on_another() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let policy = policy_set();
+    let date = Date::parse("2026-12-30").unwrap();
+    // A transfer between two bank accounts, booked by hand.
+    let transfer = VoucherDraft::new(
+        date,
+        date,
+        "Transfer to savings".into(),
+        vec![
+            posting("1920", "500.00", Side::Debit),
+            posting("1910", "500.00", Side::Credit),
+        ],
+        None,
+    )
+    .unwrap();
+    let number = seal_by_hand(&ledger, "transfer-12", "Transfer to savings", &transfer);
+    let statement = ledger.attach_artifact(b"<statement 1910/>").unwrap();
+    let out = [bound_entry(
+        "REF-OUT",
+        "fp-out",
+        facts("REF-OUT", "2026-12-30", "500.00"),
+        number,
+    )];
+    assert!(
+        ledger
+            .seal_bank_batch(&BankBatch {
+                policy_set: &policy,
+                ..batch(statement, &out)
+            })
+            .unwrap()
+            .written
+    );
+
+    // The savings account's statement shows the same money coming in.
+    let savings = ledger.attach_artifact(b"<statement 1920/>").unwrap();
+    let incoming = VoucherDraft::new(
+        date,
+        date,
+        "Transfer from current account".into(),
+        vec![
+            posting("1920", "500.00", Side::Debit),
+            posting("1910", "500.00", Side::Credit),
+        ],
+        Some(savings),
+    )
+    .unwrap();
+    let mut entry_in = entry("REF-IN", "fp-in", incoming);
+    entry_in.facts.bank_account = AccountId::new("1920").unwrap();
+    entry_in.facts.bank_side = Side::Debit;
+    let entries = [entry_in];
+    let report = ledger
+        .preview_bank_batch(&BankBatch {
+            policy_set: &policy,
+            ..batch(savings, &entries)
+        })
+        .unwrap();
+    assert_eq!(report.conflicts.len(), 1, "{:?}", report.conflicts);
+    assert_eq!(report.conflicts[0].voucher_number, number);
 }

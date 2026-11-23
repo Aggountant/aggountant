@@ -765,7 +765,7 @@ impl Ledger {
 }
 
 /// A voucher sealed outside the import, with how many bank events are bound
-/// to it.
+/// to it (at most one: `bank_event.voucher_number` is unique).
 struct OutsideVoucher {
     stored: StoredVoucher,
     body: VoucherBody,
@@ -773,10 +773,10 @@ struct OutsideVoucher {
 }
 
 /// Vouchers sealed outside the import that may already book `entry`, as one
-/// conflict each. A voucher has room for another bank transaction while it has
-/// more postings on the entry's bank account than bank transactions bound to
-/// it (in the books or by this batch): a voucher that books a whole month's
-/// payments is still a candidate after one of them is bound. Vouchers the user
+/// conflict each. A voucher bound to another bank transaction (in the books or
+/// by this batch) stays a candidate: one voucher can book several payments, and
+/// which of its postings a binding stands for is not recorded, so no count of
+/// postings against bindings can tell that it has none left. Vouchers the user
 /// has ruled out are not candidates.
 fn possible_bookings(
     batch: &BankBatch<'_>,
@@ -791,23 +791,10 @@ fn possible_bookings(
         if not_booked_by.contains(&number) {
             continue;
         }
-        let bound_in_batch = batch
-            .entries
-            .iter()
-            .filter(|e| {
+        let bound = voucher.bound > 0
+            || batch.entries.iter().any(|e| {
                 matches!(e.booking, BankEventBooking::Existing { voucher_number } if voucher_number == number)
-            })
-            .count();
-        let bank_postings = voucher
-            .body
-            .postings()
-            .iter()
-            .filter(|p| p.account == facts.bank_account)
-            .count();
-        let bound = voucher.bound + bound_in_batch;
-        if bound > 0 && bank_postings <= bound {
-            continue;
-        }
+            });
         let natural_key = &voucher.stored.provenance.natural_key;
         let body = &voucher.body;
         let evidence = if facts.named_in(natural_key) || facts.named_in(body.description()) {
@@ -833,7 +820,7 @@ fn possible_bookings(
             code: BankEventConflictCode::BankEntryPossiblyBooked,
             voucher_number: number,
             evidence: Some(evidence),
-            message: if bound == 0 {
+            message: if !bound {
                 format!(
                     "bank transaction {:?} may already be booked by voucher #{number}, sealed \
                      outside the bank import: {why}. If #{number} books it, bind the transaction \
@@ -844,12 +831,13 @@ fn possible_bookings(
             } else {
                 format!(
                     "bank transaction {:?} may already be booked by voucher #{number}, sealed \
-                     outside the bank import: {why}. #{number} is already bound to another bank \
-                     transaction and has further postings on account {}. A voucher can be bound \
-                     to one bank transaction only, so if #{number} also books this one the \
-                     statement cannot be imported; if it does not, list {number} in the \
-                     assignment's not_booked_by",
-                    entry.event_key, facts.bank_account
+                     outside the bank import: {why}. #{number} is bound to another bank \
+                     transaction, and a voucher can be bound to one only. If it does not book \
+                     this transaction, list {number} in the assignment's not_booked_by. If it \
+                     also books this one, reverse that part of #{number} with a correction \
+                     voucher that refers to it before the import books the transaction, and \
+                     then list {number}",
+                    entry.event_key
                 )
             },
         });
