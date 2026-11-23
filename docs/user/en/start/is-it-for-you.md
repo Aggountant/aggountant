@@ -21,7 +21,7 @@ A month goes like this:
 [You, the agent and aggountant](../concepts/division-of-work.md) describes
 the division of work in more detail.
 
-aggountant is at version 0.2 and already keeps the books of a few companies
+aggountant is an early 0.x version and already keeps the books of a few companies
 that have no accounting firm. Features are added as these companies meet new
 situations, so ordinary monthly work is in good shape and rarer cases are
 filled in step by step. Commands and file formats may still change between

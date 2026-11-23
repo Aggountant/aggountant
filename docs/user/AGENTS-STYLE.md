@@ -33,7 +33,9 @@ is noise.
   just said, and announcements of what the page is about to say.
 - **Defensive detail.** Edge cases and internal mechanisms the user never meets
   on screen. If it matters to a few users, one sentence and a link to its home
-  page.
+  page. A reason only a developer cares about ("jotta aiemmat tavat toimivat
+  edelleen") is defensive detail, not a fact to keep; the fact it explains
+  stays.
 - **AI patterns** (see the humanizer list): em and en dashes used as
   punctuation (aggountant's quoted output keeps its own), lists whose items
   start with a bold label and a colon or a full stop,
@@ -45,14 +47,19 @@ is noise.
   and an actor: "agentti tarkistaa", "sinä hyväksyt".
 - **Bold for emphasis.** Keep bold for the few words a scanning reader must
   not miss, not for every term. The bold lead-in of a numbered step
-  ("1. **Pyydä agenttia.**") is the how-to template's and stays; bold labels
-  elsewhere, such as symptom labels or actor names opening a paragraph, go.
+  is the how-to template's and stays, as a clause that says who does what
+  ("3. **Agentti lukee tiliotteen**, …", "**Tarkista kuukausi.**"), not a
+  noun label ("**Tiliote.**"). In a long reference list (limitations, error
+  situations) one short bold term per item may stay as a scanning aid, never
+  a bold sentence. Bold labels elsewhere, such as symptom labels, actor names
+  opening a paragraph or a term where it is first defined, go.
 
 ## Shape
 
 - Open with what the reader is here for: the task, or the question the page
   answers. No warm-up sentence after a heading.
-- Shorter is usually better, but there is no target. A page with real steam
+- Shorter is usually better, but there is no target. A page with a stale
+  fact can grow when the missing route is added. A page with real steam
   can lose a third; a task or overview page that already follows its template
   may barely shrink, and then the gain is order and shape. Never cut a fact to
   shorten a page. Do not compress steps into a paragraph if the user follows
@@ -112,3 +119,50 @@ Wave 1 (division-of-work, close-month, is-it-for-you):
   version.
 - **"Katso myös" has at most three links** (`AGENTS.md`). Check it; drop the
   one the body already links.
+
+Wave 2 (front page, install, status, early-users, monthly-routine,
+sealing-and-approval):
+
+- **"X ei ole Y. Se on Z."** and its cousins: "päivien, ei viikkojen",
+  "esimerkkejä, eivät taikasanoja", "… koottuina, ei kuitti kerrallaan",
+  "Sinetöinti ei ole aggountantin oma keksintö. Kirjanpitolaki …". Say the one
+  true thing: "Hyväksyntä koskee täsmälleen sitä sisältöä, jonka agentti
+  näytti", "Vaatimus tulee kirjanpitolaista".
+- **A slogan label and its restatement.** "**Vastaamme nopeasti.** Kysymykset
+  käsitellään yleensä päivien …" → "Vastaamme kysymyksiin yleensä muutaman
+  päivän sisällä." Keep the body, drop the slogan.
+- **Joining a former label to its body.** Once the bold goes, label and body
+  are two disconnected sentences; join them with "koska" or "joten" when the
+  second is the reason. A recurring inline label ("Tee näin:") becomes a plain
+  imperative.
+- **Warm-up clauses.** "Ennen kuin agentti voi pitää kirjanpitoa, koneellesi
+  asennetaan …" → "Koneellesi asennetaan …". "Koska <the previous section's
+  conclusion>, …" opening a section is the same move.
+- **A paragraph that ends by restating its first sentence**, a linking
+  sentence that only announces the next ("Sama koskee kokonaisia
+  kuukausia."), a grand closing line ("aggountant tekee siitä teknisesti
+  varman.") and a closing "what this means for you" section that recaps:
+  cut. The concept template's closing section holds only what the reader
+  does, not a summary.
+- **Two rhetorical questions in a row** ("Tuletko toisesta ohjelmasta? …
+  Haluatko mukaan? …") is the marketing pattern; write plain conditionals.
+- **Routing pages** (monthly routine, front page): put the link on the step's
+  own words ("kirjaa kuitit, jokaisen [omana tositteenaan](…)"), not
+  ": [Page title](…)" after a colon. A page link may sit on a plain phrase.
+- **Hypothetical conditional** where the present works: "Jos joku muuttaisi
+  …, ketju ei enää täsmäisi" → "Jos tositetta muutetaan …, ketju ei enää
+  täsmää".
+- **A prompt that encodes the implementation** ("Asenna aggountant
+  lähdekoodista GitHubista.") goes stale; "Asenna aggountant." survives.
+- **"Valmis, kun" holds only checks.** A stray fact parked there moves to the
+  step it belongs to.
+- **Example output with a version number** goes stale like prose does;
+  describe it ("näyttää versionumeron").
+- **Mixed small things:** split sentences joined by a semicolon, make a
+  two-item bullet list prose, show a link as words and never as a path
+  (`../en/`), drop dashes from titles too ("aggountantin käyttäjän opas"),
+  and check `en/` terms against `AGENTS.md` (`erikoiskirjaus` is "manual
+  entry").
+- **Invitation and about pages** keep their motive paragraph; it is content,
+  not warm-up. Move it after what the reader can do.
+

@@ -19,7 +19,7 @@ Kuukausi kulkee näin:
 Työnjaosta kerrotaan tarkemmin sivulla
 [Sinä, agentti ja aggountant](../concepts/division-of-work.md).
 
-aggountant on versiossa 0.2, ja sillä pidetään jo muutaman sellaisen
+aggountant on varhainen 0.x-versio, ja sillä pidetään jo muutaman sellaisen
 yrityksen kirjanpitoa, jolla ei ole tilitoimistoa. Ominaisuuksia lisätään
 sitä mukaa kuin nämä yritykset kohtaavat uusia tilanteita, joten tavallinen
 kuukausityö on hyvässä kunnossa ja harvinaisemmat tapaukset täydentyvät

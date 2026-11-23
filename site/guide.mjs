@@ -111,7 +111,7 @@ export function guideSidebar() {
   const fi = sections('fi');
   const en = sections('en');
   return [
-    // The front page's own H1 ("aggountant — käyttäjän opas") is too long
+    // The front page's own H1 ("aggountantin käyttäjän opas") is too long
     // for a sidebar entry.
     { slug: 'guide', label: 'Oppaan etusivu', translations: { en: 'Guide home' } },
     ...fi.map((section, i) => ({
