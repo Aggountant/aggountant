@@ -1,10 +1,9 @@
 # Glossary
 
-This glossary explains the bookkeeping and aggountant terms you meet while
-using the program. Terms are in alphabetical order. The Finnish term is in
-parentheses, because the skills, the chart of accounts and the authorities'
-services use it. Where the program prints its own English name on screen,
-that name is shown as code.
+The bookkeeping and aggountant terms you meet while using the program, in
+alphabetical order. The Finnish term is in parentheses, because the skills,
+the chart of accounts and the authorities' services use it. Where the program
+prints its own English name on screen, that name is shown as code.
 
 **Acceptance tests (hyväksyntätestit).** Tests in the Tax Administration's API
 portal that software must pass before production use. aggountant runs them
@@ -30,12 +29,12 @@ its sales and may deduct it on its purchases. The difference is paid to the
 Tax Administration or received as a refund. This guide says VAT.
 
 **Approval (hyväksyntä).** Your explicit decision before a permanent step or
-one with legal effect. An approval is bound to what you were shown. If the
-content changes, the approval is no longer valid.
+one with legal effect. An approval covers the content you were shown and is
+no longer valid if that content changes.
 
 **Attachment (liite).** Original material archived with a voucher, such as a
 receipt, an invoice or a bank statement. aggountant recognises the same file
-if someone tries to record it a second time.
+if it is recorded a second time.
 
 **Attestation (vakuutus).** Your confirmation of something the program cannot
 check itself, for example that the software has been registered or the
@@ -66,8 +65,7 @@ Nothing can be recorded in a closed period, and corrections go into the next
 open period.
 
 **Closing (`closing`, suljettavana).** A period's state between the start of
-the close and its approval. Nothing can be recorded in the period in this
-state.
+the close and its approval. Nothing can be recorded in the period any more.
 
 **Company home (yrityskoti).** The directory that holds one company's entire
 books: chart of accounts, vouchers, attachments, period state and settings.
@@ -76,10 +74,10 @@ books: chart of accounts, vouchers, attachments, period state and settings.
 `knowledge/company/` directory, where the agent saves the company's facts and
 practices with their sources and history.
 
-**Completeness (kattavuus).** The monthly report's note on whether all the
-material has been recorded. It always says "varmistamaton" (unverified),
-because the program cannot know. You and the agent judge it against the
-sources.
+**Completeness (`completeness`, kattavuus).** The monthly report's note on
+whether all the material has been recorded. The program cannot know that, so
+the note always says "varmistamaton" (unverified), and you and the agent
+judge completeness against the sources.
 
 **Correcting voucher (korjaustosite).** A new voucher that corrects a mistake
 in an earlier one. The original is not changed or deleted.
@@ -98,8 +96,8 @@ and notes prepared at the end of the fiscal year.
 fingerprint is not secret, and you can use it to tell, for example, the Tax
 Administration's support which certificate you mean.
 
-**Fiscal year (tilikausi).** The year for which financial statements are
-prepared. It is usually 12 months; a first fiscal year or the year in which
+**Fiscal year (tilikausi).** The period for which financial statements are
+prepared. It is usually 12 months. A first fiscal year or the year in which
 it changes can be at most 18 months. In aggountant it is the calendar year
 unless another fiscal year is defined, and a fiscal year is named by the
 calendar year it ends in.
@@ -115,8 +113,8 @@ for example 311 mileage allowance or 331 per diem.
 
 **Manual entry (erikoiskirjaus).** A voucher the agent puts together posting
 by posting, because neither the bank statement import nor the receipt route
-fits it, for example a sales invoice, a payroll voucher, opening balances or a
-correction.
+fits it. Examples are a sales invoice, a payroll voucher, opening balances and
+a correction.
 
 **Mileage allowance (kilometrikorvaus).** A tax-free allowance for using your
 own car for work journeys. Tulorekisteri income type 311.
@@ -137,10 +135,10 @@ recorded in it.
 books move to aggountant from another system. They are recorded as one
 voucher.
 
-**Outcome unknown (epävarma lopputulos).** A situation in which the
-connection dropped or the service returned an error while a return was being
-sent, and it is not known whether the return got through. The return is not
-sent again; the status is asked from the authority.
+**Outcome unknown (`outcome_unknown`, epävarma lopputulos).** The state of a
+return when the connection dropped or the service returned an error while it
+was being sent, and it is not known whether it got through. The return is
+then not sent again. The agent asks the authority for its status instead.
 
 **Per diem (päiväraha).** A tax-free allowance for living costs caused by a
 work trip. Tulorekisteri income type 331.
@@ -170,15 +168,15 @@ to use the interface for real returns after the acceptance tests.
 readiness is in order (`ready`).
 
 **Replacement return (korvaava ilmoitus).** A new return that replaces one
-already filed, in full. aggountant makes it as a submission with its own
-approval and keeps the earlier acknowledgement next to the new one.
+already filed, in full. You approve sending it separately, and aggountant
+keeps the earlier acknowledgement next to the new one.
 
 **Reverse charge (käännetty verovelvollisuus).** A VAT procedure in which the
 buyer, not the seller, accounts for the tax, for example when buying services
 from another EU country.
 
-**Run (`run`, ajo).** A multi-step task that saves its progress and can be
-continued after an interruption, for example a period close or a VAT return.
+**Run (`run`, ajo).** A multi-step task, for example a period close or a VAT
+return, that saves its progress and can be continued after an interruption.
 A run has an identifier such as `cp-…` (close), `fv-…` (VAT return), `wr-…`
 (Tulorekisteri report) or `cy-…` (year-end).
 
@@ -206,15 +204,15 @@ wages, fees and allowances are reported.
 
 **Unconfirmed transaction (vahvistamaton tapahtuma).** A statement row the
 bank has not booked yet, for example a card reservation. aggountant does not
-import it; it is recorded from the statement on which it has gone through.
+import it. It is recorded from the statement on which it has gone through.
 
 **VAT period (ALV-kausi).** The span of time a VAT return covers. In
 aggountant it is the same as the bookkeeping close period: a month or a
 quarter.
 
-**VAT rate (ALV-kanta).** The VAT percentage. The rate depends on the product
-and the document's date: the general rate is 25.5 % from 1 September 2024.
-aggountant picks the rate by the date of the receipt or invoice, not the
+**VAT rate (ALV-kanta).** The VAT percentage, which depends on the product
+and the document's date. The general rate is 25.5% from 1 September 2024.
+aggountant picks the rate by the date of the receipt or invoice, not by the
 payment date.
 
 **VAT return (ALV-ilmoitus).** A period's VAT figures reported to the Tax

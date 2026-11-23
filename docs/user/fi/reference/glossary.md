@@ -1,28 +1,28 @@
 # Sanasto
 
-Tämä sanasto selittää kirjanpidon ja aggountantin sanat, joihin törmäät
-käytössä. Termit ovat aakkosjärjestyksessä. Suluissa on englanninkielinen nimi
-silloin, kun se näkyy ohjelman tulosteessa.
+Kirjanpidon ja aggountantin sanat, joihin törmäät käytössä,
+aakkosjärjestyksessä. Suluissa on englanninkielinen nimi silloin, kun se näkyy
+ohjelman tulosteessa.
 
 **Agentti.** Tekoälyavustaja (esimerkiksi Claude Code), joka lukee aineiston,
-ehdottaa kirjaukset ja ajaa aggountantin komentoja puolestasi. Agentti ei sinetöi
-eikä lähetä mitään ilman hyväksyntääsi.
+ehdottaa kirjaukset ja ajaa aggountantin komentoja puolestasi. Agentti ei
+sinetöi eikä lähetä mitään ilman hyväksyntääsi.
 
-**Ajo (run).** Monivaiheinen tehtävä, joka tallentaa etenemisensä ja jota voi
-jatkaa keskeytyksen jälkeen, esimerkiksi kauden sulku tai ALV-ilmoitus. Ajolla
-on tunniste, kuten `cp-…` (sulku), `fv-…` (ALV-ilmoitus), `wr-…`
-(Tulorekisteri-ilmoitus) tai `cy-…` (tilinpäätös).
+**Ajo (`run`).** Monivaiheinen tehtävä, esimerkiksi kauden sulku tai
+ALV-ilmoitus, joka tallentaa etenemisensä ja jota voi jatkaa keskeytyksen
+jälkeen. Ajolla on tunniste, kuten `cp-…` (sulku), `fv-…` (ALV-ilmoitus),
+`wr-…` (Tulorekisteri-ilmoitus) tai `cy-…` (tilinpäätös).
 
 **ALV-ilmoitus.** Kauden arvonlisäverotiedot Verohallinnolle numeroiduilla
 kentillä. aggountantissa ilmoitus tehdään suljetun kauden luvuista joko suoraan
 rajapinnan kautta tai käsin OmaVerossa.
 
-**ALV-kanta.** Arvonlisäveron prosentti. Kanta riippuu tuotteesta ja tositteen
-päivästä: yleinen kanta on 25,5 % 1.9.2024 alkaen. aggountant valitsee kannan
-kuitin tai laskun päivän perusteella, ei maksupäivän.
+**ALV-kanta.** Arvonlisäveron prosentti, joka riippuu tuotteesta ja tositteen
+päivästä. Yleinen kanta on 25,5 % 1.9.2024 alkaen. aggountant valitsee kannan
+kuitin tai laskun päivän eikä maksupäivän perusteella.
 
 **ALV-kausi.** Ajanjakso, jolta ALV ilmoitetaan. aggountantissa se on sama kuin
-kirjanpidon sulkukausi: kuukausi tai neljännesvuosi.
+kirjanpidon sulkukausi eli kuukausi tai neljännesvuosi.
 
 **Arvonlisävero (ALV).** Vero, jonka yritys perii myynnistään ja jonka se saa
 vähentää ostoistaan. Erotus maksetaan Verohallinnolle tai saadaan palautuksena.
@@ -30,7 +30,7 @@ vähentää ostoistaan. Erotus maksetaan Verohallinnolle tai saadaan palautuksen
 **Avaavat saldot.** Tilien saldot sinä päivänä, jona kirjanpito siirtyy
 aggountantiin toisesta järjestelmästä. Ne kirjataan yhdeksi tositteeksi.
 
-**Avoin (open).** Kauden tila, jossa kaudelle voi vielä kirjata.
+**Avoin (`open`).** Kauden tila, jossa kaudelle voi vielä kirjata.
 
 **camt.053 ja camt.052.** Pankkien sähköisen tiliotteen tiedostomuodot.
 aggountant tuo tapahtumat niistä tositteiksi.
@@ -38,21 +38,24 @@ aggountant tuo tapahtumat niistä tositteiksi.
 **Debet ja kredit.** Kahdenkertaisen kirjanpidon kaksi puolta. Jokaisessa
 tositteessa debet- ja kredit-vientien summat ovat yhtä suuret.
 
-**Epävarma lopputulos (outcome unknown).** Tilanne, jossa ilmoituksen
-lähetyksen aikana yhteys katkesi tai palvelu vastasi virheellä, eikä tiedetä,
-menikö ilmoitus perille. Ilmoitusta ei lähetetä uudelleen, vaan tila kysytään
-viranomaiselta.
+**Epävarma lopputulos (`outcome_unknown`).** Ilmoituksen tila, kun yhteys
+katkesi tai palvelu vastasi virheellä kesken lähetyksen eikä tiedetä, menikö
+ilmoitus perille. Ilmoitusta ei silloin lähetetä uudelleen, vaan agentti kysyy
+sen tilan viranomaiselta.
 
-**Erikoiskirjaus.** Tosite, jonka agentti kokoaa vienti kerrallaan, koska tiliotteen tuonti tai kuittireitti ei sovi siihen, esimerkiksi myyntilasku, palkkatosite, avaavat saldot tai korjaus.
+**Erikoiskirjaus.** Tosite, jonka agentti kokoaa vienti kerrallaan, koska
+tiliotteen tuonti tai kuittireitti ei sovi siihen. Tällaisia ovat esimerkiksi
+myyntilasku, palkkatosite, avaavat saldot ja korjaus.
 
 **Esikatselu.** Komennon ajo niin, että se näyttää lopputuloksen mutta ei
 tallenna mitään. Hyväksyt esikatselun ennen varsinaista tallennusta.
 
-**Harjoituskoti.** Erillinen yrityskoti, jossa harjoitellaan oppaan harjoitusaineistolla. Se ei liity oikeaan kirjanpitoon, ja sen voi poistaa.
+**Harjoituskoti.** Erillinen yrityskoti, jossa harjoitellaan oppaan
+harjoitusaineistolla. Se ei liity oikeaan kirjanpitoon, ja sen voi poistaa.
 
 **Hyväksyntä.** Nimenomainen päätöksesi ennen pysyvää tai oikeusvaikutteista
-tekoa. Hyväksyntä on sidottu siihen, mitä sinulle näytettiin. Jos sisältö
-muuttuu, hyväksyntä ei enää kelpaa.
+tekoa. Hyväksyntä koskee sitä sisältöä, joka sinulle näytettiin, eikä kelpaa
+enää, jos sisältö muuttuu.
 
 **Hyväksyntätestit.** Verohallinnon API-portaalin testit, jotka ohjelmiston
 pitää läpäistä ennen tuotantokäyttöä. aggountant ajaa ne komennolla
@@ -64,7 +67,9 @@ aggountant ei laadi Ilmoitin.fi-tiedostoja.
 **Jaksotus.** Tulon tai menon kirjaaminen sille kaudelle, jolle se kuuluu,
 vaikka raha liikkuisi toisella kaudella.
 
-**Kattavuus (completeness).** Kuukausiraportin merkintä siitä, onko kaikki aineisto kirjattu. Se on aina "varmistamaton", koska ohjelma ei voi tietää sitä. Sen arvioit sinä ja agentti lähteitä vasten.
+**Kattavuus (`completeness`).** Kuukausiraportin merkintä siitä, onko kaikki
+aineisto kirjattu. Ohjelma ei voi tietää sitä, joten merkintä on aina
+"varmistamaton", ja sinä ja agentti arvioitte kattavuuden lähteitä vasten.
 
 **Kauden sulku.** Kauden kirjanpidon lukitseminen. Sulun jälkeen kaudelle ei voi
 kirjata, ja ALV-ilmoitus tehdään sen luvuista.
@@ -79,18 +84,18 @@ Tulorekisterin tulolaji 311.
 Alkuperäistä ei muuteta eikä poisteta.
 
 **Korvaava ilmoitus.** Uusi ilmoitus, joka korvaa jo annetun ilmoituksen
-kokonaan. aggountant tekee sen omana hyväksyttävänä lähetyksenään ja
-säilyttää aiemman kuittauksen uuden vieressä.
+kokonaan. Hyväksyt sen lähetyksen erikseen, ja aggountant säilyttää aiemman
+kuittauksen uuden vieressä.
 
 **Kuittaus.** Verohallinnon vastaus siitä, että se on vastaanottanut
 ilmoituksen. Kuittaus ei vielä tarkoita, että ilmoitus näkyisi OmaVerossa.
 
-**Käännetty verovelvollisuus.** ALV-menettely, jossa ostaja eikä myyjä tilittää
-veron, esimerkiksi ostettaessa palveluja toisesta EU-maasta.
+**Käännetty verovelvollisuus.** ALV-menettely, jossa veron tilittää ostaja eikä
+myyjä, esimerkiksi ostettaessa palveluja toisesta EU-maasta.
 
 **Liite.** Tositteeseen arkistoitu alkuperäinen aineisto, kuten kuitti, lasku tai
-tiliote. aggountant tunnistaa saman tiedoston uudelleen, jos se yritetään
-kirjata toiseen kertaan.
+tiliote. aggountant tunnistaa saman tiedoston, jos se yritetään kirjata toiseen
+kertaan.
 
 **Liitetiedot.** Tilinpäätökseen kuuluvat lisätiedot laskelmien rinnalla.
 
@@ -124,11 +129,11 @@ liitetään tositeketjuun, eikä sitä voi enää muuttaa.
 salainen, ja sillä voit kertoa esimerkiksi Verohallinnon tuelle, mistä
 varmenteesta on kyse.
 
-**Suljettavana (closing).** Kauden tila sulun aloittamisen ja hyväksynnän
-välillä. Tässä tilassa kaudelle ei voi kirjata.
+**Suljettavana (`closing`).** Kauden tila sulun aloittamisen ja hyväksynnän
+välillä. Kaudelle ei voi enää kirjata.
 
-**Suljettu (sealed).** Kauden tai tilikauden lopullinen tila. Suljetulle kaudelle
-ei voi kirjata, ja korjaukset tehdään seuraavalle avoimelle kaudelle.
+**Suljettu (`sealed`).** Kauden tai tilikauden lopullinen tila. Suljetulle
+kaudelle ei voi kirjata, ja korjaukset tehdään seuraavalle avoimelle kaudelle.
 
 **Tase.** Laskelma yrityksen varoista, velasta ja omasta pääomasta tiettynä
 päivänä.
@@ -141,10 +146,11 @@ tai 7690 Atk-laite- ja ohjelmistokulut.
 **Tilikartta.** Yrityksen kirjanpidon tililuettelo. `init` luo oletustilikartan,
 jonka näet komennolla `aggountant chart list`.
 
-**Tilikausi.** Vuosi, jolta tilinpäätös tehdään. Se on yleensä 12 kuukautta;
-ensimmäinen tilikausi tai tilikausi, jona sitä muutetaan, voi olla enintään 18
-kuukautta. aggountantissa tilikausi on kalenterivuosi, ellei muuta tilikautta
-määritellä, ja tilikausi nimetään sen kalenterivuoden mukaan, jona se päättyy.
+**Tilikausi.** Ajanjakso, jolta tilinpäätös tehdään. Se on yleensä 12
+kuukautta. Ensimmäinen tilikausi tai tilikausi, jona sitä muutetaan, voi olla
+enintään 18 kuukautta. aggountantissa tilikausi on kalenterivuosi, ellei muuta
+tilikautta määritellä, ja tilikausi nimetään sen kalenterivuoden mukaan, jona
+se päättyy.
 
 **Tilinpäätös.** Tilikauden päätteeksi laadittava tuloslaskelma, tase ja
 liitetiedot.
@@ -168,7 +174,9 @@ korvaukset.
 **Tuotantolupa.** Verohallinnon lupa käyttää rajapintaa oikeisiin
 ilmoituksiin hyväksyntätestien jälkeen.
 
-**Vahvistamaton tapahtuma.** Tiliotteen rivi, jota pankki ei ole vielä kirjannut, esimerkiksi korttivaraus. aggountant ei tuo sitä, vaan se kirjataan siltä tiliotteelta, jolla se on toteutunut.
+**Vahvistamaton tapahtuma.** Tiliotteen rivi, jota pankki ei ole vielä
+kirjannut, esimerkiksi korttivaraus. aggountant ei tuo sitä, vaan se kirjataan
+siltä tiliotteelta, jolla se on toteutunut.
 
 **Vakuutus.** Vahvistuksesi asiasta, jota ohjelma ei voi itse tarkistaa,
 esimerkiksi että ohjelmisto on rekisteröity tai tuotantolupa myönnetty. Ohjelma
