@@ -3,10 +3,11 @@ created: 2026-11-23
 updated: 2026-11-23
 type: bug
 reporter: jari
-status: untriaged
+status: open
 priority: normal
 provenance: agent:homebase-sihteeri
 source_ref: agent:homebase-sihteeri/reporter:jari/id:sihteeri-agg-explain-20261123
+lane: unlaned
 ---
 
 # CI: explain_cli test pins the old ALREADY_INITIALIZED wording

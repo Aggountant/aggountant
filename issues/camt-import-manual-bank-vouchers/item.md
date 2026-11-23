@@ -7,6 +7,7 @@ priority: high
 provenance: conductor
 source_ref: stint-2026-11-22:camt-legacy-keys
 lane: bank-import
+collision: [crates/import, crates/cli/src/bank_import.rs, crates/ledger]
 ---
 
 # camt import does not recognise bank vouchers sealed through voucher seal

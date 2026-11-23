@@ -4,7 +4,8 @@ updated: 2026-11-23
 type: task
 status: open
 priority: normal
-lane: onboarding
+lane: unlaned
+collision: [docs/user]
 ---
 
 # User guide: open factual questions from the prose cleanup
