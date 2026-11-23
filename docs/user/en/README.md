@@ -1,22 +1,22 @@
-# aggountant — user guide
+# aggountant user guide
 
 You keep your company's books with an AI agent. The agent prepares vouchers
 from bank statements and receipts, you approve them, and aggountant records the
-books permanently and files the returns. This guide tells you what you do, what
-the agent does, and what you approve before anything is stored or sent to an
-authority.
+books permanently and files the returns. The guide shows what you do yourself,
+what the agent does, and what you approve before anything is stored or sent to
+an authority.
 
-aggountant is at version 0.1 and already keeps the real books of a few
-companies. Not everything is ready yet:
-[What is ready and what is not](reference/status.md).
+aggountant is an early 0.x version that already keeps the real books of a few
+companies. [What is ready and what is not](reference/status.md) lists what is
+still missing.
 
-The requests to the agent in this guide are examples, not magic words. You can
-say the same thing in your own words. The examples are about the fictional
-company Esimerkki Oy, and the figures are made up. aggountant is built for
-Finnish bookkeeping, so Finnish names of taxes, authorities and services, such
-as ALV (Finnish VAT), OmaVero and Tulorekisteri, stay in Finnish and are
-explained where they first appear and in the [glossary](reference/glossary.md).
-The Finnish original of this guide is in [`../fi/`](../fi/README.md).
+The requests to the agent in this guide are examples, and you can say the same
+thing in your own words. The example company, Esimerkki Oy, is fictional and
+its figures are made up. aggountant is built for Finnish bookkeeping, so the
+Finnish names of taxes, authorities and services, such as ALV (Finnish VAT),
+OmaVero and Tulorekisteri, stay in Finnish. Each is explained where it first
+appears and in the [glossary](reference/glossary.md). The guide is also
+available [in Finnish](../fi/README.md), the language it is written in first.
 
 ## Start here
 
@@ -25,10 +25,10 @@ The Finnish original of this guide is in [`../fi/`](../fi/README.md).
 3. [Practise your first month](start/practice-month.md)
 4. [Set up your company's books](start/set-up-company.md)
 
-Coming from another bookkeeping program? Collect the old material first:
-[Move your books from another program](start/move-from-another-program.md).
-
-Want to join early or help build it? [Join as an early user](start/early-users.md).
+If you are coming from another bookkeeping program, collect the old material
+first: [Move your books from another program](start/move-from-another-program.md).
+If you want to join early or help build it, read
+[Join as an early user](start/early-users.md).
 
 ## Every month
 

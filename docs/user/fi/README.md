@@ -1,18 +1,18 @@
-# aggountant — käyttäjän opas
+# aggountantin käyttäjän opas
 
 Pidät yrityksesi kirjanpitoa tekoälyagentin kanssa. Agentti valmistelee
-tositteet tiliotteista ja kuiteista, sinä hyväksyt, ja aggountant tallentaa
-kirjanpidon pysyvästi ja tekee ilmoitukset. Tämä opas kertoo, mitä sinä teet,
+tositteet tiliotteista ja kuiteista, sinä hyväksyt ne, ja aggountant tallentaa
+kirjanpidon pysyvästi ja tekee ilmoitukset. Oppaasta näet, mitä teet itse,
 mitä agentti tekee ja mitä hyväksyt ennen kuin mikään tallentuu tai lähtee
 viranomaiselle.
 
-aggountant on versiossa 0.1, ja sillä pidetään jo muutaman yrityksen oikeaa
-kirjanpitoa. Kaikki ei ole vielä valmista:
-[Mitä on valmista ja mitä ei](reference/status.md).
+aggountant on varhainen 0.x-versio, jolla pidetään jo muutaman yrityksen
+oikeaa kirjanpitoa. Sivu [Mitä on valmista ja mitä ei](reference/status.md)
+kertoo, mikä vielä puuttuu.
 
-Oppaan pyynnöt agentille ovat esimerkkejä, eivät taikasanoja. Voit sanoa saman
-omin sanoin. Esimerkit koskevat kuvitteellista Esimerkki Oy:tä, ja luvut on
-keksitty. Englanninkielinen opas on hakemistossa [`../en/`](../en/README.md).
+Oppaan pyynnöt agentille ovat esimerkkejä, ja voit sanoa saman omin sanoin.
+Esimerkkien yritys Esimerkki Oy on kuvitteellinen ja luvut keksittyjä. Opas on
+myös [englanniksi](../en/README.md).
 
 ## Aloita tästä
 
@@ -21,10 +21,10 @@ keksitty. Englanninkielinen opas on hakemistossa [`../en/`](../en/README.md).
 3. [Harjoittele ensimmäinen kuukausi](start/practice-month.md)
 4. [Ota yrityksesi kirjanpito käyttöön](start/set-up-company.md)
 
-Tuletko toisesta kirjanpito-ohjelmasta? Kerää vanha aineisto ensin:
+Jos tulet toisesta kirjanpito-ohjelmasta, kerää ensin vanha aineisto:
 [Siirrä kirjanpito toisesta ohjelmasta](start/move-from-another-program.md).
-
-Haluatko mukaan ensimmäisten joukossa tai kehittämään? [Lähde mukaan](start/early-users.md).
+Jos haluat mukaan ensimmäisten joukossa tai kehittämään, lue
+[Lähde mukaan](start/early-users.md).
 
 ## Joka kuukausi
 
