@@ -1,41 +1,41 @@
 # Yrityskoti: mitä tallentuu minne
 
-Yrityksen koko kirjanpito on yhdessä hakemistossa, yrityskodissa. Tämä sivu
-kertoo, miten ohjelma löytää kodin, mitä kotiin tallentuu, mikä kuuluu gitiin
-ja mikä ei, ja mitä kotiin ei koskaan kirjoiteta.
+Yrityksen koko kirjanpito on yhdessä hakemistossa, yrityskodissa: tilikartta,
+tositteet, liitteet, kausien tila, yrityksen tallennetut tiedot ja asetukset.
 
 ## Yksi koti, yksi yritys
 
-Kodissa ovat yrityksen tilikartta, tositteet, liitteet, kausien tila,
-yrityksen tallennetut tiedot ja asetukset. Jos hoidat kahden yrityksen
-kirjanpitoa, niillä on kaksi erillistä kotia. Kotia ei ole tarkoitettu
-käytettäväksi usealta ihmiseltä tai koneelta yhtä aikaa.
+Jos hoidat kahden yrityksen kirjanpitoa, niillä on kaksi erillistä kotia.
+Kotia ei ole tehty usean ihmisen tai koneen yhtäaikaiseen käyttöön.
 
 ## Miten ohjelma löytää kodin
 
-Jokainen komento tarvitsee tiedon siitä, minkä yrityksen kirjanpitoa se
-käsittelee. Ohjelma etsii kodin tässä järjestyksessä ja käyttää ensimmäisen
-löytämänsä:
+aggountant etsii kodin tässä järjestyksessä ja käyttää ensimmäistä, jonka se
+löytää:
 
-1. `--home`-valitsin komennossa
+1. komennon `--home`-valitsin
 2. ympäristömuuttuja `AGGOUNTANT_HOME`
-3. asetustiedoston `home`-arvo (tiedoston paikan kertoo `aggountant config path`)
-4. lähin `.aggountant`-hakemisto nykyisestä hakemistosta ylöspäin. Etsintä
-   pysähtyy git-repositorion juureen, ja koti on se hakemisto, jossa
-   `.aggountant` on. Kodin perustaminen ei luo tätä hakemistoa. Agentti luo
-   sen kirjoittaessaan Tulorekisteri-profiilin, ja voit luoda sen itse kodin
-   juureen (`mkdir .aggountant`), jos haluat kodin sisällä ajettujen komentojen löytävän kodin.
+3. asetustiedoston `home`-arvo
+4. lähin `.aggountant`-hakemisto nykyisestä hakemistosta ylöspäin
 5. nykyisen hakemiston alihakemisto `accounting`.
+
+Asetustiedosto on JSON-muotoinen, ja sen paikan kertoo
+`aggountant config path`. Kotia varten siihen kirjoitetaan
+`{"home": "/polku/kotiin"}`. Samaan tiedostoon tallentuu suoran
+ALV-ilmoittamisen tunnustiedoston polku, jonka ohjelma kirjoittaa itse.
+
+`.aggountant`-hakemiston etsintä pysähtyy git-repositorion juureen, ja koti on
+se hakemisto, jossa `.aggountant` on. Kodin perustaminen ei luo tätä
+hakemistoa. Agentti luo sen kirjoittaessaan Tulorekisteri-profiilin, ja voit
+luoda sen itse kodin juureen (`mkdir .aggountant`), jos haluat kodin sisällä
+ajettujen komentojen löytävän kodin.
 
 `aggountant config show` kertoo, mikä koti on käytössä ja mistä tieto tuli,
 esimerkiksi `home /…/esimerkki-oy (flag)`. Vain `init` luo kodin. Jos polku
 on kirjoitettu väärin, muut komennot pysähtyvät koodiin `HOME_NOT_INITIALIZED`
-ja kertovat, mitä polkua ne katsoivat ja miten polku valittiin
-([Kun jokin menee vikaan](../troubleshooting.md#tositteet-näyttävät-kadonneen)).
-
-Asetustiedosto on JSON-muotoinen. Kotia varten siihen kirjoitetaan
-`{"home": "/polku/kotiin"}`. Samaan tiedostoon tallentuu suoran
-ALV-ilmoittamisen tunnustiedoston polku, mutta sen kirjoittaa ohjelma itse.
+ja kertovat, mitä polkua ne katsoivat ja miten polku valittiin. Vianetsintä on
+kohdassa
+[Tositteet näyttävät kadonneen](../troubleshooting.md#tositteet-näyttävät-kadonneen).
 
 ## Git ja varmuuskopio
 
@@ -43,12 +43,11 @@ Kodin kannattaa olla git-repositorio. Gitiin tallentuvat tilikartta, yrityksen
 tiedot, ajojen tila ja asetukset, joten muutoksista jää historia, jonka voit
 tarkastaa.
 
-**Git ei kuitenkaan ole varmuuskopio kirjanpidostasi.** Kodin `.gitignore`
-rajaa gitistä pois tositetietokannan, arkistoidut liitteet ja henkilötiedot.
-Tositetietokanta ja liitteet ovat kirjanpidon tärkein osa, ja henkilötietoja
-ei saa tallentaa historiaan, josta niitä ei voi poistaa. Siksi koko koti
-varmuuskopioidaan erikseen:
-[Varmuuskopioi ja palauta kirjanpito](../tasks/back-up-and-restore.md).
+Git ei silti ole kirjanpitosi varmuuskopio, koska kodin `.gitignore` rajaa
+siitä pois kirjanpidon tärkeimmän osan: tositetietokannan ja arkistoidut
+liitteet. Pois jäävät myös henkilötiedot, koska niitä ei saa tallentaa
+historiaan, josta niitä ei voi poistaa. Siksi
+[koko koti varmuuskopioidaan erikseen](../tasks/back-up-and-restore.md).
 
 ## Yrityksen tietovarasto
 
@@ -56,43 +55,45 @@ Agentti tallentaa työssä opitut yrityksen faktat ja käytännöt kodin
 `knowledge/company/`-hakemistoon, esimerkiksi tilikauden, tavan kirjata tietyn
 toimittajan laskut tai sen, että puhelinliittymä on kokonaan yrityksen
 käytössä. Jokaisella tiedolla on lähde ja historia, joten näet myöhemmin, mistä
-tieto tuli ja milloin se muuttui. Vanhentunutta tietoa ei poisteta, vaan se
-merkitään pois käytöstä (`knowledge company retire`), jolloin aiempi tieto ja muutoksen syy säilyvät.
+tieto tuli ja milloin se muuttui. Vanhentunutta tietoa ei poisteta. Se
+merkitään pois käytöstä (`knowledge company retire`), ja aiempi tieto ja
+muutoksen syy säilyvät.
 
-Voit pyytää agenttia näyttämään tiedot: "mitä tiedät puhelinliittymästä?"
-Agentti käyttää silloin komentoja `aggountant knowledge company list`,
-`aggountant knowledge company search` ja `aggountant knowledge company history`.
+Voit pyytää agenttia näyttämään tiedot, esimerkiksi "mitä tiedät
+puhelinliittymästä?" Agentti käyttää silloin komentoja
+`aggountant knowledge company list`, `aggountant knowledge company search` ja
+`aggountant knowledge company history`.
 
 ## Kodin AGENTS.md
 
-aggountant ei määrää, mistä kuitit tulevat tai minne käsitelty aineisto
-viedään. Se kerrotaan kodin juuren `AGENTS.md`-tiedostossa omin sanoin.
-Agentti lukee sen ennen kuin se etsii, kopioi tai siirtää mitään. Tiedosto
-kirjoitetaan käyttöönotossa:
-[Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md).
+Kodin juuren `AGENTS.md`-tiedostossa kerrot omin sanoin, mistä kuitit tulevat
+ja minne käsitelty aineisto viedään, koska aggountant ei määrää kumpaakaan.
+Agentti lukee tiedoston ennen kuin se etsii, kopioi tai siirtää mitään.
+Tiedosto kirjoitetaan, kun
+[otat yrityksesi kirjanpidon käyttöön](../start/set-up-company.md).
 
 ## Kodin TODO.md
 
 Kodin juuren `TODO.md` on muistilista siitä, mikä odottaa: muiden lupaamat
-laskut ja kuitit, mitkä kuukaudet ovat auki ja mitä niiden sulku vielä
-vaatii, sekä määräajat, kuten ALV-ilmoitus ja tilinpäätös. Agentti lukee sen
-istunnon alussa ja päivittää sen samalla, kun kirjaa asian, joka ratkaisee
-kohdan, joten seuraava istunto jatkaa siitä mihin edellinen jäi. Tiedosto on
-tavallista tekstiä, jota voit lukea ja muokata itsekin; ohjelma ei lue sitä.
+laskut ja kuitit, avoimet kuukaudet ja se, mitä niiden sulku vielä vaatii,
+sekä määräajat, kuten ALV-ilmoitus ja tilinpäätös. Agentti lukee sen istunnon
+alussa ja päivittää sen samalla, kun kirjaa asian, joka ratkaisee kohdan,
+joten seuraava istunto jatkaa siitä, mihin edellinen jäi. Tiedosto on
+tavallista tekstiä, jota voit lukea ja muokata itsekin. Ohjelma ei lue sitä.
 
-Odottava asia ei kuulu yrityksen tietovarastoon, koska siellä on vain
-pysyviä faktoja lähteineen. Velvoitteet (`aggountant obligation`) ovat eri
-asia: ne syntyvät ohjelmassa ja estävät kauden sulun
-([Kaudet, sulku ja tilikausi](periods.md#velvoitteet)).
+Odottava asia ei kuulu yrityksen tietovarastoon, koska siellä on vain pysyviä
+faktoja lähteineen. Myös [velvoitteet](periods.md#velvoitteet)
+(`aggountant obligation`) ovat eri asia: ne syntyvät ohjelmassa ja estävät
+kauden sulun.
 
 ## Salaisuudet eivät kuulu kotiin
 
-**Salasanoja, tunnuksia ja avaimia ei kirjoiteta `AGENTS.md`- tai
+Salasanoja, tunnuksia ja avaimia ei kirjoiteta `AGENTS.md`- tai
 `TODO.md`-tiedostoon, yrityksen tietovarastoon eikä keskusteluun agentin
-kanssa.** Koti on
-git-versioitua tekstiä, ja keskustelut tallentuvat usein lokeihin. Vero.fi- ja
-Tulorekisteri-tunnukset ovat omassa tiedostossaan kodin ulkopuolella, ja
-ohjelma kieltäytyy käyttämästä tunnustiedostoa, joka on kodin sisällä.
+kanssa, koska koti on git-versioitua tekstiä ja keskustelut tallentuvat usein
+lokeihin. Vero.fi- ja Tulorekisteri-tunnukset ovat omassa tiedostossaan kodin
+ulkopuolella, ja ohjelma kieltäytyy käyttämästä tunnustiedostoa, joka on kodin
+sisällä.
 
 ## Mitä kodissa on
 
