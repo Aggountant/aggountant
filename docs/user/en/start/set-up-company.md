@@ -1,23 +1,24 @@
 # Set up your company's books
 
-On this page you set up your company's real books: the company home, the
-company's basic details, the opening balances, a description of where your
-receipts and bank statements come from, and a list of what is left waiting. The agent goes through the setup with
-you using the `aggountant-init` skill. You do the setup once, and an
-unfinished setup can be continued later.
+When you start your company's real books in aggountant, the agent sets up
+the company home with you, saves the company's basic details and records the
+opening balances. Together you also write down where your receipts and bank
+statements come from and what is left waiting. The agent uses the
+`aggountant-init` skill for this. You do the setup once, and an unfinished
+setup can be continued later.
 
 ## Before you start
 
-- aggountant and its skills are installed
-  ([Install aggountant and its skills](install.md)).
-- You have done the practice month or otherwise know how working with the
-  agent goes ([Practise your first month](practice-month.md)).
+- You have [installed aggountant and its skills](install.md).
+- You have done the [practice month](practice-month.md) or otherwise know
+  how working with the agent goes.
 - You have the company's official name, Business ID (Y-tunnus) and fiscal year
   at hand, preferably from the trade register extract (kaupparekisteriote).
-- If the company is moving from another bookkeeping program: the old system's
-  balance list (balance sheet) for the last day the old system covers, and its
-  list of accounts. What else to export from the old program and how:
-  [Move your books from another program](move-from-another-program.md).
+- If the company is moving from another bookkeeping program, you have the
+  old system's list of accounts and its balance list (balance sheet) for the
+  last day the old system covers.
+  [Move your books from another program](move-from-another-program.md) says
+  what else to export from the old program and how.
 
 ## How to do it
 
@@ -28,60 +29,51 @@ unfinished setup can be continued later.
 
 2. **The agent sets up the home.** It creates the directory, the voucher
    store, the default chart of accounts (`fi-general-2026`, 98 accounts) and a
-   `.gitignore` file. If the home already holds books, the program refuses
-   (`ALREADY_INITIALIZED`) and leaves them alone. Setting up the home does not
-   ask for the company name, Business ID or fiscal year; those are collected
-   in the next step. The agent recommends making the home a git repository and
-   setting it as the default home, so that commands find it without a path.
-   What is stored in the home, and why git is not a backup, is explained in
-   [The company home: what is stored where](../concepts/company-home.md).
+   `.gitignore` file. The agent recommends making the home a git repository
+   and setting it as the default home, so that commands find it without a
+   path. [The company home: what is stored where](../concepts/company-home.md)
+   explains what is stored in the home and why git is not a backup.
 
 3. **Give the basic details.** The agent asks for the company's official
    name, Business ID, fiscal year and the date the aggountant books start
    from. It saves your answers with their sources in the company knowledge
-   store. Give a trade register extract or a report from the old system as
-   the source, not an answer from memory: this information guides the
-   agent's work later. If the
-   fiscal year is not the calendar year, the agent also records it in the
-   books (`fiscal-year define`) before the first voucher. It defines the
-   fiscal year the first voucher falls in; later years follow on their own.
+   store and relies on them in its later work, so take the answers from the
+   trade register extract or a report from the old system rather than from
+   memory. If the fiscal year is not the calendar year, the agent also
+   records in the books, before the first voucher, the fiscal year that the
+   first voucher falls in. Later fiscal years follow on their own.
 
-4. **Check and approve the opening balances.** If the company comes from
-   another system, the agent records the old system's balances as one
-   ordinary voucher and attaches the balance list to it. The books use
-   aggountant's default chart of accounts, so the agent maps the old system's
-   accounts onto it and saves the mapping in the home. Several old accounts
-   may merge into one; the agent tells you which distinctions are lost that
-   way, and the mapping file shows where each balance came from. Before you
-   approve, check:
-   - The voucher is dated **the old system's last day**. If it is dated the
+4. **Check and approve the opening balances.** A new company has no opening
+   balances, and its first transaction is usually the share capital payment,
+   as in the practice month. For a company that comes from another system,
+   the agent records the old system's balances as one ordinary voucher and
+   attaches the balance list to it. The books use aggountant's default chart
+   of accounts, so the agent maps the old system's accounts onto it and saves
+   the mapping in the home. Several old accounts may merge into one. The
+   agent tells you which distinctions are lost that way, and the mapping file
+   shows where each balance came from. Before you approve, check:
+   - Every balance matches the balance list, and the voucher balances.
+   - The voucher is dated the old system's last day. If it is dated the
      first day of the new books, the whole earlier result shows up as the
      first month's result.
 
-     When the company moves in the middle of a fiscal year, the voucher falls
+   What the voucher holds depends on when the company moves:
+   - When the company moves in the middle of a fiscal year, the voucher falls
      in the same fiscal year as the new transactions. It holds the year's
      income and expense accounts as well as the balance-sheet accounts, so
      the result for the year so far carries on correctly.
-
-     When the company moves at the turn of a fiscal year (for example, the old
-     system covers 2025 and aggountant starts on 1 January 2026), the voucher
-     is dated the last day of the previous fiscal year, 31 December 2025. It
-     then holds only balance-sheet accounts: the previous year's result has
-     been transferred to equity. aggountant uses such a voucher as the
-     opening balances of the new fiscal year and does not require the old
-     system's year to be closed. Reports refuse (`PERIOD_NOT_SEALED`) if the
-     previous fiscal year holds anything else: income or expense accounts,
-     an earlier date, or a closed period.
-
-     If the company moves to aggountant at the start of a fiscal year that
-     does not begin on 1 January, the opening balances are dated the first
-     day of that fiscal year, because the books have no fiscal year before
-     it. At the start of a fiscal year the balances contain only
-     balance-sheet accounts, so this does not move any result.
-   - Every balance matches the balance list, and the voucher balances.
-
-   A new company has no opening balances. Its first transaction is usually the
-   share capital payment, as in the practice month.
+   - When the company moves at the turn of a fiscal year, the voucher is
+     dated the last day of the previous fiscal year. If the old system covers
+     2025 and aggountant starts on 1 January 2026, that day is 31 December
+     2025. The voucher holds only balance-sheet accounts, because the
+     previous year's result has been transferred to equity. aggountant uses
+     the voucher as the opening balances of the new fiscal year and does not
+     require the old system's year to be closed.
+   - If the new fiscal year does not begin on 1 January, the opening
+     balances are, as an exception, dated the first day of that fiscal year,
+     because the books have no fiscal year before it. At the start of a
+     fiscal year the balances contain only balance-sheet accounts, so this
+     does not move any result.
 
 5. **Tell the agent about open matters** that the balance list does not show.
    The agent asks whether company bills have been paid from your own account,
@@ -103,17 +95,19 @@ unfinished setup can be continued later.
    passwords, credentials or keys in the file.**
 
 7. **The agent writes a `TODO.md` file at the root of the home**, where it
-   gathers what is left waiting. It has three sections: what is expected from
-   others (for example the receipt for a registration fee the founder paid
-   from their own account), which months are open and what closing them still
-   needs, and deadlines (for example the VAT return and the first fiscal
-   year's financial statements). `AGENTS.md` tells every session to read the
-   file first and to update it when an item is settled. Check that the list
-   matches your own picture:
-   [The company home: what is stored where](../concepts/company-home.md#the-homes-todomd).
+   gathers what is left waiting: what is expected from others (for example
+   the receipt for a registration fee the founder paid from their own
+   account), which months are open and what closing them still needs, and
+   deadlines (for example the VAT return and the first fiscal year's
+   financial statements). Check that the list matches your own picture. The
+   agent reads the file at the start of every session and updates it when an
+   item is settled, as
+   [The home's TODO.md](../concepts/company-home.md#the-homes-todomd)
+   describes.
 
-8. **The agent makes a report for the first month.** Check it before you
-   record the month's transactions (below, "Done when").
+8. **The agent makes a report for the first month.** Check the figures
+   listed under [Done when](#done-when) in it before you record the month's
+   transactions.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -135,6 +129,9 @@ aggountant report statements --period 2026-03 --company "Esimerkki Oy" \
 
 The default home is set in the configuration file whose location
 `config path` prints. The file is JSON: `{"home": "/path/to/home"}`.
+
+`fiscal-year define` is run only if the fiscal year is not the calendar
+year.
 </details>
 
 ## Done when
@@ -148,21 +145,29 @@ The default home is set in the configuration file whose location
 
 ## Limitations
 
-- Importing several years of history from an old system is not ready. The
+- Several years of history cannot yet be imported from an old system, so the
   setup starts from opening balances.
-- The old system's chart of accounts cannot be imported. The books use the
-  default chart (`fi-general-2026`).
-- `init` does not repair or update an old home; the upgrade does that
-  ([Upgrade aggountant](../tasks/upgrade.md)).
+- The old system's chart of accounts cannot be imported, so the books use
+  the default chart.
+- `init` does not repair or update an old home.
+  [Upgrading aggountant](../tasks/upgrade.md) does that.
 
-More detail: [What is ready and what is not](../reference/status.md).
+All the limitations of the setup are on the page
+[What is ready and what is not](../reference/status.md#company-home-and-setup).
 
 ## If something goes wrong
 
-- **`ALREADY_INITIALIZED`.** The home already exists. Nothing was changed.
-- **Vouchers seem to have disappeared, or `HOME_NOT_INITIALIZED`.** The
-  command hit the wrong home:
-  [When something goes wrong](../troubleshooting.md#vouchers-seem-to-have-disappeared).
+- `ALREADY_INITIALIZED`: the home already holds books. The program refused
+  to set up the home and changed nothing.
+- `PERIOD_NOT_SEALED` in a report for the new fiscal year: the previous
+  fiscal year holds something other than the opening balances from the turn
+  of the year, that is, income or expense accounts, an earlier date or a
+  closed period.
+- If vouchers seem to have disappeared or a command stops with
+  `HOME_NOT_INITIALIZED`, the command hit the wrong home. The
+  troubleshooting section
+  [Vouchers seem to have disappeared](../troubleshooting.md#vouchers-seem-to-have-disappeared)
+  shows how to find the right one.
 
 ## See also
 
