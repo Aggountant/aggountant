@@ -19,6 +19,24 @@ fn run(args: &[&str]) -> (i32, String, String) {
     )
 }
 
+/// The "Mitä tehdään" cell of `code`'s row in the Finnish guide's error-code
+/// table, read at test time so rewording the guide does not break the test.
+fn guide_what_to_do(code: &str) -> String {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/user/fi/reference/error-codes.md"
+    );
+    let guide = std::fs::read_to_string(path).unwrap();
+    let prefix = format!("| `{code}` |");
+    let row = guide
+        .lines()
+        .find(|line| line.starts_with(&prefix))
+        .unwrap_or_else(|| panic!("no row for {code} in {path}"));
+    let cells: Vec<&str> = row.trim_matches('|').split(" | ").collect();
+    assert_eq!(cells.len(), 3, "{row}");
+    cells[2].trim().to_string()
+}
+
 #[test]
 fn error_json_carries_the_guides_hint() {
     let dir = tempfile::tempdir().unwrap();
@@ -29,10 +47,7 @@ fn error_json_carries_the_guides_hint() {
     assert_eq!(code, 1);
     let error: Value = serde_json::from_str(stderr.trim()).unwrap();
     assert_eq!(error["error_code"], "ALREADY_INITIALIZED");
-    assert_eq!(
-        error["hint"],
-        "ei mitään; koti on jo olemassa eikä siihen koskettu"
-    );
+    assert_eq!(error["hint"], guide_what_to_do("ALREADY_INITIALIZED"));
     let (_, stdout, _) = run(&["explain", "ALREADY_INITIALIZED", "--json"]);
     let entry: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(entry["what_to_do"], error["hint"]);

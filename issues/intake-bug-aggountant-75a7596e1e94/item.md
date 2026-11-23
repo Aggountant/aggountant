@@ -3,11 +3,12 @@ created: 2026-11-23
 updated: 2026-11-23
 type: bug
 reporter: jari
-status: open
+status: fixed
 priority: normal
 provenance: agent:homebase-sihteeri
 source_ref: agent:homebase-sihteeri/reporter:jari/id:sihteeri-agg-explain-20261123
 lane: unlaned
+closed: 2026-11-23
 ---
 
 # CI: explain_cli test pins the old ALREADY_INITIALIZED wording
@@ -39,3 +40,9 @@ Update the expectation in `crates/cli/tests/explain_cli.rs:34` to the new wordin
 Related open bugs on the same red main: `@macos-tmpdir-path-tests`, `@url-rustsec-2026-0592`.
 
 Reported by jari via agent:homebase-sihteeri.
+
+## Resolution
+
+### 2026-11-23T18:47:32Z · @issuectl
+
+Test reads the expected hint from the guide's table row. See result.md.
