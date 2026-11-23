@@ -1,6 +1,6 @@
 # Sulje kuukausi
 
-Kun kuukauden tapahtumat on kirjattu, kuukausi suljetaan. Sulun jälkeen
+Kun kuukauden tapahtumat on kirjattu, kuukausi suljetaan. Sen jälkeen
 kuukaudelle ei voi enää kirjata, ja ALV-ilmoitus tehdään sen luvuista. Sulkua
 ei voi perua, joten tee se vasta, kun kuukausi on valmis.
 
@@ -12,13 +12,13 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
   ([Kirjaa kuitit ja ostolaskut](record-receipts.md)).
 - Kuukausiraportin pankkitilin saldo on sama kuin tiliotteen loppusaldo
   ([Katso, miten kuukausi meni](monthly-report.md)).
-- Avoimia velvoitteita ei ole. Avoin velvoite estää sulun
+- Avoimia velvoitteita ei ole, sillä avoin velvoite estää sulun
   ([Kaudet, sulku ja tilikausi](../concepts/periods.md#velvoitteet)).
-- ALV-tilit täsmäävät ALV-ilmoitukseen. ALV-ilmoituksen esikatselu toimii myös
-  avoimelle kuukaudelle luonnoksena, jota ei voi ilmoittaa, ja näyttää, puuttuuko
-  ALV-tilin vienniltä ALV-merkintä. Ennen sulkua tällainen tosite korjataan
-  vielä samalle kuukaudelle; sulun jälkeen ilmoitus on tehtävä OmaVerossa
-  korjatuin luvuin.
+- ALV-tilit täsmäävät ALV-ilmoitukseen. ALV-ilmoituksen esikatselun saa myös
+  avoimesta kuukaudesta luonnoksena, jota ei voi ilmoittaa, ja se näyttää,
+  puuttuuko ALV-tilin vienniltä ALV-merkintä. Ennen sulkua sellainen tosite
+  korjataan vielä samalle kuukaudelle. Sulun jälkeen ilmoitus on tehtävä
+  OmaVerossa korjatuin luvuin.
 
 ## Näin teet sen
 
@@ -27,40 +27,40 @@ ei voi perua, joten tee se vasta, kun kuukausi on valmis.
    > Sulje maaliskuu.
 
 2. **Agentti tarkistaa kuukauden.** Se käy läpi yllä olevat ehdot ja kertoo,
-   jos jokin puuttuu. Sulun esikatselu näyttää jo tässä vaiheessa, mitä sulku
-   lukitsisi, muuttamatta mitään. Jos puutteita on, korjaa ne ensin. Agentti
-   ei aloita sulkua, ennen kuin kuukausi on valmis tai olet päättänyt, että avoimeksi
-   nimetty asia kirjataan myöhemmin.
+   mitä puuttuu. Sulun esikatselu näyttää, mitä sulku lukitsisi, eikä muuta
+   vielä mitään. Korjaa puutteet ensin: agentti aloittaa sulun vasta, kun
+   kuukausi on valmis tai olet päättänyt, että avoimeksi nimetty asia
+   kirjataan myöhemmin.
 
 3. **Agentti aloittaa sulun.** Kuukausi siirtyy tilaan `closing`. Siihen ei voi
    enää kirjata, ja sulku jää odottamaan hyväksyntääsi.
 
-4. **Tarkista ja hyväksy.** Ohjelma kokoaa hyväksyttävän sisällön: kuukauden
+4. **Tarkista ja hyväksy.** Ohjelma kokoaa sisällön, jonka hyväksyt: kuukauden
    tositteiden määrän ja numerot, kuukauden tuloksen ja tuloksen tilikauden
    alusta, tilien saldot kuukauden lopussa (esimerkiksi pankkitili ja
    ostovelat) ja kuukauden avoimet velvoitteet. Agentti näyttää sen ja kertoo,
    täsmääkö pankkitili tiliotteeseen, täsmäävätkö ALV-tilit ilmoitukseen ja
-   mitä jää avoimeksi. Kysy, jos se ei
-   kerro. Hyväksy, kun tiedät, ettei kuukauteen tarvitse enää kirjata mitään.
-   Hyväksynnän jälkeen kuukausi lukitaan pysyvästi.
+   mitä jää avoimeksi. Kysy, jos se ei kerro. Hyväksy, kun tiedät, ettei
+   kuukauteen tarvitse enää kirjata mitään, sillä hyväksyntä lukitsee
+   kuukauden pysyvästi.
+
+   > Hyväksyn sulun.
+
+   Jos huomaat tässä vaiheessa puutteen, hylkää sulku. Kuukausi palaa tilaan
+   `open`, mitään ei poisteta, ja voit kirjata puuttuvan asian ja aloittaa
+   sulun alusta.
+
+   > Hylkään sulun, kuukaudesta puuttuu vielä kuitti.
 
    Jos edellistä tilikautta ei ole vielä suljettu, saldoissa ovat vain tämän
    tilikauden tapahtumat ilman avaavia saldoja, ja sisältö sanoo sen. Sulku ei
    odota tilinpäätöstä.
 
-   Hyväksyntä koskee juuri näytettyä sisältöä. Jos kirjanpito muuttuu sen
-   jälkeen (esimerkiksi edelliselle avoimelle kuukaudelle kirjataan tosite,
-   joka muuttaa loppusaldoja), hyväksyntä hylätään koodilla
-   `CLOSE_CONTENT_CHANGED`. Silloin sulku hylätään ja aloitetaan uudelleen,
-   jotta hyväksyt sen, mitä kirjanpito nyt sanoo.
-
-   > Hyväksyn sulun.
-
-   Jos huomaat puutteen tässä vaiheessa, hylkää sulku. Kuukausi palaa tilaan
-   `open`, ja voit kirjata puuttuvan asian ja aloittaa sulun alusta. Mitään ei
-   poisteta.
-
-   > Hylkään sulun, kuukaudesta puuttuu vielä kuitti.
+   Hyväksyt juuri sen sisällön, jonka näit. Jos kirjanpito muuttuu sen jälkeen,
+   esimerkiksi aiemmalle avoimelle kuukaudelle kirjataan tosite, joka muuttaa
+   loppusaldoja, hyväksyntä hylätään koodilla `CLOSE_CONTENT_CHANGED`. Silloin
+   sulku hylätään ja aloitetaan uudelleen, ja hyväksyt sen, mitä kirjanpito
+   nyt sanoo.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -77,29 +77,36 @@ aggountant period show --period 2026-03
 ```
 
 Velvoite merkitään ratkaistuksi (`obligation resolve`) vasta, kun asia on
-oikeasti hoidettu. `run preview` ei muuta mitään; sen `ready` ja `blockers`
-kertovat, voiko sulun aloittaa. Sulku odottaa hyväksyntää `ApproveClose`, ja
-`run start` ja `run show` palauttavat sen sisällön kentässä `open_gate.content`
-sekä vastauskomennon kentässä `next_command`. Vastauksen paikalla on
-`'<approve|reject>'`: agentti vaihtaa sen tilalle päätöksesi mukaan `approve` tai
-`reject`, ja paikkamerkki itsessään hylätään virheenä. Hylkäys on `--answer reject`, ja se
-palauttaa kuukauden tilaan `open`. Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
+oikeasti hoidettu.
+
 Ennen sulkua `file-vat preview` vastaa `fileable: false` ja huomiokohdalla
-`VAT_PERIOD_NOT_SEALED`; `vat_reconciliation.status` on oltava `reconciled`,
-tai kohdan `VAT_ACCOUNTS_UNRECONCILED` luettelemien vientien on oltava sellaisia,
-jotka eivät kuulu ilmoitukseen.
+`VAT_PERIOD_NOT_SEALED`. Sen `vat_reconciliation.status` on oltava
+`reconciled`, tai kohdan `VAT_ACCOUNTS_UNRECONCILED` luettelemien vientien on
+oltava sellaisia, jotka eivät kuulu ilmoitukseen.
+
+`run preview` ei muuta mitään. Sen `ready` ja `blockers` kertovat, voiko sulun
+aloittaa.
+
+Sulku odottaa hyväksyntää `ApproveClose`. `run start` ja `run show` palauttavat
+hyväksyttävän sisällön kentässä `open_gate.content` ja vastauskomennon kentässä
+`next_command`. Komennossa vastauksen paikalla on `'<approve|reject>'`, jonka
+tilalle agentti vaihtaa päätöksesi mukaan `approve` tai `reject`. Paikkamerkki
+sellaisenaan hylätään virheenä. `--answer reject` palauttaa kuukauden tilaan
+`open`.
+
+Neljännesvuosikaudella kausi annetaan muodossa `2026-Q1`.
 </details>
 
 ## Valmis, kun
 
-Agentti näyttää kuukauden tilan, ja tila on `sealed`:
+Agentti näyttää kuukauden tilan, ja se on `sealed`:
 
 ```
 period "2026-03" — "sealed" (…, vat_filed false)
 ```
 
 `vat_filed false` tarkoittaa, että kuukauden ALV-ilmoitus on vielä tekemättä.
-Seuraava vaihe on [ALV-ilmoitus OmaVerossa](file-vat-omavero.md) tai
+Tee se seuraavaksi [OmaVerossa](file-vat-omavero.md) tai
 [suoraan Verohallinnolle](file-vat-direct.md).
 
 ## Rajoitukset
@@ -112,13 +119,14 @@ Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tilikausi-ja-k
 
 ## Jos jokin menee pieleen
 
-- **Huomasit virheen sulun jälkeen.** Kirjaa korjaus seuraavalle avoimelle
+- Jos huomaat virheen sulun jälkeen, kirjaa korjaus seuraavalle avoimelle
   kuukaudelle: [Korjaa virheellinen tosite](correct-voucher.md).
-- **Kirjaus kieltäytyy koodilla `PERIOD_CLOSING` tai `PERIOD_SEALED`.**
-  Kuukauden sulku on kesken tai tehty. Kirjaa seuraavalle kuukaudelle.
-- **Kone kaatui tai yhteys katkesi sulun aikana.** Mitään ei menetetty, ja
-  agentti jatkaa ajoa: [Kun jokin menee vikaan](../troubleshooting.md#ajo-keskeytyi).
-- **Kuukausi jäi tilaan `closing`.** [Kun jokin menee vikaan](../troubleshooting.md#kuukausi-jäi-suljettavaksi).
+- Jos kirjaus kieltäytyy koodilla `PERIOD_CLOSING` tai `PERIOD_SEALED`,
+  kuukauden sulku on kesken tai tehty. Kirjaa seuraavalle kuukaudelle.
+- Jos kone kaatui tai yhteys katkesi sulun aikana, mitään ei menetetty, ja
+  agentti jatkaa ajoa: [Ajo keskeytyi](../troubleshooting.md#ajo-keskeytyi).
+- Jos kuukausi jäi tilaan `closing`, katso
+  [Kuukausi jäi suljettavaksi](../troubleshooting.md#kuukausi-jäi-suljettavaksi).
 
 ## Katso myös
 
