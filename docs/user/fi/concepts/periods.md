@@ -1,8 +1,7 @@
 # Kaudet, sulku ja tilikausi
 
 Kirjanpito suljetaan pala kerrallaan: ensin kuukausi, lopulta koko tilikausi.
-Suljettuun kauteen ei voi enää kirjata. Tämä sivu kertoo, mitä kaudet ovat,
-missä tiloissa ne voivat olla ja miksi avoin asia voi estää sulun.
+Suljettuun kauteen ei voi enää kirjata, ja avoin asia voi estää sulun.
 
 ## Tilikausi ja kaudet
 
@@ -11,22 +10,24 @@ tilikausi on esimerkiksi 1.7.–30.6., määrittelee sen kerran kirjanpidon
 käyttöönotossa, ja seuraavat tilikaudet jatkuvat sen mukaan. Ensimmäinen
 tilikausi tai tilikausi, jona tilikautta muutetaan, voi olla 12 kuukautta
 lyhyempi tai pidempi, kuitenkin enintään 18 kuukautta (kirjanpitolaki 1:4).
+
 Tilikausi nimetään sen kalenterivuoden mukaan, jona se päättyy:
 1.7.2026–30.6.2027 on tilikausi 2027. Kaksi tilikautta ei voi päättyä samana
-kalenterivuonna; jos muutat tilikautta, käytä yhtä pidempää siirtymätilikautta.
+kalenterivuonna. Jos muutat tilikautta, käytä siksi yhtä pidempää
+siirtymätilikautta.
 
 Vuosi suljetaan kausittain. Kalenterivuoden tilikausi suljetaan joko
 kuukausittain (`2026-03`) tai neljännesvuosittain (`2026-Q1`), mutta samana
-vuonna ei voi käyttää molempia; kuukausi on suositeltu ja koeteltu
-vaihtoehto. Kalenterivuodesta poikkeava tilikausi suljetaan aina
-kuukausittain.
+vuonna ei voi käyttää molempia. Kuukausi on suositeltu ja koeteltu vaihtoehto.
+Kalenterivuodesta poikkeava tilikausi suljetaan aina kuukausittain.
 
-ALV-ilmoitus tehdään samalle kaudelle, jolla kirjanpito suljetaan: kuukaudelle
-tai neljännekselle. Suoraa ALV-ilmoittamista on koeteltu kuukausikausilla.
+ALV-ilmoitus tehdään samalle kaudelle, jolla kirjanpito suljetaan, eli
+kuukaudelle tai neljännekselle. Suoraa ALV-ilmoittamista on koeteltu
+kuukausikausilla.
 
 ## Kauden tilat
 
-Kauden tila näkyy aina, kun agentti näyttää sen:
+Kun agentti näyttää kauden, sen tila on rivillä toisena:
 
 ```
 period "2026-03" — "sealed" (…, vat_filed false)
@@ -42,20 +43,19 @@ period "2026-03" — "sealed" (…, vat_filed false)
 lasketaan vain suljetusta kaudesta, koska vasta silloin ne eivät voi enää
 muuttua.
 
-Kausi etenee järjestyksessä `open` → `closing` → `sealed`. Kun sulku odottaa
-hyväksyntääsi, voit vielä hylätä sen: hylkäys tarkoittaa, ettei kuukausi ole
-vielä valmis, ja palauttaa kauden tilaan `open`. Silloin voit kirjata puuttuvat
-asiat ja aloittaa uuden sulun. Sulun aikana tehdyt kirjaukset säilyvät, mitään
-ei poisteta. Hyväksyttyä sulkua ei voi perua, eikä suljettua kautta avata
-uudelleen.
+Kausi etenee tilasta `open` tilaan `closing` ja siitä tilaan `sealed`. Kun
+sulku odottaa hyväksyntääsi, voit vielä hylätä sen. Hylkäys tarkoittaa, ettei
+kuukausi ole vielä valmis, ja se palauttaa kauden tilaan `open`. Sulun aikana
+tehdyt kirjaukset säilyvät, eikä mitään poisteta. Hyväksyttyä sulkua ei voi
+perua, eikä suljettua kautta avata uudelleen.
 
 ## Miksi suljettuun kauteen ei kirjata
 
 Kun kuukauden luvut on raportoitu ja ALV ilmoitettu, niiden on pysyttävä
-samoina. Jos suljettuun kuukauteen voisi lisätä tositteen, ilmoitettu ALV ja
-kirjanpito eivät enää vastaisi toisiaan. Siksi myöhemmin huomattu puute tai
-virhe kirjataan seuraavalle avoimelle kaudelle, kuten kirjanpidossa on aina
-tehty: [Korjaa virheellinen tosite](../tasks/correct-voucher.md).
+samoina. Jos suljettuun kuukauteen lisätään tosite, ilmoitettu ALV ja
+kirjanpito eivät enää vastaa toisiaan. Siksi myöhemmin huomattu puute tai
+virhe [kirjataan seuraavalle avoimelle kaudelle](../tasks/correct-voucher.md),
+kuten kirjanpidossa on aina tehty.
 
 ## Velvoitteet
 
@@ -70,11 +70,11 @@ käytössä velvoitelista on siksi tyhjä.
 
 ## Tilikauden tila
 
-Tilikauden tila on `open` tai `sealed`. `aggountant fiscal-year show`
-näyttää myös tilikauden ensimmäisen ja viimeisen päivän ja pituuden
-kuukausina. Sinetöidyllä tilikaudella on myös
-tilinpäätöslaskelmien tarkiste. Tilikauden sinetöi tilinpäätösajo; siihen
-asti tilikausi on tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.md)).
+Tilikauden tila on `open` tai `sealed`. Tilikauden sinetöi
+[tilinpäätösajo](../tasks/year-end.md). `aggountant fiscal-year show` näyttää
+tilan lisäksi tilikauden ensimmäisen ja viimeisen päivän ja pituuden
+kuukausina, ja sinetöidystä tilikaudesta myös tilinpäätöslaskelmien
+tarkisteen.
 
 ## Mitä tämä tarkoittaa sinulle
 
@@ -82,7 +82,7 @@ asti tilikausi on tilassa `open` ([Valmistele tilinpäätös](../tasks/year-end.
   avoimet asiat on käsitelty.
 - Jos huomaat puutteen sulun alettua, hylkää sulku, kirjaa puute ja aloita
   sulku uudelleen.
-- Pysy samassa kausijaossa koko vuoden. Kuukausi on suositeltu.
+- Pysy samassa kausijaossa koko vuoden.
 
 ## Katso myös
 
