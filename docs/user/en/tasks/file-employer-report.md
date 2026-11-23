@@ -1,28 +1,28 @@
 # File the employer's separate report
 
-When your company is in the Tax Administration's employer register, an
-employer's separate report (työnantajan erillisilmoitus) goes to Tulorekisteri,
+When your company is in the Tax Administration's employer register, you file
+an employer's separate report (työnantajan erillisilmoitus) with Tulorekisteri,
 the Finnish Incomes Register, every month, including months in which you paid
-nothing. The deadline is the 5th day of the following month. aggountant sends
-the report over the same Tulorekisteri production connection as travel
-allowances and tells you which months are missing.
+nothing. The deadline is the 5th day of the following month. A company that
+pays wages only occasionally and is not in the register does not file the
+separate report for months in which it paid nothing.
 
-The separate report is a different report from the earnings payment report for
-travel allowances. A travel allowance report does not replace it.
+aggountant sends the report over the same Tulorekisteri production connection
+as travel allowances and tells you which months are missing. The earnings
+payment report for travel allowances is a different report and does not
+replace the separate report.
 
 ## Before you start
 
-- **The Tulorekisteri API permission and profile** are in place
-  ([Report travel allowances to Tulorekisteri](report-travel-allowances.md#set-up-reporting-once)).
-  The separate report uses the same permission and credential file.
-- **The first month of your employer registration.** The agent can check it
-  in the YTJ open data (see below), or you find it in OmaVero or in the Tax
-  Administration's decision. A company that pays wages only
-  occasionally and is not in the register does not file the separate report
-  for months in which it paid nothing.
-- **Earnings-related pension insurance (TyEL)**, if the company has one: the
+- [The Tulorekisteri API permission and profile](report-travel-allowances.md#set-up-reporting-once)
+  are in place. The separate report uses the same permission and credential
+  file as travel allowances.
+- You know the month from which the company has been in the employer
+  register. You find it in OmaVero or in the Tax Administration's decision,
+  or the agent [checks it in YTJ](#check-the-registration-start-in-ytj).
+- If the company has earnings-related pension insurance (TyEL), you know the
   pension company and the policy number. If the only insured person is an
-  owner with self-employed pension insurance (YEL), none is needed.
+  owner with self-employed pension insurance (YEL), these are not needed.
 
 ## Set up the separate report (once)
 
@@ -33,17 +33,20 @@ travel allowances. A travel allowance report does not replace it.
    > Meikäläinen, phone 040 123 4567. There is no TyEL insurance; the owner
    > has YEL.
 
-2. **The agent adds** the first registration month, the contact person and the
-   pension insurances to the Tulorekisteri profile. Before writing, aggountant
-   checks the first month against the employer register in YTJ (see below)
-   and refuses a month the register disagrees with; the agent then shows you
-   the comparison, and writes your month only if you confirm it. If YTJ does
-   not answer, nothing is written unless you agree to save the settings
-   without the check. The phone number, the pension company codes and the
-   policy numbers are checked against what the report accepts. Only the
-   separate report section of the profile changes. Check the settings the
-   agent shows you: they go into the report, and from the first month on a
-   report is expected for every month.
+2. **The agent adds the settings to the Tulorekisteri profile:** the first
+   registration month, the contact person and the pension insurances.
+   aggountant checks that the phone number, the pension company codes and the
+   policy numbers are in a form the report accepts, and compares the first
+   month with
+   [the employer register in YTJ](#check-the-registration-start-in-ytj).
+
+3. **Check the settings the agent shows you.** They go into the report, and
+   from the first month on a report is expected for every month.
+
+If the register has a different first month from the one you gave, aggountant
+does not save the settings. The agent shows you the comparison and saves your
+month only if you confirm it. If YTJ does not answer, aggountant saves nothing
+unless you and the agent agree to save without the check.
 
 <details>
 <summary>The command the agent runs</summary>
@@ -54,31 +57,43 @@ aggountant file-wage employer-report configure --registered-from 2026-08 \
   --no-pension-insurance --dry-run
 ```
 
-A pension insurance is given as `--pension-insurance PROVIDER_CODE:POLICY_NUMBER`
-(repeatable); with none, `--no-pension-insurance` must be stated. The same
-settings can come as JSON on standard input. `--accept-register-mismatch`
-writes a month YTJ disagrees with, and `--offline` writes without the YTJ
-check. The output shows the section before and after.
+A pension insurance is given as
+`--pension-insurance PROVIDER_CODE:POLICY_NUMBER`, and the option can be
+repeated. If there are none, that is stated with `--no-pension-insurance`. The
+same settings can come as JSON on standard input.
+
+`--accept-register-mismatch` saves a month YTJ disagrees with, and `--offline`
+saves without the YTJ check.
+
+The command changes only the `employer_report` section of the profile
+(`registered_from`, `contact_name`, `contact_phone`, `pension_insurances`) and
+shows it before and after.
 </details>
 
 ### Check the registration start in YTJ
 
-If you do not know or remember when the company entered the employer
-register, ask the agent to check:
+If you do not know when the company entered the employer register, ask the
+agent to check:
 
 > When did the company enter the employer register?
 
-aggountant looks up the company's employer-register entries by Business ID in
-PRH's YTJ open data (no credentials; only the Business ID is sent) and
-compares them with the profile's first month. The result says whether the
-month matches, whether the profile starts too late (so old months are left
-out of the missing list) or too early, whether the entry has ended, or whether
-the company is not in the register at all. Earlier register periods are shown
-too. The command does not change the profile: the agent changes the first
-month (with the setup command above) only when you approve it. Employer's separate reports exist from
+aggountant looks up the company's employer-register entries in PRH's YTJ open
+data and compares them with the profile's first month. Only the Business ID is
+sent, and no credentials are needed. The result says one of these:
+
+- the first month matches
+- the profile starts too late, so old months are left out of the missing list
+- the profile starts too early
+- the register entry has ended
+- the company is not in the register.
+
+Earlier register periods are shown too. Employer's separate reports exist from
 January 2019, so an older registration means a first month of 2019-01.
 
-If YTJ does not answer, the result is "unknown", not "not registered"; try
+The check does not change the profile. The agent changes the first month with
+the setup command only once you approve it.
+
+If YTJ does not answer, the result is "unknown", not "not registered". Try
 again later or look the company up on ytj.fi.
 
 <details>
@@ -96,27 +111,26 @@ aggountant file-wage employer-report registration
    > Let's file the employer's separate report for October.
 
 2. **The agent finds out what was paid in the month** and asks you if the
-   books do not show it. There are three cases:
-   - **No payments at all**: the report says "No wages payable" (Ei
-     palkanmaksua).
-   - **Only tax-free travel allowances** (mileage allowances, per diems): the
-     report gives the employer's health insurance contribution as €0.00.
-     According to Tulorekisteri's guidance "No wages payable" is not correct
-     then, because payments were made.
-   - **Wages**: aggountant does not yet compute the health insurance
-     contribution, so it does not file such a month. File it in
-     Tulorekisteri's e-service
-     ([What is ready and what is not](../reference/status.md#tulorekisteri-and-employees)).
-
-   aggountant refuses "No wages payable" for a month that has a travel
-   allowance report.
+   books do not show it.
+   - If you paid nothing, the report says "No wages payable" (Ei
+     palkanmaksua). aggountant refuses this choice for a month that has a
+     travel allowance report.
+   - If you paid only tax-free travel allowances (mileage allowances, per
+     diems), the report gives the employer's health insurance contribution as
+     €0.00. According to Tulorekisteri's guidance "No wages payable" is not
+     correct then, because payments were made.
+   - If you paid wages, file the report in Tulorekisteri's e-service.
+     aggountant
+     [does not yet compute the health insurance contribution](../reference/status.md#tulorekisteri-and-employees),
+     so it does not file such a month.
 
 3. **The agent previews the report.** The preview uses no network connection
    and saves nothing. It shows the month, the content, the contact person, any
    pension insurances, the deadline and the report checksum.
 
 4. **Check and approve** the month and the content. The report is final once
-   Tulorekisteri has accepted it; a correction is a replacement report.
+   Tulorekisteri has accepted it, and after that it is corrected with a
+   replacement report.
 
    > I approve the separate report for October.
 
@@ -136,9 +150,7 @@ aggountant file-wage employer-report status --month 2026-10
 
 `--payments` is `none`, `tax-free-reimbursements-only` or `wages`. The
 preview and the submit get the same options and the same timestamp. The
-timestamp also becomes the report's reporting date. The profile section is
-`employer_report` (`registered_from`, `contact_name`, `contact_phone`,
-`pension_insurances`), written with `file-wage employer-report configure`.
+timestamp also becomes the report's reporting date.
 </details>
 
 ## Missing months
@@ -147,16 +159,15 @@ Ask the agent to check whether reports are missing:
 
 > Are any employer's separate reports missing?
 
-aggountant lists the months from the start of the registration up to the
-previous month for which Tulorekisteri has no report that aggountant knows of.
-Each shows its deadline and whether the deadline has passed. The agent goes
-through the missing months from the oldest, and you approve each month
-separately. A late report can lead to a late-filing fee, so file late months
-right away.
+aggountant lists the months, from the start of the registration up to the
+previous month, for which it knows of no report filed with Tulorekisteri. Each
+shows its deadline and whether the deadline has passed. The agent goes through
+the missing months from the oldest, and you approve each month separately. A
+late report can lead to a late-filing fee, so file late months right away.
 
 If you have already filed a month in the e-service, do not send it again. Give
-the agent the report reference from the e-service, and the month is marked as
-filed.
+the agent the report reference from the e-service, and the agent marks the
+month as filed.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -171,53 +182,58 @@ aggountant file-wage employer-report complete-manual --month 2026-08 \
 ### When an earlier payroll service filed reports
 
 If an accounting firm or payroll service filed some months before aggountant,
-there is no need to dig up every reference one by one. Tulorekisteri's
-transcript 630 shows how many separate reports each month has. This is the one
-step that needs the Tulorekisteri e-service; aggountant cannot order the
-transcript for you.
+there is no need to dig up the references one by one. Tulorekisteri's
+transcript 630 shows how many separate reports each month has. You order the
+transcript yourself in the Tulorekisteri e-service, because aggountant cannot
+order it for you.
 
-1. **Order the transcript in the e-service**: New subscription → *Summary of
+1. **Order the transcript in the e-service:** New subscription → *Summary of
    payer's earnings payment data (csv)* (630). Choose the reporting period
    range from the start of the registration, at most 24 months at a time, and
-   **Finnish** (suomi) as the language. Leave the reception time range empty:
-   a limited transcript leaves out reports received at other times, and the
-   file does not show the limit. Download it from the *Subscriptions
-   made* page. If the download is a ZIP file, unzip it.
-2. **Give the file to the agent.**
+   **Finnish** (suomi) as the language. Leave the reception time range empty,
+   because a limited transcript leaves out reports received at other times,
+   and the file does not show the limit. Download the finished transcript from
+   the *Subscriptions made* page. If the download is a ZIP file, unzip it.
+
+2. **Give the file to the agent.** The transcript does not carry the payer's
+   Business ID, so make sure it is your own company's.
 
    > Here is Tulorekisteri's transcript 630 for 2025.
 
 3. **The agent imports the transcript.** aggountant stores the file and marks
    every month with at least one separate report as filed outside aggountant.
-   A month without a report stays missing. A month aggountant already knows
-   from its own sending or a recorded reference is not changed. A conflict is
-   shown, for example when aggountant has the month as filed but the
-   transcript has no report for it. Importing the same file again changes
-   nothing. The transcript does not name the payer, so make sure it is your
-   own company's.
+   A month without a report stays missing.
+
+The import does not change a month aggountant already knows from its own
+sending or from a recorded reference. If the transcript and aggountant's
+records conflict, for example when aggountant has the month as filed but the
+transcript has no report for it, the agent shows you the conflict. Importing
+the same file again changes nothing.
 
 In the missing-months list the transcript's months are shown separately, with
 the transcript as their source. For such a month aggountant sends neither a
 new report nor a replacement, because the transcript carries no report
-reference: correct the report in the e-service, or record its reference first.
+reference. Correct the report in the e-service, or give the agent its
+reference first.
 
-A replacement repeats the pension insurance details of the report it
-replaces, and aggountant does not know what a report given outside it said:
-no transcript or interface returns them. Before such a replacement, open the
-original report under Submitted reports in the e-service and tell the agent
-its pension insurances (pension company code and policy number, or none). If
-they differ from your current settings, a "No wages payable" replacement is
-refused and the correction is made in the e-service. Without them the
-replacement is refused (`EMPLOYER_REPORT_PREVIOUS_UNKNOWN`).
+Once the reference is recorded, aggountant still does not know which pension
+insurance details the report filed outside it stated, and a replacement has to
+repeat them. No transcript or interface returns them. So before a replacement,
+open the original report under Submitted reports in the e-service and tell the
+agent its pension insurances: the pension company code and the policy number,
+or that there are none. Without them aggountant refuses the replacement
+(`EMPLOYER_REPORT_PREVIOUS_UNKNOWN`). If they differ from your current
+settings, aggountant refuses a "No wages payable" replacement, and you make
+the correction in the e-service.
 
-If two imported transcripts disagree about a month (one has a report, the
-other none), aggountant does not guess which is newer. The month is listed
-among the missing months as a conflict, and nothing is sent for it until you
-check it in the e-service and the agent records the report reference.
+If two imported transcripts disagree about a month, one having a report and
+the other none, the month is listed among the missing months as a conflict.
+aggountant sends nothing for it until you check the month in the e-service and
+the agent records the report reference.
 
 aggountant reads only a Finnish-language transcript whose columns are those
-the Tulorekisteri e-service writes. Any other file is refused
-(`TRANSCRIPT_UNKNOWN_HEADER`) and nothing is stored.
+the Tulorekisteri e-service writes. It refuses any other file
+(`TRANSCRIPT_UNKNOWN_HEADER`) and stores nothing.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -241,16 +257,17 @@ check the report in Tulorekisteri's e-service.
 
 ## If something goes wrong
 
-- **The outcome of the sending is unclear**: nothing is sent again for the
-  month until its state is settled. The agent asks Tulorekisteri for the state
-  ([When something goes wrong](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain)).
-- **The report needs correcting**: ask for a replacement report, for example
-  when travel allowances turn out to have been paid in a month reported as "No
-  wages payable". A replacement repeats the pension insurance details of the
-  report it replaces. Correcting the pension insurance details themselves, and
-  cancelling a report, are done in the e-service.
-- **Tulorekisteri rejected the report**:
-  [When something goes wrong](../troubleshooting.md#tulorekisteri-rejected-the-report).
+- If the outcome of the sending is unclear, aggountant sends nothing again for
+  the month until its state is settled. The agent asks Tulorekisteri for the
+  state, as described in
+  [The outcome of a filing is uncertain](../troubleshooting.md#the-outcome-of-a-filing-is-uncertain).
+- If the report needs correcting, ask the agent for a replacement report, for
+  example when travel allowances turn out to have been paid in a month
+  reported as "No wages payable". A replacement repeats the pension insurance
+  details of the report it replaces. You correct the pension insurance details
+  themselves, and cancel a report, in the e-service.
+- If Tulorekisteri rejected the report, see
+  [Tulorekisteri rejected the report](../troubleshooting.md#tulorekisteri-rejected-the-report).
 
 ## See also
 
