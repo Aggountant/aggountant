@@ -147,8 +147,8 @@ sealing-and-approval):
 - **Two rhetorical questions in a row** ("Tuletko toisesta ohjelmasta? …
   Haluatko mukaan? …") is the marketing pattern; write plain conditionals.
 - **Routing pages** (monthly routine, front page): put the link on the step's
-  own words ("kirjaa kuitit, jokaisen [omana tositteenaan](…)"), not
-  ": [Page title](…)" after a colon. A page link may sit on a plain phrase.
+  own words (`kirjaa kuitit, jokaisen [omana tositteenaan](…)`), not
+  `: [Page title](…)` after a colon. A page link may sit on a plain phrase.
 - **Hypothetical conditional** where the present works: "Jos joku muuttaisi
   …, ketju ei enää täsmäisi" → "Jos tositetta muutetaan …, ketju ei enää
   täsmää".
