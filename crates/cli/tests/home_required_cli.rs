@@ -164,7 +164,11 @@ fn assert_refused(args: &[&str], code: i32, stdout: &str, error: &Value) {
 fn commands_in_an_empty_directory_leave_it_empty_and_name_the_fallback() {
     let config = tempfile::tempdir().unwrap();
     let cwd = tempfile::tempdir().unwrap();
-    let expected = std::path::absolute(cwd.path().join("accounting")).unwrap();
+    // The CLI reports the canonical path it opens; on macOS the tempdir sits
+    // behind the /var -> /private/var symlink.
+    let expected = std::fs::canonicalize(cwd.path())
+        .unwrap()
+        .join("accounting");
 
     for args in READ_COMMANDS {
         let (code, stdout, error) = run(&mut isolated(cwd.path(), config.path()), args, "");
@@ -257,8 +261,11 @@ fn a_mistyped_home_flag_is_named_and_not_created() {
 fn a_bare_marker_is_named_and_left_alone() {
     let config = tempfile::tempdir().unwrap();
     let project = tempfile::tempdir().unwrap();
-    let marker = project.path().join(".aggountant");
-    std::fs::create_dir(&marker).unwrap();
+    std::fs::create_dir(project.path().join(".aggountant")).unwrap();
+    // Reported canonically; see the fallback test above.
+    let marker = std::fs::canonicalize(project.path())
+        .unwrap()
+        .join(".aggountant");
 
     let (code, stdout, error) = run(
         &mut isolated(project.path(), config.path()),

@@ -2,9 +2,10 @@
 created: 2026-11-23
 updated: 2026-11-23
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: unlaned
+closed: 2026-11-23
 ---
 
 # macOS CI: home_required_cli tests fail on /private/var symlink
@@ -34,3 +35,9 @@ On macOS `$TMPDIR` lives under `/var/folders/…`, and `/var` is a symlink to `/
 ## Fix
 
 In `crates/cli/tests/home_required_cli.rs`, build expected paths from a canonicalized tempdir (`std::fs::canonicalize(cwd.path())` before joining `accounting` / `.aggountant`), or compare canonicalized forms. Decide whether the CLI should report the canonical path at all; if the user-facing message should echo the path as given, change the CLI instead of the test.
+
+## Resolution
+
+### 2026-11-23T18:47:32Z · @issuectl
+
+Tests expect the canonical path the CLI opens. See result.md.
