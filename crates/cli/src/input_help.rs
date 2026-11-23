@@ -502,7 +502,9 @@ VOUCHERS SEALED OUTSIDE THE IMPORT
     BANK_VOUCHER_MISMATCH. The voucher is not changed; later exports of the
     entry need the same binding; or
   - it does not: add its number to the assignment's not_booked_by.
-  One voucher books at most one bank transaction.
+  A voucher is bound to at most one bank transaction. One with several
+  postings on the bank account (several payments in one voucher) stays a
+  candidate for the others after one is bound, so they stop the import.
 
 PREVIEW AND APPROVAL
   --dry-run prepares and validates every voucher exactly as the seal would

@@ -86,7 +86,9 @@ Agentti näyttää tositteen ja kysyy, kumpi tapaus on kyseessä:
   sama tili, summa, puoli ja päivä (7 päivän sisällä); itse tositetta ei
   muuteta. Esikatselu näyttää tapahtuman liitettynä siihen tositteeseen, ja
   myöhemmillä tiliotteilla sama tapahtuma liitetään siihen samalla tavalla.
-  Yhteen tositteeseen voi liittää vain yhden pankkitapahtuman.
+  Yhteen tositteeseen voi liittää vain yhden pankkitapahtuman. Jos yksi
+  tosite kirjaa useita pankkitapahtumia, esimerkiksi kuukauden korttimaksut,
+  vain yhden niistä voi liittää siihen, ja muut pysäyttävät tuonnin edelleen.
 - **Tosite on jotain muuta**, esimerkiksi toinen samansuuruinen maksu. Agentti
   merkitsee, ettei tämä tosite kirjaa tapahtumaa, ja tapahtuma saa uuden
   tositteen.

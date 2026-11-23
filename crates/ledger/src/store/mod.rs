@@ -528,9 +528,10 @@ pub(crate) trait FiscalStore {
     /// event recorded: those sealed by an import before events existed.
     fn vouchers_without_bank_event(&self, prefix: &str) -> Result<Vec<StoredVoucher>, LedgerError>;
 
-    /// Every voucher no bank event is bound to, in number order: the vouchers
-    /// that could book a bank transaction the import does not know about.
-    fn vouchers_not_bound_to_bank_event(&self) -> Result<Vec<StoredVoucher>, LedgerError>;
+    /// Every voucher with the number of bank events bound to it, in number
+    /// order: the vouchers that could book a bank transaction the import does
+    /// not know about.
+    fn vouchers_with_bank_event_count(&self) -> Result<Vec<(StoredVoucher, usize)>, LedgerError>;
 
     /// Recorded observations, optionally only those in one statement file,
     /// ordered by file and voucher number.

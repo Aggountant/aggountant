@@ -1638,20 +1638,19 @@ impl FiscalStore for SqliteFiscalStore {
             .collect()
     }
 
-    fn vouchers_not_bound_to_bank_event(&self) -> Result<Vec<StoredVoucher>, LedgerError> {
+    fn vouchers_with_bank_event_count(&self) -> Result<Vec<(StoredVoucher, usize)>, LedgerError> {
         let guard = self.conn.lock().unwrap();
         let mut stmt = guard.prepare(
-            "SELECT v.number FROM vouchers v
+            "SELECT v.number, count(b.event_key) FROM vouchers v
              LEFT JOIN bank_event b ON b.voucher_number = v.number
-             WHERE b.event_key IS NULL
+             GROUP BY v.number
              ORDER BY v.number",
         )?;
-        let numbers = stmt
-            .query_map([], |r| r.get::<_, u64>(0))?
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, u64>(0)?, r.get::<_, usize>(1)?)))?
             .collect::<Result<Vec<_>, _>>()?;
-        numbers
-            .into_iter()
-            .map(|number| load_voucher(&guard, number))
+        rows.into_iter()
+            .map(|(number, bound)| Ok((load_voucher(&guard, number)?, bound)))
             .collect()
     }
 

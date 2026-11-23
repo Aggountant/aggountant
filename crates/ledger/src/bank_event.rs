@@ -20,13 +20,13 @@
 //! conflicts and nothing is.
 //!
 //! A voucher sealed outside the import (generic `voucher seal`) carries no event
-//! key, so before a new voucher is sealed for a transaction every voucher not
-//! bound to a bank event is searched for one that may already book it: one that
-//! names the bank reference, or posts the same amount on the same side of the
-//! same bank account within [`DATE_TOLERANCE_DAYS`] of the bank's dates. A
-//! candidate stops the batch until the user binds the transaction to it or
-//! states that it does not book the transaction. A false stop costs a look; a
-//! missed one books the money twice.
+//! key, so before a new voucher is sealed for a transaction every such voucher
+//! with room for another bank transaction is searched for one that may already
+//! book it: one that names the bank reference, or posts the same amount on the
+//! same side of the same bank account within [`DATE_TOLERANCE_DAYS`] of the
+//! bank's dates. A candidate stops the batch until the user binds the
+//! transaction to it or states that it does not book the transaction. A false
+//! stop costs a look; a missed one books the money twice.
 
 use serde::Serialize;
 
@@ -740,54 +740,76 @@ impl Ledger {
         })
     }
 
-    /// Every voucher not bound to a bank event and not sealed under the
-    /// import's own key prefix, decoded once per batch.
-    fn unbound_vouchers(
-        &self,
-        batch: &BankBatch<'_>,
-    ) -> Result<Vec<(StoredVoucher, VoucherBody)>, LedgerError> {
+    /// Every voucher not sealed under the import's own key prefix, decoded,
+    /// with the number of bank events bound to it, once per batch.
+    fn unbound_vouchers(&self, batch: &BankBatch<'_>) -> Result<Vec<OutsideVoucher>, LedgerError> {
         self.fiscal
-            .vouchers_not_bound_to_bank_event()?
+            .vouchers_with_bank_event_count()?
             .into_iter()
-            .filter(|stored| {
+            .filter(|(stored, _)| {
                 !stored
                     .provenance
                     .natural_key
                     .starts_with(batch.event_key_prefix)
             })
-            .map(|stored| {
+            .map(|(stored, bound)| {
                 let body = aggountant_wire::decode_voucher_body(&stored.canonical)?;
-                Ok((stored, body))
+                Ok(OutsideVoucher {
+                    stored,
+                    body,
+                    bound,
+                })
             })
             .collect()
     }
 }
 
-/// Vouchers sealed outside the import, bound to no bank event, that may
-/// already book `entry`, as one conflict each. A voucher another entry of
-/// this batch binds, and those the user has ruled out, are not candidates.
+/// A voucher sealed outside the import, with how many bank events are bound
+/// to it.
+struct OutsideVoucher {
+    stored: StoredVoucher,
+    body: VoucherBody,
+    bound: usize,
+}
+
+/// Vouchers sealed outside the import that may already book `entry`, as one
+/// conflict each. A voucher has room for another bank transaction while it has
+/// more postings on the entry's bank account than bank transactions bound to
+/// it (in the books or by this batch): a voucher that books a whole month's
+/// payments is still a candidate after one of them is bound. Vouchers the user
+/// has ruled out are not candidates.
 fn possible_bookings(
     batch: &BankBatch<'_>,
     entry: &BankEventEntry,
     not_booked_by: &[u64],
-    unbound: &[(StoredVoucher, VoucherBody)],
+    vouchers: &[OutsideVoucher],
 ) -> Vec<BankEventConflict> {
-    let bound_in_batch: Vec<u64> = batch
-        .entries
-        .iter()
-        .filter_map(|e| match e.booking {
-            BankEventBooking::Existing { voucher_number } => Some(voucher_number),
-            BankEventBooking::New { .. } => None,
-        })
-        .collect();
     let facts = &entry.facts;
     let mut conflicts = Vec::new();
-    for (stored, body) in unbound {
-        let number = stored.number;
-        if bound_in_batch.contains(&number) || not_booked_by.contains(&number) {
+    for voucher in vouchers {
+        let number = voucher.stored.number;
+        if not_booked_by.contains(&number) {
             continue;
         }
-        let natural_key = &stored.provenance.natural_key;
+        let bound_in_batch = batch
+            .entries
+            .iter()
+            .filter(|e| {
+                matches!(e.booking, BankEventBooking::Existing { voucher_number } if voucher_number == number)
+            })
+            .count();
+        let bank_postings = voucher
+            .body
+            .postings()
+            .iter()
+            .filter(|p| p.account == facts.bank_account)
+            .count();
+        let bound = voucher.bound + bound_in_batch;
+        if bound > 0 && bank_postings <= bound {
+            continue;
+        }
+        let natural_key = &voucher.stored.provenance.natural_key;
+        let body = &voucher.body;
         let evidence = if facts.named_in(natural_key) || facts.named_in(body.description()) {
             CandidateEvidence::BankReference
         } else if facts.booked_by(body) {
@@ -811,13 +833,25 @@ fn possible_bookings(
             code: BankEventConflictCode::BankEntryPossiblyBooked,
             voucher_number: number,
             evidence: Some(evidence),
-            message: format!(
-                "bank transaction {:?} may already be booked by voucher #{number}, sealed outside \
-                 the bank import: {why}. If #{number} books it, bind the transaction to it \
-                 (existing_vouchers) instead of sealing a new voucher; if it does not, list \
-                 {number} in the assignment's not_booked_by",
-                entry.event_key
-            ),
+            message: if bound == 0 {
+                format!(
+                    "bank transaction {:?} may already be booked by voucher #{number}, sealed \
+                     outside the bank import: {why}. If #{number} books it, bind the transaction \
+                     to it (existing_vouchers) instead of sealing a new voucher; if it does not, \
+                     list {number} in the assignment's not_booked_by",
+                    entry.event_key
+                )
+            } else {
+                format!(
+                    "bank transaction {:?} may already be booked by voucher #{number}, sealed \
+                     outside the bank import: {why}. #{number} is already bound to another bank \
+                     transaction and has further postings on account {}. A voucher can be bound \
+                     to one bank transaction only, so if #{number} also books this one the \
+                     statement cannot be imported; if it does not, list {number} in the \
+                     assignment's not_booked_by",
+                    entry.event_key, facts.bank_account
+                )
+            },
         });
     }
     conflicts

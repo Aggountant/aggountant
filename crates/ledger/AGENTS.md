@@ -86,11 +86,12 @@ so its rules are the ones whose violation produces silently wrong bookkeeping.
   `SOURCE_IDENTITY_UNKNOWN`.
 - **A voucher sealed outside the import may already book a new entry.**
   Generic `voucher seal` leaves no event key, so before sealing a new entry
-  the batch searches every voucher not bound to a bank event (and not under
-  the import's own key prefix) for a bank reference in its natural key or
-  description, or the same amount on the same side of the same bank account
-  within `DATE_TOLERANCE_DAYS`, and stops on any candidate
-  (`BANK_ENTRY_POSSIBLY_BOOKED`). A false stop is the intended price; do not
+  the batch searches every voucher not under the import's own key prefix for
+  a bank reference in its natural key or description, or the same amount on
+  the same side of the same bank account within `DATE_TOLERANCE_DAYS`, and
+  stops on any candidate (`BANK_ENTRY_POSSIBLY_BOOKED`). A bound voucher
+  stays a candidate while it has more postings on the bank account than bound
+  events, because one hand voucher can book several payments. A false stop is the intended price; do not
   narrow the match to avoid one. The user resolves it explicitly: a binding
   (`BankEventBooking::Existing`) whose voucher's bank leg passes the same
   match, or `not_booked_by` naming the voucher. A binding writes an extra

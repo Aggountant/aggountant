@@ -93,7 +93,9 @@ The agent shows you the voucher and asks which case it is:
   days); the voucher itself is not changed. The preview shows the transaction
   as linked to that voucher, and later statements that contain the same
   transaction are linked to it in the same way. One voucher can be linked to
-  only one bank transaction.
+  only one bank transaction. If one voucher records several bank
+  transactions, for example a month's card payments, only one of them can be
+  linked to it, and the others keep stopping the import.
 - **The voucher is something else**, for example another payment of the same
   amount. The agent marks that this voucher does not record the transaction,
   and the transaction gets a new voucher.

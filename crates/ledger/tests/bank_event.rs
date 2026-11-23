@@ -672,3 +672,92 @@ fn a_binding_to_a_voucher_that_does_not_book_the_entry_is_refused() {
     assert!(ledger.bank_source_observations(None).unwrap().is_empty());
     assert_eq!(ledger.verify().unwrap().voucher_count, 2);
 }
+
+#[test]
+fn a_voucher_booking_two_payments_still_stops_the_other_after_one_is_bound() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let policy = policy_set();
+    let date = Date::parse("2026-12-30").unwrap();
+    let both = VoucherDraft::new(
+        date,
+        date,
+        "Supplies, two card payments".into(),
+        vec![
+            posting("7690", "50.00", Side::Debit),
+            posting("1910", "20.00", Side::Credit),
+            posting("1910", "30.00", Side::Credit),
+        ],
+        None,
+    )
+    .unwrap();
+    let number = seal_by_hand(
+        &ledger,
+        "month-12-card",
+        "Supplies, two card payments",
+        &both,
+    );
+    let statement = ledger.attach_artifact(b"<statement/>").unwrap();
+    let thirty = || {
+        entry(
+            "REF-C",
+            "fp-c",
+            draft("2026-12-30", "30.00", "7690", statement),
+        )
+    };
+    let bind_twenty = || {
+        bound_entry(
+            "REF-B",
+            "fp-b",
+            facts("REF-B", "2026-12-30", "20.00"),
+            number,
+        )
+    };
+
+    // In one batch.
+    let entries = [bind_twenty(), thirty()];
+    let preview = ledger
+        .preview_bank_batch(&BankBatch {
+            policy_set: &policy,
+            ..batch(statement, &entries)
+        })
+        .unwrap();
+    assert_eq!(preview.conflicts.len(), 1, "{:?}", preview.conflicts);
+    assert_eq!(preview.conflicts[0].event_key, key("REF-C"));
+    assert_eq!(
+        preview.conflicts[0].code,
+        BankEventConflictCode::BankEntryPossiblyBooked
+    );
+
+    // In two batches.
+    let first = [bind_twenty()];
+    assert!(
+        ledger
+            .seal_bank_batch(&BankBatch {
+                policy_set: &policy,
+                ..batch(statement, &first)
+            })
+            .unwrap()
+            .written
+    );
+    let later = ledger.attach_artifact(b"<later statement/>").unwrap();
+    let second = [entry(
+        "REF-C",
+        "fp-c",
+        draft("2026-12-30", "30.00", "7690", later),
+    )];
+    let report = ledger
+        .seal_bank_batch(&BankBatch {
+            policy_set: &policy,
+            ..batch(later, &second)
+        })
+        .unwrap();
+    assert!(!report.written);
+    assert_eq!(report.conflicts[0].voucher_number, number);
+    assert!(
+        report.conflicts[0].message.contains("already bound"),
+        "{}",
+        report.conflicts[0].message
+    );
+    assert_eq!(ledger.verify().unwrap().voucher_count, 1);
+}
