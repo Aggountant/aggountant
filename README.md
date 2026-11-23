@@ -7,126 +7,124 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 <!-- shipshape-readme:badges-end -->
 
-*[Suomeksi](README.fi.md)*
+*[In English](README.en.md)*
 
-aggountant is an open-source toolkit for AI agents. With it, an agent keeps the statutory books of a small Finnish limited company and offers financial advice, reporting and analysis.
+aggountant on avoimen lähdekoodin työkalu tekoälyagenteille. Sen avulla agentti hoitaa pienen suomalaisen osakeyhtiön lakisääteisen kirjanpidon ja tarjoaa taloushallinnon neuvontaa, raportointia ja analyysejä.
 
-Processing receipts, double-entry bookkeeping, filings with the authorities and the other statutory routines have to be automated. Then the books are always up to date, and the entrepreneur has clear, real-time information about the company's finances at hand.
+Tositteiden käsittely, kaksinkertainen kirjanpito, viranomaisilmoitukset ja muut lakisääteiset rutiinit pitää pystyä automatisoimaan. Silloin kirjanpito on jatkuvasti ajan tasalla, ja yrittäjällä on selvä, reaaliaikainen tieto yrityksensä taloudesta heti käytettävissään.
 
-aggountant already keeps the books of a few Finnish companies. The project is still at an early stage, and not everything planned has been built yet.
+aggountant on jo käytössä muutaman suomalaisen yrityksen kirjanpidossa. Projekti on silti varhaisessa vaiheessa, eikä kaikkea suunniteltua ole vielä toteutettu.
 
-**User guide:** [aggountant.dev](https://aggountant.dev) ·
+**Käyttöopas:** [aggountant.dev](https://aggountant.dev) ·
 [suomeksi](docs/user/fi/README.md) ·
 [in English](docs/user/en/README.md) ·
-[Join as an early user](docs/user/en/start/early-users.md)
+[Tule varhaiseksi käyttäjäksi](docs/user/fi/start/early-users.md)
 
-- [Life with aggountant](#life-with-aggountant)
-- [Why the work feels light](#why-the-work-feels-light)
-- [Reliability](#reliability)
-- [Status](#status)
-- [Goals](#goals)
-- [Installation](#installation)
-- [Getting started](#getting-started)
-- [Contributing](#contributing)
+- [Elämä aggountantin kanssa](#elämä-aggountantin-kanssa)
+- [Miksi työ tuntuu kevyeltä](#miksi-työ-tuntuu-kevyeltä)
+- [Luotettavuus](#luotettavuus)
+- [Tilanne](#tilanne)
+- [Tavoitteet](#tavoitteet)
+- [Asennus](#asennus)
+- [Käytön aloitus](#käytön-aloitus)
+- [Osallistu](#osallistu)
 
-## Life with aggountant
+## Elämä aggountantin kanssa
 
-When you keep your books with aggountant, an hourly-billed agreement with an accounting firm is enough: you buy expert help when you need it.
+Kun hoidat kirjanpitoa aggountantilla, tilitoimiston kanssa riittää tuntiveloitteinen sopimus, jolla ostat asiantuntija-apua, kun tarvitset.
 
-In a small company, an ordinary month's bookkeeping takes fifteen minutes to half an hour, for example on the first day of the following month.
+Pienessä yrityksessä tavallisen kuukauden kirjanpito vie vartista puoleen tuntiin, esimerkiksi heti seuraavan kuukauden ensimmäisenä päivänä.
 
-You ask the agent to process the previous month. When your agent is connected to your bank and your email, it fetches the bank statement and transactions with their attachments, and looks for the remaining receipts in your email and in a folder where you keep, for example, photos of paper receipts. If something is missing, the agent tells you and helps you get it. Once you know the material is processed automatically, you can arrange things so that receipts land in the right place as they are created, and few go missing.
+Pyydät agenttia käsittelemään edellisen kuukauden. Kun agenttisi on kytketty pankkiin ja sähköpostiin, se hakee tiliotteen ja tilitapahtumat liitteineen ja etsii loput tositteet sähköpostista sekä kansiosta, johon tallennat esimerkiksi valokuvat paperikuiteista. Jos jotain puuttuu, agentti kertoo sen ja auttaa hankkimaan puuttuvan aineiston. Kun tiedät, että aineisto käsitellään automaattisesti, voit järjestää asiat niin, että tositteet päätyvät oikeaan paikkaan jo syntyessään, ja puuttuvia jää vähän.
 
-The agent can also use contracts, timesheets and your calendar. From them come customer invoices and travel and expense claims, and the agent works out their effect on the books.
+Agentti voi käyttää myös sopimuksia, tuntikirjauksia ja kalenteria. Niistä syntyvät asiakaslaskut sekä matka- ja kululaskut, ja agentti käsittelee niiden vaikutukset kirjanpitoon.
 
-When the material is complete, the agent proposes the entries and aggountant checks them. You approve the vouchers, and the agent proposes closing the month. You can go through the material in as much detail as you like, but usually there is nothing in particular to look into.
+Kun aineisto on koossa, agentti ehdottaa kirjaukset ja aggountant tarkistaa ne. Hyväksyt tositteet, ja agentti ehdottaa kuukauden sulkemista. Voit käydä aineiston läpi niin tarkasti kuin haluat, mutta tavallisesti siinä ei ole mitään erityistä selvitettävää.
 
-From the closed month, aggountant computes the VAT return and, with your approval, sends it straight to the Finnish Tax Administration. It reports travel expense reimbursements to the Incomes Register. Your agent can prepare the VAT payment and the reimbursements in your bank, for example Holvi, where you approve the payments in the mobile app. aggountant itself pays nothing.
+Suljetusta kuukaudesta aggountant laskee arvonlisäveroilmoituksen ja lähettää sen hyväksynnälläsi suoraan Verohallinnolle. Matkakulukorvaukset se ilmoittaa Tulorekisteriin. Agenttisi voi valmistella ALV-maksun ja kulukorvaukset pankkiisi, esimerkiksi Holviin, jossa hyväksyt maksut mobiilisovelluksessa. aggountant itse ei maksa mitään.
 
-Not everything is always done on the first day, because sometimes you wait for a service provider's report or a missing receipt. When the material arrives later, you ask the agent to continue where you left off. What is left for you is mostly checking the whole, approving payments and now and then supplying a single receipt.
+Kaikki ei aina valmistu ensimmäisenä päivänä, koska joskus odotetaan palveluntarjoajan raporttia tai puuttuvaa tositetta. Kun aineisto myöhemmin tulee, pyydät agenttia jatkamaan siitä, mihin jäitte. Sinun tehtäväksesi jää lähinnä kokonaisuuden tarkistaminen, maksujen hyväksyminen ja joskus yksittäisen tositteen toimittaminen.
 
-The bank, email and invoicing connections are your agent's own tools, not part of aggountant. aggountant reads the bank statement as a camt.053 or camt.052 file, and the agent fetches material from wherever you give it access.
+Pankki-, sähköposti- ja laskutusyhteydet ovat agenttisi omia työkaluja, eivät osa aggountantia. aggountant lukee tiliotteen camt.053- tai camt.052-tiedostona, ja agentti hakee aineiston sieltä, mihin annat sille pääsyn.
 
-## Why the work feels light
+## Miksi työ tuntuu kevyeltä
 
-Traditional bookkeeping is built around the fact that an accountant's time costs money. Receipts have to be delivered in the right form, and every extra question can mean an extra bill.
+Perinteinen kirjanpito on rakennettu sen ympärille, että kirjanpitäjän työaika maksaa. Tositteet pitää toimittaa oikeassa muodossa, ja jokainen ylimääräinen selvitys voi tarkoittaa lisälaskua.
 
-With an agent, that limit is gone. If you bought something on the wrong card by mistake, you can sort it out right away. If a receipt is missing, your agent looks for it as long as it takes. If you want to understand why an entry was made, the agent examines the receipts, the legislation and the Tax Administration's guidance.
+Agentin kanssa tätä rajoitetta ei ole. Jos ostit jotain vahingossa väärällä kortilla, saat asian selvitettyä saman tien. Jos kuitti puuttuu, agenttisi etsii sitä niin kauan kuin tarvitaan. Jos haluat ymmärtää jonkin kirjauksen perusteet, agentti tutkii tositteet, säädökset ja Verohallinnon ohjeet.
 
-This also changes how bookkeeping is best organised. An online shop's thousands of sales do not need to be bundled into summary vouchers to save work. The level of detail can be chosen by what you want to know about the business, not by what minimises the accountant's work.
+Tämä muuttaa myös sitä, miten kirjanpito kannattaa järjestää. Verkkokaupan tuhansia myyntejä ei tarvitse niputtaa koontitositteiksi työmäärän takia. Kirjanpidon tarkkuus voidaan valita sen mukaan, mitä yrityksen toiminnasta halutaan tietää, eikä sen mukaan, mikä minimoi kirjanpitäjän työn.
 
-The biggest benefit is not the saving but that the whole of the books is always available. You can ask about your company's finances at any time, compare costs or ask for a new report. When the agent is connected to the bank and other services, most of the month's material can be processed before the month ends, and you can follow the finances all the time. Bookkeeping becomes an ongoing conversation about the company's finances instead of a duty done once a month.
+Suurin hyöty ei ole säästö vaan se, että koko kirjanpito on jatkuvasti käytettävissä. Voit kysyä yrityksesi taloudesta milloin tahansa, vertailla kustannuksia tai pyytää uuden raportin. Kun agentilla on yhteys pankkiin ja muihin palveluihin, suurin osa kuukauden aineistosta voi olla käsitelty jo ennen kuukauden loppua, ja talouden tilannetta voi seurata koko ajan. Kirjanpidosta tulee jatkuvaa keskustelua yrityksen taloudesta eikä kerran kuussa hoidettava velvollisuus.
 
-## Reliability
+## Luotettavuus
 
-The correctness of the books is not left to an AI model's reasoning.
+Kirjanpidon oikeellisuutta ei jätetä tekoälymallin päättelyn varaan.
 
-- **The computation is ordinary code.** aggountant contains no AI. It numbers the vouchers, checks that debits and credits balance, computes VAT from the rate table and refuses anything that does not balance. The agent interprets and gathers material, but never writes the books itself.
-- **The law decides, not the request.** The agent proposes what an expense is, and aggountant computes the lawful consequence. If, for example, you ask to deduct 70 per cent of the VAT on a passenger car that is also used privately, aggountant deducts nothing, because the law does not allow it. The agent explains why and helps find the right treatment.
-- **A person approves permanent acts.** Sealing a voucher, closing a month and sending a filing wait for your approval. Without permission the agent may only read and preview.
-- **The books are traceable.** A sealed voucher is never edited; a mistake is corrected with a new voucher, as Finnish accounting law requires. Each voucher is chained to the one before it, so `aggountant voucher verify` detects any later change. If the outcome of a submission is uncertain, aggountant finds out what happened before anything is sent again.
-- **The records do not depend on an AI service.** The company's books live in their own directory, partly as plain text files, and stay readable and auditable whatever model is in use.
+- **Laskenta on tavallista ohjelmakoodia.** aggountant ei sisällä tekoälyä. Se numeroi tositteet, tarkistaa debetin ja kreditin tasapainon, laskee ALV:n verokantataulukosta ja kieltäytyy kaikesta, mikä ei täsmää. Agentti tulkitsee ja kerää aineistoa, mutta ei kirjoita kirjanpitoa itse.
+- **Laki ratkaisee, ei pyyntö.** Agentti ehdottaa, mitä kulu on, ja aggountant laskee siitä lain mukaisen seurauksen. Jos esimerkiksi pyydät vähentämään 70 prosenttia sellaisen henkilöauton arvonlisäverosta, jota käytetään myös yksityisesti, aggountant vähentää nolla, koska laki ei salli vähennystä. Agentti kertoo syyn ja auttaa löytämään oikean käsittelyn.
+- **Ihminen hyväksyy pysyvät teot.** Tositteen sinetöinti, kuukauden sulku ja ilmoituksen lähetys odottavat hyväksyntääsi. Agentti saa ilman lupaa vain lukea ja esikatsella.
+- **Kirjanpito on jäljitettävä.** Sinetöityä tositetta ei muokata, vaan virhe korjataan uudella tositteella, kuten kirjanpitolaki edellyttää. Jokainen tosite on ketjutettu edelliseen, joten `aggountant voucher verify` havaitsee jälkikäteiset muutokset. Jos ilmoituksen lähetyksen lopputulos jää epävarmaksi, aggountant selvittää tilanteen ennen kuin mitään lähetetään uudelleen.
+- **Aineisto ei riipu tekoälypalvelusta.** Yrityksen kirjanpito on omassa hakemistossaan, osin tavallisina tekstitiedostoina, ja se pysyy luettavana ja tarkastettavana riippumatta siitä, mikä malli on käytössä.
 
-No system is infallible. That is why programmatic checks, the agent's workflows and, when needed, an accountant's review complement each other.
+Mikään järjestelmä ei ole erehtymätön. Siksi ohjelmalliset tarkistukset, agentin työnkulut ja tarvittaessa kirjanpitäjän arvio täydentävät toisiaan.
 
-## Status
+## Tilanne
 
-Version 0.2, and already in real use. Features are added as the companies using it run into new situations, so the ordinary monthly work is in good shape and rarer cases are filled in as they come up. Commands and file formats can still change between versions.
+Versio 0.2, ja jo oikeassa käytössä. Toimintoja lisätään sitä mukaa kuin käyttäjäyritykset kohtaavat uusia tilanteita, joten tavallinen kuukausityö on hyvässä kunnossa ja harvinaisemmat tapaukset täydentyvät. Komennot ja tiedostomuodot voivat vielä muuttua versioiden välillä.
 
-**Ready for real bookkeeping:** bank statement import, ordinary purchase receipts with their VAT, closing a month, monthly reports, the VAT return (filed directly to the Tax Administration or by hand), and tax-free travel allowances (mileage and per diems) reported to the Incomes Register.
+**Valmis oikeaan kirjanpitoon:** tiliotteen tuonti, tavalliset ostotositteet ALV:neen, kuukauden sulku, kuukausiraportit, ALV-ilmoitus (suoraan Verohallinnolle tai käsin) sekä verovapaat matkakulukorvaukset (kilometrikorvaukset ja päivärahat) Tulorekisteriin.
 
-**Not ready yet:** paying and reporting wages, aggountant's own receipt hunt, and the year-end financial statements. The commands exist, but do not use them for real books; the user guide explains what to do instead.
+**Ei vielä valmis:** palkanmaksu ja sen ilmoittaminen, aggountantin oma tositteiden haku ja tilinpäätös. Komennot ovat olemassa, mutta niitä ei pidä käyttää oikeaan kirjanpitoon. Käyttöopas kertoo, mitä tehdä sen sijaan.
 
-aggountant is for one person keeping one company's books on their own computer. It is not a hosted or multi-user service, and it does not file on behalf of other companies.
+aggountant on tarkoitettu yhdelle ihmiselle, joka hoitaa yhden yrityksen kirjanpitoa omalla koneellaan. Se ei ole verkkopalvelu eikä monen käyttäjän järjestelmä, eikä se tee ilmoituksia muiden yritysten puolesta.
 
-## Goals
+## Tavoitteet
 
-The first use is the bookkeeping of a small Finnish limited company. The long-term goal is a general, international financial-administration toolkit for AI agents.
+Ensimmäinen käyttökohde on suomalaisen pienen osakeyhtiön kirjanpito. Pitkän aikavälin tavoite on yleiskäyttöinen, kansainvälinen taloushallinnon työkalukokonaisuus tekoälyagenteille.
 
-- **Financial statements.** When the books have been kept carefully through the year, the year-end accounts should come together largely by talking to the agent, and can then go to an accountant for review if you want.
-- **Payroll.** Wages, payslips, preparing the payments and the tax and Incomes Register reports, without a separate payroll service.
-- **International sales.** Tax obligations for selling digital products in other countries handled by your own agent, without a Merchant of Record service such as Paddle or Lemon Squeezy.
-- **International employment.** Payroll and employer obligations for people working abroad, without an Employer of Record service such as Deel or Remote, to the extent the administrative work can be automated.
+- **Tilinpäätös.** Kun kirjanpito on hoidettu huolellisesti pitkin vuotta, tilinpäätöksen pitäisi onnistua pitkälti keskustelemalla agentin kanssa ja tarvittaessa antaa kirjanpitäjän tarkistettavaksi.
+- **Palkanlaskenta.** Palkat, palkkalaskelmat, maksujen valmistelu sekä vero- ja Tulorekisteri-ilmoitukset ilman erillistä palkanlaskentapalvelua.
+- **Kansainvälinen myynti.** Digitaalisten tuotteiden myynnin verovelvoitteet eri maissa omalla agentilla ilman Merchant of Record -palvelua, kuten Paddle tai Lemon Squeezy.
+- **Kansainväliset työsuhteet.** Ulkomailla työskentelevien palkkahallinto ja työnantajavelvoitteet ilman Employer of Record -palvelua, kuten Deel tai Remote, siltä osin kuin hallinnollinen työ voidaan automatisoida.
 
-aggountant is open source because statutory obligations apply to every company, and the foundation for automating them does not need to be held by individual service providers. Openness also means the bookkeeping rules, data models and checks are open for anyone to examine. The aim is not to replace financial professionals but to free them from routine work for where their expertise helps most.
+aggountant on avointa lähdekoodia, koska lakisääteiset velvoitteet koskevat jokaista yritystä, eikä niiden automatisoinnin perustan tarvitse olla yksittäisten palveluntarjoajien hallussa. Avoimuus tarkoittaa myös, että kirjanpidon säännöt, tietomallit ja tarkistukset ovat kenen tahansa tutkittavissa. Tarkoitus ei ole korvata taloushallinnon asiantuntijoita, vaan vapauttaa heidät rutiinityöstä sinne, missä heidän osaamisestaan on eniten hyötyä.
 
-## Installation
+## Asennus
 <!-- shipshape-readme:install-start -->
-Prebuilt binaries are available for macOS arm64 and Linux arm64/x86_64 (static musl). This installs the right archive from the latest [release](https://github.com/aggountant/aggountant/releases):
+Valmiit binäärit ovat saatavilla macOS arm64:lle ja Linux arm64/x86_64:lle (staattinen musl). Tämä asentaa uusimman [julkaisun](https://github.com/aggountant/aggountant/releases) oikean paketin:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/aggountant/aggountant/releases/latest/download/aggountant-installer.sh | sh
 ```
 
-Each release's archives come with SHA-256 checksums. You can also build from source with Rust 1.89 or newer (<https://rustup.rs>):
+Jokaisen julkaisun paketeilla on SHA-256-tarkistussummat. Voit myös kääntää ohjelman lähdekoodista Rust 1.89:llä tai uudemmalla (<https://rustup.rs>):
 
 ```sh
 cargo install --git https://github.com/aggountant/aggountant aggountant --locked
 ```
 <!-- shipshape-readme:install-end -->
 
-## Getting started
+## Käytön aloitus
 
-The easiest way is to tell your agent that you want to start using aggountant and give it a link to this repository: <https://github.com/aggountant/aggountant>. The agent installs the program and the skills, the instruction files that teach it to work as a bookkeeper, and sets up your company's books. It creates the company directory, records the company's basic facts and opening balances, and notes where your bank statements and receipts come from. Filing VAT directly to the Tax Administration needs your company's own software registration and certificate; the agent walks you through that when you are ready.
+Helpointa on sanoa agentillesi, että haluat aloittaa aggountantin käytön, ja antaa sille linkki tähän repoon: <https://github.com/aggountant/aggountant>. Agentti asentaa ohjelman ja skillit eli ohjetiedostot, jotka opettavat sen toimimaan kirjanpitäjänä, ja perustaa yrityksesi kirjanpidon. Se luo yrityksen hakemiston, tallentaa perustiedot ja avaussaldot ja kirjaa, mistä tiliotteet ja tositteet tulevat. Suora ALV-ilmoittaminen Verohallinnolle edellyttää yrityksen omaa ohjelmistorekisteröintiä ja varmennetta, ja agentti opastaa siinä, kun olet valmis.
 
-The skills are installed into the agent's skill directory (`~/.claude/skills` by default; `--target` points elsewhere):
+Skillit asennetaan agentin skill-hakemistoon (oletuksena `~/.claude/skills`, muualle `--target`-valitsimella):
 
 ```sh
 aggountant skill list
 aggountant skill install
 ```
 
-The skills are written in Finnish, but you can talk to the agent in English.
+Käyttöopas kertoo kuukausikierroksesta, ALV:stä, matkakulukorvauksista, tilikauden tilasta ja virheistä toipumisesta: <https://aggountant.dev>. Jokainen komento myös dokumentoi itsensä: `aggountant --help`.
 
-The user guide covers the monthly cycle, VAT, travel allowances, year-end status and recovering from errors: <https://aggountant.dev>. Every command also documents itself: `aggountant --help`.
+## Osallistu
 
-## Contributing
+Etsimme varhaisia käyttäjiä ja kehittäjiä. Jos hoidat pientä suomalaista yritystä ja haluat pitää kirjanpitosi näin, voimme käydä tilanteesi läpi yhdessä: [Tule varhaiseksi käyttäjäksi](docs/user/fi/start/early-users.md).
 
-We are looking for early users and contributors. If you run a small Finnish company and want to keep your books this way, we can go through your situation together: [Join as an early user](docs/user/en/start/early-users.md).
+Virheraportit, kysymykset ja pull requestit ovat tervetulleita [GitHub Issuesiin](https://github.com/aggountant/aggountant/issues) ja [Discussionsiin](https://github.com/aggountant/aggountant/discussions). Katso [CONTRIBUTING.md](CONTRIBUTING.md); commitit allekirjoitetaan Developer Certificate of Originin mukaisesti. Ilmoita tietoturvahaavoittuvuuksista yksityisesti [SECURITY.md](SECURITY.md):n ohjeen mukaan.
 
-Bug reports, questions and pull requests are welcome through [GitHub Issues](https://github.com/aggountant/aggountant/issues) and [Discussions](https://github.com/aggountant/aggountant/discussions). See [CONTRIBUTING.md](CONTRIBUTING.md); commits are signed off under the Developer Certificate of Origin. Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
-
-## License
+## Lisenssi
 <!-- shipshape-readme:license-start -->
 Licensed under the [MIT License](LICENSE). Copyright (c) 2026 Jari Mustonen.
 <!-- shipshape-readme:license-end -->
