@@ -2,8 +2,9 @@
 created: 2026-11-23
 updated: 2026-11-23
 type: task
-status: untriaged
+status: open
 priority: normal
+lane: onboarding
 ---
 
 # User guide: open factual questions from the prose cleanup
@@ -29,3 +30,9 @@ time promised on the early-users page).
 - [ ] Each question in the attachment is answered: the page is corrected, or
       the question is closed as not needing a change.
 - [ ] The guide gate (`scripts/check-user-guide.sh`) passes.
+
+## Decisions
+
+### 2026-11-23T18:43:37Z · @conductor
+
+Product owner decisions (2026-11-23) on the maintainer questions: (1) Platforms: the guide says aggountant is developed and tested on macOS and Linux; Windows support could be added later but is not offered now, so do not send Windows users to cargo install as if it worked. (2) The early-users page keeps the maintainer's email address. (3) The page promises no response time at all; remove 'usually within a few days'. (4) Remove the meeting offer ('Sovitaan tapaaminen'); the page just says how to get in touch.

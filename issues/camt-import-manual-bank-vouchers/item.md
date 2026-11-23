@@ -1,11 +1,12 @@
 ---
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: conductor
 source_ref: stint-2026-11-22:camt-legacy-keys
+lane: bank-import
 ---
 
 # camt import does not recognise bank vouchers sealed through voucher seal

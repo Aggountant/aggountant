@@ -4,6 +4,7 @@ updated: 2026-11-23
 type: bug
 status: open
 priority: normal
+lane: unlaned
 ---
 
 # cargo-deny: url 2.5.8 hits RUSTSEC-2026-0592

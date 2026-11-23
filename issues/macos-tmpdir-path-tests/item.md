@@ -4,6 +4,7 @@ updated: 2026-11-23
 type: bug
 status: open
 priority: normal
+lane: unlaned
 ---
 
 # macOS CI: home_required_cli tests fail on /private/var symlink
