@@ -1,36 +1,39 @@
 # Asenna aggountant ja skillit
 
-Ennen kuin agentti voi pitää kirjanpitoa, koneellesi asennetaan kaksi asiaa:
-aggountant-ohjelma ja sen mukana tulevat skillit, eli suomenkieliset
-toimintaohjeet, joista agentti oppii toimimaan kirjanpitäjänä. Asennus tehdään
-kerran ja uudelleen aina, kun päivität ohjelman.
+Koneellesi asennetaan kaksi asiaa: aggountant-ohjelma ja sen mukana tulevat
+skillit, eli suomenkieliset toimintaohjeet, joista agentti oppii toimimaan
+kirjanpitäjänä. Asennus tehdään kerran ja uudelleen aina, kun päivität
+ohjelman.
 
 ## Ennen kuin aloitat
 
-- Rust-työkalut, versio 1.89 tai uudempi. Asennusohje on osoitteessa
-  <https://rustup.rs>. Valmiita asennuspaketteja ei vielä ole, joten
-  aggountant käännetään lähdekoodista.
+- Mac, jossa on Applen oma suoritin (arm64), tai Linux-kone (arm64 tai
+  x86_64). Näille on valmis asennuspaketti. Intel-Macille ja Windowsille
+  pakettia ei ole, ja niissä aggountant käännetään lähdekoodista. Siihen
+  tarvitset Rust-työkalut, version 1.89 tai uudemman, joiden asennusohje on
+  osoitteessa <https://rustup.rs>.
 - Agentti, joka osaa lukea skillejä, esimerkiksi Claude Code.
 
 ## Näin teet sen
 
-1. **Asenna ohjelma.** Tämän vaiheen voit tehdä itse päätteessä tai pyytää
-   agenttia tekemään sen:
+1. **Asenna ohjelma.** Voit tehdä tämän itse päätteessä tai pyytää agenttia:
 
-   > Asenna aggountant lähdekoodista GitHubista.
+   > Asenna aggountant.
 
-   Kääntäminen kestää muutamia minuutteja.
+   Asennusohjelma hakee GitHubista uusimman julkaisun ja valitsee siitä
+   koneellesi sopivan paketin. Jos pakettia ei ole, pyydä agenttia asentamaan
+   aggountant lähdekoodista. Kääntäminen kestää muutamia minuutteja.
 
 2. **Tarkista, että ohjelma löytyy.** `aggountant --version` kertoo version.
    `aggountant --help` listaa kaikki komennot, ja jokaisella komennolla on oma
-   ohjeensa. Agentti lukee näitä ohjeita itse, joten sinun ei tarvitse
-   opetella komentoja.
+   ohjeensa. Agentti lukee ne itse, joten sinun ei tarvitse opetella
+   komentoja.
 
 3. **Asenna skillit.** Pyydä agenttia:
 
    > Asenna aggountantin skillit.
 
-   Skillejä on kuusi:
+   Agentti saa nämä skillit:
 
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
@@ -43,7 +46,8 @@ kerran ja uudelleen aina, kun päivität ohjelman.
 
    Oletuksena skillit menevät Claude Coden skillihakemistoon
    `~/.claude/skills/`. Muuta agenttia varten anna sen skillihakemisto
-   valitsimella `--target`.
+   valitsimella `--target`. Skillit on kirjoitettu suomeksi, mutta voit puhua
+   agentille myös englanniksi.
 
 4. **Käynnistä agentti uudelleen**, jotta se lukee uudet skillit.
 
@@ -51,6 +55,7 @@ kerran ja uudelleen aina, kun päivität ohjelman.
 <summary>Komennot, joita agentti ajaa</summary>
 
 ```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/aggountant/aggountant/releases/latest/download/aggountant-installer.sh | sh
 cargo install --git https://github.com/aggountant/aggountant aggountant --locked
 aggountant --version
 aggountant skill list
@@ -60,22 +65,26 @@ aggountant skill print capture-receipt
 aggountant skill print aggountant-init --file SOUL.md
 ```
 
-Jos lähdekoodi on jo koneellasi, asennus tehdään sen juuresta komennolla
-`cargo install --locked --path crates/cli`. `skill print` näyttää skillin
-sisällön asentamatta mitään; `--file` näyttää sen muut tiedostot, kuten
-yhteisen roolikuvauksen `SOUL.md`. Kun asennat pelkän `capture-receipt`-skillin,
-mukaan tulee myös `aggountant-init`, koska niillä on yhteinen roolikuvaus.
-`vero-fi` ja `tulorekisteri` tuovat lisäksi toisensa ja `e-services`-skillin,
-jonka varassa ne tekevät viranomaisten verkkopalveluissa tehtävät vaiheet.
+Ensimmäinen komento asentaa valmiin paketin.
+
+`cargo install` kääntää ohjelman lähdekoodista, ja sitä tarvitaan vain, kun
+valmista pakettia ei ole. Jos lähdekoodi on jo koneellasi, sama tehdään sen
+juuresta komennolla `cargo install --locked --path crates/cli`.
+
+Kun asennat pelkän `capture-receipt`-skillin, mukaan tulee myös
+`aggountant-init`, koska niillä on yhteinen roolikuvaus. `vero-fi` ja
+`tulorekisteri` tuovat lisäksi toisensa ja `e-services`-skillin, jonka
+varassa ne tekevät viranomaisten verkkopalveluissa tehtävät vaiheet.
+
+`skill print` näyttää skillin sisällön asentamatta mitään. `--file` näyttää
+skillin muut tiedostot, kuten yhteisen roolikuvauksen `SOUL.md`.
 </details>
 
 ## Valmis, kun
 
-- `aggountant --version` näyttää version, esimerkiksi `aggountant 0.1.0`.
+- `aggountant --version` näyttää versionumeron.
 - `aggountant skill list` listaa kuusi skilliä, ja ne löytyvät agentin
   skillihakemistosta.
-
-Skillit on kirjoitettu suomeksi, mutta voit puhua agentille myös englanniksi.
 
 ## Seuraavaksi
 
