@@ -1,15 +1,13 @@
 # Korjaa virheellinen tosite
 
 Sinetöityä tositetta ei muokata eikä poisteta. Virhe korjataan uudella
-korjaustositteella, joka viittaa alkuperäiseen, ja molemmat jäävät
-kirjanpitoon. Kirjanpitolaki edellyttää juuri tätä.
+tositteella, joka viittaa alkuperäiseen, ja molemmat jäävät kirjanpitoon,
+kuten kirjanpitolaki edellyttää.
 
 ## Ennen kuin aloitat
 
 - Tiedät, mikä tosite on väärin. Jos et tiedä numeroa, pyydä agenttia
   etsimään tosite päivän, summan tai liitteen perusteella.
-- Korjaus kirjataan avoimelle kuukaudelle. Jos virheellisen tositteen kuukausi
-  on jo suljettu, korjaus menee seuraavalle avoimelle kuukaudelle.
 
 ## Näin teet sen
 
@@ -19,17 +17,26 @@ kirjanpitoon. Kirjanpitolaki edellyttää juuri tätä.
    > Korjaa se.
 
 2. **Agentti valmistelee korjaustositteen** erikoiskirjauksena ja viittaa sen
-   kuvauksessa korjattavaan tositteeseen. Korjauksen muoto riippuu virheestä:
-   - **väärä tili tai ALV-käsittely**: tosite, joka siirtää summan oikealle
-     tilille
-   - **kahdesti kirjattu tai yritykselle kuulumaton tapahtuma**: vastakirjaus,
-     joka kumoaa alkuperäisen
-   - **väärä summa**: erotuksen kirjaus.
+   kuvauksessa korjattavaan tositteeseen. Korjaus kirjataan avoimelle
+   kuukaudelle. Jos virheellisen tositteen kuukausi on jo suljettu, korjaus
+   menee seuraavalle avoimelle kuukaudelle. Korjauksen muoto riippuu
+   virheestä:
+   - Jos tili tai ALV-käsittely on väärä, agentti siirtää summan oikealle
+     tilille.
+   - Jos tapahtuma on kirjattu kahdesti tai se ei kuulu yritykselle, agentti
+     kumoaa alkuperäisen vastakirjauksella.
+   - Jos summa on väärä, agentti kirjaa erotuksen.
 
 3. **Tarkista ja hyväksy.** Katso, että korjaus viittaa oikeaan tositteeseen,
    että sen jälkeen summa on oikealla tilillä ja että ALV-viennit korjautuvat
    samalla. Jos ALV-käsittely muuttuu, korjaus vaikuttaa sen kuukauden
    ALV-ilmoitukseen, jolle korjaus kirjataan.
+
+   Kirjanpidon korjaus ei korjaa jo annettua ALV-ilmoitusta. Jos virhe koskee
+   kuukautta, jonka ALV-ilmoitus on annettu, kerro se agentille ennen
+   sinetöintiä ja anna korvaava ilmoitus kohdan
+   [Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)
+   mukaan.
 
 4. **Agentti sinetöi korjauksen.**
 
@@ -44,8 +51,8 @@ aggountant voucher validate < korjaus-sinetointi.json
 aggountant voucher seal < korjaus-sinetointi.json
 ```
 
-`voucher show` näyttää ilman `--json`-valitsinta vain tositteen numeron ja
-tunnisteen. Pyydä siksi agenttia näyttämään tositteen viennit.
+Pyydä agenttia näyttämään tositteen viennit, koska `voucher show` näyttää
+ilman `--json`-valitsinta vain tositteen numeron ja tunnisteen.
 </details>
 
 ## Valmis, kun
@@ -55,11 +62,8 @@ tunnisteen. Pyydä siksi agenttia näyttämään tositteen viennit.
 
 ## Rajoitukset
 
-- Omaa korjauskomentoa ei ole. Korjaus on tavallinen erikoiskirjaus.
-- Kirjanpidon korjaus ei korjaa jo annettua ALV-ilmoitusta. Jos virhe koskee
-  ilmoitettua ALV-kuukautta, kerro se agentille ennen sinetöintiä ja anna
-  korvaava ilmoitus
-  ([Korjaa jo annettu ilmoitus](file-vat-direct.md#korjaa-jo-annettu-ilmoitus)).
+- Omaa korjauskomentoa ei ole, joten agentti kirjaa korjauksen tavallisena
+  erikoiskirjauksena.
 
 ## Katso myös
 
