@@ -1,90 +1,91 @@
 # Viranomaisilmoitukset ja epävarma lopputulos
 
 aggountant lähettää ALV-ilmoituksen Verohallinnolle ja matkakorvausilmoituksen
-Tulorekisteriin. Lähetyksissä ohjelma toimii varovaisemmin kuin muualla: se ei
-koskaan lähetä samaa ilmoitusta uudelleen automaattisesti, vaikka yhteys
-katkeaisi kesken. Tämä sivu kertoo miksi ja mitä se tarkoittaa sinulle.
+Tulorekisteriin. Jos yhteys katkeaa kesken lähetyksen, ohjelma ei lähetä samaa
+ilmoitusta itsestään uudelleen, vaan agentti selvittää ensin, menikö
+ensimmäinen perille.
 
 ## Miksi ilmoitus on erilainen kuin tosite
 
-Väärin sinetöity tosite korjataan uudella tositteella omassa kirjanpidossasi.
-Lähetettyä ilmoitusta et voi korjata itse: se on oikeusvaikutteinen ja jää
-viranomaisen järjestelmään. Toinen lähetys samalta kaudelta olisi
-Verohallinnossa korvaava ilmoitus, ei peruutus. Siksi jokainen lähetys vaatii
-hyväksyntäsi, ja hyväksyntä on sidottu juuri siihen sisältöön, joka lähtee.
-ALV-ilmoituksessa ohjelma laskee luvut vielä kerran kirjanpidosta ennen
-lähetystä.
+Väärin sinetöidyn tositteen korjaat uudella tositteella omassa
+kirjanpidossasi. Lähetettyä ilmoitusta et voi korjata itse, koska se on
+oikeusvaikutteinen ja jää viranomaisen järjestelmään. Toinen lähetys samalta
+kaudelta ei peruisi ensimmäistä, vaan olisi Verohallinnossa korvaava ilmoitus.
+Siksi jokainen lähetys vaatii hyväksyntäsi, ja hyväksyntä koskee täsmälleen
+sitä sisältöä, joka lähtee. ALV-ilmoituksen luvut ohjelma laskee vielä kerran
+kirjanpidosta ennen lähetystä.
 
-Ilmoitukset lähtevät aina yrityksesi omilla tunnuksilla. Toisen yrityksen
-puolesta ilmoittamista ei tueta.
+Ilmoitukset lähtevät yrityksesi omilla tunnuksilla. Toisen yrityksen puolesta
+ilmoittamista ei tueta.
 
 ## Kuittaus ei ole käsittely
 
-Kun Verohallinto vastaanottaa ALV-ilmoituksen, se antaa kuittauksen
-(tunniste ja aikaleima), ja aggountant merkitsee kauden ilmoitetuksi.
-Kuittaus tarkoittaa, että ilmoitus on vastaanotettu, ei sitä, että se olisi
-jo käsitelty. Käytännössä OmaVero on näyttänyt rajapinnan kautta tulleen
-ilmoituksen vasta noin puolen vuorokauden kuluttua, ja Verohallinnon tuen
-mukaan noin 12 tunnin viive on normaali. Tämä on käytännön havainto, ei
-luvattu palveluaika.
+Kun Verohallinto vastaanottaa ALV-ilmoituksen, se antaa kuittauksen eli
+tunnisteen ja aikaleiman, ja aggountant merkitsee kauden ilmoitetuksi.
+Verohallinto on silloin vastaanottanut ilmoituksen mutta ei välttämättä vielä
+käsitellyt sitä. OmaVerossa rajapinnan kautta tullut ilmoitus on näkynyt vasta
+noin puolen vuorokauden kuluttua, ja Verohallinnon tuen mukaan noin 12 tunnin
+viive on normaali. Aika perustuu käytännön havaintoon, eikä sitä ole luvattu.
 
 ## Epävarma lopputulos
 
 Joskus ohjelma ei tiedä, menikö ilmoitus perille: yhteys katkesi kesken
 lähetyksen, palvelu vastasi virheellä, palvelu ilmoitti onnistumisesta mutta ei
-lähettänyt luettavaa kuittia, tai vastaus oli ristiriitainen. Ilmoitus on voinut
-mennä perille, vaikka selvää vastausta ei tullut. Onnistumisvastausta ilman
-kuittia ei koskaan tulkita hylkäykseksi.
+lähettänyt luettavaa kuittia, tai vastaus oli ristiriitainen. Ilmoitus on
+voinut mennä perille, vaikka selvää vastausta ei tullut, joten ohjelma ei
+tulkitse onnistumisvastausta ilman kuittia hylkäykseksi.
 
-Silloin ohjelma ei lähetä uudelleen. Jos se lähettäisi, ja ensimmäinen
-lähetys olikin mennyt perille, viranomaisella olisi kaksi ilmoitusta.
-Sen sijaan ajo jää huomiota vaativaan tilaan, ja agentti kysyy viranomaiselta,
-mitä sillä on:
+Silloin ohjelma ei lähetä uudelleen, koska viranomaisella olisi kaksi
+ilmoitusta, jos ensimmäinen lähetys olikin mennyt perille. Ajo jää huomiota
+vaativaan tilaan, ja agentti kysyy viranomaiselta, mitä sillä on:
 
 - Jos viranomaisella on täsmälleen sama ilmoitus, ajo päättyy ilman uutta
   lähetystä.
 - Jos ilmoitus poikkeaa tai viranomainen näyttää kaudelle jotain muuta, ajo
   jää odottamaan. Vertaa ilmoitusta OmaVerossa.
 - Jos viranomainen vastaa, ettei sillä ole kaudelle ilmoitusta, se ei vielä
-  todista mitään: ilmoituksen näkyminen voi kestää päiviä. Vastaus kirjataan
-  ajoon, ja viranomaiselta kysytään uudelleen aikaisintaan samaan kellonaikaan
-  seuraavana pankkipäivänä. Pankkipäiviä ovat maanantaista perjantaihin, paitsi
-  suomalaiset pankkien vapaapäivät, kuten pitkäperjantai, toinen pääsiäispäivä,
-  helatorstai, juhannusaatto ja joulunpyhät. Kun viranomainen on vastannut
-  "ei löydy" kahdesti, vähintään yhden pankkipäivän välein, ajo suljetaan
-  ilmoittamattomana, ja uusi ilmoitusajo saa lähettää kauden ilmoituksen.
+  todista mitään, koska ilmoituksen näkyminen voi kestää päiviä. Vastaus
+  kirjataan ajoon, ja agentti kysyy myöhemmin uudelleen.
 
-Siihen asti aggountant kieltäytyy aloittamasta tai hyväksymästä samalle
-kaudelle uutta ilmoitusta (`VAT_FILING_UNRESOLVED`). Epäonnistunut kysely tai
-vastaus, jota ohjelma ei pysty lukemaan, ei lasketa.
+ALV-ilmoituksen ajo suljetaan ilmoittamattomana, kun Verohallinto on vastannut
+"ei löydy" kahdesti vähintään yhden pankkipäivän välein. Toinen kysely
+lasketaan aikaisintaan samasta kellonajasta seuraavana pankkipäivänä.
+Pankkipäiviä ovat maanantaista perjantaihin, paitsi suomalaiset pankkien
+vapaapäivät, kuten pitkäperjantai, toinen pääsiäispäivä, helatorstai,
+juhannusaatto ja joulunpyhät. Epäonnistunutta kyselyä tai vastausta, jota
+ohjelma ei pysty lukemaan, ei lasketa. Kun ajo on suljettu, uusi ilmoitusajo
+saa lähettää kauden ilmoituksen. Siihen asti aggountant kieltäytyy
+aloittamasta tai hyväksymästä samalle kaudelle uutta ilmoitusta
+(`VAT_FILING_UNRESOLVED`).
 
-Ilmoitusta ei koskaan lähetetä uudelleen sokkona. Toimintaohjeet ovat sivulla
-[Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
+Mitä teet itse, on kohdassa
+[Ilmoituksen lopputulos on epävarma](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
 
-Sama varovaisuus koskee käsin tehtyä ilmoitusta. Jos samalle kaudelle on
-jäänyt epävarma rajapintalähetys, käsin tehdyn ilmoituksen kirjaaminen vaatii
-lisäksi näytön siitä, että viranomaisen tila on selvitetty. Muuten käsin tehty
-ilmoitus voisi huomaamatta olla kaksoisilmoitus.
+Jos samalle kaudelle on jäänyt epävarma rajapintalähetys ja teet ilmoituksen
+käsin, sen kirjaaminen vaatii lisäksi näytön siitä, että viranomaisen tila on
+selvitetty. Muuten käsin tehty ilmoitus voisi huomaamatta olla
+kaksoisilmoitus.
 
 ## Tulorekisterin erityispiirteet
 
-Tulorekisteri-ilmoituksessa on henkilötunnus. Siksi:
+Tulorekisteri-ilmoituksessa on henkilötunnus. Ilmoituksen tarkiste on johdettu
+myös siitä, joten tarkistetta käsitellään arkaluonteisena: sitä ei tallenneta
+gitiin, muistiinpanoihin eikä keskustelulokiin. Tulorekisterin virhetekstejä
+ohjelma ei näytä, koska niissäkin voi olla henkilötunnus. Tarkat virheet näet
+Tulorekisterin asiointipalvelusta.
 
-- Ilmoituksen tarkiste on johdettu myös henkilötunnuksesta, ja sitä
-  käsitellään arkaluonteisena: sitä ei tallenneta gitiin, muistiinpanoihin
-  eikä keskustelulokiin.
-- Ohjelma ei näytä Tulorekisterin virhetekstejä, koska niissä voi olla
-  henkilötunnus. Tarkat virheet näet Tulorekisterin asiointipalvelusta.
-- Maksun tunnistetta tai maksupäivää ei vaihdeta hylkäyksen tai epävarmuuden
-  kiertämiseksi. Uusi tunniste olisi Tulorekisterille uusi ilmoitus.
+Maksun tunnistetta tai maksupäivää ei vaihdeta hylkäyksen tai epävarmuuden
+kiertämiseksi, koska uusi tunniste olisi Tulorekisterille uusi ilmoitus.
 
 ## Mitä aggountant ei tee
 
-- Se ei maksa veroa. ALV maksetaan OmaVeron viitteellä itse.
-- Se ei mitätöi työnantajan erillisilmoitusta. Se tehdään Tulorekisterin
-  asiointipalvelussa. Korvaava ALV-ilmoitus, matkakorvausilmoituksen korvaava
-  ilmoitus ja mitätöinti sekä erillisilmoituksen korvaava ilmoitus tehdään
-  aggountantilla, omalla esikatselullaan ja hyväksynnällään.
+aggountant ei maksa veroa, vaan maksat ALV:n itse OmaVeron viitteellä. Se ei
+myöskään mitätöi työnantajan erillisilmoitusta. Mitätöinti tehdään
+Tulorekisterin asiointipalvelussa.
+
+Korvaava ALV-ilmoitus, matkakorvausilmoituksen korvaava ilmoitus ja mitätöinti
+sekä erillisilmoituksen korvaava ilmoitus tehdään aggountantilla, kukin omalla
+esikatselullaan ja hyväksynnällään.
 
 ## Mitä tämä tarkoittaa sinulle
 
