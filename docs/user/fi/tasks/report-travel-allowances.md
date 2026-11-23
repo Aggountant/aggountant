@@ -1,35 +1,34 @@
 # Ilmoita matkakorvaukset Tulorekisteriin
 
-Kun yritys maksaa työntekijälle tai itsellesi verovapaita matkakorvauksia,
-ne ilmoitetaan Tulorekisteriin. aggountant ilmoittaa kilometrikorvaukset ja
-päivärahat yhdelle tulonsaajalle ja yhdestä maksusta kerrallaan oikealla
-Tulorekisterin tuotantoyhteydellä. Sivun alkuosa on kertaluonteinen
-käyttöönotto.
+Kun yritys maksaa työntekijälle tai sinulle itsellesi verovapaita
+matkakorvauksia, ne ilmoitetaan Tulorekisteriin. aggountant ilmoittaa
+kilometrikorvaukset ja päivärahat yhdelle tulonsaajalle ja yhdestä maksusta
+kerrallaan Tulorekisterin tuotantoyhteydellä. Rahapalkkoja sillä
+[ei vielä voi maksaa eikä ilmoittaa](../reference/status.md#palkat).
 
-Rahapalkkoja aggountantilla ei vielä voi maksaa eikä ilmoittaa
-([Mitä on valmista ja mitä ei](../reference/status.md#palkat)).
-
-Jos yritys on työnantajarekisterissä, Tulorekisteriin annetaan lisäksi joka
-kuukausi työnantajan erillisilmoitus. Kuukaudelta, jolta maksoit vain
-matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
-[Anna työnantajan erillisilmoitus](file-employer-report.md).
+Jos yritys on työnantajarekisterissä, se antaa Tulorekisteriin lisäksi joka
+kuukausi [työnantajan erillisilmoituksen](file-employer-report.md).
+Kuukaudelta, jolta maksoit vain matkakorvauksia, siihen tulee
+sairausvakuutusmaksu 0 €.
 
 ## Ennen kuin aloitat
 
-- **Rajapintaoikeus.** Avaa Verohallinnon varmennepalvelussa
-  Tuotantovarmenteet → organisaatiosi → Näytä tiedot → Tee korvaava hakemus.
-  Tulorekisterin rajapinnoista (Palkkatiedot ja Etuustiedot, kumpikin SFTP tai
-  Web service) valitse **Palkkatiedot (Web service)**, käyttötarkoitus
-  "ilmoitan itse maksamiani tuloja". Pidä Vero API valittuna, jos käytät sitä.
-  Kun oikeus on myönnetty, vahvistuksessa lukee "Palkkatiedot tuottaja (Web
-  service)" (ja "Vero API (Web service)", jos pidit sen). Hakemuksen voi
-  hyväksyä heti, eikä uutta varmennetta tarvita: sama kelpaa molempiin. Myös
-  erillinen varmenne on mahdollinen.
-- **Tunnukset.** Oletuksena käytetään samaa tunnustiedostoa kuin
-  ALV-ilmoituksessa ([Ota suora ALV-ilmoittaminen käyttöön](set-up-vero-api.md)).
-  Erillisen tiedoston polku annetaan profiilissa. Tunnustiedoston pitää olla
-  kodin ulkopuolella.
-- **Matka- tai kululasku**, josta korvaus maksettiin, ja tieto maksupäivästä.
+- Yritykselle on myönnetty Tulorekisterin rajapintaoikeus. Hae sitä
+  Verohallinnon varmennepalvelussa: Tuotantovarmenteet → organisaatiosi →
+  Näytä tiedot → Tee korvaava hakemus. Tulorekisterin rajapintoja ovat
+  Palkkatiedot ja Etuustiedot, kumpikin SFTP- tai Web service -muodossa.
+  Valitse **Palkkatiedot (Web service)** ja käyttötarkoitukseksi "ilmoitan
+  itse maksamiani tuloja". Pidä Vero API valittuna, jos käytät sitä.
+  Hakemuksen voi hyväksyä heti. Uutta varmennetta et tarvitse, koska sama
+  varmenne kelpaa molempiin, mutta voit käyttää myös erillistä. Kun oikeus on
+  myönnetty, vahvistuksessa lukee "Palkkatiedot tuottaja (Web service)" ja,
+  jos pidit Vero API:n, "Vero API (Web service)".
+- Tunnustiedosto on kodin ulkopuolella. Oletuksena aggountant käyttää samaa
+  tiedostoa kuin [suorassa ALV-ilmoittamisessa](set-up-vero-api.md). Jos
+  haluat Tulorekisterille oman tiedoston, agentti kirjoittaa sen polun
+  profiiliin.
+- Sinulla on matka- tai kululasku, josta korvaus maksettiin, ja tiedät
+  maksupäivän.
 
 ## Ota ilmoittaminen käyttöön (kerran)
 
@@ -38,24 +37,46 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
    > Otetaan Tulorekisterin matkakorvausilmoitukset käyttöön. Rajapintaoikeus
    > on myönnetty.
 
-   Agentti kirjoittaa komennolla `tulorekisteri configure` kodin tiedostoon
-   `.aggountant/tulorekisteri.json` tuotantotilan, Y-tunnuksen ja
-   vahvistuksesi siitä, että ilmoitusoikeus on myönnetty. **Vahvista oikeus
-   vasta, kun se on myönnetty**, ei silloin kun hakemus on lähetetty.
-   Tuotantotila kirjoitetaan vasta, kun yhteys on valmis; muuten komento
-   luettelee, mikä puuttuu. `tulorekisteri status` näyttää saman verkotta
-   myöhemminkin: jokaisen puuttuvan asian koodin, sen, kuuluuko se sinulle
-   (`human`) vai agentille (`agent`), ja mitä tehdä.
+   Agentti kirjoittaa profiiliin tuotantotilan, yrityksen Y-tunnuksen ja
+   vahvistuksesi siitä, että ilmoitusoikeus on myönnetty. Vahvista oikeus
+   vasta, kun se on myönnetty. Hakemuksen lähettäminen ei vielä riitä.
 
-2. **Lisää tulonsaaja työntekijärekisteriin.** Tulonsaajan tiedot ovat
-   tunniste, nimi, henkilötunnus, tilinumero ja verokortin pidätysprosentti.
-   Pidätysprosentti on tällä hetkellä pakollinen myös henkilölle, jolle
-   ilmoitetaan vain matkakorvauksia. Se ei vaikuta matkakorvausilmoitukseen.
+   Ohjelma kirjoittaa tuotantotilan vasta, kun yhteys on valmis. Muuten se
+   luettelee, mikä puuttuu: jokaisen puutteen koodin, sen, kuuluuko puute
+   sinulle (`human`) vai agentille (`agent`), ja mitä tehdä.
 
-   **Älä kirjoita henkilötunnusta keskusteluun agentin kanssa.** Laadi syöte
-   itse tiedostoon, anna agentille vain tiedoston nimi ja poista tiedosto
-   lisäyksen jälkeen. Turvallista syöttötapaa, joka ei näyttäisi tietoja
-   ruudulla, ei vielä ole.
+2. **Kirjoita tulonsaajan tiedot tiedostoon**, ja agentti lisää hänet
+   työntekijärekisteriin. Tiedot ovat tunniste, nimi, henkilötunnus,
+   tilinumero ja verokortin pidätysprosentti. Pidätysprosentti on tällä
+   hetkellä pakollinen myös henkilölle, jolle ilmoitetaan vain
+   matkakorvauksia, vaikka se ei vaikuta matkakorvausilmoitukseen.
+
+   **Älä kirjoita henkilötunnusta keskusteluun agentin kanssa.** Anna
+   agentille vain tiedoston nimi ja poista tiedosto, kun tulonsaaja on
+   lisätty. Syöttötapaa, joka pitäisi tiedot poissa ruudulta, ei vielä ole.
+
+<details>
+<summary>Komennot, joita agentti ajaa</summary>
+
+```sh
+aggountant tulorekisteri configure < profiili.json
+aggountant tulorekisteri status
+aggountant employee add < tyontekija.json
+aggountant employee list
+```
+
+`tulorekisteri configure` kirjoittaa profiilin kodin tiedostoon
+`.aggountant/tulorekisteri.json`.
+
+`tulorekisteri status` näyttää myöhemminkin ilman verkkoyhteyttä, mitä
+yhteydestä vielä puuttuu.
+
+Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
+`tax_card.withholding_pct`.
+
+`aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
+tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
+</details>
 
 ## Näin teet ilmoituksen
 
@@ -64,35 +85,35 @@ matkakorvauksia, siihen tulee sairausvakuutusmaksu 0 €:
    > Ilmoita Maija Meikäläisen lokakuun matkalaskun korvaukset
    > Tulorekisteriin. Maksupäivä oli 24.10.2026.
 
-2. **Agentti laatii ilmoituksen** matka- tai kululaskusta. Rivejä on kahta
-   lajia:
-   - **311 kilometrikorvaus**: summa ja kokonaiskilometrit
-   - **331 päiväraha**: summa ja päivärahan laji (1 ateriakorvaus,
-     2 osapäiväraha, 3 kokopäiväraha, 4 ulkomaan päiväraha).
-
+2. **Agentti laatii ilmoituksen** matka- tai kululaskusta.
+   Kilometrikorvauksen rivillä (311) ovat summa ja kokonaiskilometrit.
+   Päivärahan rivillä (331) ovat summa ja päivärahan laji: 1 ateriakorvaus,
+   2 osapäiväraha, 3 kokopäiväraha tai 4 ulkomaan päiväraha.
    Kuittiperusteiset kulut, kuten hotelli tai pysäköinti, eivät kuulu näille
-   riveille. Ilmoituksessa ovat myös maksupäivä, ansaintajakson alku ja loppu,
-   tieto pääomaosakkuudesta ja yhteyshenkilö. Henkilötunnusta agentti ei
+   riveille.
+
+   Ilmoituksessa ovat myös maksupäivä, ansaintajakson alku ja loppu, tieto
+   pääomaosakkuudesta ja yhteyshenkilö. Pääomaosakkuuden agentti kysyy
+   sinulta, koska aggountant ei päättele sitä. Henkilötunnusta agentti ei
    kirjoita ilmoitukseen, vaan ohjelma hakee sen työntekijärekisteristä.
 
 3. **Agentti esikatselee ilmoituksen.** Esikatselu ei ota verkkoyhteyttä. Se
    näyttää rivit, jakson, maksupäivän, osakkuustiedon, yhteyshenkilön ja
-   määräpäivän. aggountant käyttää varovaista määräpäivää: maksupäivä + 5
-   kalenteripäivää. Lisäksi se antaa ilmoituksen tarkisteen.
+   määräpäivän. Määräpäivänä aggountant näyttää varovaisesti viidennen
+   kalenteripäivän maksupäivästä.
 
-4. **Tarkista ja hyväksy** rivit, jakson, osakkuustiedon ja tarkisteen.
-   Pääomaosakkuus kerrotaan aina erikseen. aggountant ei päättele sitä.
+4. **Tarkista ja hyväksy** rivit, jakso, maksupäivä ja osakkuustieto.
 
    > Hyväksyn ilmoituksen.
 
-5. **Agentti lähettää ilmoituksen** juuri hyväksymälläsi tarkisteella.
+5. **Agentti lähettää ilmoituksen.** Esikatselu antaa tarkisteen, ja lähetys
+   onnistuu vain sillä, joten Tulorekisteriin lähtee juuri se ilmoitus, jonka
+   näit.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
 
 ```sh
-aggountant employee add < tyontekija.json
-aggountant employee list
 aggountant --json file-wage preview --timestamp 2026-10-25T12:00:00Z < ilmoitus.json \
   | tee >(jq -r .record_hash > TIEDOSTO) | jq 'del(.record_hash)'
 aggountant file-wage start   --timestamp 2026-10-25T12:00:00Z < ilmoitus.json
@@ -100,26 +121,24 @@ aggountant file-wage approve wr-… --record-hash-file TIEDOSTO
 aggountant run show --run-id wr-…
 ```
 
-Työntekijän syötteessä tunniste on `employee_id` ja pidätysprosentti
-`tax_card.withholding_pct`. Esikatselu antaa tarkisteen kentässä `record_hash`.
-Tarkiste on johdettu henkilötunnuksesta, joten se on arkaluonteinen: sitä
-käytetään vain hyväksyntään, eikä sitä tallenneta pysyvästi, kirjata lokiin tai jaeta.
-Esikatselu sanoo saman kentässä `sensitive.record_hash`. Siksi agentti
-pitää sen poissa komentoriviltä, jolta se jäisi komentohistoriaan ja
-keskusteluun: se ottaa näkemäsi esikatselun tarkisteen talteen yksityiseen
-väliaikaistiedostoon (`mktemp`, kodin ulkopuolella), näyttää esikatselun ilman
-sitä, antaa tiedoston hyväksynnälle (`--record-hash-file`) ja poistaa sen
-lopuksi.
-Esikatselulle ja käynnistykselle annetaan sama aikaleima.
-`aggountant employee show --employee <tunniste>` näyttää henkilötunnuksen ja
-tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
+Esikatselu antaa tarkisteen kentässä `record_hash`. Tarkiste on johdettu
+henkilötunnuksesta, joten se on arkaluonteinen: sitä käytetään vain
+hyväksyntään, eikä sitä tallenneta pysyvästi, kirjata lokiin tai jaeta.
+Esikatselu sanoo saman kentässä `sensitive.record_hash`. Komentorivillä
+tarkiste jäisi komentohistoriaan ja keskusteluun. Siksi agentti ottaa
+näkemäsi esikatselun tarkisteen talteen yksityiseen väliaikaistiedostoon
+(`mktemp`, kodin ulkopuolella) ja näyttää esikatselun ilman sitä.
 
-Kun Tulorekisteri on hyväksynyt ilmoituksen, `file-wage approve`- ja
-`run show` -vastauksissa on sen kuittaus `submit-wage`-efektin kentissä
-`outcome.receipt.ir_delivery_id` ja `outcome.receipt.ir_report_id`. `run show`
-lukee sen ilman verkkoa. Jos `outcome.state` on `outcome_unknown`,
-`outcome.next_command` nimeää komennon `file-wage reconcile`, joka kysyy tilan
-Tulorekisteriltä.
+`file-wage start` saa saman aikaleiman kuin esikatselu.
+
+`file-wage approve` lukee tarkisteen tiedostosta (`--record-hash-file`), ja
+agentti poistaa tiedoston sen jälkeen. Kun Tulorekisteri on hyväksynyt
+ilmoituksen, vastauksessa on sen kuittaus `submit-wage`-efektin kentissä
+`outcome.receipt.ir_delivery_id` ja `outcome.receipt.ir_report_id`. Jos
+`outcome.state` on `outcome_unknown`, `outcome.next_command` nimeää komennon
+`file-wage reconcile`, joka kysyy tilan Tulorekisteriltä.
+
+`run show` näyttää saman kuittauksen ilman verkkoyhteyttä.
 </details>
 
 ## Valmis, kun
@@ -129,26 +148,25 @@ tarkistaa sen myös Tulorekisterin asiointipalvelusta.
 
 ## Korjaa hyväksytty ilmoitus
 
-Kun Tulorekisteri on jo hyväksynyt ilmoituksen ja siinä on virhe, korjaus
-tehdään aggountantilla samalla tavalla kuin ilmoitus: agentti esikatselee
+Kun Tulorekisteri on jo hyväksynyt ilmoituksen ja siinä on virhe, korjaa se
+aggountantilla samaan tapaan kuin teit ilmoituksen: agentti esikatselee
 korjauksen, sinä hyväksyt sen ja agentti lähettää sen kerran.
 
 > Lokakuun matkalaskun kilometrit olivat väärin, oikea määrä on 160 km ja
 > korvaus 96,00 €. Korjaa Tulorekisteri-ilmoitus.
 
-Korjauksia on kahta lajia:
+Korvaava ilmoitus antaa koko ilmoituksen uudelleen korjattuna. Sillä
+korjataan rivit, yhteyshenkilö tai tieto pääomaosakkuudesta. Maksajaa,
+tulonsaajaa, maksupäivää ja ansaintajaksoa se ei voi muuttaa, koska
+Tulorekisteri vaatii niiden pysyvän samoina.
 
-- **Korvaava ilmoitus** antaa koko ilmoituksen uudelleen korjattuna. Sillä
-  korjataan rivit, yhteyshenkilö tai tieto pääomaosakkuudesta. Maksajaa,
-  tulonsaajaa, maksupäivää ja ansaintajaksoa se ei voi muuttaa, koska
-  Tulorekisteri vaatii niiden pysyvän samoina.
-- **Mitätöinti** poistaa ilmoituksen. Sitä käytetään, kun maksua ei ollutkaan
-  tai kun pitää muuttaa jotain, mitä korvaava ilmoitus ei saa muuttaa. Sen
-  jälkeen annetaan tarvittaessa uusi ilmoitus tavalliseen tapaan.
+Mitätöinti poistaa ilmoituksen. Sitä käytetään, kun maksua ei ollutkaan tai
+kun pitää muuttaa jotain, mitä korvaava ilmoitus ei voi muuttaa. Sen jälkeen
+annetaan tarvittaessa uusi ilmoitus tavalliseen tapaan.
 
 Esikatselu näyttää Tulorekisterissä nyt olevan ilmoituksen ja korjatun
-ilmoituksen rinnakkain. Tarkista, että juuri se muuttuu, minkä pitikin, ja
-hyväksy vasta sitten. Korjaus on yhtä lopullinen kuin alkuperäinen ilmoitus.
+ilmoituksen rinnakkain. Tarkista ennen hyväksyntää, että vain se muuttuu,
+minkä pitikin. Korjaus on yhtä lopullinen kuin alkuperäinen ilmoitus.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -160,14 +178,19 @@ aggountant file-wage correction preview wr-… --action cancel --timestamp 2026-
 aggountant file-wage correction status  wr-…
 ```
 
-`wr-…` on alkuperäisen ilmoituksen ajo. Korvaavan ilmoituksen syöte on koko
-ilmoitus korjattuna, ja sen tarkiste on arkaluonteinen kuten alkuperäisen,
-joten se otetaan talteen tiedostoon samalla tavalla.
-Mitätöinti ei lue syötettä. `correction status` näyttää, mitä Tulorekisterissä
-nyt on (`accepted`, `replaced`, `cancelled`), voimassa olevan kuittauksen ja
-ilmoituksen koko historian. Alkuperäisen ajon `run show` näyttää tilan
-`superseded`, kun sen kuittaus ei enää ole voimassa oleva. Mitätöinnin jälkeen
-uusi ilmoitus tarvitsee oman `source_reference`-arvonsa.
+`wr-…` on alkuperäisen ilmoituksen ajo.
+
+Korvaavan ilmoituksen syöte on koko ilmoitus korjattuna. Sen tarkiste on
+arkaluonteinen kuten alkuperäisen, joten agentti ottaa sen talteen tiedostoon
+samalla tavalla.
+
+Mitätöinti ei lue syötettä. Mitätöinnin jälkeen uusi ilmoitus tarvitsee oman
+`source_reference`-arvonsa.
+
+`correction status` näyttää, mitä Tulorekisterissä nyt on (`accepted`,
+`replaced`, `cancelled`), voimassa olevan kuittauksen ja ilmoituksen koko
+historian. Alkuperäisen ajon `run show` näyttää tilan `superseded`, kun sen
+kuittaus ei enää ole voimassa oleva.
 
 Jos olet jo tehnyt korvaavan ilmoituksen tai mitätöinnin Tulorekisterin
 asiointipalvelussa, agentti kirjaa sen näytöstä:
@@ -179,25 +202,23 @@ aggountant file-wage correction complete-manual wr-… --action replace --ir-rep
 
 ## Rajoitukset
 
-- Korvaava ilmoitus ei voi muuttaa maksajaa, tulonsaajaa, maksupäivää eikä
-  ansaintajaksoa. Niitä varten ilmoitus mitätöidään ja annetaan uudelleen.
-- Työntekijärekisteriä ei vielä ole salattu. Pidä kotihakemisto ja sen
-  varmuuskopiot vain omassa käytössäsi.
-
-Tarkemmin: [Mitä on valmista ja mitä ei](../reference/status.md#tulorekisteri-ja-työntekijät).
+Työntekijärekisteriä ei vielä ole salattu. Pidä kotihakemisto ja sen
+varmuuskopiot vain omassa käytössäsi. Muut rajoitukset ovat kohdassa
+[Tulorekisteri ja työntekijät](../reference/status.md#tulorekisteri-ja-työntekijät).
 
 ## Jos jokin menee pieleen
 
-- **Lähetyksen tulos jäi epäselväksi** (aikakatkaisu, palvelun virhe):
-  hyväksynnän toisto ei lähetä uudelleen.
-  [Kun jokin menee vikaan](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
-- **Tulorekisteri hylkäsi ilmoituksen.** Katso syy asiointipalvelusta:
-  [Kun jokin menee vikaan](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
-- **Korjauksen tulos jäi epäselväksi.** `file-wage correction status` kysyy
-  tilan; korjausta ei lähetetä uudelleen eikä uutta korjausta voi tehdä ennen
-  kuin se on selvinnyt.
-- **Älä vaihda maksun tunnistetta tai maksupäivää** kiertääksesi hylkäyksen tai
-  epävarmuuden. Silloin syntyisi huomaamatta uusi ilmoitus.
+- Jos lähetyksen tulos jäi epäselväksi (aikakatkaisu, palvelun virhe),
+  hyväksynnän toisto ei lähetä ilmoitusta uudelleen. Katso
+  [Ilmoituksen lopputulos on epävarma](../troubleshooting.md#ilmoituksen-lopputulos-on-epävarma).
+- Jos Tulorekisteri hylkäsi ilmoituksen, katso syy asiointipalvelusta ja lue
+  [Tulorekisteri hylkäsi ilmoituksen](../troubleshooting.md#tulorekisteri-hylkäsi-ilmoituksen).
+- Jos korjauksen tulos jäi epäselväksi, `file-wage correction status` kysyy
+  tilan Tulorekisteriltä. Ohjelma ei lähetä korjausta uudelleen, eikä uutta
+  korjausta voi tehdä, ennen kuin tila on selvinnyt.
+
+Älä vaihda maksun tunnistetta tai maksupäivää kiertääksesi hylkäyksen tai
+epävarmuuden, koska silloin syntyisi huomaamatta uusi ilmoitus.
 
 ## Katso myös
 
