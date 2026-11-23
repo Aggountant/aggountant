@@ -1,36 +1,33 @@
 # Ota suora ALV-ilmoittaminen käyttöön
 
-Suora ilmoittaminen on yrityksesi oma yhteys Verohallintoon: agentti lähettää
-ALV-ilmoituksen Vero API -rajapinnan kautta yrityksesi omilla tunnuksilla.
-Käyttöönotossa on useita vaiheita ja odotusaikoja, joten aloita se hyvissä
-ajoin. Siihen asti teet ilmoituksen
-[OmaVerossa](file-vat-omavero.md). Sivun lopussa kerrotaan, mitä teet, kun
-varmenne vaihtuu.
+Suorassa ilmoittamisessa agentti lähettää ALV-ilmoituksen Verohallinnolle
+Vero API -rajapinnan kautta yrityksesi omilla tunnuksilla. Käyttöönotossa on
+useita vaiheita ja odotusaikoja, joten aloita se hyvissä ajoin. Siihen asti
+teet ilmoituksen [OmaVerossa](file-vat-omavero.md).
 
 ## Ennen kuin aloitat
 
-- **Jokainen käyttäjä rekisteröi oman ohjelmistonsa ja saa oman
-  ohjelmistoavaimensa** Verohallinnon API-portaalista, ja yritys hankkii oman
-  varmenteensa. aggountantilla ei ole yhteistä avainta, jonka voisi lainata.
+- aggountantilla ei ole yhteistä ohjelmistoavainta. Jokainen käyttäjä
+  rekisteröi oman ohjelmistonsa Verohallinnon API-portaalissa ja saa oman
+  avaimen, ja yritys hankkii oman varmenteensa.
 - Portaali-, sopimus- ja varmennetoimet teet itse, koska ne ovat yrityksen
-  oikeustoimia. Agentti ei asioi portaaleissa puolestasi. Se kokoaa tiedot,
-  tarkistaa valmiuden, ajaa tarkistukset luvallasi ja kertoo, kenen vuoro
-  kunkin esteen poistamisessa on.
-- Toimien täsmälliset nimet ja järjestys ovat Verohallinnon ohjeissa. Tällä
-  sivulla ne on kuvattu sillä tarkkuudella kuin aggountant ne tarkistaa.
+  oikeustoimia. Agentti kokoaa tiedot, tarkistaa valmiuden, ajaa tarkistukset
+  luvallasi ja kertoo, kenen vuoro kunkin esteen poistamisessa on.
+- Tämä sivu kuvaa toimet sillä tarkkuudella kuin aggountant ne tarkistaa.
+  Niiden täsmälliset nimet ja järjestys ovat Verohallinnon ohjeissa.
 
 ## Mitä tarvitset Verohallinnolta
 
-1. **Ohjelmiston rekisteröinti ja ohjelmistoavain.** Rekisteröi ohjelmistosi
-   Vero API -portaalissa ja ota talteen sen antama ohjelmistoavain.
-2. **Rajapintasopimus.** Yrityksen Vero API -sopimus tai -hakemus.
-3. **Tuotantovarmenne.** Hae yrityksellesi varmenne Verohallinnon
-   varmennepalvelusta. Saat varmenteen, sen yksityisen avaimen ja varmentajan
-   (CA) varmenteen. Varmenne on voimassa kaksi vuotta.
-4. **ALV:n hyväksyntätestit.** Valitse portaalissa ALV-rajapinnan
-   hyväksyntätestit. aggountant ajaa ne puolestasi (vaihe 3 alla).
-5. **Tuotantolupa.** Kun testit on hyväksytty, portaalissa aktivoidaan
-   tuotantokäyttö.
+1. **Rekisteröi ohjelmistosi** Vero API -portaalissa ja ota talteen sen
+   antama ohjelmistoavain.
+2. **Tee yrityksellesi rajapintasopimus**, eli Vero API -sopimus tai
+   -hakemus.
+3. **Hae yrityksellesi tuotantovarmenne** Verohallinnon varmennepalvelusta.
+   Saat varmenteen, sen yksityisen avaimen ja varmentajan (CA) varmenteen.
+4. **Valitse portaalissa ALV-rajapinnan hyväksyntätestit.** Agentti ajaa ne
+   alempana vaiheessa 3.
+5. **Hanki tuotantolupa.** Kun testit on hyväksytty, tuotantokäyttö
+   aktivoidaan portaalissa.
 
 ## Näin teet sen
 
@@ -46,34 +43,36 @@ varmenne vaihtuu.
 
    Aseta oikeudet niin, että vain sinä voit lukea tiedoston, äläkä lisää sitä
    gittiin. **Älä liitä tunnuksia keskusteluun agentin kanssa**, koska
-   keskustelut tallentuvat usein lokeihin. Kerro agentille vain tiedoston polku.
+   keskustelut tallentuvat usein lokeihin. Kerro agentille vain tiedoston
+   polku.
 
 2. **Pyydä agenttia tekemään perusasetukset.**
 
    > Otetaan suora ALV-ilmoittaminen käyttöön. Tunnukset ovat tiedostossa
    > ~/.config/aggountant/credentials/vero-production.json.
 
-   Agentti kirjoittaa kodin `vero-filing.json`-tiedoston: Y-tunnus,
-   yhteyshenkilön nimi ja puhelinnumero. Tila on aluksi `disabled`.
-   Tunnustiedoston polku tallentuu koneen omaan asetustiedostoon, ei kotiin,
+   Agentti kirjoittaa kodin `vero-filing.json`-tiedostoon Y-tunnuksen sekä
+   yhteyshenkilön nimen ja puhelinnumeron. Tila on aluksi `disabled`.
+   Tunnustiedoston polku tallentuu koneen omaan asetustiedostoon eikä kotiin,
    joten jokaisella koneella voi olla omat tunnuksensa. Sitten agentti
-   tarkistaa valmiuden ja kertoo jäljellä olevat esteet ja niiden omistajat.
+   tarkistaa valmiuden ja kertoo, mitä esteitä on jäljellä ja kenen ne ovat.
 
 3. **Anna lupa hyväksyntätesteihin.** Kun olet valinnut testit portaalissa,
    agentti ajaa Verohallinnon kolme kiinteää testiskenaariota
-   tuotantovarmenteellasi. Ajo ei tee ilmoitusta eikä muuta tilaa, mutta se on
-   ensimmäinen yhteys Verohallinnon tuotantoon, ja siksi agentti pyytää luvan.
-   Onnistunut ajo tallentaa näytön asetuksiin ja kirjaa testit hyväksytyiksi.
+   tuotantovarmenteellasi. Se pyytää luvan, koska ajo on ensimmäinen yhteys
+   Verohallinnon tuotantoon. Ajo ei tee ilmoitusta eikä muuta tilaa. Kun se
+   onnistuu, ohjelma tallentaa siitä näytön asetuksiin ja kirjaa testit
+   hyväksytyiksi.
 
-4. **Vahvista portaalitoimet.** Kun olet tehnyt portaalissa rekisteröinnin,
-   sopimuksen ja tuotantoluvan, vahvistat ne agentille yksi kerrallaan.
-   Ohjelma ei voi tarkistaa niitä vaan luottaa sanaasi, joten **vahvista vain
-   tehdyt asiat, älä odotettuja**.
+4. **Vahvista portaalitoimet agentille** yksi kerrallaan, kun olet tehnyt
+   portaalissa rekisteröinnin, sopimuksen ja tuotantoluvan. Ohjelma ei voi
+   tarkistaa niitä vaan luottaa sanaasi, joten vahvista vain se, minkä olet
+   jo tehnyt.
 
 5. **Hyväksy siirtyminen tuotantoon.** Agentti kirjoittaa asetukset uudelleen
    tilassa `production` ja sitoo tuotantoaktivoinnin nykyisen varmenteen
-   sormenjälkeen. Ohjelma hyväksyy tuotantotilan vain, jos valmiuden tarkistus
-   menee läpi. Muuten se kieltäytyy, eikä mikään muutu.
+   sormenjälkeen. Jos valmiuden tarkistus ei mene läpi, ohjelma kieltäytyy
+   eikä mikään muutu.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -85,23 +84,28 @@ aggountant vero-fi configure < asetukset.json
 aggountant vero-fi verify-portal
 ```
 
-`configure` yhdistää annetut kentät tallennettuihin asetuksiin: mitä syöte
-ei mainitse, pysyy ennallaan, ja `--dry-run` luettelee jokaisen kentän, joka
-muuttuisi. `verify-portal`-ajon tallentama varmennusnäyttö säilyy; syöte, joka
-poistaisi tai muuttaisi sen, hylätään. `--replace` kirjoittaa syötteen koko
-asetustiedostoksi, ja sitä tarvitaan vain näytön tarkoitukselliseen
-poistamiseen tai rikkinäisen asetustiedoston korvaamiseen.
+`status` tarkistaa valmiuden paikallisesti ilman verkkoyhteyttä, joten sen
+voi ajaa milloin tahansa. Ohjelma tekee saman tarkistuksen juuri ennen
+jokaista lähetystä.
 
-`aggountant vero-fi verify --target test` on vapaaehtoinen vianetsintä
-testiympäristöstä erillisillä testitunnuksilla. Sitä ei tarvita tuotantoon.
+`configure` yhdistää annetut kentät tallennettuihin asetuksiin. Kenttä, jota
+syöte ei mainitse, pysyy ennallaan, ja `--dry-run` luettelee jokaisen kentän,
+joka muuttuisi. Ohjelma hylkää syötteen, joka poistaisi tai muuttaisi
+`verify-portal`-ajon tallentaman näytön. `--replace` kirjoittaa syötteen koko
+asetustiedostoksi, ja sitä tarvitaan vain, kun näyttö poistetaan
+tarkoituksella tai rikkinäinen asetustiedosto korvataan.
+
+`verify-portal` ajaa hyväksyntätestit.
+
+`aggountant vero-fi verify --target test` on vapaaehtoinen. Sillä voi etsiä
+vikaa testiympäristössä erillisillä testitunnuksilla, eikä sitä tarvita
+tuotantoon.
 </details>
 
 ## Valmis, kun
 
 `aggountant vero-fi status` kertoo, että valmius on kunnossa (`ready`), eikä
-esteitä ole. Tarkistus on paikallinen eikä ota verkkoyhteyttä, joten sen voi
-ajaa milloin tahansa. Sama tarkistus tehdään automaattisesti juuri ennen
-jokaista lähetystä.
+esteitä ole.
 
 ## Kun varmenne vaihtuu
 
@@ -119,11 +123,12 @@ Kun tarvitset varmenteen tunnistetta esimerkiksi Verohallinnon tuelle, käytä
 
 ## Jos jokin menee pieleen
 
-- **Esteitä on jäljellä.** Jokaisella esteellä on koodi ja omistaja:
+- Jos esteitä on jäljellä, jokaisella niistä on koodi ja omistaja. Ne on
+  lueteltu sivulla
   [Vero.fi-valmiuden esteet](../reference/vero-fi-blockers.md).
-- **Ohjelmistoavain tai varmenteen yksityinen avain on vuotanut.** Ota yhteyttä
-  Verohallintoon samalla tavalla kuin minkä tahansa muun tunnuksen
-  vuotaessa, ja hanki uudet.
+- Jos ohjelmistoavain tai varmenteen yksityinen avain on vuotanut, ota
+  yhteyttä Verohallintoon samalla tavalla kuin minkä tahansa muun tunnuksen
+  vuotaessa ja hanki uudet.
 
 ## Katso myös
 
