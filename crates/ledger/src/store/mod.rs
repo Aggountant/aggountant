@@ -332,6 +332,9 @@ pub(crate) struct BankEventRequest<'a> {
     pub provenance: StoredProvenance,
     pub projection_hash: String,
     pub gate: PeriodGate<'a>,
+    /// Bind the transaction to this already sealed voucher instead of sealing
+    /// one. Its leg was checked against the bank facts by the Ledger.
+    pub bind: Option<u64>,
 }
 
 /// The identity of a voucher sealed before bank events were recorded, read back
@@ -359,6 +362,8 @@ pub(crate) struct BankBatchRequest<'a> {
 pub(crate) enum BankEventResolution {
     New(StoredVoucher),
     Duplicate(StoredVoucher),
+    /// The transaction was bound to a voucher sealed outside the import.
+    Bound(StoredVoucher),
     Conflict {
         code: BankEventConflictCode,
         existing: StoredVoucher,
@@ -522,6 +527,10 @@ pub(crate) trait FiscalStore {
     /// Vouchers whose natural key starts with `prefix` and that have no bank
     /// event recorded: those sealed by an import before events existed.
     fn vouchers_without_bank_event(&self, prefix: &str) -> Result<Vec<StoredVoucher>, LedgerError>;
+
+    /// Every voucher no bank event is bound to, in number order: the vouchers
+    /// that could book a bank transaction the import does not know about.
+    fn vouchers_not_bound_to_bank_event(&self) -> Result<Vec<StoredVoucher>, LedgerError>;
 
     /// Recorded observations, optionally only those in one statement file,
     /// ordered by file and voucher number.

@@ -581,6 +581,17 @@ fn read_bank_event(
         .optional()?)
 }
 
+/// The event key a voucher is bound to, if any.
+fn bank_event_key_for_voucher(tx: &Connection, number: u64) -> Result<Option<String>, LedgerError> {
+    Ok(tx
+        .query_row(
+            "SELECT event_key FROM bank_event WHERE voucher_number = ?1",
+            params![number],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn insert_bank_event(
     tx: &Connection,
@@ -646,7 +657,9 @@ fn resolve_bank_event(
         let existing = load_voucher(tx, number)?;
         let code = if stored_fingerprint != fingerprint {
             BankEventConflictCode::SourceFactsChanged
-        } else if stored_projection != request.projection_hash {
+        } else if request.bind.is_some_and(|bind| bind != number) {
+            BankEventConflictCode::BankVoucherMismatch
+        } else if request.bind.is_none() && stored_projection != request.projection_hash {
             BankEventConflictCode::PostingProjectionChanged
         } else {
             insert_observation(
@@ -667,6 +680,33 @@ fn resolve_bank_event(
             code: BankEventConflictCode::SourceIdentityUnknown,
             existing: load_voucher(tx, number)?,
         }));
+    }
+    // A voucher sealed outside the import books the transaction: the key is
+    // bound to it by an idempotency row of its own (so nothing can seal the key
+    // again) and a bank event. The voucher itself is not touched.
+    if let Some(number) = request.bind {
+        let existing = load_voucher(tx, number)?;
+        if bank_event_key_for_voucher(tx, number)?.is_some() {
+            return Ok(Ok(BankEventResolution::Conflict {
+                code: BankEventConflictCode::BankVoucherMismatch,
+                existing,
+            }));
+        }
+        tx.execute(
+            "INSERT INTO idempotency(natural_key, number) VALUES(?1, ?2)",
+            params![event_key, number],
+        )?;
+        insert_bank_event(
+            tx,
+            event_key,
+            number,
+            fingerprint,
+            &request.projection_hash,
+            "import",
+            &batch.artifact_ref,
+            &batch.observed_at,
+        )?;
+        return Ok(Ok(BankEventResolution::Bound(existing)));
     }
     let voucher = match seal_in_tx(tx, &request.provenance, &request.gate, &|n, prev| {
         build(index, n, prev)
@@ -1591,6 +1631,23 @@ impl FiscalStore for SqliteFiscalStore {
         )?;
         let numbers = stmt
             .query_map(params![prefix], |r| r.get::<_, u64>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        numbers
+            .into_iter()
+            .map(|number| load_voucher(&guard, number))
+            .collect()
+    }
+
+    fn vouchers_not_bound_to_bank_event(&self) -> Result<Vec<StoredVoucher>, LedgerError> {
+        let guard = self.conn.lock().unwrap();
+        let mut stmt = guard.prepare(
+            "SELECT v.number FROM vouchers v
+             LEFT JOIN bank_event b ON b.voucher_number = v.number
+             WHERE b.event_key IS NULL
+             ORDER BY v.number",
+        )?;
+        let numbers = stmt
+            .query_map([], |r| r.get::<_, u64>(0))?
             .collect::<Result<Vec<_>, _>>()?;
         numbers
             .into_iter()

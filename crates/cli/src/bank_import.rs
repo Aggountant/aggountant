@@ -11,18 +11,21 @@
 //!
 //! A transaction already in the books (the same event key from another export)
 //! is a duplicate observation when its bank facts and its booking are unchanged;
-//! anything else is a conflict that stops the batch.
+//! anything else is a conflict that stops the batch. A transaction the input
+//! binds to a voucher sealed outside the import (`existing_vouchers`) is bound
+//! to it, not sealed again; a new transaction that such a voucher may already
+//! book stops the batch (`BANK_ENTRY_POSSIBLY_BOOKED`).
 
 use std::collections::HashMap;
 
 use super::*;
 use aggountant_import::{
-    import_preparation_hash, BankTransaction, ParsedStatement, PreparedEntryBinding,
-    EVENT_KEY_PREFIX,
+    bank_side, booking_for, check_bookings, import_preparation_hash, BankTransaction, EntryBooking,
+    ParsedStatement, PreparedEntryBinding, EVENT_KEY_PREFIX,
 };
 use aggountant_ledger::{
-    BankBatch, BankBatchReport, BankEventEntry, BankEventOutcome, LegacyBankIdentity,
-    UnbookedBankEvent,
+    BankBatch, BankBatchReport, BankEntryFacts, BankEventBooking, BankEventEntry, BankEventOutcome,
+    LegacyBankIdentity, UnbookedBankEvent,
 };
 use aggountant_model::Hash;
 
@@ -43,43 +46,80 @@ fn prepare<'a>(
     raw: &[u8],
     input: &ImportSealInput,
 ) -> Result<PreparedImport<'a>, CliError> {
-    check_assignments_unique(&input.assignments)?;
-    // No auto-assign: an entry without an assignment refuses the whole batch.
-    let assigned: Vec<(&BankTransaction, &Assignment)> = statement
+    check_bookings(statement, &input.assignments, &input.existing_vouchers)?;
+    // No auto-assign: an entry without an assignment or a binding refuses the
+    // whole batch.
+    let booked: Vec<(&BankTransaction, EntryBooking)> = statement
         .transactions
         .iter()
-        .map(|txn| assignment_for(txn, &input.assignments).map(|a| (txn, a)))
+        .map(|txn| booking_for(txn, &input.assignments, &input.existing_vouchers).map(|b| (txn, b)))
         .collect::<Result<_, _>>()?;
 
     let attachment = ledger.artifact_address(raw);
     let chart_version = ledger.chart_version()?;
     let policy_set = PolicySet::default().id;
-    let mut transactions = Vec::with_capacity(assigned.len());
-    let mut entries = Vec::with_capacity(assigned.len());
-    let mut request_hashes = Vec::with_capacity(assigned.len());
-    for (txn, assignment) in assigned {
-        let draft = project_voucher_with_role_table(
-            txn,
-            assignment,
-            Some(attachment),
-            &chart_version,
-            ledger.vat_role_table(),
-        )?;
-        request_hashes.push(ledger.draft_request_hash(&draft)?);
+    let mut transactions = Vec::with_capacity(booked.len());
+    let mut entries = Vec::with_capacity(booked.len());
+    let mut request_hashes = Vec::with_capacity(booked.len());
+    for (txn, booking) in booked {
+        let (bank_account, booking, request_hash) = match booking {
+            EntryBooking::Assigned(assignment) => {
+                let draft = project_voucher_with_role_table(
+                    txn,
+                    assignment,
+                    Some(attachment),
+                    &chart_version,
+                    ledger.vat_role_table(),
+                )?;
+                let request_hash = ledger.draft_request_hash(&draft)?;
+                (
+                    &assignment.bank_account,
+                    BankEventBooking::New {
+                        draft,
+                        not_booked_by: assignment.not_booked_by.clone(),
+                    },
+                    Some(request_hash),
+                )
+            }
+            EntryBooking::Existing(existing) => (
+                &existing.bank_account,
+                BankEventBooking::Existing {
+                    voucher_number: existing.voucher_number,
+                },
+                None,
+            ),
+        };
+        request_hashes.push(request_hash);
         transactions.push(txn);
         entries.push(BankEventEntry {
             event_key: txn.natural_key.clone(),
             source_fingerprint: txn.source_fingerprint(),
-            draft,
+            facts: BankEntryFacts {
+                bank_ref: txn.bank_ref.clone(),
+                bank_account: bank_account.clone(),
+                amount: txn.amount.clone(),
+                bank_side: bank_side(txn.direction),
+                booking_date: txn.booking_date,
+                value_date: txn.value_date,
+            },
+            booking,
         });
     }
     let bindings: Vec<PreparedEntryBinding> = entries
         .iter()
         .zip(&request_hashes)
-        .map(|(entry, request_hash)| PreparedEntryBinding {
-            natural_key: &entry.event_key,
-            source_fingerprint: &entry.source_fingerprint,
-            draft_request_hash: request_hash,
+        .map(|(entry, request_hash)| {
+            let (existing_voucher, not_booked_by) = match &entry.booking {
+                BankEventBooking::New { not_booked_by, .. } => (None, not_booked_by.as_slice()),
+                BankEventBooking::Existing { voucher_number } => (Some(*voucher_number), &[][..]),
+            };
+            PreparedEntryBinding {
+                natural_key: &entry.event_key,
+                source_fingerprint: &entry.source_fingerprint,
+                draft_request_hash: request_hash.as_deref(),
+                existing_voucher,
+                not_booked_by,
+            }
         })
         .collect();
     let preparation_hash = import_preparation_hash(
@@ -137,6 +177,7 @@ fn counters(report: &BankBatchReport) -> Value {
     json!({
         "new_voucher_count": report.count(BankEventOutcome::NewVoucher),
         "duplicate_observation_count": report.count(BankEventOutcome::DuplicateSourceObservation),
+        "bound_count": report.count(BankEventOutcome::BoundExistingVoucher),
         "conflict_count": report.conflicts.len(),
         "backfilled_count": report.backfilled_count,
     })
@@ -200,6 +241,7 @@ pub(crate) fn seal_camt053(
         backfill: &backfill,
         actor: &input.actor,
         policy_set: &prepared.policy_set,
+        event_key_prefix: EVENT_KEY_PREFIX,
     };
 
     let preview = ledger.preview_bank_batch(&batch)?;
@@ -221,8 +263,11 @@ pub(crate) fn seal_camt053(
                     "outcome": result.outcome,
                     "would_replay": result.outcome == BankEventOutcome::DuplicateSourceObservation,
                     "warnings": result.warnings,
-                    "draft": entry.draft,
                 });
+                // A binding seals nothing, so it has no draft to show.
+                if let Some(draft) = entry.draft() {
+                    voucher["draft"] = json!(draft);
+                }
                 if let Some(existing) = &result.voucher {
                     voucher["voucher_number"] = json!(existing.number);
                 }
@@ -299,7 +344,7 @@ pub(crate) fn seal_camt053(
         "preparation_hash": prepared.preparation_hash,
         "sealed_count": sealed.len(),
         "created_count": new_vouchers,
-        "replayed_count": sealed.len() - new_vouchers,
+        "replayed_count": report.count(BankEventOutcome::DuplicateSourceObservation),
         "sealed": sealed,
     });
     merge(&mut out, counters(&report));

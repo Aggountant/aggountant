@@ -67,6 +67,34 @@ tapahtumatunnisteesta eikä kirjaa sitä toista kertaa. Se merkitsee vain, että
 tapahtuma oli myös tässä tiedostossa. Agentti antaa jo kirjatulle
 tapahtumalle saman kohdistuksen kuin ensimmäisellä kerralla.
 
+### Kun pankkitapahtumia on kirjattu aiemmin käsin
+
+Jos yritys on kirjannut pankkitapahtumia tavallisina kirjauksina (esimerkiksi
+ennen kuin se alkoi tuoda tiliotteita), ohjelma ei tunnista pankin
+tapahtumatunnisteesta, että kirjaus jo kattaa tapahtuman. Ennen kuin se
+sinetöi tapahtumalle uuden tositteen, se siksi etsii tositetta, joka saattaa jo
+kirjata sen: tositetta, jonka tunnisteessa tai selitteessä on pankin
+tapahtumatunniste, tai tositetta, joka kirjaa saman summan samalle puolelle
+samaa pankkitiliä enintään 7 päivän päässä pankin päivästä. Jos sellainen
+löytyy, ohjelma pysäyttää koko tiliotteen ja nimeää tapahtuman ja tositteen
+(`BANK_ENTRY_POSSIBLY_BOOKED`). Mitään ei kirjata kahteen kertaan.
+
+Agentti näyttää tositteen ja kysyy, kumpi tapaus on kyseessä:
+
+- **Tosite kirjaa tämän tapahtuman.** Agentti liittää tapahtuman tositteeseen
+  uuden tositteen sijaan. Ohjelma tarkistaa, että tositteen pankkirivillä on
+  sama tili, summa, puoli ja päivä (7 päivän sisällä); itse tositetta ei
+  muuteta. Esikatselu näyttää tapahtuman liitettynä siihen tositteeseen, ja
+  myöhemmillä tiliotteilla sama tapahtuma liitetään siihen samalla tavalla.
+  Yhteen tositteeseen voi liittää vain yhden pankkitapahtuman.
+- **Tosite on jotain muuta**, esimerkiksi toinen samansuuruinen maksu. Agentti
+  merkitsee, ettei tämä tosite kirjaa tapahtumaa, ja tapahtuma saa uuden
+  tositteen.
+
+Tiliotteiden tuontiin siirtyvä yritys liittää aiemmin käsin kirjatut
+pankkitapahtumansa näin ensimmäisellä kerralla, kun se tuo niitä sisältävän
+tiliotteen.
+
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
 
@@ -124,6 +152,16 @@ Tiliotteen tuonnin kaikki rajoitukset ovat sivulla
   nimeää tapahtumat ja niiden tositteet. Agentti antaa saman kohdistuksen
   kuin tositteella. Jos aiempi kirjaus oli väärä, se korjataan uudella
   tositteella.
+- `BANK_ENTRY_POSSIBLY_BOOKED` tarkoittaa, että tiliotteiden tuonnin
+  ulkopuolella kirjattu tosite saattaa jo kirjata tiliotteen uuden
+  tapahtuman. Mitään ei sinetöity. Agentti kysyy sinulta, kirjaako tosite
+  tapahtuman, kuten
+  [Kun pankkitapahtumia on kirjattu aiemmin käsin](#kun-pankkitapahtumia-on-kirjattu-aiemmin-käsin)
+  kertoo.
+- `BANK_VOUCHER_MISMATCH` tarkoittaa, että tapahtuma liitettiin tositteeseen,
+  joka ei kirjaa sitä: sen pankkirivin tili, summa, puoli tai päivä on eri,
+  tai tosite on jo liitetty toiseen tapahtumaan. Mitään ei sinetöity.
+  Tarkista tositteen numero.
 - `IMPORT_PREPARATION_CHANGED` tarkoittaa, että tiliote, ehdotus tai
   tilikartta muuttui esikatselun jälkeen. Mitään ei sinetöity. Agentti
   esikatselee uudelleen ja pyytää hyväksyntäsi uudelle listalle.

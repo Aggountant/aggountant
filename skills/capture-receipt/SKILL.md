@@ -123,6 +123,15 @@ molemmat pysäyttävät koko tiliotteen, ja virheen `details.conflicts` luettele
 kaikki. Muuttunutta pankkitapahtumaa ei kohdisteta uudelleen arvaamalla, vaan
 kysytään käyttäjältä.
 
+`BANK_ENTRY_POSSIBLY_BOOKED` tarkoittaa, että tuonnin ulkopuolella (esimerkiksi
+`voucher seal`illa) kirjattu tosite saattaa jo kirjata uuden rivin; virhe nimeää
+tositteen. Näytä se käyttäjälle (`voucher show`) ja kysy. Jos se kirjaa rivin,
+siirrä rivi kohdistuksista `existing_vouchers`-listaan tositteen numerolla:
+tuonti sitoo rivin tositteeseen sinetöimättä uutta, ja myöhemmät tiliotteet
+tarvitsevat saman sidonnan. Jos ei, lisää numero kohdistuksen
+`not_booked_by`-listaan. Kumpaakaan ei valita arvaamalla: väärä valinta kirjaa
+rahan kahdesti tai jättää sen kirjaamatta.
+
 - Myynnin ALV:tä tuonti ei pura. Myyntilasku kirjataan erikoiskirjauksena ja
   asiakkaan maksu tiliotteelta myyntisaamisia vastaan.
 - ALV:n maksu tai palautus kirjataan ALV-tilille niin, että vastatilinä on vain

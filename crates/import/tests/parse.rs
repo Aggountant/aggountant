@@ -34,6 +34,7 @@ fn assignment(bank_ref: &str, contra_account: &str) -> Assignment {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     }
 }
 
@@ -514,6 +515,7 @@ fn projection_maps_direction_to_sides_and_balances() {
                 vat_treatment: None,
                 document_date: None,
                 description: None,
+                not_booked_by: Vec::new(),
             },
             None,
         )
@@ -574,6 +576,7 @@ fn projection_refuses_every_taxable_leg_in_a_split_gross_allocation() {
         vat_treatment: None,
         document_date: Some(aggountant_model::Date::parse("2026-03-01").unwrap()),
         description: None,
+        not_booked_by: Vec::new(),
     };
 
     let error = project_voucher(out, &assignment, None).unwrap_err();
@@ -624,6 +627,7 @@ fn projection_splits_loan_principal_and_interest_to_separate_accounts() {
         vat_treatment: None,
         document_date: None,
         description: Some("Loan instalment".to_string()),
+        not_booked_by: Vec::new(),
     };
 
     let draft = build_draft(project_draft(out, &assignment, None).unwrap()).unwrap();
@@ -650,6 +654,7 @@ fn projection_splits_a_money_in_entry_to_multiple_credit_legs() {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     };
 
     let draft = build_draft(project_draft(incoming, &assignment, None).unwrap()).unwrap();
@@ -674,6 +679,7 @@ fn projection_refuses_a_split_that_does_not_equal_the_bank_amount() {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     };
 
     let error = project_draft(out, &assignment, None).unwrap_err();
@@ -694,6 +700,7 @@ fn projection_refuses_an_empty_or_non_positive_split() {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     };
     let error = project_draft(out, &empty, None).unwrap_err();
     assert_eq!(error.error_code(), "INVALID_ASSIGNMENT");
@@ -706,6 +713,7 @@ fn projection_refuses_an_empty_or_non_positive_split() {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     };
     let error = project_draft(out, &zero, None).unwrap_err();
     assert_eq!(error.error_code(), "INVALID_ASSIGNMENT");
@@ -723,6 +731,7 @@ fn projection_refuses_a_split_with_a_different_currency() {
         vat_treatment: None,
         document_date: None,
         description: None,
+        not_booked_by: Vec::new(),
     };
 
     let error = project_draft(out, &assignment, None).unwrap_err();
@@ -932,6 +941,7 @@ fn treated_with_amount(
         vat_treatment: Some(treatment),
         document_date: Some(aggountant_model::Date::parse("2026-03-14").unwrap()),
         description: None,
+        not_booked_by: Vec::new(),
     }
 }
 

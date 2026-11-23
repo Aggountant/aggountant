@@ -1093,3 +1093,186 @@ fn a_booked_key_whose_statement_cannot_be_read_back_is_never_booked_again() {
     assert_eq!(err["details"]["conflicts"][0]["voucher_number"], 1);
     assert_eq!(voucher_count(home), 1);
 }
+
+// ---------------------------------------------------------------------------
+// Bank entries booked through `voucher seal` (issue
+// `camt-import-manual-bank-vouchers`).
+// ---------------------------------------------------------------------------
+
+/// Book REF-1230-B (20.00 out on 2026-12-30) the way a company without the camt
+/// import does: `voucher seal` under a key of its own, with `description`.
+fn seal_bank_payment_by_hand(home: &std::path::Path, natural_key: &str, description: &str) {
+    let request = json_string(&serde_json::json!({
+        "draft": {
+            "document_date": "2026-12-30",
+            "posting_date": "2026-12-30",
+            "description": description,
+            "postings": [
+                {"account": "7690", "amount": {"amount": "20.00", "currency": "EUR"}, "side": "debit"},
+                {"account": "1910", "amount": {"amount": "20.00", "currency": "EUR"}, "side": "credit"}
+            ]
+        },
+        "natural_key": natural_key,
+    }));
+    let (code, _, stderr) = run(home, &["voucher", "seal"], &request);
+    assert_eq!(code, 0, "{stderr}");
+}
+
+/// The assignments for `entries` with REF-1230-B bound to voucher #1 instead.
+fn binding_input(entries: &[Entry]) -> Value {
+    let mut input: Value = serde_json::from_str(&assignments(entries, None)).unwrap();
+    input["assignments"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|a| a["bank_ref"] != "REF-1230-B");
+    input["existing_vouchers"] = serde_json::json!([
+        {"bank_ref": "REF-1230-B", "bank_account": "1910", "voucher_number": 1}
+    ]);
+    input
+}
+
+#[test]
+fn an_entry_booked_through_voucher_seal_stops_the_import_until_bound() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    seal_bank_payment_by_hand(home, "bank:REF-1230-B", "Toimittaja Oy");
+    let (year_a, year_b) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+    let blobs = artifact_blobs(home).len();
+
+    // The import sees the voucher and stops, in the preview and in the seal.
+    for extra in [&["--dry-run"][..], &[][..]] {
+        let mut args = vec!["import", "camt053", "seal", "--file", &file_a];
+        args.extend_from_slice(extra);
+        let (status, stdout, stderr) = run(home, &args, &assignments(&year_a, None));
+        assert_eq!(status, 1, "{stdout}");
+        let error: Value = serde_json::from_str(&stderr).unwrap();
+        assert_eq!(
+            error["error_code"], "BANK_ENTRY_POSSIBLY_BOOKED",
+            "{stderr}"
+        );
+        let conflicts = error["details"]["conflicts"].as_array().unwrap();
+        assert_eq!(conflicts.len(), 1, "{stderr}");
+        assert_eq!(
+            conflicts[0]["event_key"],
+            format!("bank-import:holvi:{IBAN}:REF-1230-B").as_str()
+        );
+        assert_eq!(conflicts[0]["voucher_number"], 1);
+        assert_eq!(conflicts[0]["evidence"], "bank_reference");
+    }
+    assert_eq!(voucher_count(home), 1);
+    assert_eq!(
+        artifact_blobs(home).len(),
+        blobs,
+        "the statement was stored"
+    );
+
+    // Bound to voucher #1: the preview shows the binding and the approval
+    // seals the other five.
+    let input = json_string(&binding_input(&year_a));
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file_a, "--dry-run"],
+        &input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["bound_count"], 1);
+    assert_eq!(preview["new_voucher_count"], 5);
+    let bound = &preview["vouchers"][3];
+    assert_eq!(bound["bank_ref"], "REF-1230-B");
+    assert_eq!(bound["outcome"], "bound_existing_voucher");
+    assert_eq!(bound["voucher_number"], 1);
+    assert!(bound.get("draft").is_none());
+    let hash = preview["preparation_hash"].as_str().unwrap().to_string();
+    let (code, stdout, stderr) = run(
+        home,
+        &[
+            "import",
+            "camt053",
+            "seal",
+            "--file",
+            &file_a,
+            "--approved-preparation-hash",
+            &hash,
+        ],
+        &input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let sealed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(sealed["bound_count"], 1);
+    assert_eq!(sealed["created_count"], 5);
+    assert_eq!(sealed["replayed_count"], 0);
+    assert_eq!(sealed["sealed"][3]["number"], 1);
+    assert_eq!(voucher_count(home), 6);
+
+    // The overlapping export with the same binding books nothing twice.
+    let file_b = write_export(home, "b.xml", &export("YEAR-2027", &year_b));
+    let (code, b, err) = seal(home, &file_b, &json_string(&binding_input(&year_b)));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(b["duplicate_observation_count"], 4);
+    assert_eq!(b["new_voucher_count"], 3);
+    assert_eq!(voucher_count(home), 9);
+}
+
+#[test]
+fn a_voucher_with_the_same_amount_and_date_stops_the_import_until_ruled_out() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    seal_bank_payment_by_hand(home, "receipt-17", "Toimittaja Oy");
+    let (year_a, _) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+
+    let (code, _, err) = seal(home, &file_a, &assignments(&year_a, None));
+    assert_eq!(code, 1);
+    assert_eq!(err["error_code"], "BANK_ENTRY_POSSIBLY_BOOKED");
+    assert_eq!(
+        err["details"]["conflicts"][0]["evidence"],
+        "account_amount_date"
+    );
+    assert_eq!(voucher_count(home), 1);
+
+    // The user has checked that #1 is another payment.
+    let mut input: Value = serde_json::from_str(&assignments(&year_a, None)).unwrap();
+    for row in input["assignments"].as_array_mut().unwrap() {
+        if row["bank_ref"] == "REF-1230-B" {
+            row["not_booked_by"] = serde_json::json!([1]);
+        }
+    }
+    let (code, out, err) = seal(home, &file_a, &json_string(&input));
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out["created_count"], 6);
+    assert_eq!(voucher_count(home), 7);
+}
+
+#[test]
+fn a_binding_is_refused_when_its_input_is_inconsistent() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    seal_bank_payment_by_hand(home, "bank:REF-1230-B", "Toimittaja Oy");
+    let (year_a, _) = yearly_exports();
+    let file_a = write_export(home, "a.xml", &export("YEAR-2026", &year_a));
+
+    // Both an assignment and a binding for the same entry.
+    let mut both: Value = serde_json::from_str(&assignments(&year_a, None)).unwrap();
+    both["existing_vouchers"] = binding_input(&year_a)["existing_vouchers"].clone();
+    // A binding for an entry that is not in the statement.
+    let mut unknown = binding_input(&year_a);
+    unknown["existing_vouchers"][0]["bank_ref"] = "REF-NOWHERE".into();
+    // A binding to a voucher whose bank leg is on another account.
+    let mut wrong = binding_input(&year_a);
+    wrong["existing_vouchers"][0]["bank_account"] = "1911".into();
+    for (input, code) in [
+        (both, "INVALID_ASSIGNMENT"),
+        (unknown, "INVALID_ASSIGNMENT"),
+        (wrong, "BANK_VOUCHER_MISMATCH"),
+    ] {
+        let (status, _, err) = seal(home, &file_a, &json_string(&input));
+        assert_eq!(status, 1);
+        assert_eq!(err["error_code"], code, "{err}");
+    }
+    assert_eq!(voucher_count(home), 1);
+}

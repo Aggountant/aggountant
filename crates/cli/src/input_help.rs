@@ -396,11 +396,17 @@ Run it:
   aggountant --home ./accounting --json run-payroll start < payroll.json"#;
 
 pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
-  {"assignments":[...],"actor":"..."}. One assignment for every booked entry of
-  the statement (`import camt053 parse` lists them with their bank_ref); an
-  entry without one refuses the whole batch (MISSING_ASSIGNMENT). Unknown
-  top-level and assignment fields are refused.
+  {"assignments":[...],"existing_vouchers":[...],"actor":"..."}. One assignment
+  or one existing_vouchers binding (never both) for every booked entry of the
+  statement (`import camt053 parse` lists them with their bank_ref); an entry
+  without either refuses the whole batch (MISSING_ASSIGNMENT). Unknown
+  top-level, assignment and binding fields are refused.
   actor             optional, default "cli".
+  existing_vouchers optional list of {bank_ref, bank_account, voucher_number}:
+                    entries already booked by a voucher sealed outside the
+                    import (for example with `voucher seal`). The entry is
+                    bound to that voucher instead of sealing a new one; see
+                    VOUCHERS SEALED OUTSIDE THE IMPORT below.
   Each assignment:
     bank_ref         required. The entry's bank_ref from `parse`.
     bank_account     required. The ledger account of the bank leg, e.g. 1910.
@@ -431,6 +437,9 @@ pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
                      vat_treatment (it selects the VAT rate; the bank date stays
                      the posting date). Otherwise optional.
     description      optional; defaults to counterparty and remittance info.
+    not_booked_by    optional list of voucher numbers you have checked do not
+                     book this entry; silences BANK_ENTRY_POSSIBLY_BOOKED for
+                     exactly those vouchers.
   A payment whose receipt is recorded with `capture-receipt record` against a
   payable is assigned to that payable here, without VAT.
 
@@ -457,6 +466,8 @@ TRANSACTIONS ALREADY IN THE BOOKS
     duplicate_source_observation   same bank facts and same booking as voucher
                                    voucher_number: nothing is sealed; the file
                                    is recorded as a source it was seen in.
+    bound_existing_voucher         bound to the existing voucher
+                                   voucher_number: nothing is sealed.
   and any of these stops the whole batch before anything is written (user
   error; details.conflicts lists every conflicting entry with its voucher):
     SOURCE_FACTS_CHANGED           the bank's facts differ (amount, dates,
@@ -466,10 +477,32 @@ TRANSACTIONS ALREADY IN THE BOOKS
                                    amounts, VAT, dates or description).
     SOURCE_IDENTITY_UNKNOWN        a voucher holds the key but its transaction
                                    cannot be read back from its attachment.
+    BANK_ENTRY_POSSIBLY_BOOKED     a voucher sealed outside the import may
+                                   already book a new entry (below).
+    BANK_VOUCHER_MISMATCH          a binding's voucher does not book the entry,
+                                   is bound to another transaction, or the
+                                   transaction is bound to another voucher.
   Outputs and conflict details carry new_voucher_count,
-  duplicate_observation_count, conflict_count and backfilled_count (vouchers
-  sealed by an earlier release whose identity was read from their statement).
+  duplicate_observation_count, bound_count, conflict_count and
+  backfilled_count (vouchers sealed by an earlier release whose identity was
+  read from their statement).
   `import camt053 observations` lists which transactions each file contained.
+
+VOUCHERS SEALED OUTSIDE THE IMPORT
+  A bank transaction booked with `voucher seal` has no event key, so before a
+  new voucher is sealed for an entry the import searches every voucher not yet
+  bound to a bank transaction. One whose natural key or description names the
+  entry's bank_ref (evidence bank_reference), or that posts the entry's amount
+  on the entry's side of its bank_account dated within 7 days of the booking or
+  value date (evidence account_amount_date), stops the batch with
+  BANK_ENTRY_POSSIBLY_BOOKED; details.conflicts names each voucher. Then either
+  - the voucher books the entry: move the entry from assignments to
+    existing_vouchers with that voucher_number. Its bank leg must match (same
+    account, amount, side, and a date within 7 days) or the batch stops with
+    BANK_VOUCHER_MISMATCH. The voucher is not changed; later exports of the
+    entry need the same binding; or
+  - it does not: add its number to the assignment's not_booked_by.
+  One voucher books at most one bank transaction.
 
 PREVIEW AND APPROVAL
   --dry-run prepares and validates every voucher exactly as the seal would
@@ -932,5 +965,11 @@ mod tests {
                 "{path}: the help shows how to run the example"
             );
         }
+    }
+
+    #[test]
+    fn the_bank_import_help_states_the_date_tolerance_the_ledger_applies() {
+        let days = format!("within {} days", aggountant_ledger::DATE_TOLERANCE_DAYS);
+        assert_eq!(super::IMPORT_CAMT053_SEAL.matches(&days).count(), 2);
     }
 }

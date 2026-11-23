@@ -40,9 +40,10 @@ use aggountant_model::{
 };
 
 pub use bank_event::{
-    BankBatch, BankBatchReport, BankEventConflict, BankEventConflictCode, BankEventEntry,
-    BankEventOutcome, BankEventResult, BankSourceObservation, LegacyBankIdentity,
-    LegacyBankVoucher, UnbookedBankEvent,
+    BankBatch, BankBatchReport, BankEntryFacts, BankEventBooking, BankEventConflict,
+    BankEventConflictCode, BankEventEntry, BankEventOutcome, BankEventResult,
+    BankSourceObservation, CandidateEvidence, LegacyBankIdentity, LegacyBankVoucher,
+    UnbookedBankEvent, DATE_TOLERANCE_DAYS,
 };
 pub use employee::EmployeeState;
 pub use error::LedgerError;

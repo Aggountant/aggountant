@@ -83,6 +83,45 @@ pub struct Assignment {
     /// one from the transaction's counterparty + remittance info.
     #[serde(default)]
     pub description: Option<String>,
+    /// Numbers of vouchers sealed outside the import that the user has checked
+    /// do not book this entry. The import stops on a voucher that may already
+    /// book a new entry (`BANK_ENTRY_POSSIBLY_BOOKED`); listing it here lets
+    /// the entry be sealed despite exactly that voucher.
+    #[serde(default)]
+    pub not_booked_by: Vec<u64>,
+}
+
+/// An entry that a voucher sealed outside the import (for example through
+/// `voucher seal`) already books. The import binds the entry's event key to
+/// that voucher instead of sealing a new one, after the Ledger has checked that
+/// the voucher posts the entry's amount on the entry's side of `bank_account`
+/// near the bank's dates. The sealed voucher is not changed.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExistingVoucher {
+    /// The entry this binding is for (`BankTransaction::bank_ref`).
+    pub bank_ref: String,
+    /// The ledger account the statement's account is kept on (e.g. `1910`).
+    pub bank_account: AccountId,
+    /// The voucher that books the entry.
+    pub voucher_number: u64,
+}
+
+/// How the input books one parsed entry: a new voucher from an assignment, or
+/// a binding to an existing voucher.
+#[derive(Debug, Clone, Copy)]
+pub enum EntryBooking<'a> {
+    Assigned(&'a Assignment),
+    Existing(&'a ExistingVoucher),
+}
+
+/// The side the bank account is posted on for a transaction: debited for money
+/// in, credited for money out.
+pub fn bank_side(direction: Direction) -> Side {
+    match direction {
+        Direction::Credit => Side::Debit,
+        Direction::Debit => Side::Credit,
+    }
 }
 
 /// Project a parsed bank transaction into a `DraftInput`, given the skill's
@@ -112,9 +151,10 @@ pub fn project_draft(
         )));
     }
     validate_legacy_vat_codes(txn, assignment)?;
-    let (bank_side, contra_side) = match txn.direction {
-        Direction::Credit => (Side::Debit, Side::Credit),
-        Direction::Debit => (Side::Credit, Side::Debit),
+    let bank_side = bank_side(txn.direction);
+    let contra_side = match bank_side {
+        Side::Debit => Side::Credit,
+        Side::Credit => Side::Debit,
     };
 
     let bank_leg = Posting {
@@ -348,6 +388,61 @@ pub fn check_assignments_unique(assignments: &[Assignment]) -> Result<(), Import
     Ok(())
 }
 
+/// Check the input's bookings against the statement before anything is
+/// prepared: each `bank_ref` has at most one assignment and at most one
+/// existing-voucher binding, never both, and every binding names an entry of
+/// the statement (a binding for an entry that is not there is a mistake, not
+/// something to ignore).
+pub fn check_bookings(
+    statement: &ParsedStatement,
+    assignments: &[Assignment],
+    existing: &[ExistingVoucher],
+) -> Result<(), ImportError> {
+    check_assignments_unique(assignments)?;
+    let mut seen = std::collections::HashSet::new();
+    for binding in existing {
+        if !seen.insert(binding.bank_ref.as_str()) {
+            return Err(ImportError::InvalidAssignment(format!(
+                "duplicate existing_vouchers binding for bank_ref {} — each entry is booked by \
+                 one voucher",
+                binding.bank_ref
+            )));
+        }
+        if assignments.iter().any(|a| a.bank_ref == binding.bank_ref) {
+            return Err(ImportError::InvalidAssignment(format!(
+                "bank_ref {} has both an assignment and an existing_vouchers binding; give an \
+                 assignment to seal a new voucher or a binding to an existing one, not both",
+                binding.bank_ref
+            )));
+        }
+        if !statement
+            .transactions
+            .iter()
+            .any(|t| t.bank_ref == binding.bank_ref)
+        {
+            return Err(ImportError::InvalidAssignment(format!(
+                "existing_vouchers names bank_ref {}, which is not a booked entry of this \
+                 statement",
+                binding.bank_ref
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// How the input books a transaction: its binding to an existing voucher, else
+/// its assignment, else a refusal (the CLI does not auto-assign accounts).
+pub fn booking_for<'a>(
+    txn: &BankTransaction,
+    assignments: &'a [Assignment],
+    existing: &'a [ExistingVoucher],
+) -> Result<EntryBooking<'a>, ImportError> {
+    if let Some(binding) = existing.iter().find(|e| e.bank_ref == txn.bank_ref) {
+        return Ok(EntryBooking::Existing(binding));
+    }
+    assignment_for(txn, assignments).map(EntryBooking::Assigned)
+}
+
 /// Look up the [`Assignment`] for a transaction by `bank_ref`, or refuse.
 pub fn assignment_for<'a>(
     txn: &BankTransaction,
@@ -364,19 +459,25 @@ pub fn assignment_for<'a>(
         })
 }
 
-/// One prepared voucher's contribution to an import's preparation hash.
+/// One prepared entry's contribution to an import's preparation hash.
 pub struct PreparedEntryBinding<'a> {
     pub natural_key: &'a str,
     pub source_fingerprint: &'a str,
-    /// The Ledger's canonical request hash of the exact draft that will seal.
-    pub draft_request_hash: &'a str,
+    /// The Ledger's canonical request hash of the exact draft that will seal;
+    /// `None` for an entry bound to an existing voucher.
+    pub draft_request_hash: Option<&'a str>,
+    /// The existing voucher the entry is bound to, if it is.
+    pub existing_voucher: Option<u64>,
+    /// Vouchers the user ruled out as bookings of the entry.
+    pub not_booked_by: &'a [u64],
 }
 
 /// The hash a bank-import preview returns for approval and the seal compares
 /// against. It binds the sealing actor, the active chart and policy set, the
-/// content address of the retained statement bytes, and every voucher in order
-/// (natural key, source fingerprint and draft request hash), so a seal can only
-/// produce the vouchers that were shown. Fields are name- and length-framed like
+/// content address of the retained statement bytes, and every entry in order
+/// (natural key, source fingerprint, the draft request hash or the existing
+/// voucher it is bound to, and the vouchers ruled out for it), so a seal can
+/// only produce the vouchers and bindings that were shown. Fields are name- and length-framed like
 /// [`BankTransaction::source_fingerprint`].
 pub fn import_preparation_hash(
     actor: &str,
@@ -402,7 +503,18 @@ pub fn import_preparation_hash(
     for entry in entries {
         field(&mut hasher, "natural_key", entry.natural_key);
         field(&mut hasher, "source_fingerprint", entry.source_fingerprint);
-        field(&mut hasher, "draft_request_hash", entry.draft_request_hash);
+        // The fields below are framed by name and written only when present,
+        // so an entry with an assignment alone hashes as it always has.
+        if let Some(request_hash) = entry.draft_request_hash {
+            field(&mut hasher, "draft_request_hash", request_hash);
+        }
+        if let Some(number) = entry.existing_voucher {
+            field(&mut hasher, "existing_voucher", &number.to_string());
+        }
+        if !entry.not_booked_by.is_empty() {
+            let numbers: Vec<String> = entry.not_booked_by.iter().map(u64::to_string).collect();
+            field(&mut hasher, "not_booked_by", &numbers.join(","));
+        }
     }
     format!("sha256:v1:{}", hex::encode(hasher.finalize()))
 }

@@ -72,6 +72,36 @@ does not record it a second time. It only notes that the transaction was in
 this file too. The agent gives an already recorded transaction the same
 assignment as the first time.
 
+### When bank transactions were recorded by hand before
+
+If the company has recorded bank transactions as ordinary entries (for
+example before it started importing statements), the program cannot tell
+from the bank's reference that such an entry already records the
+transaction. Before it seals a new voucher for a transaction, it therefore
+looks for a voucher that may already record it: one whose identifier or
+description contains the bank's transaction reference, or one that records
+the same amount on the same side of the same bank account within 7 days of
+the bank's date. If it finds one, it stops the whole statement and names the
+transaction and the voucher (`BANK_ENTRY_POSSIBLY_BOOKED`). Nothing is
+recorded twice.
+
+The agent shows you the voucher and asks which case it is:
+
+- **The voucher records this transaction.** The agent links the transaction
+  to the voucher instead of creating a new one. The program checks that the
+  voucher's bank row has the same account, amount, side and date (within 7
+  days); the voucher itself is not changed. The preview shows the transaction
+  as linked to that voucher, and later statements that contain the same
+  transaction are linked to it in the same way. One voucher can be linked to
+  only one bank transaction.
+- **The voucher is something else**, for example another payment of the same
+  amount. The agent marks that this voucher does not record the transaction,
+  and the transaction gets a new voucher.
+
+A company that moves to statement import links its earlier hand-recorded
+bank transactions this way the first time it imports a statement that
+contains them.
+
 <details>
 <summary>Commands the agent runs</summary>
 
@@ -132,6 +162,15 @@ All the limitations of statement import are on the page
   error names the transactions and their vouchers. The agent gives the same
   assignment as on the voucher. If the earlier entry was wrong, it is
   corrected with a new voucher.
+- `BANK_ENTRY_POSSIBLY_BOOKED` means a voucher recorded outside statement
+  import may already record a new transaction on the statement. Nothing was
+  sealed. The agent asks you whether the voucher records the transaction, as
+  [When bank transactions were recorded by hand before](#when-bank-transactions-were-recorded-by-hand-before)
+  describes.
+- `BANK_VOUCHER_MISMATCH` means a transaction was linked to a voucher that
+  does not record it: its bank row has a different account, amount, side or
+  date, or the voucher is already linked to another transaction. Nothing was
+  sealed. Check the voucher number.
 - `IMPORT_PREPARATION_CHANGED` means the statement, the proposal or the chart
   of accounts changed after the preview. Nothing was sealed. The agent
   previews again and asks you to approve the new list.

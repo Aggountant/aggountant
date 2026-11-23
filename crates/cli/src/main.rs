@@ -29,8 +29,7 @@ use aggountant_broker::{
 };
 use aggountant_domain::{build_draft, DraftInput, PayrollIntent, PolicySet};
 use aggountant_import::{
-    assignment_for, check_assignments_unique, parse_camt053, project_voucher_with_role_table,
-    Assignment, ImportError,
+    parse_camt053, project_voucher_with_role_table, Assignment, ExistingVoucher, ImportError,
 };
 use aggountant_ledger::{EmployeeState, Ledger, SealRequest, VoucherListQuery};
 use aggountant_model::{
@@ -910,11 +909,14 @@ fn parse_cli_date(raw: &str) -> Result<Date, CliError> {
 }
 
 /// Structured input for `import camt053 seal` (stdin JSON): the skill's per-entry
-/// account assignments plus the sealing actor.
+/// account assignments, the entries already booked by vouchers sealed outside
+/// the import, plus the sealing actor.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ImportSealInput {
     assignments: Vec<Assignment>,
+    #[serde(default)]
+    existing_vouchers: Vec<ExistingVoucher>,
     #[serde(default = "default_actor")]
     actor: String,
 }
