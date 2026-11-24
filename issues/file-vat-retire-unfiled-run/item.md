@@ -2,12 +2,17 @@
 created: 2026-11-24
 updated: 2026-11-24
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: ai-review
 lane: vat-filing
 lane_seq: 11
 collision: [crates/process/src/file_vat.rs, skills/vero-fi/SKILL.md]
+closed: 2026-11-24
+closed_by: claude-opus-5-5
+commits:
+- hash: 3f5bc41
+  summary: 'file-vat: a Run stopped before filing ends not_filed'
 ---
 
 # file-vat: a Run that stopped before filing cannot be retired
@@ -50,10 +55,10 @@ the unchanged view silently.
 
 ## Acceptance criteria
 
-- [ ] A Run stuck before filing (both shapes) can be retired; `run show` says so.
-- [ ] Retiring is refused once a filing attempt may have been sent.
-- [ ] `run resume` on a stuck `reconcile` either progresses or explains.
-- [ ] `skills/vero-fi/SKILL.md` and the VAT troubleshooting page describe it.
+- [x] A Run stuck before filing (both shapes) can be retired; `run show` says so.
+- [x] Retiring is refused once a filing attempt may have been sent.
+- [x] `run resume` on a stuck `reconcile` either progresses or explains.
+- [x] `skills/vero-fi/SKILL.md` and the VAT troubleshooting page describe it.
 
 ## Comments
 
@@ -71,3 +76,9 @@ Suggested shape, likely simpler than an abandon command: a reconcile that is rej
 ### 2026-11-24T16:27:19Z · @conductor
 
 Accepted for execution by Jari 24.11.2026, in the reframed shape of the previous comment: a reconcile rejected before any filing attempt ends the Run terminally (not filed, nothing sent); every reconcile error path journals its rejection; run resume settles an executing reconcile with no filing attempt to the same state, which also retires old Runs. Lane vat-filing ahead of tax-payment-references.
+
+## Resolution
+
+### 2026-11-24T16:47:22Z · @claude-opus-5-5
+
+Fixed in the reframed shape: a reconcile rejected before any filing attempt ends the Run not_filed (derived on read, so older needs_attention Runs read not_filed); every reconcile error is journalled; run resume settles a reconcile left planned/executing with nothing later begun (VAT_INTERRUPTED_BEFORE_FILING) and refuses with VAT_FILING_UNRESOLVED otherwise. No abandon command, no migration. See result.md, review.md, assessment.md.
