@@ -122,7 +122,7 @@ The user guide covers the monthly round, VAT, travel expense reimbursements, the
 
 ## Contributing
 
-We are looking for early users and developers. If you run a small Finnish company and want to keep your books this way, we can go through your situation together: [Become an early user](docs/user/en/start/early-users.md).
+We are looking for early users and developers. If you run a small Finnish company and want to keep your books this way, get in touch: [Become an early user](docs/user/en/start/early-users.md).
 
 Bug reports, questions and pull requests are welcome in [GitHub Issues](https://github.com/aggountant/aggountant/issues) and [Discussions](https://github.com/aggountant/aggountant/discussions). See [CONTRIBUTING.md](CONTRIBUTING.md); commits are signed off under the Developer Certificate of Origin. Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 

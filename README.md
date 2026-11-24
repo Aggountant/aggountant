@@ -120,7 +120,7 @@ Käyttöopas kertoo kuukausikierroksesta, ALV:stä, matkakulukorvauksista, tilik
 
 ## Osallistu
 
-Etsimme varhaisia käyttäjiä ja kehittäjiä. Jos hoidat pientä suomalaista yritystä ja haluat pitää kirjanpitosi näin, voimme käydä tilanteesi läpi yhdessä: [Tule varhaiseksi käyttäjäksi](docs/user/fi/start/early-users.md).
+Etsimme varhaisia käyttäjiä ja kehittäjiä. Jos hoidat pientä suomalaista yritystä ja haluat pitää kirjanpitosi näin, ota yhteyttä: [Tule varhaiseksi käyttäjäksi](docs/user/fi/start/early-users.md).
 
 Virheraportit, kysymykset ja pull requestit ovat tervetulleita [GitHub Issuesiin](https://github.com/aggountant/aggountant/issues) ja [Discussionsiin](https://github.com/aggountant/aggountant/discussions). Katso [CONTRIBUTING.md](CONTRIBUTING.md); commitit allekirjoitetaan Developer Certificate of Originin mukaisesti. Ilmoita tietoturvahaavoittuvuuksista yksityisesti [SECURITY.md](SECURITY.md):n ohjeen mukaan.
 
