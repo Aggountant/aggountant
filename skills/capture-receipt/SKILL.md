@@ -87,8 +87,8 @@ palvelumaksu), kirjataan tuonnissa suoraan kulutilille.
 
 ## Tiliote
 
-`aggountant import camt053 parse` listaa tiliotteen rivit, ja
-`aggountant import camt053 seal` sinetöi ne antamillasi kohdistuksilla, joiden
+`aggountant import camt parse` listaa tiliotteen rivit, ja
+`aggountant import camt seal` sinetöi ne antamillasi kohdistuksilla, joiden
 muoto on sen `--help`-ohjeessa. Jokainen rivi tarvitsee kohdistuksen: yksikin
 puuttuva hylkää koko tiliotteen. Maksu, jonka kuitti puuttuu, kirjataan siksi
 `2700`:lle, jossa se pysyy näkyvissä. Rivi, jonka luonnetta et tiedä (tuntematon
@@ -97,8 +97,12 @@ vastausta: arvattu tili olisi sinetöity arvaus.
 
 Katso `parse`n tuloksesta ennen sinetöintiä, että tili ja jakso
 (`statements[].period`) ovat sen tiliotteen, jota olit tuomassa. Ohjelma tuo
-väärän kuukauden tiliotteen ja tyhjän tiedoston yhtä lailla onnistuneesti, joten
-nolla riviä kelpaa vain, kun tiliote itse näyttää, ettei tapahtumia ollut.
+väärän kuukauden tiliotteen yhtä lailla onnistuneesti. Tiliotteesta, jolla ei ole
+yhtään kirjattua tapahtumaa, tulosteessa on `empty_report` (tili, jaksot ja
+viesti). Se ei ole virhe, koska hiljainen kuukausi on oikea tiliote, mutta
+katkennut tai väärä vienti näyttää samalta: näytä käyttäjälle tili ja jakso ja
+tuo tiliote (`{"assignments":[]}`) vasta, kun hän vahvistaa, ettei pankissa
+ollut tapahtumia.
 `balances_reconcile: true` kertoo, että luetut rivit vievät pankin alkusaldon
 sen loppusaldoon. `false` tarkoittaa, että ohjelma ei lukenut tiedostoa niin
 kuin pankki sen tarkoitti: älä tuo sitä, vaan kerro käyttäjälle. `null` on

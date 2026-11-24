@@ -1,7 +1,7 @@
-//! # aggountant-import (F23/F24 MVP — camt.053 tosite-loading)
+//! # aggountant-import (F23/F24 MVP — camt tosite-loading)
 //!
 //! The smallest missing glue of the manual tosite-loading pipeline: a deterministic
-//! **camt.053 parser** ([`camt053`]) and the lawful **projection** from a parsed
+//! **camt.053 / camt.052 parser** ([`camt`]) and the lawful **projection** from a parsed
 //! bank transaction to a [`aggountant_domain::DraftInput`] ([`project_draft`]).
 //!
 //! The split enforces the epic's determinism/judgment rule
@@ -18,12 +18,12 @@
 
 #![forbid(unsafe_code)]
 
-pub mod camt053;
+pub mod camt;
 mod error;
 
-pub use camt053::{
-    parse_camt053, BankTransaction, Direction, ParsedStatement, StatementBalance, StatementPeriod,
-    StatementSummary, UnbookedEntry, EVENT_KEY_PREFIX,
+pub use camt::{
+    parse_camt, BankTransaction, Direction, EmptyReport, ParsedStatement, StatementBalance,
+    StatementPeriod, StatementSummary, UnbookedEntry, EVENT_KEY_PREFIX,
 };
 pub use error::ImportError;
 

@@ -395,10 +395,10 @@ Example JSON (input-shape demonstration only, not payroll advice):
 Run it:
   aggountant --home ./accounting --json run-payroll start < payroll.json"#;
 
-pub(crate) const IMPORT_CAMT053_SEAL: &str = r#"INPUT (JSON on stdin)
+pub(crate) const IMPORT_CAMT_SEAL: &str = r#"INPUT (JSON on stdin)
   {"assignments":[...],"existing_vouchers":[...],"actor":"..."}. One assignment
   or one existing_vouchers binding (never both) for every booked entry of the
-  statement (`import camt053 parse` lists them with their bank_ref); an entry
+  statement (`import camt parse` lists them with their bank_ref); an entry
   without either refuses the whole batch (MISSING_ASSIGNMENT). Unknown
   top-level, assignment and binding fields are refused.
   actor             optional, default "cli".
@@ -486,7 +486,7 @@ TRANSACTIONS ALREADY IN THE BOOKS
   duplicate_observation_count, bound_count, conflict_count and
   backfilled_count (vouchers sealed by an earlier release whose identity was
   read from their statement).
-  `import camt053 observations` lists which transactions each file contained.
+  `import camt observations` lists which transactions each file contained.
 
 VOUCHERS SEALED OUTSIDE THE IMPORT
   A bank transaction booked with `voucher seal` has no event key, so before a
@@ -518,9 +518,17 @@ PREVIEW AND APPROVAL
   assignments, actor, chart) refuses the seal with IMPORT_PREPARATION_CHANGED
   before anything is written. A seal without the flag is not bound to a preview.
 
+EMPTY REPORT
+  A statement with no booked entries is not an error: {"assignments":[]}
+  previews and seals it with no vouchers, retaining only the file. Parse,
+  preview and seal then carry empty_report {account_iban, periods,
+  unbooked_count, message}. A wrong account, a wrong period or a truncated
+  export looks the same, so confirm with the user that the bank shows no
+  transactions for that account and period before sealing it as a quiet month.
+
 Run it:
-  aggountant --home ./accounting --json import camt053 seal --file statement.xml --dry-run < assignments.json
-  aggountant --home ./accounting --json import camt053 seal --file statement.xml \
+  aggountant --home ./accounting --json import camt seal --file statement.xml --dry-run < assignments.json
+  aggountant --home ./accounting --json import camt seal --file statement.xml \
     --approved-preparation-hash sha256:v1:... < assignments.json"#;
 
 pub(crate) const VERO_FI_CONFIGURE: &str = r#"INPUT (JSON on stdin)
@@ -846,7 +854,7 @@ mod tests {
                 "run-payroll start",
                 parses::<aggountant_domain::PayrollIntent>,
             ),
-            ("import camt053 seal", parses::<crate::ImportSealInput>),
+            ("import camt seal", parses::<crate::ImportSealInput>),
             ("vero-fi configure", |json| {
                 crate::vero_fi::apply_configure_input(None, json, false)
                     .map(drop)
@@ -974,6 +982,6 @@ mod tests {
     #[test]
     fn the_bank_import_help_states_the_date_tolerance_the_ledger_applies() {
         let days = format!("within {} days", aggountant_ledger::DATE_TOLERANCE_DAYS);
-        assert_eq!(super::IMPORT_CAMT053_SEAL.matches(&days).count(), 2);
+        assert_eq!(super::IMPORT_CAMT_SEAL.matches(&days).count(), 2);
     }
 }

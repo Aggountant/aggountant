@@ -116,10 +116,15 @@ const COMMAND_PATHS: &[&[&str]] = &[
     &["fiscal-year"],
     &["fiscal-year", "show"],
     &["import"],
+    &["import", "camt"],
+    &["import", "camt", "parse"],
+    &["import", "camt", "seal"],
+    &["import", "camt", "observations"],
+    // The compatibility aliases are part of the parser surface too: agents
+    // and scripts written before the rename call `import camt053`.
     &["import", "camt053"],
     &["import", "camt053", "parse"],
     &["import", "camt053", "seal"],
-    // The public compatibility alias is part of the parser surface too.
     &["import", "camt052"],
     &["import", "camt052", "parse"],
     &["import", "camt052", "seal"],

@@ -107,22 +107,38 @@ A company that moves to statement import links its earlier hand-recorded
 bank transactions this way the first time it imports a statement that
 contains them.
 
+### When the statement has no transactions
+
+If the statement has balances but not a single transaction the bank has
+confirmed, the program says so separately and names the account and the
+period the statement is for. An empty statement can be a quiet month, but a
+statement for the wrong account or the wrong month, or an export that broke
+off, looks the same. The agent shows you the account and the period and asks
+whether the bank really had no transactions in that period. If the opening
+and closing balances differ, transactions are missing from the file and the
+agent does not import it.
+
+Once you confirm that the month was quiet, the statement is imported the
+usual way through the preview and your approval. No vouchers are created,
+but the statement file is archived.
+
 <details>
 <summary>Commands the agent runs</summary>
 
 ```sh
-aggountant import camt053 parse --file tiliote-2026-03.xml
+aggountant import camt parse --file tiliote-2026-03.xml
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
-aggountant import camt053 seal --file tiliote-2026-03.xml --dry-run < assignments.json
-aggountant import camt053 seal --file tiliote-2026-03.xml \
+aggountant import camt seal --file tiliote-2026-03.xml --dry-run < assignments.json
+aggountant import camt seal --file tiliote-2026-03.xml \
   --approved-preparation-hash sha256:v1:… < assignments.json
-aggountant import camt053 observations
+aggountant import camt observations
 ```
 
-The same command also reads camt.052 files, and it can be run under the name
-`import camt052` as well.
+The command reads both camt.053 and camt.052 files. The earlier names
+`import camt053` and `import camt052` still run the same command. The output
+for an empty statement has the field `empty_report`.
 
-`import camt053 observations` shows which transactions each statement file
+`import camt observations` shows which transactions each statement file
 contained.
 </details>
 

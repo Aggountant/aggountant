@@ -57,10 +57,6 @@ instructions are in
   identifier to the seal. The seal then refuses anything that changed since
   the preview (`IMPORT_PREPARATION_CHANGED`). Without the identifier the seal
   is not checked against any preview.
-- An empty statement imports successfully with no transactions, and the
-  program does not mention it separately. If an import gives zero
-  transactions, check that the file is the statement for the right month and
-  the right account (`camt-empty-report-and-rename`).
 - The program does not link a receipt to its payment row. They meet on the
   trade payables account 2700 (or 2740), but the program does not check that
   every receipt gets paid or that the same purchase has not also been

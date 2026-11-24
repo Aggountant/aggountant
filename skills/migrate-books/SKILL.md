@@ -134,7 +134,7 @@ mille päivälle se tulee. Arkistosta siihen siirtyy kolme asiaa:
 
 - Vaihtopäivän saldoluettelo ja tililuettelo sekä vaihtopäivänä avoimet laskut.
 - Ensimmäinen tuotava tiliote alkaa vaihtopäivää seuraavasta päivästä. Aiemmat
-  tapahtumat ovat jo avaavissa saldoissa, ja `aggountant import camt053` vaatii
+  tapahtumat ovat jo avaavissa saldoissa, ja `aggountant import camt` vaatii
   kirjauksen tiliotteen jokaiselle tapahtumalle, joten vaihtopäivän ylittävä tiliote
   kirjaisi samat tapahtumat toiseen kertaan. Pyydä pankista uusi rajaus.
 - Ennen vaihtopäivää päivätty lasku, joka maksetaan vasta sen jälkeen, voi olla jo

@@ -1,4 +1,5 @@
-//! Deterministic camt.053 (ISO 20022 `BankToCustomerStatement`) reader — the
+//! Deterministic camt.053 (ISO 20022 `BankToCustomerStatement`) and camt.052
+//! (`BankToCustomerAccountReport`) reader — the
 //! Stage-1 parser of the manual tosite-loading pipeline. Each `Ntry`
 //! becomes one canonical [`BankTransaction`] row: amount + direction + dates +
 //! counterparty + the bank's own reference, all preserved verbatim.
@@ -151,6 +152,67 @@ pub struct ParsedStatement {
     /// already in the books: the bank has changed its status.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub unbooked: Vec<UnbookedEntry>,
+    /// Present only when the document has no booked entries at all. A wrong
+    /// account, a wrong period or a truncated export would otherwise look like
+    /// a quiet month: zero transactions and nothing else said.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub empty_report: Option<EmptyReport>,
+}
+
+/// The explicit result for a report with balances but no booked entries. It is
+/// not an error: a quiet month is a real statement and imports with no
+/// vouchers. It names the account and the period so whoever reads it can check
+/// that this is the statement they meant before treating the month as quiet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct EmptyReport {
+    /// The report's account (`Acct/Id/IBAN`).
+    pub account_iban: String,
+    /// The `FrToDt` of every report block that declares one, in document order.
+    pub periods: Vec<StatementPeriod>,
+    /// Entries listed with a status other than booked (for example pending).
+    pub unbooked_count: usize,
+    /// One sentence that says all of the above, for a person or an agent.
+    pub message: String,
+}
+
+impl EmptyReport {
+    fn new(account_iban: &str, statements: &[StatementSummary], unbooked_count: usize) -> Self {
+        let periods: Vec<StatementPeriod> =
+            statements.iter().filter_map(|s| s.period.clone()).collect();
+        let period_text = if periods.is_empty() {
+            "an undeclared period".to_string()
+        } else {
+            let listed: Vec<String> = periods
+                .iter()
+                .map(|p| format!("{}..{}", p.from, p.to))
+                .collect();
+            format!("period {}", listed.join(", "))
+        };
+        let pending = match unbooked_count {
+            0 => String::new(),
+            n => format!(" ({n} not yet booked by the bank)"),
+        };
+        let balances = if statements
+            .iter()
+            .any(|s| s.balances_reconcile == Some(false))
+        {
+            " Its opening and closing balances differ, so the file is missing entries; \
+             do not import it as a quiet month."
+        } else {
+            " Check that this is the right account and period and that the bank shows no \
+             transactions for it before importing it as a quiet month; a wrong or truncated \
+             export looks the same."
+        };
+        EmptyReport {
+            account_iban: account_iban.to_string(),
+            message: format!(
+                "the report for account {account_iban}, {period_text}, has no booked \
+                 entries{pending}.{balances}"
+            ),
+            periods,
+            unbooked_count,
+        }
+    }
 }
 
 /// An entry the statement lists with a status other than booked. Only entries
@@ -258,7 +320,7 @@ fn read_date(wrapper: Node) -> Result<Date, ImportError> {
         let date = dttm.split('T').next().unwrap_or(&dttm);
         return Ok(Date::parse(date)?);
     }
-    Err(ImportError::Camt053(format!(
+    Err(ImportError::Camt(format!(
         "<{}> has neither <Dt> nor <DtTm>",
         wrapper.tag_name().name()
     )))
@@ -298,9 +360,8 @@ fn statement_iban(stmt: Node) -> Option<String> {
 /// account's entries under the first account's dedup key. Entries with a
 /// non-`BOOK` status (e.g. still-pending `PDNG`) are not transactions — only
 /// booked entries are bookable vouchers; they are listed in `unbooked`.
-pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
-    let doc =
-        Document::parse(xml).map_err(|e| ImportError::Camt053(format!("not valid XML: {e}")))?;
+pub fn parse_camt(xml: &str) -> Result<ParsedStatement, ImportError> {
+    let doc = Document::parse(xml).map_err(|e| ImportError::Camt(format!("not valid XML: {e}")))?;
     let root = doc.root_element();
 
     // Accept either container: camt.053 (BkToCstmrStmt → Stmt) or camt.052
@@ -316,14 +377,14 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         (Some(bk), None) => (bk, "Stmt"),
         (None, Some(rpt)) => (rpt, "Rpt"),
         (Some(_), Some(_)) => {
-            return Err(ImportError::Camt053(
+            return Err(ImportError::Camt(
                 "document has both <BkToCstmrStmt> and <BkToCstmrAcctRpt> — refusing rather \
                      than silently picking one"
                     .into(),
             ));
         }
         (None, None) => {
-            return Err(ImportError::Camt053(
+            return Err(ImportError::Camt(
                 "no <BkToCstmrStmt> or <BkToCstmrAcctRpt> — not a camt.053 or camt.052 bank \
                      statement document"
                     .into(),
@@ -333,14 +394,14 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
 
     let reports: Vec<Node> = children(container, report_name).collect();
     if reports.is_empty() {
-        return Err(ImportError::Camt053(format!(
+        return Err(ImportError::Camt(format!(
             "bank statement document has no <{report_name}> report block"
         )));
     }
 
     // The first report labels the result (account it is for).
     let account_iban = statement_iban(reports[0]).ok_or_else(|| {
-        ImportError::Camt053("<Acct/Id/IBAN> missing — cannot scope the dedup key".into())
+        ImportError::Camt("<Acct/Id/IBAN> missing — cannot scope the dedup key".into())
     })?;
     let currency = child(reports[0], "Acct")
         .and_then(|a| child(a, "Ccy"))
@@ -356,12 +417,12 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
         // inherit the first report's account (that is the same mis-scoping this
         // check exists to prevent).
         let iban = statement_iban(*report).ok_or_else(|| {
-            ImportError::Camt053(format!(
+            ImportError::Camt(format!(
                 "a <{report_name}> report has no <Acct/Id/IBAN> — cannot scope its dedup keys"
             ))
         })?;
         if iban != account_iban {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "document mixes accounts ({account_iban} and {iban}) — import one account at a time"
             )));
         }
@@ -386,7 +447,7 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
     let mut seen = std::collections::HashSet::new();
     for txn in &transactions {
         if !seen.insert(txn.natural_key.as_str()) {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "two entries share the dedup key {} (reference {}) — the reference is not unique, \
                  so importing would silently drop one entry",
                 txn.natural_key, txn.bank_ref
@@ -398,12 +459,16 @@ pub fn parse_camt053(xml: &str) -> Result<ParsedStatement, ImportError> {
     // it pending before a later one books it) is booked, not unbooked.
     unbooked.retain(|u| !seen.contains(u.natural_key.as_str()));
 
+    let empty_report = transactions
+        .is_empty()
+        .then(|| EmptyReport::new(&account_iban, &statements, unbooked.len()));
     Ok(ParsedStatement {
         account_iban,
         currency,
         transactions,
         statements,
         unbooked,
+        empty_report,
     })
 }
 
@@ -420,7 +485,7 @@ fn summarize_report(
             let bound = |name: &str| -> Result<Date, ImportError> {
                 let raw = child(fr_to, name)
                     .and_then(text)
-                    .ok_or_else(|| ImportError::Camt053(format!("<FrToDt> has no <{name}>")))?;
+                    .ok_or_else(|| ImportError::Camt(format!("<FrToDt> has no <{name}>")))?;
                 Ok(Date::parse(raw.split('T').next().unwrap_or(&raw))?)
             };
             Some(StatementPeriod {
@@ -452,7 +517,7 @@ fn summarize_report(
                     Direction::Credit => net.checked_add(amount),
                     Direction::Debit => net.checked_sub(amount),
                 }
-                .ok_or_else(|| ImportError::Camt053("entry amounts overflow Decimal".into()))?;
+                .ok_or_else(|| ImportError::Camt("entry amounts overflow Decimal".into()))?;
             }
             Some(Money::new(net, currency))
         }
@@ -499,13 +564,13 @@ fn parse_balance(bal: Node) -> Result<StatementBalance, ImportError> {
                 .and_then(text)
                 .or_else(|| child(c, "Prtry").and_then(text))
         })
-        .ok_or_else(|| ImportError::Camt053("<Bal> has no <Tp/CdOrPrtry> code".into()))?;
+        .ok_or_else(|| ImportError::Camt("<Bal> has no <Tp/CdOrPrtry> code".into()))?;
     let amt_node = child(bal, "Amt")
-        .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has no <Amt>")))?;
+        .ok_or_else(|| ImportError::Camt(format!("<Bal> {balance_type} has no <Amt>")))?;
     let amt_str = text(amt_node)
-        .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has an empty <Amt>")))?;
+        .ok_or_else(|| ImportError::Camt(format!("<Bal> {balance_type} has an empty <Amt>")))?;
     let ccy = amt_node.attribute("Ccy").ok_or_else(|| {
-        ImportError::Camt053(format!("<Bal> {balance_type} <Amt> has no Ccy attribute"))
+        ImportError::Camt(format!("<Bal> {balance_type} <Amt> has no Ccy attribute"))
     })?;
     let magnitude = Money::parse(&amt_str, Currency::new(ccy)?)?;
     let amount = match child(bal, "CdtDbtInd").and_then(text).as_deref() {
@@ -516,14 +581,14 @@ fn parse_balance(bal: Node) -> Result<StatementBalance, ImportError> {
         }
         Some("DBIT") => magnitude,
         other => {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "<Bal> {balance_type} <CdtDbtInd> must be CRDT or DBIT, got {other:?}"
             )))
         }
     };
     let date = read_date(
         child(bal, "Dt")
-            .ok_or_else(|| ImportError::Camt053(format!("<Bal> {balance_type} has no <Dt>")))?,
+            .ok_or_else(|| ImportError::Camt(format!("<Bal> {balance_type} has no <Dt>")))?,
     )?;
     Ok(StatementBalance {
         balance_type,
@@ -584,14 +649,14 @@ fn parse_entry(
     match child(ntry, "RvslInd").and_then(text).as_deref() {
         None | Some("false") => {}
         Some("true") => {
-            return Err(ImportError::Camt053(
+            return Err(ImportError::Camt(
                 "<Ntry> has <RvslInd>true</RvslInd> — reversal entries are not supported (a \
                  reversal is not an independent booking)"
                     .into(),
             ));
         }
         Some(other) => {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "<RvslInd> must be true or false, got {other:?}"
             )));
         }
@@ -607,7 +672,7 @@ fn parse_entry(
         .flat_map(|nd| children(nd, "TxDtls"))
         .collect();
     if tx_dtls_all.len() > 1 {
-        return Err(ImportError::Camt053(format!(
+        return Err(ImportError::Camt(format!(
             "batched <Ntry> with {} <TxDtls> is not supported — one bank entry must map to one \
              voucher (the aggregate amount would misattribute the sub-transactions)",
             tx_dtls_all.len()
@@ -616,17 +681,17 @@ fn parse_entry(
     let tx_dtls = tx_dtls_all.first().copied();
 
     let amt_node =
-        child(ntry, "Amt").ok_or_else(|| ImportError::Camt053("<Ntry> has no <Amt>".into()))?;
-    let amt_str = text(amt_node).ok_or_else(|| ImportError::Camt053("empty <Amt>".into()))?;
+        child(ntry, "Amt").ok_or_else(|| ImportError::Camt("<Ntry> has no <Amt>".into()))?;
+    let amt_str = text(amt_node).ok_or_else(|| ImportError::Camt("empty <Amt>".into()))?;
     let ccy = amt_node
         .attribute("Ccy")
-        .ok_or_else(|| ImportError::Camt053("<Amt> has no Ccy attribute".into()))?;
+        .ok_or_else(|| ImportError::Camt("<Amt> has no Ccy attribute".into()))?;
     // Fail fast on a foreign-currency entry: the account is single-currency and
     // this MVP has no FX treatment, so posting a non-account-currency amount to the
     // bank leg would misfile it. (Multi-currency handling is deferred.)
     if let Some(acct_ccy) = account_currency {
         if ccy != acct_ccy {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "entry currency {ccy} differs from account currency {acct_ccy} — \
                  multi-currency import is not supported"
             )));
@@ -638,7 +703,7 @@ fn parse_entry(
         Some("CRDT") => Direction::Credit,
         Some("DBIT") => Direction::Debit,
         other => {
-            return Err(ImportError::Camt053(format!(
+            return Err(ImportError::Camt(format!(
                 "<CdtDbtInd> must be CRDT or DBIT, got {other:?}"
             )))
         }
@@ -646,7 +711,7 @@ fn parse_entry(
 
     let booking_date = read_date(
         child(ntry, "BookgDt")
-            .ok_or_else(|| ImportError::Camt053("<Ntry> has no <BookgDt>".into()))?,
+            .ok_or_else(|| ImportError::Camt("<Ntry> has no <BookgDt>".into()))?,
     )?;
     let value_date = match child(ntry, "ValDt") {
         Some(v) => Some(read_date(v)?),
@@ -656,7 +721,7 @@ fn parse_entry(
     // Without a usable reference there is no stable dedup key, so the entry is
     // refused rather than double-postable.
     let bank_ref = entry_bank_ref(ntry, tx_dtls).ok_or_else(|| {
-        ImportError::Camt053(
+        ImportError::Camt(
             "<Ntry> has no usable AcctSvcrRef / EndToEndId — cannot build a stable dedup key"
                 .into(),
         )

@@ -1,4 +1,4 @@
-//! `import camt053 seal`: prepare every voucher of a bank statement, show the
+//! `import camt seal`: prepare every voucher of a bank statement, show the
 //! preparation with `--dry-run`, and seal exactly the prepared vouchers.
 //!
 //! Preview and seal run the same preparation and the same Ledger batch
@@ -15,6 +15,11 @@
 //! binds to a voucher sealed outside the import (`existing_vouchers`) is bound
 //! to it, not sealed again; a new transaction that such a voucher may already
 //! book stops the batch (`BANK_ENTRY_POSSIBLY_BOOKED`).
+//!
+//! A statement with no booked entries prepares and seals nothing but its
+//! retained bytes; both outputs carry the parser's `empty_report`, so the
+//! preview the user approves says the report was empty, for which account and
+//! period.
 
 use std::collections::HashMap;
 
@@ -156,7 +161,7 @@ fn legacy_identities(ledger: &Ledger) -> Result<Vec<LegacyBankIdentity>, CliErro
             let xml = std::str::from_utf8(raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&raw))
                 .ok()?
                 .to_owned();
-            parse_camt053(&xml).ok()
+            parse_camt(&xml).ok()
         });
         if let Some(txn) = statement.as_ref().and_then(|s| {
             s.transactions
@@ -209,8 +214,8 @@ fn conflict_error(report: &BankBatchReport, entry_count: usize) -> Option<CliErr
     )
 }
 
-/// Run `import camt053 seal [--dry-run | --approved-preparation-hash H]`.
-pub(crate) fn seal_camt053(
+/// Run `import camt seal [--dry-run | --approved-preparation-hash H]`.
+pub(crate) fn seal_camt(
     cli: &Cli,
     file: &Path,
     dry_run: bool,
@@ -220,8 +225,8 @@ pub(crate) fn seal_camt053(
     // supporting source (a UTF-8 round-trip would strip a BOM / normalize line
     // endings and break byte-for-byte retention).
     let raw = read_file_bytes(file)?;
-    let xml = decode_camt053(&raw, file)?;
-    let statement = parse_camt053(&xml)?;
+    let xml = decode_camt(&raw, file)?;
+    let statement = parse_camt(&xml)?;
     let input: ImportSealInput = read_stdin_json()?;
     let ledger = open_existing_ledger(cli)?;
     let prepared = prepare(&ledger, &statement, &raw, &input)?;
@@ -287,6 +292,7 @@ pub(crate) fn seal_camt053(
             "vouchers": vouchers,
         });
         merge(&mut out, counters(&preview));
+        add_empty_report(&mut out, &statement);
         return Ok(out);
     }
 
@@ -348,10 +354,11 @@ pub(crate) fn seal_camt053(
         "sealed": sealed,
     });
     merge(&mut out, counters(&report));
+    add_empty_report(&mut out, &statement);
     Ok(out)
 }
 
-/// Run `import camt053 observations [--attachment-ref H]`: which bank
+/// Run `import camt observations [--attachment-ref H]`: which bank
 /// transactions each retained statement file contained.
 pub(crate) fn observations(cli: &Cli, attachment_ref: Option<&str>) -> Result<Value, CliError> {
     let filter = attachment_ref
@@ -370,6 +377,15 @@ pub(crate) fn observations(cli: &Cli, attachment_ref: Option<&str>) -> Result<Va
         "observation_count": observations.len(),
         "observations": observations,
     }))
+}
+
+/// Carry the parser's empty-report result into an import output, so neither
+/// the preview nor the seal of a statement without entries reads as a plain
+/// success.
+fn add_empty_report(out: &mut Value, statement: &ParsedStatement) {
+    if let Some(empty) = &statement.empty_report {
+        out["empty_report"] = json!(empty);
+    }
 }
 
 fn merge(target: &mut Value, extra: Value) {

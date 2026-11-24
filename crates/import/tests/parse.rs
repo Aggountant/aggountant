@@ -5,7 +5,7 @@
 
 use aggountant_domain::{build_draft, PolicySet};
 use aggountant_import::{
-    assignment_for, check_assignments_unique, parse_camt053, project_draft, project_voucher,
+    assignment_for, check_assignments_unique, parse_camt, project_draft, project_voucher,
     Assignment, ContraPosting, Direction, ImportError, ReverseChargeScope, VatTreatment,
 };
 use aggountant_ledger::{Ledger, SealRequest};
@@ -40,7 +40,7 @@ fn assignment(bank_ref: &str, contra_account: &str) -> Assignment {
 
 #[test]
 fn parses_only_booked_entries_with_canonical_fields() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     assert_eq!(stmt.account_iban, "FI2112345600000785");
     assert_eq!(stmt.currency.as_deref(), Some("EUR"));
 
@@ -88,12 +88,12 @@ fn parses_only_booked_entries_with_canonical_fields() {
 
 #[test]
 fn changed_reexport_is_flagged_through_parse_project_and_seal() {
-    let original = parse_camt053(SAMPLE).unwrap();
+    let original = parse_camt(SAMPLE).unwrap();
     // Value date is a retained source fact but is intentionally not projected to
     // the voucher (BookgDt is the accounting date). This isolates the source
     // fingerprint check: both projected vouchers are byte-identical.
     let corrected_xml = SAMPLE.replacen("<Dt>2026-03-15</Dt>", "<Dt>2026-03-16</Dt>", 1);
-    let corrected = parse_camt053(&corrected_xml).unwrap();
+    let corrected = parse_camt(&corrected_xml).unwrap();
     let original_txn = &original.transactions[0];
     let corrected_txn = &corrected.transactions[0];
     assert_eq!(original_txn.natural_key, corrected_txn.natural_key);
@@ -152,8 +152,8 @@ fn camt052_and_camt053_yield_equivalent_transactions() {
     // camt.053. Only the container differs; the per-<Ntry> payload is identical,
     // so the two fixtures (same entries under different containers) must reduce
     // to byte-for-byte equal canonical statements.
-    let s053 = parse_camt053(SAMPLE).unwrap();
-    let s052 = parse_camt053(SAMPLE_052).unwrap();
+    let s053 = parse_camt(SAMPLE).unwrap();
+    let s052 = parse_camt(SAMPLE_052).unwrap();
 
     assert_eq!(s052.account_iban, s053.account_iban);
     assert_eq!(s052.currency, s053.currency);
@@ -166,7 +166,7 @@ fn camt052_and_camt053_yield_equivalent_transactions() {
 fn camt052_is_accepted_not_rejected_as_wrong_format() {
     // Regression: before this fix the .052 container was rejected with
     // "no <BkToCstmrStmt>". It must now parse cleanly.
-    let stmt = parse_camt053(SAMPLE_052).unwrap();
+    let stmt = parse_camt(SAMPLE_052).unwrap();
     assert_eq!(stmt.account_iban, "FI2112345600000785");
     assert_eq!(stmt.transactions[0].direction, Direction::Debit);
     assert_eq!(stmt.transactions[0].amount.amount_str(), "124.00");
@@ -203,8 +203,8 @@ fn camt052_reversal_entry_is_refused() {
       <BookgDt><Dt>2026-03-14</Dt></BookgDt>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-RVSL</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    let err = parse_camt053(&rpt_xml(body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&rpt_xml(body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("RvslInd"), "{err}");
 
     // RvslInd=false is the normal case and parses fine.
@@ -214,10 +214,7 @@ fn camt052_reversal_entry_is_refused() {
       <BookgDt><Dt>2026-03-14</Dt></BookgDt>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-OK</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    assert_eq!(
-        parse_camt053(&rpt_xml(ok_body)).unwrap().transactions.len(),
-        1
-    );
+    assert_eq!(parse_camt(&rpt_xml(ok_body)).unwrap().transactions.len(), 1);
 }
 
 #[test]
@@ -229,8 +226,8 @@ fn document_with_both_containers_is_refused() {
   <BkToCstmrStmt><Stmt><Acct><Id><IBAN>FI2112345600000785</IBAN></Id></Acct></Stmt></BkToCstmrStmt>
   <BkToCstmrAcctRpt><Rpt><Acct><Id><IBAN>FI2112345600000785</IBAN></Id></Acct></Rpt></BkToCstmrAcctRpt>
 </Document>"#;
-    let err = parse_camt053(xml).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(xml).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("both"), "{err}");
 }
 
@@ -252,8 +249,8 @@ fn report_missing_iban_is_refused_not_scoped_under_the_first() {
         book_entry("EUR", "1.00", "REF-A"),
         book_entry("EUR", "2.00", "REF-B"),
     );
-    let err = parse_camt053(&xml).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&xml).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("no <Acct/Id/IBAN>"), "{err}");
 }
 
@@ -275,21 +272,112 @@ fn multi_rpt_same_account_concatenates_entries() {
         book_entry("EUR", "1.00", "REF-A"),
         book_entry("EUR", "2.00", "REF-B"),
     );
-    let stmt = parse_camt053(&xml).unwrap();
+    let stmt = parse_camt(&xml).unwrap();
     assert_eq!(stmt.transactions.len(), 2);
 }
 
+const MARCH: &str =
+    r#"<FrToDt><FrDtTm>2026-03-01T00:00:00</FrDtTm><ToDtTm>2026-03-31T23:59:59</ToDtTm></FrToDt>"#;
+
 #[test]
-fn balance_only_report_with_no_entries_parses_to_empty() {
-    // An intraday .052 can carry balances and zero <Ntry> — that is a valid,
-    // empty statement, not an error.
-    let body = r#"<Bal>
-      <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
-      <Amt Ccy="EUR">100.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-03-31</Dt></Dt>
-    </Bal>"#;
-    let stmt = parse_camt053(&rpt_xml(body)).unwrap();
+fn balance_only_camt052_report_is_an_explicit_empty_report() {
+    // An intraday .052 can carry balances and zero <Ntry>. That is a valid
+    // statement, not an error, but it must say it had no entries and for
+    // which account and period, so a wrong export is not read as a quiet month.
+    let body = format!(
+        "{MARCH}{}{}",
+        bal("OPBD", "100.00", "CRDT"),
+        bal("CLBD", "100.00", "CRDT")
+    );
+    let stmt = parse_camt(&rpt_xml(&body)).unwrap();
     assert_eq!(stmt.account_iban, "FI2112345600000785");
     assert!(stmt.transactions.is_empty());
+    let empty = stmt.empty_report.as_ref().expect("an empty report says so");
+    assert_eq!(empty.account_iban, "FI2112345600000785");
+    assert_eq!(empty.periods.len(), 1);
+    assert_eq!(empty.periods[0].from.to_string(), "2026-03-01");
+    assert_eq!(empty.periods[0].to.to_string(), "2026-03-31");
+    assert_eq!(empty.unbooked_count, 0);
+    assert!(
+        empty.message.contains("FI2112345600000785")
+            && empty.message.contains("2026-03-01..2026-03-31")
+            && empty.message.contains("no booked entries")
+            && empty.message.contains("quiet month"),
+        "{}",
+        empty.message
+    );
+    assert!(!empty.message.contains("  "), "{}", empty.message);
+    let json = serde_json::to_value(&stmt).unwrap();
+    assert_eq!(json["empty_report"]["account_iban"], "FI2112345600000785");
+    assert_eq!(json["empty_report"]["periods"][0]["to"], "2026-03-31");
+}
+
+#[test]
+fn balance_only_camt053_statement_is_an_explicit_empty_report() {
+    let body = format!(
+        "{MARCH}{}{}",
+        bal("OPBD", "100.00", "CRDT"),
+        bal("CLBD", "100.00", "CRDT")
+    );
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let empty = stmt.empty_report.expect("an empty statement says so");
+    assert_eq!(empty.account_iban, "FI2112345600000785");
+    assert_eq!(empty.periods[0].from.to_string(), "2026-03-01");
+    assert_eq!(stmt.statements[0].balances_reconcile, Some(true));
+}
+
+#[test]
+fn an_empty_report_whose_balances_differ_says_the_file_is_missing_entries() {
+    // Opening and closing differ but no entry explains the change: a
+    // truncated export, not a quiet month.
+    let body = format!(
+        "{MARCH}{}{}",
+        bal("OPBD", "100.00", "CRDT"),
+        bal("CLBD", "40.00", "CRDT")
+    );
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let empty = stmt.empty_report.expect("empty");
+    assert!(
+        empty.message.contains("missing entries")
+            && empty.message.contains("do not import it as a quiet month"),
+        "{}",
+        empty.message
+    );
+    assert!(!empty.message.contains("  "), "{}", empty.message);
+}
+
+#[test]
+fn an_empty_report_without_a_period_still_names_the_account() {
+    let stmt = parse_camt(&rpt_xml(&bal("CLBD", "100.00", "CRDT"))).unwrap();
+    let empty = stmt.empty_report.expect("empty");
+    assert!(empty.periods.is_empty());
+    assert!(
+        empty.message.contains("FI2112345600000785") && empty.message.contains("undeclared period"),
+        "{}",
+        empty.message
+    );
+}
+
+#[test]
+fn a_report_with_entries_has_no_empty_report() {
+    let stmt = parse_camt(SAMPLE).unwrap();
+    assert!(!stmt.transactions.is_empty());
+    assert!(stmt.empty_report.is_none());
+    let json = serde_json::to_value(&stmt).unwrap();
+    assert!(json.get("empty_report").is_none());
+}
+
+#[test]
+fn a_malformed_camt052_is_not_reported_as_camt053() {
+    // The error code and message name camt in general, never camt.053 for a
+    // camt.052 input.
+    let body = r#"<Ntry><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts>
+      <BookgDt><Dt>2026-03-14</Dt></BookgDt><AcctSvcrRef>REF-A</AcctSvcrRef></Ntry>"#;
+    let err = parse_camt(&rpt_xml(body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
+    let message = err.to_string();
+    assert!(message.starts_with("INVALID_CAMT: "), "{message}");
+    assert!(!message.contains("053"), "{message}");
 }
 
 #[test]
@@ -302,14 +390,14 @@ fn entry_with_multiple_ntrydtls_blocks_is_refused() {
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-1</AcctSvcrRef></Refs></TxDtls></NtryDtls>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-2</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    let err = parse_camt053(&rpt_xml(body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&rpt_xml(body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("batched"), "{err}");
 }
 
 #[test]
 fn statement_period_and_balances_are_reported_and_reconciled() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     assert_eq!(stmt.statements.len(), 1);
     let summary = &stmt.statements[0];
     assert_eq!(summary.id.as_deref(), Some("2026-03"));
@@ -358,7 +446,7 @@ fn balances_that_the_entries_do_not_explain_do_not_reconcile() {
         bal("CLBD", "8.00", "CRDT"),
         book_entry("EUR", "1.00", "REF-1")
     );
-    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap();
     let summary = &stmt.statements[0];
     assert!(summary.period.is_none());
     assert_eq!(summary.entries_net.as_ref().unwrap().amount_str(), "-1.00");
@@ -373,7 +461,7 @@ fn a_debit_balance_is_negative_and_prcd_opens_when_opbd_is_absent() {
         bal("CLBD", "6.00", "DBIT"),
         book_entry("EUR", "1.00", "REF-1")
     );
-    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap();
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap();
     let summary = &stmt.statements[0];
     let opening = summary.opening_balance.as_ref().unwrap();
     assert_eq!(opening.balance_type, "PRCD");
@@ -392,7 +480,7 @@ fn a_debit_balance_is_negative_and_prcd_opens_when_opbd_is_absent() {
 
 #[test]
 fn a_zero_debit_balance_is_not_negative_zero() {
-    let stmt = parse_camt053(&stmt_xml(
+    let stmt = parse_camt(&stmt_xml(
         "FI2112345600000785",
         &bal("OPBD", "0.00", "DBIT"),
     ))
@@ -408,7 +496,7 @@ fn an_interim_report_without_a_closing_balance_has_no_reconciliation() {
         bal("OPBD", "10.00", "CRDT"),
         bal("ITBD", "9.00", "CRDT")
     );
-    let stmt = parse_camt053(&rpt_xml(&body)).unwrap();
+    let stmt = parse_camt(&rpt_xml(&body)).unwrap();
     let summary = &stmt.statements[0];
     assert!(summary.closing_balance.is_none());
     assert_eq!(summary.balances.len(), 2);
@@ -433,7 +521,7 @@ fn each_report_block_is_summarised_with_its_own_entries() {
         book_entry("EUR", "2.00", "REF-B"),
         book_entry("EUR", "3.00", "REF-C"),
     );
-    let stmt = parse_camt053(&xml).unwrap();
+    let stmt = parse_camt(&xml).unwrap();
     assert_eq!(stmt.statements.len(), 2);
     assert_eq!(stmt.statements[0].entry_count, 1);
     assert_eq!(stmt.statements[1].entry_count, 2);
@@ -456,7 +544,7 @@ fn entries_in_several_currencies_never_reconcile() {
         r#"<Amt Ccy="USD">2480.00</Amt>"#,
         1,
     );
-    let stmt = parse_camt053(&xml).unwrap();
+    let stmt = parse_camt(&xml).unwrap();
     assert_eq!(stmt.transactions[1].amount.currency().as_str(), "USD");
     let summary = &stmt.statements[0];
     assert!(summary.entries_net.is_none());
@@ -467,23 +555,23 @@ fn entries_in_several_currencies_never_reconcile() {
 fn a_balance_without_a_type_or_indicator_is_refused() {
     let no_type = r#"<Bal><Amt Ccy="EUR">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>
       <Dt><Dt>2026-03-31</Dt></Dt></Bal>"#;
-    let err = parse_camt053(&stmt_xml("FI2112345600000785", no_type)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&stmt_xml("FI2112345600000785", no_type)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     let bad_indicator = bal("CLBD", "1.00", "XXXX");
-    let err = parse_camt053(&stmt_xml("FI2112345600000785", &bad_indicator)).unwrap_err();
+    let err = parse_camt(&stmt_xml("FI2112345600000785", &bad_indicator)).unwrap_err();
     assert!(err.to_string().contains("CdtDbtInd"), "{err}");
 }
 
 #[test]
 fn parse_is_deterministic() {
-    let a = parse_camt053(SAMPLE).unwrap();
-    let b = parse_camt053(SAMPLE).unwrap();
+    let a = parse_camt(SAMPLE).unwrap();
+    let b = parse_camt(SAMPLE).unwrap();
     assert_eq!(a, b);
 }
 
 #[test]
 fn projection_maps_direction_to_sides_and_balances() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
 
     // Money out (Debit): bank credited, contra (expense) debited.
     let out = &stmt.transactions[0];
@@ -538,7 +626,7 @@ fn projection_maps_direction_to_sides_and_balances() {
 
 #[test]
 fn projection_preserves_a_canonically_zero_rate_vat_code() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = assignment(&out.bank_ref, "7690");
     a.contra_postings[0].vat_code = Some(VatCode::new("purchase-zero-rated").unwrap());
@@ -564,7 +652,7 @@ fn projection_preserves_a_canonically_zero_rate_vat_code() {
 
 #[test]
 fn projection_refuses_every_taxable_leg_in_a_split_gross_allocation() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let assignment = Assignment {
         bank_ref: out.bank_ref.clone(),
@@ -587,7 +675,7 @@ fn projection_refuses_every_taxable_leg_in_a_split_gross_allocation() {
 
 #[test]
 fn projection_refuses_taxable_sales_tags_on_money_in() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let incoming = &stmt.transactions[1];
     let mut a = assignment(&incoming.bank_ref, "3000");
     a.contra_postings[0].amount = incoming.amount.clone();
@@ -603,7 +691,7 @@ fn projection_refuses_taxable_sales_tags_on_money_in() {
 
 #[test]
 fn projection_does_not_treat_an_unknown_legacy_code_as_zero() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = assignment(&out.bank_ref, "7690");
     a.contra_postings[0].vat_code = Some(VatCode::new("purchase-unknown-class").unwrap());
@@ -615,7 +703,7 @@ fn projection_does_not_treat_an_unknown_legacy_code_as_zero() {
 
 #[test]
 fn projection_splits_loan_principal_and_interest_to_separate_accounts() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let assignment = Assignment {
         bank_ref: out.bank_ref.clone(),
@@ -642,7 +730,7 @@ fn projection_splits_loan_principal_and_interest_to_separate_accounts() {
 
 #[test]
 fn projection_splits_a_money_in_entry_to_multiple_credit_legs() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let incoming = &stmt.transactions[1];
     let assignment = Assignment {
         bank_ref: incoming.bank_ref.clone(),
@@ -667,7 +755,7 @@ fn projection_splits_a_money_in_entry_to_multiple_credit_legs() {
 
 #[test]
 fn projection_refuses_a_split_that_does_not_equal_the_bank_amount() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let assignment = Assignment {
         bank_ref: out.bank_ref.clone(),
@@ -691,7 +779,7 @@ fn projection_refuses_a_split_that_does_not_equal_the_bank_amount() {
 
 #[test]
 fn projection_refuses_an_empty_or_non_positive_split() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let empty = Assignment {
         bank_ref: out.bank_ref.clone(),
@@ -722,7 +810,7 @@ fn projection_refuses_an_empty_or_non_positive_split() {
 
 #[test]
 fn projection_refuses_a_split_with_a_different_currency() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let assignment = Assignment {
         bank_ref: out.bank_ref.clone(),
@@ -743,7 +831,7 @@ fn projection_refuses_a_split_with_a_different_currency() {
 
 #[test]
 fn missing_assignment_is_refused_not_guessed() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let err = assignment_for(out, &[]).unwrap_err();
     assert!(matches!(err, ImportError::MissingAssignment(_)));
@@ -752,7 +840,7 @@ fn missing_assignment_is_refused_not_guessed() {
 
 #[test]
 fn description_override_wins_else_falls_back() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = assignment(&out.bank_ref, "7690");
     a.description = Some("Custom memo".to_string());
@@ -769,12 +857,12 @@ fn description_override_wins_else_falls_back() {
 }
 
 #[test]
-fn malformed_xml_is_an_invalid_camt053_error() {
-    let err = parse_camt053("<not-a-statement/>").unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+fn malformed_xml_is_an_invalid_camt_error() {
+    let err = parse_camt("<not-a-statement/>").unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
 
-    let err = parse_camt053("<Document>{ broken").unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt("<Document>{ broken").unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
 }
 
 /// A minimal single-entry statement, parameterized, for the fix-coverage tests.
@@ -820,8 +908,8 @@ fn multi_account_document_is_refused() {
         book_entry("EUR", "1.00", "REF-A"),
         book_entry("EUR", "2.00", "REF-B"),
     );
-    let err = parse_camt053(&xml).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&xml).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("mixes accounts"), "{err}");
 }
 
@@ -835,8 +923,8 @@ fn batched_entry_with_multiple_txdtls_is_refused() {
         <TxDtls><Refs><AcctSvcrRef>REF-2</AcctSvcrRef></Refs></TxDtls>
       </NtryDtls>
     </Ntry>"#;
-    let err = parse_camt053(&stmt_xml("FI2112345600000785", body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&stmt_xml("FI2112345600000785", body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("batched"), "{err}");
 }
 
@@ -850,7 +938,7 @@ fn placeholder_acctsvcrref_falls_through_to_endtoendid() {
       <AcctSvcrRef>NOTPROVIDED</AcctSvcrRef>
       <NtryDtls><TxDtls><Refs><EndToEndId>E2E-USABLE</EndToEndId></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", body)).unwrap();
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", body)).unwrap();
     assert_eq!(stmt.transactions[0].bank_ref, "E2E-USABLE");
 }
 
@@ -862,16 +950,16 @@ fn duplicate_dedup_key_within_a_statement_is_refused() {
         book_entry("EUR", "1.00", "DUP-REF"),
         book_entry("EUR", "2.00", "DUP-REF")
     );
-    let err = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("dedup key"), "{err}");
 }
 
 #[test]
 fn foreign_currency_entry_is_refused() {
     let body = book_entry("USD", "1.00", "REF-USD");
-    let err = parse_camt053(&stmt_xml("FI2112345600000785", &body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(&stmt_xml("FI2112345600000785", &body)).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
     assert!(err.to_string().contains("currency"), "{err}");
 }
 
@@ -894,7 +982,7 @@ fn datetime_booking_date_uses_the_calendar_part() {
       <BookgDt><DtTm>2026-03-14T09:30:00+02:00</DtTm></BookgDt>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-DTTM</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    let stmt = parse_camt053(&stmt_xml("FI2112345600000785", body)).unwrap();
+    let stmt = parse_camt(&stmt_xml("FI2112345600000785", body)).unwrap();
     assert_eq!(
         stmt.transactions[0].accounting_date.to_string(),
         "2026-03-14"
@@ -916,8 +1004,8 @@ fn entry_without_a_reference_is_refused() {
     </Ntry>
   </Stmt></BkToCstmrStmt>
 </Document>"#;
-    let err = parse_camt053(xml).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT053");
+    let err = parse_camt(xml).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_CAMT");
 }
 
 // --- ADR-7 (VAT-A) project_voucher expansion --------------------------------
@@ -949,7 +1037,7 @@ fn treated_with_amount(
 fn domestic_treatment_uses_explicit_document_date_and_preserves_bank_posting_date() {
     let xml = SAMPLE.replacen(">124.00</Amt>", ">129.00</Amt>", 1);
     let xml = xml.replacen(">2026-03-14</Dt>", ">2024-09-02</Dt>", 1);
-    let stmt = parse_camt053(&xml).unwrap();
+    let stmt = parse_camt(&xml).unwrap();
     let out = &stmt.transactions[0];
     let mut a = treated_with_amount(
         &out.bank_ref,
@@ -981,7 +1069,7 @@ fn domestic_treatment_uses_explicit_document_date_and_preserves_bank_posting_dat
 #[test]
 fn domestic_treatment_at_current_rate_splits_129_euros_exactly() {
     let xml = SAMPLE.replacen(">124.00</Amt>", ">129.00</Amt>", 1);
-    let stmt = parse_camt053(&xml).unwrap();
+    let stmt = parse_camt(&xml).unwrap();
     let out = &stmt.transactions[0];
     let a = treated_with_amount(
         &out.bank_ref,
@@ -1008,7 +1096,7 @@ fn domestic_treatment_at_current_rate_splits_129_euros_exactly() {
 
 #[test]
 fn project_voucher_refuses_treatment_without_source_document_date() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = treated(
         &out.bank_ref,
@@ -1030,7 +1118,7 @@ fn project_voucher_expands_a_reverse_charge_treatment_in_the_domain() {
     // The money-out entry (124,00 on 2026-03-14, 25,5 %) with an EU-services reverse
     // charge expands to the four sealed legs: net 4020 D, bank 1910 K, deductible
     // input 1798 D 31,62, self-assessed output 2992 K 31,62.
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let a = treated(
         &out.bank_ref,
@@ -1073,7 +1161,7 @@ fn project_voucher_expands_a_reverse_charge_treatment_in_the_domain() {
 fn project_voucher_refuses_a_treatment_on_a_money_in_entry() {
     // Deductible input / reverse-charge VAT is purchase-side; a Credit (money-in)
     // entry with a treatment is refused rather than mis-booked.
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let inc = &stmt.transactions[1];
     assert_eq!(inc.direction, Direction::Credit);
     let a = treated_with_amount(
@@ -1092,7 +1180,7 @@ fn project_voucher_refuses_a_treatment_on_a_money_in_entry() {
 
 #[test]
 fn project_draft_refuses_vat_treatment() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let a = treated(
         &out.bank_ref,
@@ -1108,7 +1196,7 @@ fn project_draft_refuses_vat_treatment() {
 
 #[test]
 fn project_voucher_refuses_a_treatment_with_multiple_contra_postings() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = treated(
         &out.bank_ref,
@@ -1130,7 +1218,7 @@ fn project_voucher_refuses_a_treatment_with_multiple_contra_postings() {
 
 #[test]
 fn project_voucher_refuses_both_vat_code_and_vat_treatment() {
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let mut a = treated(
         &out.bank_ref,
@@ -1147,7 +1235,7 @@ fn project_voucher_refuses_both_vat_code_and_vat_treatment() {
 #[test]
 fn project_voucher_without_a_treatment_is_the_simple_projection() {
     // No treatment → the unchanged 2-leg bank ↔ contra projection.
-    let stmt = parse_camt053(SAMPLE).unwrap();
+    let stmt = parse_camt(SAMPLE).unwrap();
     let out = &stmt.transactions[0];
     let draft = project_voucher(out, &assignment(&out.bank_ref, "7690"), None).unwrap();
     assert_eq!(draft.postings().len(), 2);
@@ -1169,17 +1257,28 @@ fn an_unbooked_entry_is_listed_unless_the_document_also_books_it() {
 </BkToCstmrAcctRpt></Document>"#
         )
     };
-    let only_pending = parse_camt053(&document(&pending("PDNG", "REF-1"))).unwrap();
+    let only_pending = parse_camt(&document(&pending("PDNG", "REF-1"))).unwrap();
     assert!(only_pending.transactions.is_empty());
     assert_eq!(only_pending.unbooked.len(), 1);
     assert_eq!(only_pending.unbooked[0].status, "PDNG");
+    // Pending entries alone are still an empty report, and it counts them.
+    let empty = only_pending
+        .empty_report
+        .as_ref()
+        .expect("no booked entries");
+    assert_eq!(empty.unbooked_count, 1);
+    assert!(
+        empty.message.contains("1 not yet booked"),
+        "{}",
+        empty.message
+    );
     assert_eq!(
         only_pending.unbooked[0].natural_key,
         "bank-import:holvi:FI2112345600000785:REF-1"
     );
 
     let both = format!("{}{}", pending("PDNG", "REF-1"), pending("BOOK", "REF-1"));
-    let booked = parse_camt053(&document(&both)).unwrap();
+    let booked = parse_camt(&document(&both)).unwrap();
     assert_eq!(booked.transactions.len(), 1);
     assert!(booked.unbooked.is_empty());
 }

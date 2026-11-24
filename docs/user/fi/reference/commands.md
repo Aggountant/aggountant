@@ -16,7 +16,7 @@ valitsimet `--home` (mikä koti) ja `--json` (koneluettava tuloste agentille).
 | `explain` | selittää virhekoodin: mitä tapahtui ja mitä tehdään | [Virhekoodit](error-codes.md) |
 | `chart` | listaa tilikartan tilit | [Ota yrityksesi kirjanpito käyttöön](../start/set-up-company.md) |
 | `knowledge` | lukee ja ylläpitää yrityksen tallennettuja faktoja ja käytäntöjä (`knowledge company`) | [Yrityksen tietovarasto](../concepts/company-home.md#yrityksen-tietovarasto) |
-| `import camt053` | lukee pankin tiliotteen ja sinetöi sen kirjaukset (myös camt.052) | [Tuo pankin tiliote](../tasks/import-bank-statement.md) |
+| `import camt` | lukee pankin tiliotteen (camt.053 tai camt.052) ja sinetöi sen kirjaukset; vanha nimi `import camt053` toimii yhä | [Tuo pankin tiliote](../tasks/import-bank-statement.md) |
 | `artifact` | arkistoi lähdetiedoston, kuten kuitin tai vahvistuksen | [Kirjaa kuitit ja ostolaskut](../tasks/record-receipts.md) |
 | `capture-receipt record` | kirjaa tavallisen ostokuitin esikatselun ja hyväksynnän kautta | [Kirjaa kuitit ja ostolaskut](../tasks/record-receipts.md) |
 | `voucher` | laatii tositeluonnoksen, tarkistaa ja sinetöi sen, hakee sinetöityjä tositteita, tarkistaa ketjun ja listaa päivänä voimassa olevat ALV-koodit | [Kirjaa myyntilasku, palkka tai muu erikoiskirjaus](../tasks/record-other-entries.md), [Korjaa virheellinen tosite](../tasks/correct-voucher.md) |

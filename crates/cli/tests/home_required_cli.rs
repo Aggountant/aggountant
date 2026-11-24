@@ -107,7 +107,7 @@ const READ_COMMANDS: &[&[&str]] = &[
     &["file-wage", "employer-report", "missing"],
     &[
         "import",
-        "camt053",
+        "camt",
         "observations",
         "--attachment-ref",
         "0000000000000000000000000000000000000000000000000000000000000000",

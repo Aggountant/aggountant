@@ -9,11 +9,12 @@ use aggountant_model::ModelError;
 
 #[derive(Debug, Error)]
 pub enum ImportError {
-    /// The camt.053 document is not well-formed XML, or is missing a required
-    /// element/attribute the ISO 20022 statement shape mandates (account IBAN,
-    /// `Ntry` amount/direction/date, or a per-entry reference for the dedup key).
-    #[error("INVALID_CAMT053: {0}")]
-    Camt053(String),
+    /// The camt.053 or camt.052 document is not well-formed XML, or is missing
+    /// a required element/attribute the ISO 20022 statement shape mandates
+    /// (account IBAN, `Ntry` amount/direction/date, or a per-entry reference
+    /// for the dedup key).
+    #[error("INVALID_CAMT: {0}")]
+    Camt(String),
     /// A scalar (amount, currency, date, account id) failed the Model layer's
     /// validation while decoding an entry or projecting a draft.
     #[error("{0}")]
@@ -47,7 +48,7 @@ pub enum ImportError {
 impl ImportError {
     pub fn error_code(&self) -> &'static str {
         match self {
-            ImportError::Camt053(_) => "INVALID_CAMT053",
+            ImportError::Camt(_) => "INVALID_CAMT",
             ImportError::Model(e) => e.error_code(),
             ImportError::Domain(e) => e.error_code(),
             ImportError::MissingAssignment(_) => "MISSING_ASSIGNMENT",

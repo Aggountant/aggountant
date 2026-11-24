@@ -100,22 +100,37 @@ Tiliotteiden tuontiin siirtyvä yritys liittää aiemmin käsin kirjatut
 pankkitapahtumansa näin ensimmäisellä kerralla, kun se tuo niitä sisältävän
 tiliotteen.
 
+### Kun tiliotteella ei ole tapahtumia
+
+Jos tiliotteella on saldot mutta ei yhtään pankin vahvistamaa tapahtumaa,
+ohjelma sanoo sen erikseen ja kertoo, minkä tilin ja minkä jakson tiliote on.
+Tyhjä tiliote voi olla hiljainen kuukausi, mutta samalta näyttää myös väärän
+tilin tai väärän kuukauden tiliote tai kesken katkennut vienti. Agentti
+näyttää sinulle tilin ja jakson ja kysyy, onko pankissa todella ollut
+tapahtumia sillä jaksolla. Jos alku- ja loppusaldo eroavat toisistaan,
+tiedostosta puuttuu tapahtumia, eikä agentti tuo sitä.
+
+Kun vahvistat, että kuukausi oli hiljainen, tiliote tuodaan tavalliseen
+tapaan esikatselun ja hyväksynnän kautta. Tositteita ei synny, mutta
+tiliotetiedosto arkistoidaan.
+
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
 
 ```sh
-aggountant import camt053 parse --file tiliote-2026-03.xml
+aggountant import camt parse --file tiliote-2026-03.xml
 aggountant voucher list --posting-from 2026-03-01 --posting-to 2026-03-31
-aggountant import camt053 seal --file tiliote-2026-03.xml --dry-run < kohdistukset.json
-aggountant import camt053 seal --file tiliote-2026-03.xml \
+aggountant import camt seal --file tiliote-2026-03.xml --dry-run < kohdistukset.json
+aggountant import camt seal --file tiliote-2026-03.xml \
   --approved-preparation-hash sha256:v1:… < kohdistukset.json
-aggountant import camt053 observations
+aggountant import camt observations
 ```
 
-Sama komento lukee myös camt.052-tiedostot, ja sen voi ajaa myös nimellä
-`import camt052`.
+Komento lukee sekä camt.053- että camt.052-tiedostot. Aiemmat nimet
+`import camt053` ja `import camt052` toimivat edelleen samana komentona.
+Tyhjän tiliotteen tulosteessa on kenttä `empty_report`.
 
-`import camt053 observations` näyttää, mitkä tapahtumat kussakin
+`import camt observations` näyttää, mitkä tapahtumat kussakin
 tiliotetiedostossa oli.
 </details>
 

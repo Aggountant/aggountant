@@ -56,9 +56,6 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   tunnisteen sinetöinnille. Silloin sinetöinti hylkää kaiken, mikä muuttui
   esikatselun jälkeen (`IMPORT_PREPARATION_CHANGED`). Ilman tunnistetta
   sinetöintiä ei verrata mihinkään esikatseluun.
-- Tyhjä tiliote tuodaan onnistuneena ilman tapahtumia, eikä ohjelma kerro
-  siitä erikseen. Jos tuonti antaa nolla tapahtumaa, tarkista, että tiedosto
-  on oikean kuukauden ja oikean tilin tiliote (`camt-empty-report-and-rename`).
 - Ohjelma ei yhdistä kuittia ja sen maksuriviä. Ne kohtaavat ostovelkatilillä
   2700 (tai 2740), mutta ohjelma ei tarkista, että jokainen kuitti tulee
   maksetuksi tai ettei samaa ostoa ole kirjattu myös tiliotteen riviltä

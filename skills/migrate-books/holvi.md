@@ -13,7 +13,7 @@ yrityksen hinnoittelupaketista
 ([Holvin kirjanpitoraportit ja viennit](https://support.holvi.com/hc/fi/articles/115000984169-Holvin-kirjanpitoraportit-ja-viennit)).
 Puuttuva raportti voi siis olla paketin raja eikä käyttöoikeus.
 
-camt.052 käy komennolle `aggountant import camt053` sellaisenaan.
+camt.052 käy komennolle `aggountant import camt` sellaisenaan.
 
 Excel-vienti voi olla XLSX, vaikka nimessä lukee XLS.
 

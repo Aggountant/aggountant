@@ -1,6 +1,6 @@
 [package]
 name = "aggountant-import"
-description = "F23 (MVP) — deterministic camt.053 bank-statement parser: Ntry -> canonical bank-transaction rows + stable dedup key, and the lawful projection to a VoucherDraft. No account/VAT judgment (that is the skill's, per phase4-imports)."
+description = "F23 (MVP) — deterministic camt.053 / camt.052 bank-statement parser: Ntry -> canonical bank-transaction rows + stable dedup key, and the lawful projection to a VoucherDraft. No account/VAT judgment (that is the skill's, per phase4-imports)."
 publish = false
 version.workspace = true
 edition.workspace = true

@@ -17,7 +17,7 @@ the agent).
 | `explain` | explains an error code: what happened and what to do | [Error codes](error-codes.md) |
 | `chart` | lists the accounts in the chart of accounts | [Set up your company's books](../start/set-up-company.md) |
 | `knowledge` | reads and maintains the company's saved facts and practices (`knowledge company`) | [The company knowledge store](../concepts/company-home.md#the-company-knowledge-store) |
-| `import camt053` | reads a bank statement and seals its entries (also camt.052) | [Import the bank statement](../tasks/import-bank-statement.md) |
+| `import camt` | reads a bank statement (camt.053 or camt.052) and seals its entries; the old name `import camt053` still works | [Import the bank statement](../tasks/import-bank-statement.md) |
 | `artifact` | archives a source file, such as a receipt or a confirmation | [Record receipts and purchase invoices](../tasks/record-receipts.md) |
 | `capture-receipt record` | records an ordinary purchase receipt through a preview and an approval | [Record receipts and purchase invoices](../tasks/record-receipts.md) |
 | `voucher` | drafts a voucher, validates and seals it, searches sealed vouchers, checks the chain and lists the VAT codes valid on a date | [Record a sales invoice, payroll or another manual entry](../tasks/record-other-entries.md), [Correct a wrong voucher](../tasks/correct-voucher.md) |

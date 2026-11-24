@@ -1,5 +1,5 @@
-//! End-to-end camt.053 tosite-loading through the built `aggountant` binary:
-//! `init` → `import camt053 parse` → `import camt053 seal` (record→seal via the
+//! End-to-end camt.053 / camt.052 tosite-loading through the built `aggountant` binary:
+//! `init` → `import camt parse` → `import camt seal` (record→seal via the
 //! existing ledger path) → `voucher verify`, all with `--json`. Also covers
 //! dedup (idempotent re-seal of an overlapping statement) and the no-auto-assign
 //! refusal.
@@ -71,7 +71,7 @@ fn default_chart_accepts_reverse_charge_with_chart_owned_shared_roles() {
         ]}
       ]
     }"#;
-    let (code, stdout, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    let (code, stdout, stderr) = run(home, &["import", "camt", "seal", "--file", &file], input);
     assert_eq!(code, 0, "seal failed: {stderr}");
     let sealed: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(sealed["sealed_count"], 2);
@@ -79,14 +79,14 @@ fn default_chart_accepts_reverse_charge_with_chart_owned_shared_roles() {
 }
 
 #[test]
-fn camt053_parse_then_seal_round_trip() {
+fn camt_parse_then_seal_round_trip() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();
     assert_eq!(run(home, &["init"], "").0, 0);
     let file = write_sample(home);
 
     // 1. parse — deterministic, no accounts assigned.
-    let (code, stdout, _) = run(home, &["import", "camt053", "parse", "--file", &file], "");
+    let (code, stdout, _) = run(home, &["import", "camt", "parse", "--file", &file], "");
     assert_eq!(code, 0);
     let parsed: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(parsed["account_iban"], "FI2112345600000785");
@@ -99,7 +99,7 @@ fn camt053_parse_then_seal_round_trip() {
     // 2. seal — the skill supplies accounts on stdin; record→seal each entry.
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file],
+        &["import", "camt", "seal", "--file", &file],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "seal failed: {stderr}");
@@ -131,7 +131,7 @@ fn re_sealing_an_overlapping_statement_dedups_via_natural_key() {
 
     let (code, _, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file],
+        &["import", "camt", "seal", "--file", &file],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -140,7 +140,7 @@ fn re_sealing_an_overlapping_statement_dedups_via_natural_key() {
     // new vouchers are minted — overlapping ranges collapse for free.
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file],
+        &["import", "camt", "seal", "--file", &file],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -170,11 +170,7 @@ fn seal_refuses_an_entry_with_no_assignment() {
         {"account":"7690","amount":{"amount":"124.00","currency":"EUR"}}
       ]}
     ]}"#;
-    let (code, stdout, stderr) = run(
-        home,
-        &["import", "camt053", "seal", "--file", &file],
-        partial,
-    );
+    let (code, stdout, stderr) = run(home, &["import", "camt", "seal", "--file", &file], partial);
     assert_eq!(code, 1, "user error");
     assert!(stdout.is_empty());
     let err: Value = serde_json::from_str(&stderr).unwrap();
@@ -186,7 +182,7 @@ fn parse_of_a_missing_caller_file_is_a_user_error() {
     let home = tempfile::tempdir().unwrap();
     let (code, _stdout, stderr) = run(
         home.path(),
-        &["import", "camt053", "parse", "--file", "/no/such/file.xml"],
+        &["import", "camt", "parse", "--file", "/no/such/file.xml"],
         "",
     );
     assert_eq!(code, 1, "caller-actionable not-found exit code");
@@ -218,13 +214,7 @@ fn taxable_legacy_gross_129_is_refused_before_any_fiscal_write() {
     ]}"#;
     let (code, stdout, stderr) = run(
         home,
-        &[
-            "import",
-            "camt053",
-            "seal",
-            "--file",
-            file.to_str().unwrap(),
-        ],
+        &["import", "camt", "seal", "--file", file.to_str().unwrap()],
         input,
     );
     assert_eq!(code, 1);
@@ -251,7 +241,7 @@ fn taxable_sales_tag_in_last_entry_rejects_the_whole_mixed_batch() {
       {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","document_date":"2026-03-20","contra_postings":[
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"},"vat_code":"sales-domestic-standard"}]}
     ]}"#;
-    let (code, _, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    let (code, _, stderr) = run(home, &["import", "camt", "seal", "--file", &file], input);
     assert_eq!(code, 1);
     let error: Value = serde_json::from_str(&stderr).unwrap();
     assert_eq!(error["error_code"], "UNSAFE_LEGACY_VAT_CODE");
@@ -275,7 +265,7 @@ fn vat_treatment_without_document_date_is_a_stable_batch_refusal() {
       {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
     ]}"#;
-    let (code, _, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    let (code, _, stderr) = run(home, &["import", "camt", "seal", "--file", &file], input);
     assert_eq!(code, 1);
     let error: Value = serde_json::from_str(&stderr).unwrap();
     assert_eq!(error["error_code"], "MISSING_DOCUMENT_DATE");
@@ -303,7 +293,7 @@ fn deductibility_misplaced_on_a_full_treatment_is_refused_before_sealing() {
       {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
     ]}"#;
-    let (code, _, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    let (code, _, stderr) = run(home, &["import", "camt", "seal", "--file", &file], input);
     assert_eq!(code, 1, "{stderr}");
     let error: Value = serde_json::from_str(&stderr).unwrap();
     assert_eq!(error["error_code"], "INVALID_INPUT");
@@ -327,8 +317,8 @@ fn no_vat_with_a_rate_class_or_scope_is_refused_before_sealing() {
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
     ]}"#;
     for args in [
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"][..],
-        &["import", "camt053", "seal", "--file", &file][..],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"][..],
+        &["import", "camt", "seal", "--file", &file][..],
     ] {
         let (code, _, stderr) = run(home, args, input);
         assert_eq!(code, 1, "{stderr}");
@@ -351,7 +341,7 @@ fn zero_rate_legacy_tag_remains_a_supported_transport_path() {
       {"bank_ref":"HLV-2026-0320-002","bank_account":"1910","contra_postings":[
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
     ]}"#;
-    let (code, stdout, stderr) = run(home, &["import", "camt053", "seal", "--file", &file], input);
+    let (code, stdout, stderr) = run(home, &["import", "camt", "seal", "--file", &file], input);
     assert_eq!(code, 0, "{stderr}");
     let output: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(output["created_count"], 2);
@@ -382,7 +372,7 @@ fn parse_reports_the_statement_period_and_balances() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();
     let file = write_sample(home);
-    let (code, stdout, stderr) = run(home, &["import", "camt053", "parse", "--file", &file], "");
+    let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
     assert_eq!(code, 0, "{stderr}");
     let parsed: Value = serde_json::from_str(&stdout).unwrap();
     let statement = &parsed["statements"][0];
@@ -404,7 +394,7 @@ fn dry_run_previews_every_voucher_and_writes_nothing() {
 
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "dry-run failed: {stderr}");
@@ -439,7 +429,7 @@ fn dry_run_previews_every_voucher_and_writes_nothing() {
     // The same input previews to the same hash, and seals with it.
     let (_, stdout, _) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
         ASSIGNMENTS,
     );
     let again: Value = serde_json::from_str(&stdout).unwrap();
@@ -449,7 +439,7 @@ fn dry_run_previews_every_voucher_and_writes_nothing() {
         home,
         &[
             "import",
-            "camt053",
+            "camt",
             "seal",
             "--file",
             &file,
@@ -468,7 +458,7 @@ fn dry_run_previews_every_voucher_and_writes_nothing() {
     // After the seal, a preview of the same statement shows the replay.
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -492,7 +482,7 @@ fn a_changed_assignment_refuses_the_approved_seal_before_any_write() {
     let file = write_sample(home);
     let (_, stdout, _) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
         ASSIGNMENTS,
     );
     let preview: Value = serde_json::from_str(&stdout).unwrap();
@@ -507,7 +497,7 @@ fn a_changed_assignment_refuses_the_approved_seal_before_any_write() {
             home,
             &[
                 "import",
-                "camt053",
+                "camt",
                 "seal",
                 "--file",
                 &file,
@@ -534,7 +524,7 @@ fn dry_run_refuses_an_unknown_account_as_the_seal_would() {
     let input = ASSIGNMENTS.replace("\"3000\"", "\"9999\"");
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
         &input,
     );
     assert_eq!(code, 1, "{stdout}");
@@ -552,7 +542,7 @@ fn dry_run_and_an_approval_hash_together_are_a_usage_error() {
         home,
         &[
             "import",
-            "camt053",
+            "camt",
             "seal",
             "--file",
             &file,
@@ -574,7 +564,7 @@ fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
     let file = write_sample(home);
     let (code, _, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file],
+        &["import", "camt", "seal", "--file", &file],
         ASSIGNMENTS,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -583,7 +573,7 @@ fn dry_run_refuses_a_changed_reimport_as_the_seal_would() {
     // same bank transaction booked differently, refused before any write.
     let changed = ASSIGNMENTS.replace("\"3000\"", "\"3010\"");
     for extra in [&["--dry-run"][..], &[][..]] {
-        let mut args = vec!["import", "camt053", "seal", "--file", &file];
+        let mut args = vec!["import", "camt", "seal", "--file", &file];
         args.extend_from_slice(extra);
         let (code, stdout, stderr) = run(home, &args, &changed);
         assert_eq!(code, 1, "{stdout}");
@@ -614,8 +604,8 @@ fn domestic_input_with_an_eu_class_is_refused_before_sealing() {
         {"account":"3000","amount":{"amount":"2480.00","currency":"EUR"}}]}
     ]}"#;
     for args in [
-        &["import", "camt053", "seal", "--dry-run", "--file", &file][..],
-        &["import", "camt053", "seal", "--file", &file][..],
+        &["import", "camt", "seal", "--dry-run", "--file", &file][..],
+        &["import", "camt", "seal", "--file", &file][..],
     ] {
         let (code, _, stderr) = run(home, args, input);
         assert_eq!(code, 1, "{stderr}");
@@ -650,11 +640,7 @@ fn exempt_eu_goods_acquisition_reaches_field_312_with_zero_tax_from_bank_and_rec
         {{"account":"3000","amount":{{"amount":"2480.00","currency":"EUR"}}}}]}}
     ]}}"#
     );
-    let (code, _, stderr) = run(
-        home,
-        &["import", "camt053", "seal", "--file", &file],
-        &input,
-    );
+    let (code, _, stderr) = run(home, &["import", "camt", "seal", "--file", &file], &input);
     assert_eq!(code, 0, "{stderr}");
 
     let receipt = format!(
@@ -792,7 +778,7 @@ fn write_export(home: &std::path::Path, name: &str, xml: &str) -> String {
 }
 
 fn seal(home: &std::path::Path, file: &str, input: &str) -> (i32, Value, Value) {
-    let (code, stdout, stderr) = run(home, &["import", "camt053", "seal", "--file", file], input);
+    let (code, stdout, stderr) = run(home, &["import", "camt", "seal", "--file", file], input);
     let parse = |s: &str| serde_json::from_str(s).unwrap_or(Value::Null);
     (code, parse(&stdout), parse(&stderr))
 }
@@ -843,7 +829,7 @@ fn overlapping_yearly_exports_book_each_transaction_once() {
     // The preview of year B already tells new from duplicate.
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file_b, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file_b, "--dry-run"],
         &assignments(&year_b, None),
     );
     assert_eq!(code, 0, "{stderr}");
@@ -890,7 +876,7 @@ fn overlapping_yearly_exports_book_each_transaction_once() {
 
     // Each file lists the transactions seen in it; a shared one is in both.
     let observed = |filter: Option<&str>| -> Vec<Value> {
-        let mut args = vec!["import", "camt053", "observations"];
+        let mut args = vec!["import", "camt", "observations"];
         if let Some(hash) = filter {
             args.extend(["--attachment-ref", hash]);
         }
@@ -933,7 +919,7 @@ fn assert_changed_year_b_stops(year_b: &[Entry], input: &str, code: &str, confli
 
     let file_b = write_export(home, "b.xml", &export("YEAR-2027", year_b));
     for extra in [&["--dry-run"][..], &[][..]] {
-        let mut args = vec!["import", "camt053", "seal", "--file", &file_b];
+        let mut args = vec!["import", "camt", "seal", "--file", &file_b];
         args.extend_from_slice(extra);
         let (status, stdout, stderr) = run(home, &args, input);
         assert_eq!(status, 1, "{stdout}");
@@ -950,7 +936,7 @@ fn assert_changed_year_b_stops(year_b: &[Entry], input: &str, code: &str, confli
     }
     assert_eq!(voucher_count(home), vouchers_before);
     assert_eq!(artifact_blobs(home).len(), blobs, "statement B was stored");
-    let (_, stdout, _) = run(home, &["import", "camt053", "observations"], "");
+    let (_, stdout, _) = run(home, &["import", "camt", "observations"], "");
     let out: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(out["observation_count"], 6);
 }
@@ -993,7 +979,7 @@ fn a_changed_assignment_of_a_booked_transaction_stops_the_batch_before_any_write
 fn seal_like_the_previous_import(home: &std::path::Path, file: &str, input: &str) {
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", file, "--dry-run"],
+        &["import", "camt", "seal", "--file", file, "--dry-run"],
         input,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -1047,7 +1033,7 @@ fn vouchers_sealed_before_event_identity_are_recognised_from_their_statement() {
     assert_eq!(b["duplicate_observation_count"], 4);
     assert_eq!(b["backfilled_count"], 6);
     assert_eq!(voucher_count(home), 9);
-    let (_, stdout, _) = run(home, &["import", "camt053", "observations"], "");
+    let (_, stdout, _) = run(home, &["import", "camt", "observations"], "");
     let out: Value = serde_json::from_str(&stdout).unwrap();
     let rows = out["observations"].as_array().unwrap();
     assert_eq!(rows.len(), 13);
@@ -1143,7 +1129,7 @@ fn an_entry_booked_through_voucher_seal_stops_the_import_until_bound() {
 
     // The import sees the voucher and stops, in the preview and in the seal.
     for extra in [&["--dry-run"][..], &[][..]] {
-        let mut args = vec!["import", "camt053", "seal", "--file", &file_a];
+        let mut args = vec!["import", "camt", "seal", "--file", &file_a];
         args.extend_from_slice(extra);
         let (status, stdout, stderr) = run(home, &args, &assignments(&year_a, None));
         assert_eq!(status, 1, "{stdout}");
@@ -1173,7 +1159,7 @@ fn an_entry_booked_through_voucher_seal_stops_the_import_until_bound() {
     let input = json_string(&binding_input(&year_a));
     let (code, stdout, stderr) = run(
         home,
-        &["import", "camt053", "seal", "--file", &file_a, "--dry-run"],
+        &["import", "camt", "seal", "--file", &file_a, "--dry-run"],
         &input,
     );
     assert_eq!(code, 0, "{stderr}");
@@ -1190,7 +1176,7 @@ fn an_entry_booked_through_voucher_seal_stops_the_import_until_bound() {
         home,
         &[
             "import",
-            "camt053",
+            "camt",
             "seal",
             "--file",
             &file_a,
@@ -1275,4 +1261,143 @@ fn a_binding_is_refused_when_its_input_is_inconsistent() {
         assert_eq!(err["error_code"], code, "{err}");
     }
     assert_eq!(voucher_count(home), 1);
+}
+
+/// A statement with balances and no entries, in either container.
+fn balance_only(container: &str) -> String {
+    let (ns, outer, block) = match container {
+        "052" => ("camt.052.001.02", "BkToCstmrAcctRpt", "Rpt"),
+        _ => ("camt.053.001.02", "BkToCstmrStmt", "Stmt"),
+    };
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:{ns}"><{outer}><{block}><Id>Q-2026-04</Id>
+<FrToDt><FrDtTm>2026-04-01T00:00:00</FrDtTm><ToDtTm>2026-04-30T23:59:59</ToDtTm></FrToDt>
+<Acct><Id><IBAN>FI2112345600000785</IBAN></Id><Ccy>EUR</Ccy></Acct>
+<Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">250.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-04-01</Dt></Dt></Bal>
+<Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">250.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-04-30</Dt></Dt></Bal>
+</{block}></{outer}></Document>"#
+    )
+}
+
+fn assert_empty_report(value: &Value) {
+    let empty = &value["empty_report"];
+    assert_eq!(empty["account_iban"], "FI2112345600000785", "{value}");
+    assert_eq!(empty["periods"][0]["from"], "2026-04-01");
+    assert_eq!(empty["periods"][0]["to"], "2026-04-30");
+    let message = empty["message"].as_str().unwrap();
+    assert!(
+        message.contains("FI2112345600000785") && message.contains("2026-04-01..2026-04-30"),
+        "{message}"
+    );
+}
+
+/// A quiet month imports without a workaround, and every step of the flow
+/// (parse, preview, seal) says the report had no entries, for which account
+/// and period.
+#[test]
+fn a_balance_only_statement_imports_as_an_explicit_empty_report() {
+    for container in ["052", "053"] {
+        let home = tempfile::tempdir().unwrap();
+        let home = home.path();
+        assert_eq!(run(home, &["init"], "").0, 0);
+        let file = write_export(home, "quiet.xml", &balance_only(container));
+
+        let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
+        assert_eq!(code, 0, "{container}: {stderr}");
+        let parsed: Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(parsed["transactions"].as_array().unwrap().len(), 0);
+        assert_empty_report(&parsed);
+
+        let input = r#"{"assignments":[]}"#;
+        let (code, stdout, stderr) = run(
+            home,
+            &["import", "camt", "seal", "--file", &file, "--dry-run"],
+            input,
+        );
+        assert_eq!(code, 0, "{container}: {stderr}");
+        let preview: Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(preview["voucher_count"], 0);
+        assert_empty_report(&preview);
+        let hash = preview["preparation_hash"].as_str().unwrap().to_string();
+
+        let (code, stdout, stderr) = run(
+            home,
+            &[
+                "import",
+                "camt",
+                "seal",
+                "--file",
+                &file,
+                "--approved-preparation-hash",
+                &hash,
+            ],
+            input,
+        );
+        assert_eq!(code, 0, "{container}: {stderr}");
+        let sealed: Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(sealed["sealed_count"], 0);
+        assert_empty_report(&sealed);
+        assert_eq!(voucher_count(home), 0);
+    }
+}
+
+#[test]
+fn the_human_output_of_an_empty_import_says_it_was_empty() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_export(home, "quiet.xml", &balance_only("052"));
+    let out = bin()
+        .arg("--home")
+        .arg(home)
+        .args(["import", "camt", "parse", "--file", &file])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("empty report: ") && stdout.contains("2026-04-01..2026-04-30"),
+        "{stdout}"
+    );
+}
+
+/// `import camt053` stays a working alias for callers written before the
+/// rename, and `import camt052` keeps working too.
+#[test]
+fn the_old_verbs_remain_aliases_of_import_camt() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_sample(home);
+    let (_, primary, _) = run(home, &["import", "camt", "parse", "--file", &file], "");
+    for alias in ["camt053", "camt052"] {
+        let (code, stdout, stderr) = run(home, &["import", alias, "parse", "--file", &file], "");
+        assert_eq!(code, 0, "{alias}: {stderr}");
+        assert_eq!(stdout, primary, "{alias}");
+    }
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt053", "seal", "--file", &file],
+        ASSIGNMENTS,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let sealed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(sealed["created_count"], 2);
+}
+
+#[test]
+fn a_malformed_camt052_reports_invalid_camt() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    let broken = balance_only("052").replace(
+        "<Acct><Id><IBAN>FI2112345600000785</IBAN></Id>",
+        "<Acct><Id>",
+    );
+    let file = write_export(home, "broken.xml", &broken);
+    let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
+    assert_ne!(code, 0, "{stdout}");
+    let error: Value = serde_json::from_str(&stderr).unwrap();
+    assert_eq!(error["error_code"], "INVALID_CAMT", "{stderr}");
+    assert!(!stderr.contains("053"), "{stderr}");
 }

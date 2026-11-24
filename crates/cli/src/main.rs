@@ -29,7 +29,7 @@ use aggountant_broker::{
 };
 use aggountant_domain::{build_draft, DraftInput, PayrollIntent, PolicySet};
 use aggountant_import::{
-    parse_camt053, project_voucher_with_role_table, Assignment, ExistingVoucher, ImportError,
+    parse_camt, project_voucher_with_role_table, Assignment, ExistingVoucher, ImportError,
 };
 use aggountant_ledger::{EmployeeState, Ledger, SealRequest, VoucherListQuery};
 use aggountant_model::{
@@ -232,7 +232,7 @@ enum Command {
         #[command(subcommand)]
         cmd: FiscalYearCmd,
     },
-    /// Import source files into vouchers (F23 MVP). `import camt053 …` parses a
+    /// Import source files into vouchers (F23 MVP). `import camt …` parses a
     /// Holvi bank statement — camt.053 **or** camt.052 (Holvi's self-service
     /// "Electronic account statement" export gives .052) — into voucher intents
     /// and (given the skill's account assignments) seals them via the existing
@@ -335,24 +335,26 @@ enum SkillCmd {
 #[derive(Subcommand, Debug)]
 enum ImportCmd {
     /// camt.053 / camt.052 (ISO 20022 bank statement) — the Holvi bank leg.
-    /// Also accepts camt.052 (`BkToCstmrAcctRpt`), which Holvi's self-service
-    /// "Electronic account statement" export produces instead of camt.053.
-    /// Invocable as `camt052` too (alias).
-    #[command(alias = "camt052")]
-    Camt053 {
+    /// camt.052 (`BkToCstmrAcctRpt`) is what Holvi's self-service "Electronic
+    /// account statement" export produces. `camt053` and `camt052` are kept as
+    /// aliases for callers written before the verb was renamed.
+    #[command(visible_aliases = ["camt053", "camt052"])]
+    Camt {
         #[command(subcommand)]
-        cmd: Camt053Cmd,
+        cmd: CamtCmd,
     },
 }
 
 #[derive(Subcommand, Debug)]
-enum Camt053Cmd {
+enum CamtCmd {
     /// Parse a camt.053 or camt.052 file into voucher intents (deterministic;
     /// **no** account or VAT assignment — that is the skill's judgment). Emits
     /// the canonical bank-transaction rows + their stable dedup keys, and under
     /// `statements` each statement's period, opening and closing balances and
     /// whether its booked entries carry the one to the other
-    /// (`balances_reconcile`).
+    /// (`balances_reconcile`). A report with no booked entries is not an
+    /// error: the output then carries `empty_report` with the account, the
+    /// period and a message to check before treating the month as quiet.
     Parse {
         #[arg(long)]
         file: PathBuf,
@@ -371,7 +373,7 @@ enum Camt053Cmd {
     /// whole or not at all. First run with `--dry-run`: it returns every
     /// voucher it would seal and a `preparation_hash`, writing nothing; after the
     /// user approves, seal with `--approved-preparation-hash`.
-    #[command(after_help = input_help::IMPORT_CAMT053_SEAL)]
+    #[command(after_help = input_help::IMPORT_CAMT_SEAL)]
     Seal {
         #[arg(long)]
         file: PathBuf,
@@ -921,7 +923,7 @@ fn parse_cli_date(raw: &str) -> Result<Date, CliError> {
     Date::parse(raw).map_err(|e| CliError::user(e.error_code(), e.to_string()))
 }
 
-/// Structured input for `import camt053 seal` (stdin JSON): the skill's per-entry
+/// Structured input for `import camt seal` (stdin JSON): the skill's per-entry
 /// account assignments, the entries already booked by vouchers sealed outside
 /// the import, plus the sealing actor.
 #[derive(Debug, Deserialize)]
@@ -2333,23 +2335,23 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::Import { cmd } => match cmd {
-            ImportCmd::Camt053 { cmd } => match cmd {
-                Camt053Cmd::Parse { file } => {
-                    let xml = read_camt053_file(file)?;
-                    let statement = parse_camt053(&xml)?;
+            ImportCmd::Camt { cmd } => match cmd {
+                CamtCmd::Parse { file } => {
+                    let xml = read_camt_file(file)?;
+                    let statement = parse_camt(&xml)?;
                     Ok(serde_json::to_value(statement).expect("parsed statement serializes"))
                 }
-                Camt053Cmd::Seal {
+                CamtCmd::Seal {
                     file,
                     dry_run,
                     approved_preparation_hash,
-                } => bank_import::seal_camt053(
+                } => bank_import::seal_camt(
                     cli,
                     file,
                     *dry_run,
                     approved_preparation_hash.as_deref(),
                 ),
-                Camt053Cmd::Observations { attachment_ref } => {
+                CamtCmd::Observations { attachment_ref } => {
                     bank_import::observations(cli, attachment_ref.as_deref())
                 }
             },
@@ -2357,10 +2359,10 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
     }
 }
 
-/// Read a camt.053 source file to a UTF-8 string for the `parse` (read-only) path.
-fn read_camt053_file(path: &std::path::Path) -> Result<String, CliError> {
+/// Read a camt.053 or camt.052 source file to a UTF-8 string for the `parse` (read-only) path.
+fn read_camt_file(path: &std::path::Path) -> Result<String, CliError> {
     let raw = read_file_bytes(path)?;
-    decode_camt053(&raw, path)
+    decode_camt(&raw, path)
 }
 
 /// Read a caller-selected input file. A missing path is actionable by changing
@@ -2380,15 +2382,15 @@ fn read_file_bytes(path: &Path) -> Result<Vec<u8>, CliError> {
     read_input_file_bytes(path)
 }
 
-/// Decode camt.053 bytes as UTF-8. A non-UTF-8 file is malformed user input
-/// (a wrong/unsupported encoding), not a system failure — `INVALID_CAMT053`.
-fn decode_camt053(raw: &[u8], path: &std::path::Path) -> Result<String, CliError> {
+/// Decode camt bytes as UTF-8. A non-UTF-8 file is malformed user input
+/// (a wrong/unsupported encoding), not a system failure — `INVALID_CAMT`.
+fn decode_camt(raw: &[u8], path: &std::path::Path) -> Result<String, CliError> {
     // Strip a UTF-8 BOM if present so the XML declaration parses; the retained
     // attachment still uses the original bytes.
     let bytes = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(raw);
     String::from_utf8(bytes.to_vec()).map_err(|e| {
         CliError::user(
-            "INVALID_CAMT053",
+            "INVALID_CAMT",
             format!("{} is not valid UTF-8 XML: {e}", path.display()),
         )
     })
@@ -3343,32 +3345,41 @@ fn human_line(command: &Command, value: &Value) -> String {
             }
         },
         Command::Import { cmd } => match cmd {
-            ImportCmd::Camt053 { cmd } => match cmd {
-                Camt053Cmd::Parse { .. } => format!(
-                    "parsed {} — {} transactions",
-                    value["account_iban"],
-                    value["transactions"]
-                        .as_array()
-                        .map(|a| a.len())
-                        .unwrap_or(0)
+            ImportCmd::Camt { cmd } => match cmd {
+                CamtCmd::Parse { .. } => with_empty_report(
+                    format!(
+                        "parsed {} — {} transactions",
+                        value["account_iban"],
+                        value["transactions"]
+                            .as_array()
+                            .map(|a| a.len())
+                            .unwrap_or(0)
+                    ),
+                    &value,
                 ),
-                Camt053Cmd::Seal { dry_run: true, .. } => format!(
-                    "would seal {} new vouchers from {}, {} transactions already in the books — \
-                     preparation_hash {} (dry-run, no write)",
-                    value["new_voucher_count"],
-                    value["account_iban"],
-                    value["duplicate_observation_count"],
-                    value["preparation_hash"]
+                CamtCmd::Seal { dry_run: true, .. } => with_empty_report(
+                    format!(
+                        "would seal {} new vouchers from {}, {} transactions already in the \
+                         books — preparation_hash {} (dry-run, no write)",
+                        value["new_voucher_count"],
+                        value["account_iban"],
+                        value["duplicate_observation_count"],
+                        value["preparation_hash"]
+                    ),
+                    &value,
                 ),
-                Camt053Cmd::Seal { .. } => format!(
-                    "sealed {} new vouchers from {}, {} transactions already in the books \
-                     (attachment {})",
-                    value["new_voucher_count"],
-                    value["account_iban"],
-                    value["duplicate_observation_count"],
-                    value["attachment_ref"]
+                CamtCmd::Seal { .. } => with_empty_report(
+                    format!(
+                        "sealed {} new vouchers from {}, {} transactions already in the books \
+                         (attachment {})",
+                        value["new_voucher_count"],
+                        value["account_iban"],
+                        value["duplicate_observation_count"],
+                        value["attachment_ref"]
+                    ),
+                    &value,
                 ),
-                Camt053Cmd::Observations { .. } => value["observations"]
+                CamtCmd::Observations { .. } => value["observations"]
                     .as_array()
                     .map(|rows| {
                         rows.iter()
@@ -3386,6 +3397,15 @@ fn human_line(command: &Command, value: &Value) -> String {
                     .unwrap_or_default(),
             },
         },
+    }
+}
+
+/// Append a camt import's empty-report message, when it has one, on its own
+/// line so a report with no booked entries never reads as a plain success.
+fn with_empty_report(line: String, value: &Value) -> String {
+    match value["empty_report"]["message"].as_str() {
+        Some(message) => format!("{line}\nempty report: {message}"),
+        None => line,
     }
 }
 

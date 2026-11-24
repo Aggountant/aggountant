@@ -11,7 +11,24 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Bank import: empty statements are named.** A camt.053 or camt.052
+  statement with balances but no booked entries still imports (a quiet month
+  needs no workaround: `{"assignments":[]}` previews and seals it with no
+  vouchers), but `import camt parse`, the `--dry-run` preview and the seal now
+  carry `empty_report` with the account, the statement periods, the number of
+  entries the bank has not booked yet and a message, and the human output
+  prints it. A wrong account, a wrong month or a truncated export no longer
+  looks like a plain success with zero transactions.
+
 ### Changed
+
+- **Breaking: the bank import verb is `import camt` and its parse error is
+  `INVALID_CAMT`.** The parser reads camt.052 as well as camt.053, so the
+  names no longer claim camt.053. `import camt053` (and `import camt052`)
+  remain working aliases of `import camt`, so existing agents and scripts
+  keep running. The error code `INVALID_CAMT053` is now `INVALID_CAMT`;
+  a caller that matches on the old code must match the new one. The exit
+  code and the bank event identity are unchanged.
 
 ### Fixed
 <!-- oss-changelog:unreleased-end -->
