@@ -1,6 +1,6 @@
 ---
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 type: task
 status: done
 priority: normal
@@ -43,6 +43,10 @@ Product owner decisions (2026-11-23) on the maintainer questions: (1) Platforms:
 ### 2026-11-23T18:52:05Z · @conductor
 
 Jari 2026-11-23: supported platforms are macOS and Linux; the guide says Windows has not been tested (install, status, DISTRIBUTION.md updated). The personal email address on the early-users page stays.
+
+### 2026-11-24T05:24:12Z · @conductor
+
+Jari 2026-11-24: no response-time promise and no meeting offer anywhere; the early-users page already had neither, and the README and landing page now just say get in touch.
 
 ## Resolution
 
