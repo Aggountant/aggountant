@@ -51,3 +51,14 @@ the unchanged view silently.
 - [ ] Retiring is refused once a filing attempt may have been sent.
 - [ ] `run resume` on a stuck `reconcile` either progresses or explains.
 - [ ] `skills/vero-fi/SKILL.md` and the VAT troubleshooting page describe it.
+
+## Comments
+
+### 2026-11-24T16:23:33Z · @conductor
+
+Reframing after reading `start_file_vat` on current main (`8acda3b`): both shapes still arise today, so this is not only legacy cleanup.
+
+- **Rejected reconcile is a normal outcome.** Every `file-vat start` that fails the sealed-ledger cross-check (`VAT_FIGURES_MISMATCH`), the account reconciliation (`VAT_ACCOUNTS_UNRECONCILED`), the authority preflight or the request projection journals `EffectRejected` and leaves the Run `needs_attention` permanently; the error text itself says "start a new file-vat Run". Each corrected retry therefore leaves one more permanent `needs_attention` Run behind.
+- **Stuck `executing` can still happen.** Between `EffectExecuting` and the reconcile outcome there are `?` paths that return without journalling a rejection (for example `Ledger::open`), so an error or crash there leaves `reconcile` `executing` and the Run `running`; `run resume` returns it unchanged.
+
+Suggested shape, likely simpler than an abandon command: a reconcile that is rejected before any filing attempt ends the Run in a terminal "not filed, nothing sent" state instead of `needs_attention`; every error path inside reconcile journals its rejection; and `run resume` settles an `executing` reconcile with no filing attempt to that same terminal state, which also retires the old Runs without a new command. Whether an explicit abandon command is still wanted is a triage question.
