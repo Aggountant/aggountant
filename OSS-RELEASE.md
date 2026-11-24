@@ -25,7 +25,7 @@ docs_site: none
 > maintainer's call.
 
 ## Rationale
-- **maturity: mvp** — `shipshape facts` reports CI, one SemVer tag (`v0.1.0`), two recent committers and `inferred_maturity: mvp`. The CLI runs the books of one real company, but it has one maintainer and no outside users yet, so it stays below production.
+- **maturity: mvp** — `shipshape facts` reports CI, one SemVer tag (`v0.1.0`), two recent committers and `inferred_maturity: mvp`. The CLI keeps the live books of a few real companies, but it has one maintainer and no outside users yet, so it stays below production.
 - **ecosystems: [rust]** — a Rust workspace rooted at `Cargo.toml`; the shipped product is the `aggountant` binary from `crates/cli`, with the skills in `skills/` bundled into it.
 - **targets: gh-releases via cargo-dist only** — prebuilt binaries are attached to GitHub Releases of `aggountant/aggountant` by the tag-triggered `release.yml` that cargo-dist generates. No crates.io publication for now: every member crate keeps `publish = false`, which also keeps the normalizer from expanding a crates.io target. Users do not need crates.io, because the shell installer and `cargo install --git` cover installation. Publishing the binary would also mean publishing all eight internal crates, whose interfaces still change with every release, and a crates.io version cannot be deleted, only yanked.
 - **distributions: cargo-dist, shell installer** — the maintained default platforms (`aarch64-apple-darwin`, `aarch64-unknown-linux-musl`, `x86_64-unknown-linux-musl`) are used by omitting `platforms`. No Homebrew tap: none has been decided, and adding one later means a `homebrew` target, a `homebrew_tap` slug and an existing tap repository.

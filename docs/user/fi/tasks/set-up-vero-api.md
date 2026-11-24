@@ -2,7 +2,9 @@
 
 Suorassa ilmoittamisessa agentti lähettää ALV-ilmoituksen Verohallinnolle
 Vero API -rajapinnan kautta yrityksesi omilla tunnuksilla. Käyttöönotossa on
-useita vaiheita ja odotusaikoja, joten aloita se hyvissä ajoin. Siihen asti
+useita vaiheita, joiden välillä odotetaan Verohallinnon käsittelyä. Odotus on
+tavallisesti noin yksi arkipäivä, ja viikonlopun yli se venyy pidemmäksi, joten
+aloita hyvissä ajoin. Siihen asti
 teet ilmoituksen [OmaVerossa](file-vat-omavero.md).
 
 ## Ennen kuin aloitat

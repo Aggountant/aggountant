@@ -2,8 +2,10 @@
 
 With direct filing the agent sends the VAT return to the Tax Administration
 through the Vero API, the Tax Administration's interface for software, using
-your company's own credentials. Setting it up has several steps and waiting
-times, so start in good time. Until then you file the return
+your company's own credentials. Setting it up has several steps, and between
+them you wait for the Tax Administration to process each one. A wait is
+usually about one working day and longer over a weekend, so start in good
+time. Until then you file the return
 [in OmaVero](file-vat-omavero.md).
 
 ## Before you start
