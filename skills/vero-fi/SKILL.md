@@ -6,7 +6,7 @@ description: >-
   annettu ilmoitus (OmaVero, Ilmoitin.fi), selvitä epävarma tai OmaVerossa
   näkymätön lähetys, ota suora ilmoittaminen käyttöön ja uusi varmenne.
   Tulorekisterin ilmoitukset ovat skillissä tulorekisteri.
-cli_version: "0.2.0"
+cli_version: "0.3.0"
 schema_version: 1
 ---
 

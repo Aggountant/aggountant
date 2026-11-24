@@ -4,7 +4,7 @@ description: >-
   Hoida yrityksen kuukauden kirjanpito: kirjaa kuitit ja ostolaskut, tuo pankin
   tiliote, kirjaa myyntilaskut ja muut erikoiskirjaukset, täsmäytä ja sulje
   kuukausi. Myös yksittäinen kuitti tai tositenippu.
-cli_version: "0.2.0"
+cli_version: "0.3.0"
 schema_version: 1
 ---
 

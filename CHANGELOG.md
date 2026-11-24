@@ -11,6 +11,15 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+### Changed
+
+### Fixed
+<!-- oss-changelog:unreleased-end -->
+
+## [0.3.0] - 2026-11-24
+
+### Added
+
 - **Bank import: overlapping statements.** A bank transaction is booked once
   however many exports contain it. `import camt053 seal` recognises a
   transaction already in the books by its bank reference and account: when
@@ -193,7 +202,6 @@ stops the second
 ([camt-transfer-between-imported-accounts](https://github.com/aggountant/aggountant/tree/main/issues/camt-transfer-between-imported-accounts)).
 Book such transfers through a clearing account, so that each statement books
 only its own leg.
-<!-- oss-changelog:unreleased-end -->
 
 ## [0.2.0] - 2026-11-21
 
