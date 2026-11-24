@@ -11,12 +11,6 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
-- **Skills:** `migrate-books` carries the agent's procedure for moving a
-  company's books from another program (inventory, read-only export, a
-  checksummed archive, the hand-off to setup), with reference files for Briox
-  and Holvi. The guide page "Move your books from another program" keeps the
-  user's part.
-
 ### Changed
 
 ### Fixed
@@ -25,6 +19,12 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 ## [0.3.0] - 2026-11-24
 
 ### Added
+
+- **Skills:** `migrate-books` carries the agent's procedure for moving a
+  company's books from another program (inventory, read-only export, a
+  checksummed archive, the hand-off to setup), with reference files for Briox
+  and Holvi. The guide page "Move your books from another program" keeps the
+  user's part.
 
 - **Bank import: overlapping statements.** A bank transaction is booked once
   however many exports contain it. `import camt053 seal` recognises a
