@@ -61,10 +61,14 @@ ilmoituksen, ei että se on käsitelty: OmaVerossa ilmoitus on näkynyt vasta no
 vuorokauden kuluttua. `aggountant file-vat status --period 2026-08` kertoo käsittelyn
 tilan lähettämättä mitään.
 
-Veron maksaa käyttäjä itse OmaVeron viitteellä. Maksettavassa ilmoituksessa ajo avaa
-lopuksi maksun hyväksynnän, jota suoralla reitillä ei voi viedä läpi, joten ajo jää
-näyttämään odottavaa tilaa. Ilmoitus on silti annettu. Palautuksen kohdistusta ei
-päätellä, vaan se kirjataan Verohallinnon myöhemmästä tapahtumasta.
+Veron maksaa käyttäjä itse OmaVeron viitteellä; aggountant ei maksa. Ajo päättyy,
+kun ilmoitus on annettu. Maksettavassa ilmoituksessa `submit-payment`-efektin kenttä
+`payment` (`left_to_user`) kertoo määrän, tilin ja eräpäivän: kerro ne käyttäjälle
+äläkä väitä veroa maksetuksi. Jos ajo silti odottaa hyväksyntää `ApprovePayment`
+(aiemman version ajo), sitä ei hyväksytä vaan se päätetään komennolla
+`aggountant file-vat user-pays --run-id …`, jonka `run show` antaa kentässä
+`next_command`; komento ei lähetä mitään. Palautuksen kohdistusta ei päätellä, vaan
+se kirjataan Verohallinnon myöhemmästä tapahtumasta.
 
 Kodin `TODO.md`:ssä kauden määräaika poistetaan vasta, kun `file-vat status` kertoo
 ilmoituksen käsitellyksi tai käsin annettu ilmoitus on kirjattu. Kuitattu mutta

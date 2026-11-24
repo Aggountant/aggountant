@@ -102,10 +102,9 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
 
 ## ALV-ilmoitus
 
-- Suoran ilmoituksen maksuvaihe ei valmistu. Kun veroa on maksettavaa, ajo
-  avaa maksun hyväksynnän, mutta aggountantilla ei ole maksuyhteyttä, joten
-  ajo jää odottamaan, vaikka ilmoitus on tehty. Maksa vero itse OmaVeron
-  viitteellä (`vat-run-payment-terminal`).
+- aggountant ei maksa veroa. Kun suorassa ilmoituksessa on maksettavaa, ajo
+  päättyy, kun ilmoitus on annettu, ja näyttää määrän, tilin ja eräpäivän;
+  maksa vero itse OmaVeron viitteellä.
 - Verohallinnon tilinumero annetaan joka kerta: agentti antaa ilmoitusajolle
   OmaVerossa näkyvän tilinumeron. Maksun viitettä ohjelma ei tiedä
   (`tax-payment-references`).

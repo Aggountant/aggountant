@@ -58,6 +58,8 @@ const EFFECT_SUBMIT_PAYMENT: &str = "submit-payment";
 const GATE_APPROVE_FILING: &str = "ApproveFiling";
 const GATE_APPROVE_PAYMENT: &str = "ApprovePayment";
 const ACTOR: &str = "process:file-vat";
+/// The payment effect's local amount check: refused before anything was sent.
+const PAYMENT_EXCEEDS_RECONCILED_AMOUNT: &str = "PAYMENT_EXCEEDS_RECONCILED_AMOUNT";
 
 /// Structured input for `file-vat` (CLI stdin JSON): the period and its aggregated
 /// VAT figures, plus where the bank payment goes.
@@ -917,6 +919,11 @@ impl ProcessEngine {
         if answer == "approve" && gate_id == GATE_APPROVE_FILING {
             self.refuse_while_filing_unresolved(&period, Some(run_id))?;
         }
+        // An approved payment this route cannot carry would leave the Run running
+        // behind an answered gate, so it is refused before anything is recorded.
+        if answer == "approve" && gate_id == GATE_APPROVE_PAYMENT {
+            require_payment_route(broker, run_id)?;
+        }
 
         journal.append(EventPayload::GateAnswered {
             gate_id: gate_id.to_string(),
@@ -1088,7 +1095,7 @@ impl ProcessEngine {
             && !f2.effect_succeeded(EFFECT_SUBMIT_PAYMENT)
             && f2.gate(GATE_APPROVE_PAYMENT).is_none()
         {
-            self.finish_filing_postcondition(&journal, &f2, &state)?;
+            self.finish_filing_postcondition(&journal, &f2, &state, broker)?;
         }
 
         // --- Reconcile the payment (approve-then-crash before the submit ran) ---
@@ -1128,7 +1135,7 @@ impl ProcessEngine {
         // no-payment completion) in case a crash landed between the two appends.
         let f = fold(run_id, &journal.read_all()?)?;
         if f.effect_succeeded(EFFECT_SUBMIT_FILING) {
-            return self.finish_filing_postcondition(journal, &f, state);
+            return self.finish_filing_postcondition(journal, &f, state, broker);
         }
         // One guard owns every path that can dispatch the filing: initial approval,
         // any deliberate re-drive, and crash resume. It runs before EffectExecuting
@@ -1225,7 +1232,7 @@ impl ProcessEngine {
                     return Ok(());
                 }
                 let f2 = fold(run_id, &journal.read_all()?)?;
-                self.finish_filing_postcondition(journal, &f2, state)
+                self.finish_filing_postcondition(journal, &f2, state, broker)
             }
             RemoteOutcome::RecoveredAlreadyProcessed { .. } => Err(ProcessError::Store(
                 "VERO_UNSUPPORTED_RECOVERY: Vero filing has no 409/idempotency recovery contract"
@@ -1362,6 +1369,7 @@ impl ProcessEngine {
         if f.effect_succeeded(EFFECT_SUBMIT_PAYMENT) {
             return Ok(());
         }
+        require_payment_route(broker, run_id)?;
         // Net-invariant: the payment amount must equal the reconciled bank payment
         // required — never a blind gross payment (PAYMENT_EXCEEDS_RECONCILED_AMOUNT).
         let amount = state
@@ -1372,7 +1380,7 @@ impl ProcessEngine {
         if amount != state.bank_payment_required {
             journal.append(EventPayload::EffectRejected {
                 effect_key: EFFECT_SUBMIT_PAYMENT.to_string(),
-                error_code: "PAYMENT_EXCEEDS_RECONCILED_AMOUNT".to_string(),
+                error_code: PAYMENT_EXCEEDS_RECONCILED_AMOUNT.to_string(),
             })?;
             return Err(ProcessError::InvalidAnswer(format!(
                 "payment amount {amount} != reconciled bank_payment_required {} (period {period})",
@@ -1384,7 +1392,7 @@ impl ProcessEngine {
         })?;
         let env = rebuild_payment_env(period, &state.payment_body);
         let outcome = broker
-            .submit(ACTOR, &format!("{EFFECT_SUBMIT_PAYMENT}:{period}"), &env)
+            .submit(ACTOR, &payment_outbox_key(period), &env)
             .map_err(map_broker)?;
         match outcome {
             RemoteOutcome::Delivered { receipt }
@@ -1415,15 +1423,28 @@ impl ProcessEngine {
     /// After the filing succeeds, make the payment-phase postcondition hold: if no
     /// bank payment is required (a refund or a fully-covered filing), record the
     /// payment effect as a no-op success so the Run completes without a spurious
-    /// zero-value payment; otherwise open the `ApprovePayment` preview gate. Both
-    /// branches are idempotent, so a crash-recovery re-entry repairs a missing
-    /// postcondition rather than duplicating it.
+    /// zero-value payment. A payable return opens the `ApprovePayment` preview gate
+    /// when the broker can pay; on a route without a bank payment adapter (the
+    /// direct Vero.fi route) the payment effect is skipped as the user's to make,
+    /// and `run show` gives what to pay. All branches are idempotent, so a
+    /// crash-recovery re-entry repairs a missing postcondition rather than
+    /// duplicating it.
     fn finish_filing_postcondition(
         &self,
         journal: &Journal,
         f: &Fold,
         state: &FileVatState,
+        broker: &Broker,
     ) -> Result<(), ProcessError> {
+        let payment_settled = f.effect(EFFECT_SUBMIT_PAYMENT).is_some_and(|effect| {
+            matches!(
+                effect.status,
+                EffectStatus::Succeeded | EffectStatus::Skipped
+            )
+        });
+        if payment_settled {
+            return Ok(());
+        }
         if is_zero_eur(&state.bank_payment_required) {
             if !f.effect_succeeded(EFFECT_SUBMIT_PAYMENT) {
                 journal.append(EventPayload::EffectSucceeded {
@@ -1441,15 +1462,265 @@ impl ProcessEngine {
                     .to_string(),
                 })?;
             }
-        } else if f.gate(GATE_APPROVE_PAYMENT).is_none() {
+        } else if f.gate(GATE_APPROVE_PAYMENT).is_some() {
+            // Opened earlier: the payment waits for its answer or `user-pays`.
+        } else if broker.can_submit(SVC_PANKKI_MAKSU) {
             journal.append(EventPayload::GateOpened {
                 gate_id: GATE_APPROVE_PAYMENT.to_string(),
                 gate_kind: "Preview".to_string(),
                 snapshot_hash: state.payment_sent_hash.clone(),
             })?;
+        } else {
+            journal.append(EventPayload::EffectSkipped {
+                effect_key: EFFECT_SUBMIT_PAYMENT.to_string(),
+                reason: format!(
+                    "{}; this route has no bank payment adapter",
+                    user_payment_reason(state)
+                ),
+            })?;
         }
         Ok(())
     }
+
+    /// `file-vat user-pays`: record that the user pays a filed return's tax
+    /// themselves, outside aggountant. The payment effect is skipped and an open
+    /// `ApprovePayment` gate is answered `user-pays`, so the Run completes. This
+    /// is how a Run parked on `ApprovePayment` on the direct Vero.fi route (where
+    /// that gate cannot be approved) is finished. Nothing is sent and nothing
+    /// claims the tax is paid: `run show` keeps showing what is to be paid.
+    ///
+    /// Refused before the filing is accepted, when the payment already completed,
+    /// and when a bank payment attempt is on record: that one may have gone
+    /// through and is settled with `file-vat retry`, never by skipping it.
+    /// Repeating the command on a Run already finished this way changes nothing. A
+    /// return with nothing to pay gets its ordinary no-payment record instead.
+    pub fn leave_file_vat_payment_to_user(
+        &self,
+        run_id: &str,
+        broker: &Broker,
+    ) -> Result<RunView, ProcessError> {
+        let _lease = self.acquire_lease(run_id)?;
+        let journal = self.open_journal(run_id)?;
+        let f = fold(run_id, &journal.read_all()?)?;
+        if f.workflow != "file-vat" {
+            return Err(ProcessError::InvalidAnswer(format!(
+                "run {run_id} is a {} Run, not a file-vat Run",
+                f.workflow
+            )));
+        }
+        self.check_version(&f)?;
+        if !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
+            return Err(ProcessError::InvalidAnswer(format!(
+                "the return of Run {run_id} has not been accepted, so there is no tax to pay \
+                 yet; check it with `file-vat status --period {}`",
+                f.period
+            )));
+        }
+        let payment = f
+            .effect(EFFECT_SUBMIT_PAYMENT)
+            .map(|effect| effect.status)
+            .ok_or_else(|| ProcessError::JournalCorrupt("submit-payment effect missing".into()))?;
+        match payment {
+            EffectStatus::Skipped => return self.show(run_id),
+            EffectStatus::Succeeded => {
+                return Err(ProcessError::InvalidAnswer(format!(
+                    "the payment of Run {run_id} is already completed: {}",
+                    f.notes
+                        .get(EFFECT_SUBMIT_PAYMENT)
+                        .map_or("", String::as_str)
+                )))
+            }
+            _ => {}
+        }
+        if f.gate(GATE_APPROVE_PAYMENT)
+            .and_then(|g| g.answered.as_deref())
+            == Some("reject")
+        {
+            return Err(ProcessError::GateNotOpen(format!(
+                "the payment of Run {run_id} was rejected, which ended the Run"
+            )));
+        }
+        let state = self.read_file_vat_state(run_id)?;
+        // A return with nothing to pay is not left to the user: converge the
+        // no-payment record the filing would have written (a crash between the two
+        // otherwise leaves the Run running with no other command to finish it).
+        if is_zero_eur(&state.bank_payment_required) {
+            self.finish_filing_postcondition(&journal, &f, &state, broker)?;
+            return self.show(run_id);
+        }
+        let period = PeriodId::parse(&state.period)
+            .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
+        // Every payment rejection but the local amount check is journalled after the
+        // broker returned, so it proves an attempt even if the outbox is not at hand.
+        let sent_per_journal = payment == EffectStatus::Rejected
+            && f.error_codes
+                .get(EFFECT_SUBMIT_PAYMENT)
+                .is_none_or(|code| code != PAYMENT_EXCEEDS_RECONCILED_AMOUNT);
+        if sent_per_journal
+            || broker
+                .outbox_entry(SVC_PANKKI_MAKSU, &payment_outbox_key(&period))
+                .map_err(map_broker)?
+                .is_some()
+        {
+            return Err(ProcessError::InvalidAnswer(format!(
+                "a bank payment for Run {run_id} was already sent and may have gone through, so \
+                 it is not left to the user; settle that payment first (`file-vat retry --run-id \
+                 {run_id} --effect {EFFECT_SUBMIT_PAYMENT}` re-drives a parked one)"
+            )));
+        }
+        if f.gate(GATE_APPROVE_PAYMENT)
+            .is_some_and(|g| g.answered.is_none())
+        {
+            journal.append(EventPayload::GateAnswered {
+                gate_id: GATE_APPROVE_PAYMENT.to_string(),
+                answer: ANSWER_USER_PAYS.to_string(),
+            })?;
+        }
+        journal.append(EventPayload::EffectSkipped {
+            effect_key: EFFECT_SUBMIT_PAYMENT.to_string(),
+            reason: format!(
+                "{}; recorded with file-vat user-pays",
+                user_payment_reason(&state)
+            ),
+        })?;
+        self.show(run_id)
+    }
+
+    /// What `run show` adds to a payable file-vat Run's payment effect: the
+    /// amount, account and due date of the proposal, whether the user pays it, and
+    /// how to say so while `ApprovePayment` waits.
+    pub(crate) fn file_vat_payments(
+        &self,
+        f: &Fold,
+        effects: &mut [crate::EffectView],
+    ) -> Result<(), ProcessError> {
+        if f.workflow != "file-vat" || !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
+            return Ok(());
+        }
+        let Some(effect) = effects.iter_mut().find(|e| e.key == EFFECT_SUBMIT_PAYMENT) else {
+            return Ok(());
+        };
+        let gate_open = f
+            .gate(GATE_APPROVE_PAYMENT)
+            .is_some_and(|gate| gate.answered.is_none());
+        let state = match effect.status {
+            EffectStatus::Skipped => VatPaymentState::LeftToUser,
+            EffectStatus::Planned if gate_open => VatPaymentState::AwaitingApproval,
+            _ => return Ok(()),
+        };
+        let run_state = self.read_file_vat_state(&f.run_id)?;
+        let due_date = run_state
+            .vero_period
+            .get("DueDate")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        let amount = run_state.bank_payment_required.clone();
+        let payee_iban = run_state
+            .payment_body
+            .get("payee_iban")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let due = due_date
+            .as_deref()
+            .unwrap_or("the due date shown in OmaVero");
+        let (next_command, message) = match state {
+            VatPaymentState::LeftToUser => (
+                None,
+                format!(
+                    "aggountant did not pay this tax. The user pays {amount} EUR to \
+                     {payee_iban} by {due} with the company's VAT payment reference shown in \
+                     OmaVero; the tax account in OmaVero shows when it is paid."
+                ),
+            ),
+            VatPaymentState::AwaitingApproval => (
+                Some(format!(
+                    "aggountant file-vat user-pays --run-id {}",
+                    f.run_id
+                )),
+                format!(
+                    "The return is filed and {amount} EUR is due by {due}. `file-vat \
+                     approve-payment` pays only through a bank payment adapter, which the \
+                     direct Vero.fi route does not have; when the user pays it themselves, \
+                     next_command records that and completes the Run."
+                ),
+            ),
+        };
+        effect.payment = Some(VatPayment {
+            state,
+            amount,
+            currency: "EUR",
+            payee_iban,
+            due_date,
+            next_command,
+            message,
+        });
+        Ok(())
+    }
+}
+
+/// How a payable return's tax is paid, as `run show` reports it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VatPaymentState {
+    /// Waiting at `ApprovePayment`, which only a route with a bank payment
+    /// adapter can approve.
+    AwaitingApproval,
+    /// aggountant pays nothing; the user pays. Not a claim that it is paid.
+    LeftToUser,
+}
+
+/// The payment of a filed, payable return: what the proposal said is to be paid.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VatPayment {
+    pub state: VatPaymentState,
+    pub amount: String,
+    pub currency: &'static str,
+    pub payee_iban: String,
+    /// The period's due date from GetVATPeriods when the Run started.
+    pub due_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_command: Option<String>,
+    pub message: String,
+}
+
+/// The gate answer `file-vat user-pays` records on an open `ApprovePayment`.
+const ANSWER_USER_PAYS: &str = "user-pays";
+
+/// The bank payment's outbox key for the period.
+fn payment_outbox_key(period: &PeriodId) -> String {
+    format!("{EFFECT_SUBMIT_PAYMENT}:{period}")
+}
+
+/// The journal reason of a payment left to the user: what is to be paid, and that
+/// aggountant did not pay it.
+fn user_payment_reason(state: &FileVatState) -> String {
+    let due = state
+        .vero_period
+        .get("DueDate")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    let iban = state
+        .payment_body
+        .get("payee_iban")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    format!(
+        "payment left to the user: {} EUR to {iban}, due {due}; aggountant did not pay it",
+        state.bank_payment_required
+    )
+}
+
+/// Refuse a payment step on a broker that cannot submit a bank payment.
+fn require_payment_route(broker: &Broker, run_id: &str) -> Result<(), ProcessError> {
+    if broker.can_submit(SVC_PANKKI_MAKSU) {
+        return Ok(());
+    }
+    Err(ProcessError::VatPaymentRouteUnavailable(format!(
+        "this route has no bank payment adapter, so aggountant cannot pay the tax; the user \
+         pays it with the reference shown in OmaVero, and `aggountant file-vat user-pays \
+         --run-id {run_id}` records that and completes the Run. Nothing was recorded"
+    )))
 }
 
 /// Whether the Run's filing has reached the books: the period has more filings

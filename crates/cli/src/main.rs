@@ -680,12 +680,25 @@ enum FileVatCmd {
         #[arg(long, default_value = "approve")]
         answer: String,
     },
-    /// Approve (or reject) the payment preview gate.
+    /// Approve (or reject) the payment preview gate. Approving pays through a
+    /// bank payment adapter; a route without one (the direct Vero.fi route) is
+    /// refused with VAT_PAYMENT_ROUTE_UNAVAILABLE before anything is recorded.
     ApprovePayment {
         #[arg(long)]
         run_id: String,
         #[arg(long, default_value = "approve")]
         answer: String,
+    },
+    /// Record that the user pays a filed return's tax themselves, outside
+    /// aggountant, and complete the Run: answers an open ApprovePayment gate
+    /// `user-pays` and skips the payment effect. For Runs left waiting at
+    /// ApprovePayment on the direct Vero.fi route (newer Runs there finish on
+    /// their own). Sends nothing and does not claim the tax is paid; `run show`
+    /// keeps the amount, account and due date. Refused before the filing is
+    /// accepted or once a bank payment was sent; repeating it changes nothing.
+    UserPays {
+        #[arg(long)]
+        run_id: String,
     },
     /// Reconcile a filing parked on OUTCOME_UNKNOWN through GetFiledVATReturn/v2
     /// (read only). A matching processed return is adopted; every answer is
@@ -1068,6 +1081,7 @@ impl From<aggountant_process::ProcessError> for CliError {
             | InvalidAnswer(_)
             | VatFiguresMismatch(_)
             | VatFilingUnresolved(_)
+            | VatPaymentRouteUnavailable(_)
             | VatAccountsUnreconciled(_)
             | VatReconciliationAckMismatch(_)
             | CaptureVatMismatch(_)
@@ -1999,6 +2013,14 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                         answer,
                         &operation.broker,
                     )?;
+                    Ok(serde_json::to_value(view).expect("run view serializes"))
+                }
+                FileVatCmd::UserPays { run_id } => {
+                    // Records a local fact only: no credentials or readiness are
+                    // needed, and the broker is used solely to read the outbox for
+                    // an earlier bank payment attempt.
+                    let broker = Broker::new(&home, Vault::new(), Registry::new());
+                    let view = engine.leave_file_vat_payment_to_user(run_id, &broker)?;
                     Ok(serde_json::to_value(view).expect("run view serializes"))
                 }
                 FileVatCmd::Reconcile { run_id } => {

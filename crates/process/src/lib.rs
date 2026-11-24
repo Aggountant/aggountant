@@ -58,7 +58,7 @@ pub use company_knowledge::{
 };
 pub use file_vat::{
     AuthorityCheck, FileVatFilingStatus, FileVatInput, FileVatReconcile, FileVatReconcileOutcome,
-    FileVatStart, FileVatStatus, FileVatStatusPlan, FiledVatQuery,
+    FileVatStart, FileVatStatus, FileVatStatusPlan, FiledVatQuery, VatPayment, VatPaymentState,
 };
 pub use hunt_receipts::{BankTransaction, HuntReceiptsInput};
 pub use intake::{Intake, MatchCandidate, MatchStatus};
@@ -212,6 +212,10 @@ pub struct EffectView {
     /// settle it. Absent for every other effect.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<AuthorityOutcome>,
+    /// A filed, payable VAT return's payment effect: what is to be paid, and
+    /// whether the user pays it. Absent for every other effect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment: Option<file_vat::VatPayment>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -389,6 +393,7 @@ fn fold(run_id: &str, events: &[JournalEvent]) -> Result<Fold, ProcessError> {
                 effect_type: effect_type.clone(),
                 status: EffectStatus::Planned,
                 outcome: None,
+                payment: None,
             }),
             EventPayload::EffectExecuting { effect_key } => {
                 set_effect(&mut f, effect_key, EffectStatus::Executing)?
@@ -849,6 +854,7 @@ impl ProcessEngine {
         let f = fold(run_id, &journal.read_all()?)?;
         let mut view = f.to_view();
         self.authority_outcomes(&f, &mut view.effects)?;
+        self.file_vat_payments(&f, &mut view.effects)?;
         Ok(view)
     }
 

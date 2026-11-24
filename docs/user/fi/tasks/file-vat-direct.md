@@ -49,7 +49,9 @@ ilmoituksen. Lähetettyä ilmoitusta ei voi perua, mutta sen voi
    näy.** Mitä silloin tehdään, on kohdassa
    [Ilmoitus ei näy OmaVerossa](../troubleshooting.md#ilmoitus-ei-näy-omaverossa).
 
-6. **Maksa vero itse**, jos maksettavaa on, OmaVeron viitteellä.
+6. **Maksa vero itse**, jos maksettavaa on, OmaVeron viitteellä. aggountant
+   ei maksa sitä. Ajo on valmis, kun ilmoitus on annettu, ja `run show`
+   kertoo määrän, tilin ja eräpäivän.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -75,8 +77,13 @@ joka kertoo syyn ja nimeää ajon. Mitään ei lähetetä, ja `run show` näytt�
 ajon tilassa `needs_attention` ja `reconcile`-efektin hylättynä. Ohjelma ei
 yritä uudelleen. Kun syy on korjattu, agentti aloittaa uuden ajon.
 
-Ajo odottaa ensin hyväksyntää `ApproveFiling` ja maksettavassa ilmoituksessa
-lopuksi hyväksyntää `ApprovePayment`. Hylkäys on `--answer reject`.
+Ajo odottaa hyväksyntää `ApproveFiling`; hylkäys on `--answer reject`. Kun
+ilmoitus on annettu, ajo on tilassa `completed`. Kun veroa on maksettavaa,
+`submit-payment`-efekti on `skipped` ja sen kentässä `payment` ovat `state`
+`left_to_user`, `amount`, `payee_iban` ja `due_date`: käyttäjä maksaa veron,
+eikä mikään väitä sitä maksetuksi. Ajo, jonka aiempi versio jätti odottamaan
+hyväksyntää `ApprovePayment`, päätetään komennolla
+`file-vat user-pays --run-id fv-…`, joka ei lähetä mitään.
 
 Kuittaus näkyy `approve-filing`- ja `run show` -vastauksissa
 `submit-filing`-efektin kentissä `outcome.receipt.unique_identifier` ja
@@ -151,10 +158,8 @@ se kuitteineen (`file-vat complete-manual --replacement`).
 
 ## Rajoitukset
 
-- Kun veroa on maksettavaa, ajo avaa lopuksi maksun hyväksynnän. aggountantilla
-  ei ole maksuyhteyttä, joten vaihe ei valmistu ja ajo jää näyttämään
-  odottavaa tilaa. Ilmoitus on silti tehty. Palautukseen oikeuttava ilmoitus
-  päättyy ilman maksuvaihetta.
+- aggountant ei maksa veroa eikä seuraa, onko se maksettu; sen näyttää
+  OmaVeron verotili.
 - Suora ilmoittaminen toimii myös neljännesvuosikausille, mutta oikeassa
   käytössä sitä on koeteltu kuukausikausilla.
 - Korvaavaa ilmoitusta ei ole vielä lähetetty Verohallinnon tuotantoon.

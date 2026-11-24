@@ -50,7 +50,9 @@ the return. A return that has been sent cannot be withdrawn, but it can be
    [The return does not show in OmaVero](../troubleshooting.md#the-return-does-not-show-in-omavero).
 
 6. **Pay the tax yourself**, if there is any to pay, with the reference shown
-   in OmaVero.
+   in OmaVero. aggountant does not pay it. The run is complete once the
+   return is filed, and `run show` gives the amount, the account and the due
+   date.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -78,8 +80,13 @@ is sent, and `run show` shows the run as `needs_attention` with the
 `reconcile` effect rejected. The program does not retry. Once the cause is
 fixed, the agent starts a new run.
 
-The run first waits at the approval `ApproveFiling`, and for a return with
-tax to pay finally at `ApprovePayment`. Rejecting is `--answer reject`.
+The run waits at the approval `ApproveFiling`; rejecting is
+`--answer reject`. Once the return is filed, the run is `completed`. When there
+is tax to pay, the `submit-payment` effect is `skipped` and its `payment` field
+has `state` `left_to_user`, `amount`, `payee_iban` and `due_date`: the user
+pays it, and nothing says it has been paid. A run that an earlier version left
+waiting at `ApprovePayment` is completed with
+`file-vat user-pays --run-id fv-…`, which sends nothing.
 
 The acknowledgement is in the output of `approve-filing` and `run show`, on
 the `submit-filing` effect: `outcome.receipt.unique_identifier` and
@@ -156,10 +163,8 @@ record it with its receipt (`file-vat complete-manual --replacement`).
 
 ## Limitations
 
-- When there is tax to pay, the run finally opens a payment approval.
-  aggountant has no payment connection, so this step never completes and the
-  run keeps showing a waiting state. The return has still been filed. A
-  return that gives a refund ends without a payment step.
+- aggountant does not pay the tax and does not follow whether it has been
+  paid; the tax account in OmaVero shows that.
 - Direct filing also works for quarterly periods, but in real use it has
   been tried with monthly periods.
 - A replacement return has not yet been sent to the Tax Administration's

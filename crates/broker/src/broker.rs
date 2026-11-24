@@ -241,6 +241,15 @@ impl Broker {
         }
     }
 
+    /// Whether this broker has a submit adapter for `service`. A workflow asks
+    /// before it records an approval it could not carry out: the direct Vero.fi
+    /// route, for one, has no bank payment adapter.
+    pub fn can_submit(&self, service: &str) -> bool {
+        self.registry
+            .get(service)
+            .is_some_and(|adapter| adapter.kind() == AdapterKind::Submit)
+    }
+
     /// Read the current outbox entry for an effect (for reconciliation / display).
     pub fn outbox_entry(
         &self,

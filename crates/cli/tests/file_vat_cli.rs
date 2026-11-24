@@ -439,6 +439,59 @@ fn file_vat_end_to_end_via_cli() {
 }
 
 #[test]
+fn user_pays_completes_a_run_waiting_at_approve_payment_without_a_broker() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    seal_q1(home);
+    let script = home.join("broker_script.json");
+    std::fs::write(&script, happy_script()).unwrap();
+    let (code, stdout, err) = run(home, Some(&script), &["file-vat", "start"], FILE_VAT_INPUT);
+    assert_eq!(code, 0, "{err}");
+    let run_id = serde_json::from_str::<Value>(&stdout).unwrap()["run_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (code, _, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "approve-filing", "--run-id", &run_id],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+
+    // No script and no Vero credentials: recording the user's payment is local.
+    let (code, stdout, err) = run(
+        home,
+        None,
+        &["file-vat", "user-pays", "--run-id", &run_id],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["status"], "completed", "{v}");
+    let payment = v["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["key"] == "submit-payment")
+        .unwrap();
+    assert_eq!(payment["status"], "skipped");
+    assert_eq!(payment["payment"]["state"], "left_to_user");
+    assert_eq!(payment["payment"]["amount"], "1530.00");
+    assert_eq!(payment["payment"]["due_date"], "2026-05-12");
+
+    // A Run that is not filed yet is refused with a meaningful code.
+    let (code, _, stderr) = run(
+        home,
+        None,
+        &["file-vat", "user-pays", "--run-id", "fv-missing"],
+        "",
+    );
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("RUN_NOT_FOUND"), "{stderr}");
+}
+
+#[test]
 fn the_test_seam_is_announced_on_errors_and_in_human_output() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();

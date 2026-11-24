@@ -105,11 +105,9 @@ instructions are in
 
 ## VAT return
 
-- The payment step of a direct return never completes. When there is tax to
-  pay, the run opens a payment approval, but aggountant has no payment
-  connection, so the run keeps waiting even though the return has been filed.
-  Pay the tax yourself with the OmaVero reference
-  (`vat-run-payment-terminal`).
+- aggountant does not pay the tax. When a direct return has tax to pay, the
+  run ends once the return is filed and shows the amount, the account and the
+  due date; pay the tax yourself with the OmaVero reference.
 - The Tax Administration's bank account number is given every time: the
   agent gives the filing run the account number shown in OmaVero. The program
   does not know the payment reference (`tax-payment-references`).

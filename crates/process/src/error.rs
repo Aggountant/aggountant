@@ -45,6 +45,11 @@ pub enum ProcessError {
     /// send it again until the Tax Administration has answered.
     #[error("VAT_FILING_UNRESOLVED: {0}")]
     VatFilingUnresolved(String),
+    /// A VAT payment approval or retry on a route that has no bank payment
+    /// adapter (the direct Vero.fi route). Refused before anything is recorded;
+    /// the user pays the tax, and `file-vat user-pays` records that.
+    #[error("VAT_PAYMENT_ROUTE_UNAVAILABLE: {0}")]
+    VatPaymentRouteUnavailable(String),
     /// The period's VAT accounts carry untagged postings the return would leave out
     /// (issue `vat-untagged-posting-omitted`). The filing is refused before anything
     /// is sent unless the operator acknowledges exactly those vouchers with a reason.
@@ -125,6 +130,7 @@ impl ProcessError {
             ProcessError::VatFiguresMismatch(_) => "VAT_FIGURES_MISMATCH",
             ProcessError::VatStatusUnknown(_) => "VAT_STATUS_UNKNOWN",
             ProcessError::VatFilingUnresolved(_) => "VAT_FILING_UNRESOLVED",
+            ProcessError::VatPaymentRouteUnavailable(_) => "VAT_PAYMENT_ROUTE_UNAVAILABLE",
             ProcessError::VatAccountsUnreconciled(_) => "VAT_ACCOUNTS_UNRECONCILED",
             ProcessError::VatReconciliationAckMismatch(_) => "VAT_RECONCILIATION_ACK_MISMATCH",
             ProcessError::CaptureVatMismatch(_) => "CAPTURE_VAT_MISMATCH",

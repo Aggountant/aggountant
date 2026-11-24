@@ -252,12 +252,14 @@ silloin syntyisi huomaamatta uusi ilmoitus.
 
 ## ALV-ilmoitusajo jää odottamaan maksua
 
-**Mitä todennäköisesti tapahtui.** Ilmoitus on lähetetty, ja ajo avasi maksun
-hyväksynnän, koska veroa on maksettavaa. aggountantilla ei ole maksuyhteyttä,
-joten [tämä vaihe ei valmistu](reference/status.md#alv-ilmoitus).
+**Mitä todennäköisesti tapahtui.** Ilmoitus lähetettiin aggountantin
+aiemmalla versiolla, joka jätti maksettavan ilmoituksen ajon odottamaan maksun
+hyväksyntää `ApprovePayment`. aggountantilla ei ole maksuyhteyttä, joten
+hyväksyntä ei mene läpi. Kuukausi on ilmoitettu (`vat_filed true`).
 
-**Tee näin.** Maksa vero itse OmaVeron viitteellä. Kuukausi on ilmoitettu
-(`vat_filed true`), ja maksuvaihe voi jäädä odottamaan.
+**Tee näin.** Maksa vero itse OmaVeron viitteellä. Agentti päättää ajon
+komennolla `file-vat user-pays --run-id fv-…`; se ei lähetä mitään ja kirjaa,
+että maksat veron, ei sitä, että se on maksettu.
 
 ## Ketjun tarkistus epäonnistuu
 

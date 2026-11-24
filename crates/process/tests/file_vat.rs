@@ -341,6 +341,22 @@ fn broker_with_filed(
     filed: Steps,
     payment: Steps,
 ) -> Broker {
+    scripted_broker(home, verotili, submit, filed, Some(payment))
+}
+
+/// The direct Vero.fi route: the three Vero services and no bank payment adapter.
+fn direct_broker(home: &std::path::Path, verotili: Steps, submit: Steps) -> Broker {
+    let filed = vec![ok(200, json!({"Status":"Missing"}))];
+    scripted_broker(home, verotili, submit, filed, None)
+}
+
+fn scripted_broker(
+    home: &std::path::Path,
+    verotili: Steps,
+    submit: Steps,
+    filed: Steps,
+    payment: Option<Steps>,
+) -> Broker {
     let mut vault = Vault::new();
     let mut reg = Registry::new();
     for s in [
@@ -371,11 +387,13 @@ fn broker_with_filed(
         .collect();
     let sb: Box<dyn Transport> = Box::new(ScriptedTransport::new(submit));
     let filed: Box<dyn Transport> = Box::new(ScriptedTransport::new(filed));
-    let pm: Box<dyn Transport> = Box::new(ScriptedTransport::new(payment));
     reg.register(Box::new(ScriptedVeroVatPeriodsAdapter::new(vt)));
     reg.register(Box::new(ScriptedVeroFileVatReturnAdapter::new(sb)));
     reg.register(Box::new(ScriptedVeroFiledVatReturnAdapter::new(filed)));
-    reg.register(Box::new(PankkiMaksuAdapter::new(pm)));
+    if let Some(payment) = payment {
+        let pm: Box<dyn Transport> = Box::new(ScriptedTransport::new(payment));
+        reg.register(Box::new(PankkiMaksuAdapter::new(pm)));
+    }
     Broker::new(home, vault, reg)
 }
 
@@ -2754,4 +2772,341 @@ fn a_receipt_is_not_attributed_to_a_run_whose_request_it_does_not_acknowledge() 
             next_command: Some("aggountant file-vat status --period 2026-Q1".into()),
         })
     );
+}
+
+// --- Payment on the direct Vero.fi route (issue vat-run-payment-terminal) ----
+
+fn payment_json(view: &RunView) -> Value {
+    serde_json::to_value(view).unwrap()["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["key"] == "submit-payment")
+        .unwrap()["payment"]
+        .clone()
+}
+
+fn journal_len(engine: &ProcessEngine, run_id: &str) -> usize {
+    engine.journal(run_id).unwrap().len()
+}
+
+/// A Run parked at `ApprovePayment` after an accepted filing, as every build
+/// before this fix left a payable direct-route return. The payment gate opens
+/// because the filing broker can pay; the journal is the same either way.
+fn parked_at_approve_payment(home: &std::path::Path) -> (ProcessEngine, String) {
+    let engine = ProcessEngine::open(home);
+    let broker = broker_with(
+        home,
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+        vec![],
+    );
+    let run_id = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let parked = engine
+        .answer_file_vat(&run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    assert_eq!(parked.status, RunStatus::AwaitingGate);
+    assert_eq!(parked.gates.last().unwrap().gate_id, "ApprovePayment");
+    (engine, run_id)
+}
+
+#[test]
+fn a_payable_direct_route_filing_completes_with_the_payment_left_to_the_user() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = direct_broker(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+    );
+    let start = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    assert_eq!(start.bank_payment_required, "1530.00");
+
+    let done = engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert!(done.gates.iter().all(|g| g.gate_id != "ApprovePayment"));
+    assert_eq!(
+        effect_status(&done, "submit-payment"),
+        EffectStatus::Skipped
+    );
+    assert!(matches!(
+        filing_outcome(&done),
+        Some(AuthorityOutcome::Accepted {
+            receipt: Some(_),
+            ..
+        })
+    ));
+    // `run show` gives what the user pays; nothing says it is paid.
+    let payment = payment_json(&engine.show(&start.run.run_id).unwrap());
+    assert_eq!(payment["state"], "left_to_user");
+    assert_eq!(payment["amount"], "1530.00");
+    assert_eq!(payment["currency"], "EUR");
+    assert_eq!(payment["payee_iban"], "FI2112345600000785");
+    assert_eq!(payment["due_date"], "2026-05-12");
+    assert!(payment.get("next_command").is_none());
+    let message = payment["message"].as_str().unwrap();
+    assert!(message.contains("did not pay"), "{message}");
+    assert!(message.contains("OmaVero"), "{message}");
+    // No bank payment was attempted.
+    assert!(broker
+        .outbox_entry(SVC_PANKKI_MAKSU, "submit-payment:2026-Q1")
+        .unwrap()
+        .is_none());
+    assert!(Ledger::open(home.path()).unwrap().verify().unwrap().ok);
+}
+
+#[test]
+fn a_refund_on_the_direct_route_still_completes_as_no_payment_required() {
+    let home = sealed_home_with("400.00", "2000.00");
+    let engine = ProcessEngine::open(home.path());
+    let mut refund = input_json();
+    refund["sales_vat"]["amount"] = json!("102.00");
+    refund["purchase_vat"]["amount"] = json!("510.00");
+    let refund: FileVatInput = serde_json::from_value(refund).unwrap();
+    let broker = direct_broker(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+    );
+    let start = engine
+        .start_file_vat(&refund, &broker, &PolicySet::default())
+        .unwrap();
+    let done = engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&done, "submit-payment"),
+        EffectStatus::Succeeded
+    );
+    assert!(payment_json(&done).is_null());
+}
+
+#[test]
+fn a_run_parked_at_approve_payment_is_completed_with_user_pays() {
+    let home = sealed_home();
+    let (engine, run_id) = parked_at_approve_payment(home.path());
+    let ledger = Ledger::open(home.path()).unwrap();
+    let filings_before = serde_json::to_value(ledger.vat_filings(&q1()).unwrap()).unwrap();
+
+    // `run show` on the parked Run names the way out.
+    let shown = engine.show(&run_id).unwrap();
+    let payment = payment_json(&shown);
+    assert_eq!(payment["state"], "awaiting_approval");
+    assert_eq!(payment["amount"], "1530.00");
+    assert_eq!(
+        payment["next_command"],
+        format!("aggountant file-vat user-pays --run-id {run_id}")
+    );
+
+    // Approving the payment on the direct route is refused and records nothing.
+    let direct = direct_broker(home.path(), vec![], vec![]);
+    let before = journal_len(&engine, &run_id);
+    let error = engine
+        .answer_file_vat(&run_id, "ApprovePayment", "approve", &direct)
+        .unwrap_err();
+    assert_eq!(error.error_code(), "VAT_PAYMENT_ROUTE_UNAVAILABLE");
+    assert!(error.to_string().contains("file-vat user-pays"), "{error}");
+    assert_eq!(journal_len(&engine, &run_id), before);
+    assert_eq!(
+        engine.show(&run_id).unwrap().status,
+        RunStatus::AwaitingGate
+    );
+
+    // `user-pays` completes it without a network or credentials.
+    let offline = Broker::new(home.path(), Vault::new(), Registry::new());
+    let done = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&done, "submit-payment"),
+        EffectStatus::Skipped
+    );
+    let gate = done
+        .gates
+        .iter()
+        .find(|g| g.gate_id == "ApprovePayment")
+        .unwrap();
+    assert_eq!(gate.answered.as_deref(), Some("user-pays"));
+    let payment = payment_json(&done);
+    assert_eq!(payment["state"], "left_to_user");
+    assert_eq!(payment["due_date"], "2026-05-12");
+    // The filing and its receipt are untouched.
+    assert!(matches!(
+        filing_outcome(&done),
+        Some(AuthorityOutcome::Accepted {
+            receipt: Some(_),
+            ..
+        })
+    ));
+    assert_eq!(
+        serde_json::to_value(ledger.vat_filings(&q1()).unwrap()).unwrap(),
+        filings_before
+    );
+    assert!(ledger.verify().unwrap().ok);
+
+    // Repeating it changes nothing; approving the answered gate is refused.
+    let after = journal_len(&engine, &run_id);
+    let again = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap();
+    assert_eq!(again.status, RunStatus::Completed);
+    assert_eq!(journal_len(&engine, &run_id), after);
+    assert_eq!(
+        engine
+            .answer_file_vat(&run_id, "ApprovePayment", "approve", &direct)
+            .unwrap_err()
+            .error_code(),
+        "GATE_NOT_OPEN"
+    );
+}
+
+#[test]
+fn user_pays_finishes_a_payment_approved_but_never_sent() {
+    let home = sealed_home();
+    let (engine, run_id) = parked_at_approve_payment(home.path());
+    let broker = broker_with(home.path(), vec![], vec![], vec![]);
+    let crashed = engine
+        .answer_file_vat_seam(
+            &run_id,
+            "ApprovePayment",
+            "approve",
+            &broker,
+            Seam::CrashAfterGateAnswer,
+        )
+        .unwrap();
+    assert_eq!(crashed.status, RunStatus::Running);
+    let offline = Broker::new(home.path(), Vault::new(), Registry::new());
+    let done = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&done, "submit-payment"),
+        EffectStatus::Skipped
+    );
+}
+
+#[test]
+fn user_pays_is_refused_once_a_bank_payment_was_sent() {
+    let home = sealed_home();
+    let (engine, run_id) = parked_at_approve_payment(home.path());
+    let broker = broker_with(
+        home.path(),
+        vec![],
+        vec![],
+        vec![Err(TransportError::Timeout)],
+    );
+    let unknown = engine
+        .answer_file_vat(&run_id, "ApprovePayment", "approve", &broker)
+        .unwrap();
+    assert_eq!(unknown.status, RunStatus::NeedsAttention);
+    let before = journal_len(&engine, &run_id);
+    let offline = Broker::new(home.path(), Vault::new(), Registry::new());
+    let error = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap_err();
+    assert_eq!(error.error_code(), "INVALID_ANSWER");
+    assert!(error.to_string().contains("file-vat retry"), "{error}");
+    assert_eq!(journal_len(&engine, &run_id), before);
+}
+
+#[test]
+fn user_pays_is_refused_before_the_filing_is_accepted() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = direct_broker(home.path(), verotili_ok(), vec![]);
+    let run_id = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    let before = journal_len(&engine, &run_id);
+    let error = engine
+        .leave_file_vat_payment_to_user(&run_id, &broker)
+        .unwrap_err();
+    assert_eq!(error.error_code(), "INVALID_ANSWER");
+    assert_eq!(journal_len(&engine, &run_id), before);
+    assert_eq!(
+        engine.show(&run_id).unwrap().status,
+        RunStatus::AwaitingGate
+    );
+}
+
+#[test]
+fn user_pays_trusts_the_journal_when_the_outbox_is_not_at_hand() {
+    let home = sealed_home();
+    let (engine, run_id) = parked_at_approve_payment(home.path());
+    let broker = broker_with(
+        home.path(),
+        vec![],
+        vec![],
+        vec![Err(TransportError::Timeout)],
+    );
+    engine
+        .answer_file_vat(&run_id, "ApprovePayment", "approve", &broker)
+        .unwrap();
+    drop(broker);
+    // The outbox stays on one machine (gitignored); a checkout without it still
+    // has the journal, which says the payment was sent.
+    std::fs::remove_dir_all(home.path().join("integration/outbox")).unwrap();
+    let offline = Broker::new(home.path(), Vault::new(), Registry::new());
+    let error = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap_err();
+    assert_eq!(error.error_code(), "INVALID_ANSWER");
+    assert_eq!(
+        engine.show(&run_id).unwrap().status,
+        RunStatus::NeedsAttention
+    );
+}
+
+#[test]
+fn user_pays_on_a_refund_records_no_payment_required_instead() {
+    let home = sealed_home_with("400.00", "2000.00");
+    let engine = ProcessEngine::open(home.path());
+    let mut refund = input_json();
+    refund["sales_vat"]["amount"] = json!("102.00");
+    refund["purchase_vat"]["amount"] = json!("510.00");
+    let refund: FileVatInput = serde_json::from_value(refund).unwrap();
+    let broker = direct_broker(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+    );
+    let run_id = engine
+        .start_file_vat(&refund, &broker, &PolicySet::default())
+        .unwrap()
+        .run
+        .run_id;
+    // Crash between the filing's success and the no-payment record.
+    let crashed = engine
+        .answer_file_vat_seam(
+            &run_id,
+            "ApproveFiling",
+            "approve",
+            &broker,
+            Seam::CrashAfterFilingSuccess,
+        )
+        .unwrap();
+    assert_eq!(crashed.status, RunStatus::Running);
+    let offline = Broker::new(home.path(), Vault::new(), Registry::new());
+    let done = engine
+        .leave_file_vat_payment_to_user(&run_id, &offline)
+        .unwrap();
+    assert_eq!(done.status, RunStatus::Completed);
+    assert_eq!(
+        effect_status(&done, "submit-payment"),
+        EffectStatus::Succeeded
+    );
+    assert!(payment_json(&done).is_null());
 }

@@ -1,12 +1,14 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-24
 type: bug
-status: open
+status: fixed
 priority: high
 lane: vat-filing
 lane_seq: 11
 collision: [crates/process/src/file_vat.rs, skills/vero-fi/SKILL.md]
+closed: 2026-11-24
+closed_by: claude-opus-5-5
 ---
 
 # file-vat Run never finishes after a direct filing of a payable return
@@ -32,7 +34,13 @@ tax is paid without evidence.
 
 ## Acceptance criteria
 
-- [ ] A filed, payable return on the direct route does not stay `awaiting_gate` indefinitely.
-- [ ] An externally handled payment can be recorded with evidence, or the Run states plainly that payment is outside aggountant.
-- [ ] Refund (negative net) behaviour unchanged.
-- [ ] `skills/vero-fi/SKILL.md` updated to match.
+- [x] A filed, payable return on the direct route does not stay `awaiting_gate` indefinitely.
+- [x] An externally handled payment can be recorded with evidence, or the Run states plainly that payment is outside aggountant.
+- [x] Refund (negative net) behaviour unchanged.
+- [x] `skills/vero-fi/SKILL.md` updated to match.
+
+## Resolution
+
+### 2026-11-24T07:44:43Z · @claude-opus-5-5
+
+Fixed: direct-route payable Runs complete with the payment left to the user; parked Runs finish with `file-vat user-pays`. See result.md.

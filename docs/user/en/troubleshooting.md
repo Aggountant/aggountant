@@ -260,13 +260,14 @@ either, because that would quietly create a new report.
 
 ## The VAT return run waits for payment
 
-**What probably happened.** The return has been sent, and the run opened a
-payment approval because there is tax to pay. aggountant has no payment
-connection, so
-[this step never completes](reference/status.md#vat-return).
+**What probably happened.** The return was sent with an earlier version of
+aggountant, which left a return with tax to pay waiting at the payment
+approval `ApprovePayment`. aggountant has no payment connection, so that
+approval cannot go through. The month has been filed (`vat_filed true`).
 
-**Do this.** Pay the tax yourself with the OmaVero reference. The month has
-been filed (`vat_filed true`), and the payment step can stay waiting.
+**Do this.** Pay the tax yourself with the OmaVero reference. The agent ends
+the run with `file-vat user-pays --run-id fv-…`; it sends nothing and records
+that you pay the tax, not that it has been paid.
 
 ## The chain check fails
 

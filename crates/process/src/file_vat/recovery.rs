@@ -296,7 +296,7 @@ impl ProcessEngine {
         };
         let adopted = |message: String| -> Result<_, ProcessError> {
             let f2 = fold(run_id, &journal.read_all()?)?;
-            self.finish_filing_postcondition(&journal, &f2, &state)?;
+            self.finish_filing_postcondition(&journal, &f2, &state, broker)?;
             Ok((FileVatReconcileOutcome::Adopted, None, None, message))
         };
         let mut differences = Vec::new();
@@ -465,7 +465,7 @@ impl ProcessEngine {
                         .into(),
                 })?;
                 let f2 = fold(run_id, &journal.read_all()?)?;
-                self.finish_filing_postcondition(journal, &f2, state)?;
+                self.finish_filing_postcondition(journal, &f2, state, broker)?;
                 (
                     FileVatReconcileOutcome::Adopted,
                     "The Tax Administration has processed the approved return; the filing is \
