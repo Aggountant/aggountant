@@ -1,6 +1,6 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-24
 type: improvement
 status: open
 priority: high
@@ -41,3 +41,9 @@ The employee store has no safe path for entering personal data:
 - [ ] Interactive hidden-input add exists and never echoes personal data.
 - [ ] Masked default for `employee show`, explicit reveal flag.
 - [ ] A missing tax card blocks payroll with a clear error; travel-only reporting works without it.
+
+## Comments
+
+### 2026-11-24T20:00:41Z · @worker
+
+ADR-11 (`docs/site/adr-11-expense-claim.md`, Proposed, section 1) makes the employee register the claimant register for expense claims, including people who are not employees (board member, unpaid shareholder). That makes this issue's optional tax card a prerequisite for claims: a travel-only claimant must not need an invented withholding percentage. The register also gains dated relationship and part-owner facts and the regular-workplace register (slice `claimant-workplace-register`), all in `pii.sqlite`, which adds personal data (home as a workplace) to the store whose missing encryption `employee-store-plaintext-help` documented.

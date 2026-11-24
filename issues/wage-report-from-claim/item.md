@@ -1,6 +1,6 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-24
 type: feature
 status: open
 priority: high
@@ -39,3 +39,15 @@ twice later.
 - [ ] Claim → report JSON is deterministic and covered by tests (mileage, full and partial per diem, receipt items excluded).
 - [ ] No personal data in the generated JSON (`employee_id` only).
 - [ ] Preview and approval flow unchanged.
+
+## Comments
+
+### 2026-11-24T20:00:41Z · @worker
+
+ADR-11 (`docs/site/adr-11-expense-claim.md`, Proposed, section 9) confirms this issue and sharpens it:
+- The input is built only from sealed claim documents (slice `expense-claim-approve-seal`), not from line files; the payment date comes from the settlement link written by the bank import or `claim settle` (slice `expense-claim-payment-matching`), so `--payment-date` is no longer typed by hand.
+- Meal allowance goes as 331 type 1 (not 303); lodging, the night travel allowance and receipt lines are listed as left out with the reason.
+- One 331 carries every per diem type of the amount; that format change is its own slice `wage-report-multiple-allowance-codes`.
+- Monthly combination: `from-claim` accepts several settlements of one claimant in one payment month (law 53/2018, 12 §). `source_reference` = the claim id for one claim, `expense-claims-<employee_id>-<YYYY-MM>` for several, `<claim_id>-p<n>` for a supplementary payment. A settlement belongs to exactly one report: the `file-wage` process state lists the settlements it reports and `from-claim` refuses one already reported.
+- The "optional: record the payment" part moves to `expense-claim-payment-matching`.
+Depends on `expense-claim-approve-seal` and `expense-claim-payment-matching`.

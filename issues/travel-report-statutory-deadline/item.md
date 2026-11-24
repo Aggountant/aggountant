@@ -51,3 +51,9 @@ pushes users to report each payment separately.
 ### 2026-11-24T18:08:01Z · @conductor
 
 Jari 24.11.2026: show the correct (statutory) deadline, not the cautious five days.
+
+## Comments
+
+### 2026-11-24T20:00:41Z · @worker
+
+ADR-11 (`docs/site/adr-11-expense-claim.md`, Proposed, section 9) confirms this issue unchanged: the expense claim status (`claim status`, `claim list --open`, slice `expense-claim-status`) shows the statutory deadline computed here, the 5th of the month after the payment month, and `file-wage from-claim` can combine a month's settlements of one claimant into one report with the latest payment date. A taxable line, if ever added, keeps the five-day rule.
