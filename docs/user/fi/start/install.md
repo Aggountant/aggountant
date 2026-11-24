@@ -40,6 +40,7 @@ ohjelman.
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
+   | `migrate-books` | kirjanpidon siirto toisesta ohjelmasta: vanhan aineiston vienti, tarkistus ja arkistointi |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | ALV-ilmoitus Verohallinnolle ja suoran ALV-ilmoittamisen käyttöönotto |
    | `tulorekisteri` | Tulorekisterin matkakorvausilmoitus ja työnantajan erillisilmoitus |
@@ -85,7 +86,7 @@ skillin muut tiedostot, kuten yhteisen roolikuvauksen `SOUL.md`.
 ## Valmis, kun
 
 - `aggountant --version` näyttää versionumeron.
-- `aggountant skill list` listaa kuusi skilliä, ja ne löytyvät agentin
+- `aggountant skill list` listaa seitsemän skilliä, ja ne löytyvät agentin
   skillihakemistosta.
 
 ## Seuraavaksi

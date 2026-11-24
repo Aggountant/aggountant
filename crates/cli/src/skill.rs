@@ -93,6 +93,13 @@ const SKILLS: &[BundledSkill] = &[
         requires: &["aggountant-init"],
         schema_version: 1,
     },
+    BundledSkill {
+        name: "migrate-books",
+        description: "Move a company's books from another program: inventory, read-only export, a checksummed archive and the hand-off to setup.",
+        files: skill_files!("migrate-books": "SKILL.md", "briox.md", "holvi.md"),
+        requires: &["aggountant-init"],
+        schema_version: 1,
+    },
 ];
 
 fn find(name: &str) -> Result<&'static BundledSkill, CliError> {

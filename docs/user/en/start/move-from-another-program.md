@@ -5,7 +5,7 @@ aggountant starts from the opening balances on the cutover date. The old
 system's history is exported from the old program and the bank into an
 archive, which you keep for as long as the law requires. Collect the material
 before you give up the old program, because afterwards you may no longer be
-able to get it.
+able to get it. The agent uses the `migrate-books` skill for the collection.
 
 ## Before you start
 
@@ -57,41 +57,42 @@ fiscal year whose retention period is still running.
    The agent writes a list of the material it expects: fiscal years, reports,
    voucher series and their numbers, invoice counts, statement periods and
    attachments. It takes the figures from the old system, for example the
-   last number in the voucher list. The collection is done only when every
-   item on the list is saved or marked missing with a reason.
+   last number in the voucher list.
+
+   Read the list through. You know whether the company has had other bank
+   accounts or an earlier program that the agent cannot see from the old
+   program.
 
 3. **The agent exports the material.** It uses the program's own export or
-   API first, because those keep working when the service's interface
-   changes. What is only available in the browser the agent can fetch from
+   API first. What is only available in the browser the agent can fetch from
    your signed-in browser, if its environment can control a browser.
+   Otherwise you download the files yourself and hand them to the agent.
    aggountant itself has no tools for operating the old program or the bank.
    The agent only reads the old system: it exports and downloads, but saves,
-   approves, changes or deletes nothing, not even on a comments page.
+   approves, changes or deletes nothing.
 
-4. **The agent checks every file.** It reads the company and the period from
-   the file's content, because the date in a file name can be the export
-   time. It reads the file format from the content too, because a file named
-   XLS can be XLSX. The agent opens every file, because an interrupted
-   download leaves an incomplete file behind. In the books it checks that
-   every voucher's debits and credits agree and that the yearly totals match
-   the financial statements.
+4. **The agent checks the files and assembles the archive.** It opens every
+   file and reads from its content that the company and the period are
+   right. In the books it checks that every voucher's debits and credits
+   agree and that the yearly totals match the financial statements. The agent
+   keeps the original exports unchanged and records every file's SHA-256
+   checksum in a `SHA256SUMS` file, which later shows that a file is as it
+   was.
 
-5. **The agent saves the archive.** It keeps the original exports unchanged
-   and puts the tables and check reports derived from them in a folder of
-   their own, so that you can always go back to the original. For every file
-   it records the size, the SHA-256 checksum, where the file came from and
-   when it was fetched, and collects the checksums into a `SHA256SUMS` file.
-   It marks an item done only when its files match their checksums. Finally
-   the agent copies the archive to a second place and checks every file in
-   both copies against the checksums.
+5. **Decide where the archive is kept.** Keep it out of git, because it is
+   real financial data and large, and nothing can be removed from git
+   history. Keep it [within your backups](../tasks/back-up-and-restore.md).
+   The agent copies the archive to a second place, checks both copies
+   against the checksums and writes in the home's `AGENTS.md` where the
+   archive is. Then it can find an old voucher when you ask about one.
 
-   Keep the archive out of git, because it is real financial data and large,
-   and nothing can be removed from git history. Keep it
-   [within your backups](../tasks/back-up-and-restore.md) and say in the
-   home's `AGENTS.md` where it is. Then the agent can find an old voucher
-   when you ask about one.
+6. **Go through what is missing.** The agent shows the items on the list it
+   could not get and the differences it found when checking. Ask the
+   accounting firm or the program's administrator for what is missing. Keep
+   the old program's subscription active until every item is saved or you
+   have accepted that it stays missing.
 
-6. **Set up the books.** The balance list and the list of accounts become
+7. **Set up the books.** The balance list and the list of accounts become
    [the opening balance voucher](set-up-company.md). Statements after the
    cutover date are
    [imported as every month](../tasks/import-bank-statement.md), and receipts
@@ -105,7 +106,8 @@ fiscal year whose retention period is still running.
 
    An invoice dated before the cutover date but paid after it may already be
    in the opening balances as a trade payable. The agent checks this against
-   the balance list so that the same invoice is not booked twice.
+   the balance list and the list of open invoices so that the same invoice is
+   not booked twice.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -132,53 +134,27 @@ The setup commands are on the pages
 
 ## Notes for specific programs
 
-These notes are from 2026. Services change, so check the current interface
-and the service's own help before relying on them.
+The agent's skill has observations on Briox's and Holvi's exports from 2026.
+For your part, this follows from them:
 
 ### Briox
 
-- The contents of the sections "Arkisto" (archive) and "Liitetyt asiakirjat"
-  (attached documents) can be exported with Briox's own export
+- The export of the archive and attached documents
   ([Arkiston vienti/lataaminen](https://help.briox.fi/hc/fi/articles/360029163831-Arkiston-vienti-lataaminen),
-  in Finnish). The menu may not be visible with every access level. If it is
-  not, ask the accounting firm or the administrator for the export. Otherwise
-  you can get voucher attachments only one at a time from the voucher's
-  attachment viewer in the browser, and for image attachments the viewer
-  shows a display version that may not be the file originally uploaded.
-- Reports are available as PDF and Excel: journal, general ledger, list of
-  accounts, balance list, balance sheet, income statement, balance sheet
-  specification, opening balances and deleted vouchers. The Excel file can be
-  old XLS or XLSX.
-- When you switch fiscal year, reload the page and check the year in the
-  report header before exporting, because the old header can stay on screen.
-  The balance sheet specification can keep the previous year's end date, so
-  check its date separately.
-- The journal can contain deleted rows. Count the active entries from the
-  general ledger and keep the journal separately.
-- The list of accounts holds the account names and VAT codes, and it is the
-  basis for mapping the accounts in the opening balances. We found no SIE4
-  export.
-- The voucher CSV export can be blocked by access rights. The bank
-  transaction list has its own CSV and XLSX export, which works separately.
-- Lists default to short time windows; the processing history, for example,
-  shows the last week. Widen the range and check the hit count. Look at
-  purchase invoices in every state with no date filter.
+  in Finnish) and the voucher CSV export may not be visible with your access
+  rights. Ask the accounting firm or the administrator for them then.
+  Without the archive export, attachments are available only one at a time
+  in the browser, and the display version of an image attachment may not be
+  the file originally uploaded.
+- We found no SIE4 export.
 
 ### Holvi
 
-- The "Raportit" (reports) section gives the bank statement as PDF and Excel,
-  the electronic statement in camt.052 format, and the journal and general
-  ledger. Which reports are available depends on the pricing plan
+- Which reports are available depends on the pricing plan
   ([Holvin kirjanpitoraportit ja viennit](https://support.holvi.com/hc/fi/articles/115000984169-Holvin-kirjanpitoraportit-ja-viennit),
-  in Finnish). camt.052 can be imported into aggountant as it is.
-- Bank transactions and Holvi's bookkeeping documents (purchase and sales
-  invoices with their attachments) are different sets, so inventory both. The
-  documents' attachments and comments are per document in the browser. Look
-  at the comments on every document, including those whose list row shows no
-  note.
-- The Excel export can be XLSX even when the name says XLS.
-- Yearly statements can overlap at the boundary date. Count transactions by
-  unique bank reference, not by row count.
+  in Finnish).
+- Holvi's electronic statement (camt.052) can be imported into aggountant as
+  it is.
 - The session expires after a short idle time. Sign in again when it does,
   because reloading the page does not replace signing in.
 
