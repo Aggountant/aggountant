@@ -3,7 +3,7 @@ created: 2026-11-24
 updated: 2026-11-24
 type: bug
 status: open
-priority: normal
+priority: high
 provenance: ai-review
 lane: vat-filing
 lane_seq: 11
