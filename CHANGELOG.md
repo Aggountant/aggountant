@@ -11,9 +11,188 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Bank import: overlapping statements.** A bank transaction is booked once
+  however many exports contain it. `import camt053 seal` recognises a
+  transaction already in the books by its bank reference and account: when
+  the bank's facts and the assignment are the same as when it was sealed,
+  nothing is sealed and the file is recorded as one more source of the
+  transaction (`outcome: duplicate_source_observation`). Two yearly
+  statements that share the transactions around the turn of the year can now
+  be imported one after the other. Every entry of the preview and the seal
+  carries its `outcome`, and the output counts new, duplicate, bound and
+  backfilled transactions; the text line reads `sealed N new vouchers from
+  "…", M transactions already in the books`.
+- **Bank import: transactions booked by hand.** Before it seals a new voucher
+  for a statement entry, the import looks for a voucher sealed outside the
+  import (for example with `voucher seal`) that may already book it: one
+  whose natural key or description names the bank reference, or one that
+  posts the same amount on the same side of the same bank account within 7
+  days. Such a voucher stops the batch (`BANK_ENTRY_POSSIBLY_BOOKED`) instead
+  of the transaction being booked twice. The new stdin field
+  `existing_vouchers` binds the entry to that voucher without changing it,
+  and an assignment's `not_booked_by` rules a voucher out.
+- **Bank import:** `import camt053 observations` lists, per retained
+  statement file, which transactions it contained and the voucher that books
+  each.
+- **Incomes Register:** `file-wage approve`, `file-wage correction submit` and
+  `file-wage employer-report submit` take `--record-hash-file PATH` (`-` is
+  stdin, except for a replacement correction, whose report already comes on
+  stdin) as an alternative to `--record-hash`, so the sensitive travel-report
+  hash need not appear in the command line, shell history or a transcript.
+  Help, skill and guide capture the hash from the preview the user reviewed
+  into a private file, instead of computing a fresh one at approval time.
+- **User guide:** a page on moving the books from another program: what to
+  collect, how long it must be kept, how to keep the collected archive
+  trustworthy, and how it enters aggountant.
+
 ### Changed
 
+- **Only `init` creates a company home.** Every other command that opens a
+  home refuses a path without one with `HOME_NOT_INITIALIZED`, writes
+  nothing, and names the path and how it was chosen (`--home`,
+  `$AGGOUNTANT_HOME`, the configuration file, an `.aggountant` marker or the
+  `./accounting` fallback). In 0.2.0 only the voucher reads refused; the
+  other commands created an empty home under a mistyped path and answered
+  from empty books.
+- **VAT treatments are checked against their rate class.** A purchase
+  treatment (`domestic-input`, `reverse-charge` and their `-partial`
+  variants) with one of the zero-rated sale classes `eu-goods`, `eu-services`
+  or `zero-rated` is refused with `VAT_TREATMENT_CLASS_MISMATCH`, whose
+  message names the treatment that fits. In 0.2.0 a domestic purchase or an
+  EU reverse charge with such a class sealed at 0 % without VAT legs; a
+  non-EU service reverse charge was already refused, now with this code.
+  Sealed vouchers are not re-checked.
+- **VAT: exempt intra-Community acquisition of goods.** The one purchase
+  treatment that keeps the `zero-rated` class is
+  `{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}`,
+  for goods bought from another EU state whose acquisition is exempt in
+  Finland: no tax and no deduction, and the value is reported in the return's
+  EU goods purchases. `--help`, the guide and the refusal messages now
+  describe this booking instead of sending the user to a bookkeeper.
+- **Members that do not belong to a VAT treatment are refused**
+  (`INVALID_INPUT`): a `deductibility` on `domestic-input` instead of
+  `domestic-input-partial` in an `import camt053 seal` assignment, and any
+  member on `{"type":"no-vat"}` there or in a `capture-receipt` VAT proposal.
+  In 0.2.0 they were dropped silently, which could seal a full deduction
+  instead of a partial one, or a receipt without its input VAT.
+- **Bank import: one transaction per statement.** `import camt053 seal`
+  writes the whole statement in one ledger transaction, so a write that fails
+  on a later entry leaves nothing sealed from the statement. An already booked
+  transaction still needs its assignment or binding, and it must be the one
+  its voucher was sealed or bound with.
+- `import camt053 seal --dry-run` no longer lists the warning
+  `NATURAL_KEY_ALREADY_SEALED` for a transaction already in the books; read
+  the entry's `outcome` (or `would_replay`) instead. An entry bound to an
+  existing voucher has no `draft`. `import camt053 parse` lists the
+  statement's entries that are not booked (pending ones, for example) under
+  `unbooked`.
+- `file-vat preview` on a closed period names both filing routes, direct
+  filing through the Vero.fi API with `file-vat start` and manual filing in
+  OmaVero recorded with `file-vat complete-manual`, and says that the offline
+  preview did not check which one is available. In 0.2.0 it described only
+  manual filing.
+- **User guide fact pass.** The pages were checked against the code and
+  `--help` and rewritten to say who acts in each step. Corrected facts
+  include: installation starts with the prebuilt installer; macOS and Linux
+  are the supported platforms and Windows has not been tested; `close-year`
+  is listed as in use; the error-code reference's "what to do" cells, which
+  `aggountant explain` and the error JSON's `hint` print, are instructions.
+- The README is in Finnish, with an English translation in `README.en.md`.
+
 ### Fixed
+
+- `run show` and `run start` for an open month-close approval returned a
+  `next_command` ending in `--answer approve|reject`, which a shell runs as a
+  pipe that approves the close. It now carries the quoted placeholder
+  `'<approve|reject>'`, which `run answer` refuses (`INVALID_ANSWER`), and the
+  `--help` of the other approval commands no longer prints an `a|b` choice
+  inside a command.
+- A refusal of a partial VAT treatment suggested a replacement without its
+  required `deductibility`, so copying the suggestion did not parse.
+- `url` 2.5.9 for RUSTSEC-2026-0592.
+
+### Upgrading from 0.2.0
+
+Upgrade when no month close, year-end close or filing is in progress
+(`aggountant run list`), and take these steps in order. The guide's
+[upgrade page](https://aggountant.dev/en/tasks/upgrade/) describes the whole
+procedure.
+
+1. **Back up the home first.** The first command that opens the books
+   migrates `fiscal.sqlite` from schema v8 to v9. The migration is additive:
+   it adds the bank-transaction identity tables, and sealed vouchers, their
+   hashes and `voucher verify` are unchanged. It is one-way: 0.2.0 refuses to
+   open a v9 store, so the backup is the only way back. Copy the whole home,
+   including `fiscal.sqlite` and the `fiscal.sqlite-*` files next to it, as
+   the guide's
+   [back-up page](https://aggountant.dev/en/tasks/back-up-and-restore/)
+   describes.
+2. **Install 0.3.0**, then run `aggountant skill install` and restart the
+   agent. `capture-receipt` now handles overlapping statements and bank
+   transactions booked by hand, and `tulorekisteri` approves with
+   `--record-hash-file`.
+3. `aggountant home upgrade` has nothing new to add in 0.3.0; a home brought
+   up to date under 0.2.0 needs no master-data change.
+
+The first statement import after the upgrade reads the identity of the
+vouchers that 0.2.0's import sealed back from the statements they retained,
+in the same transaction (`backfilled_count`); those vouchers are not changed.
+
+Commands that refuse what 0.2.0 accepted, for scripts and agent habits
+carried over from 0.2.0:
+
+- A command other than `init` run against a path with no home fails with
+  `HOME_NOT_INITIALIZED` instead of creating an empty home there. Point it at
+  the company home (`aggountant config show` shows how the home is chosen);
+  run `init` only for a new company.
+- A purchase treatment with the class `eu-goods`, `eu-services` or
+  `zero-rated` fails with `VAT_TREATMENT_CLASS_MISMATCH`. A taxable EU
+  purchase is `reverse-charge` (or `reverse-charge-partial` with its
+  `deductibility`) with `scope` `eu-goods` or `eu-services` and the domestic
+  class whose Finnish rate applies. An intra-Community acquisition of goods
+  exempt in Finland stays
+  `{"type":"reverse-charge","rate_class":"zero-rated","scope":"eu-goods"}`,
+  so that its value is still reported in the EU goods purchases. A purchase
+  with no Finnish VAT otherwise is `no-vat`.
+- A VAT treatment member that does not belong to its type, in an
+  `import camt053 seal` assignment or a `capture-receipt` VAT proposal, fails
+  with `INVALID_INPUT`. Use the `-partial` type for a partial deduction, and
+  give `no-vat` no other member.
+- `import camt053 seal` stops the whole statement, before anything is
+  written, when a transaction already in the books comes with changed bank
+  facts or a different booking, or when a voucher sealed outside the import
+  may already book a new entry. A transaction already in the books with the
+  same facts and booking is not a conflict. `details.conflicts` names each
+  entry and its voucher:
+  - `SOURCE_FACTS_CHANGED`: the bank's facts about a booked transaction
+    differ from the earlier export, or the file lists it as not booked. Find
+    out from the bank what changed before booking anything for it.
+  - `POSTING_PROJECTION_CHANGED`: a booked transaction was given a different
+    assignment. Give it the assignment its voucher was sealed with
+    (`voucher show`), or the same `existing_vouchers` binding if it was bound
+    to a voucher; if that booking was wrong, correct it with a correction
+    voucher.
+  - `SOURCE_IDENTITY_UNKNOWN`: a voucher holds the transaction's reference,
+    but the transaction cannot be found in the statement attached to it. The
+    transaction is not booked again; check that voucher and its attachment.
+  - `BANK_ENTRY_POSSIBLY_BOOKED`: a voucher sealed outside the import may
+    already book a new entry. If it does, move the entry from `assignments`
+    to `existing_vouchers` with that voucher's number (its bank leg must
+    match, or the batch stops with `BANK_VOUCHER_MISMATCH`); if it does not,
+    add the voucher's number to the assignment's `not_booked_by`. A voucher
+    can be bound to one bank transaction only; if it books several, reverse
+    the other parts with a correction voucher that refers to it, then list it
+    in `not_booked_by` for those entries.
+- A month-close `next_command` carries `'<approve|reject>'`, which must be
+  replaced with the answer; run as is, it fails with `INVALID_ANSWER`.
+
+Known limitation: an own-account transfer between two bank accounts whose
+statements are both imported can be booked twice, once from each statement,
+when each import books it straight against the other bank account; nothing
+stops the second
+([camt-transfer-between-imported-accounts](https://github.com/aggountant/aggountant/tree/main/issues/camt-transfer-between-imported-accounts)).
+Book such transfers through a clearing account, so that each statement books
+only its own leg.
 <!-- oss-changelog:unreleased-end -->
 
 ## [0.2.0] - 2026-11-21
