@@ -60,6 +60,34 @@ const GATE_APPROVE_PAYMENT: &str = "ApprovePayment";
 const ACTOR: &str = "process:file-vat";
 /// The payment effect's local amount check: refused before anything was sent.
 const PAYMENT_EXCEEDS_RECONCILED_AMOUNT: &str = "PAYMENT_EXCEEDS_RECONCILED_AMOUNT";
+/// The reconcile rejection `run resume` records for a Run that stopped while
+/// reconciling (a crash, or an error an older build did not journal).
+const VAT_INTERRUPTED_BEFORE_FILING: &str = "VAT_INTERRUPTED_BEFORE_FILING";
+
+/// Whether a `file-vat` Run ended before its filing was attempted: the reconcile
+/// was rejected and no later step ever began. Such a Run is terminal and sent
+/// nothing (`RunStatus::NotFiled`). Derived on read like every Run status, so a
+/// Run an older build left `needs_attention` reads `not_filed` without a write.
+pub(crate) fn stopped_before_filing(f: &Fold) -> bool {
+    f.workflow == "file-vat"
+        && f.effect(EFFECT_RECONCILE).map(|e| e.status) == Some(EffectStatus::Rejected)
+        && filing_never_began(f)
+}
+
+/// The journal shows nothing after the reconcile: no gate was opened, and the
+/// filing and payment effects are still planned (or not yet planned). This is
+/// what proves that no filing of the Run can have left the machine. The outbox
+/// cannot add to it: its attempts are keyed by period, not by Run, so they may be
+/// another Run's, and a Run journals `submit-filing` executing, behind an approved
+/// `ApproveFiling`, before the Broker records any attempt.
+fn filing_never_began(f: &Fold) -> bool {
+    f.gates.is_empty()
+        && f.effects.iter().all(|effect| match effect.key.as_str() {
+            EFFECT_RECONCILE => true,
+            EFFECT_SUBMIT_FILING | EFFECT_SUBMIT_PAYMENT => effect.status == EffectStatus::Planned,
+            _ => false,
+        })
+}
 
 /// Structured input for `file-vat` (CLI stdin JSON): the period and its aggregated
 /// VAT figures, plus where the bank payment goes.
@@ -588,80 +616,56 @@ impl ProcessEngine {
             effect_key: EFFECT_RECONCILE.to_string(),
         })?;
 
-        let ledger = Ledger::open(&self.home)?;
-        // Accounting-integrity cross-check (issue `vat-figures-from-sealed-ledger`):
-        // derive the period's VAT aggregates from the sealed vouchers and require the
-        // CLI-supplied figures to match them exactly. The `sent_hash`/Preview gate
-        // binds the approval to whatever figures were computed — but without this the
-        // figures were merely trusted from input. Deriving them from the sealed ledger
-        // means the approval binds to figures the ledger itself can reproduce. A
-        // mismatch rejects the reconcile effect and parks the Run NeedsAttention (never
-        // a silent file of unverified figures).
-        //
-        // ADR-7 §3: `derive_filing_figures` is the authoritative projection — the
-        // legacy tagged `base × rate` figures **plus** the account-sum over the sealed
-        // VAT-A legs (reverse charge + domestic input VAT). A VAT-A period that the
-        // tagged path alone reports as 0,00 now files its real self-assessed /
-        // deductible amounts.
-        let verified = match derive_verified_sealed_filing(&ledger, &input.period, policy_set) {
-            Ok(verified) => verified,
-            Err(error) => {
-                journal.append(EventPayload::EffectRejected {
-                    effect_key: EFFECT_RECONCILE.to_string(),
-                    error_code: error.error_code().to_string(),
-                })?;
-                return Err(error);
-            }
-        };
-        let filing = verified.filing;
-        // Currency-aware value equality (not string): a EUR figure must not match a
-        // same-numeral non-EUR input, and `Money`/`Decimal` compares across scale.
-        if filing.sales_vat != input.sales_vat || filing.purchase_vat != input.purchase_vat {
-            journal.append(EventPayload::EffectRejected {
-                effect_key: EFFECT_RECONCILE.to_string(),
-                error_code: "VAT_FIGURES_MISMATCH".to_string(),
-            })?;
-            return Err(ProcessError::VatFiguresMismatch(format!(
-                "period {}: input sales_vat {} / purchase_vat {} disagree with the sealed \
-                 ledger's derived sales_vat {} / purchase_vat {}",
-                input.period,
-                input.sales_vat.amount_str(),
-                input.purchase_vat.amount_str(),
-                filing.sales_vat.amount_str(),
-                filing.purchase_vat.amount_str(),
-            )));
-        }
+        // Everything between here and the reconcile outcome runs inside this one
+        // closure, so every failure, `?` included, ends the reconcile effect
+        // rejected. Nothing has been sent at this point, so a rejected reconcile
+        // ends the Run `not_filed`; an error that skipped the journal would leave
+        // it `running` with no command that moves it.
         let acknowledgement = input.vat_reconciliation_acknowledgement.as_ref();
-        if let Err(error) = require_reconciled(&verified.reconciliation, acknowledgement) {
-            journal.append(EventPayload::EffectRejected {
-                effect_key: EFFECT_RECONCILE.to_string(),
-                error_code: error.error_code().to_string(),
-            })?;
-            return Err(error);
-        }
-
-        // ADR-9 preflight: read the authority's exact period before opening approval.
-        // A failed or refused read ends the reconcile effect terminally (the Run
-        // shows NeedsAttention in `run show`); nothing retries it automatically.
-        let vero_period = match read_fileable_vero_period(input, broker, replacement.is_some()) {
-            Ok(vero_period) => vero_period,
-            Err(PreflightFailure { code, detail }) => {
-                journal.append(EventPayload::EffectRejected {
-                    effect_key: EFFECT_RECONCILE.to_string(),
-                    error_code: code.to_string(),
-                })?;
-                return Err(ProcessError::Store(format!(
-                    "{code}: {detail}; Run {run_id} needs attention, nothing was sent \
-                     — start a new file-vat Run when the cause is fixed"
-                )));
+        let prepared = (|| -> Result<PreparedFiling, ReconcileFailure> {
+            let ledger = Ledger::open(&self.home)?;
+            // Accounting-integrity cross-check (issue `vat-figures-from-sealed-ledger`):
+            // derive the period's VAT aggregates from the sealed vouchers and require
+            // the CLI-supplied figures to match them exactly. The `sent_hash`/Preview
+            // gate binds the approval to whatever figures were computed; deriving them
+            // from the sealed ledger means the approval binds to figures the ledger
+            // itself can reproduce. A mismatch rejects the reconcile effect (never a
+            // silent file of unverified figures).
+            //
+            // ADR-7 §3: `derive_filing_figures` is the authoritative projection — the
+            // legacy tagged `base × rate` figures **plus** the account-sum over the
+            // sealed VAT-A legs (reverse charge + domestic input VAT). A VAT-A period
+            // that the tagged path alone reports as 0,00 now files its real
+            // self-assessed / deductible amounts.
+            let verified = derive_verified_sealed_filing(&ledger, &input.period, policy_set)?;
+            let filing = verified.filing;
+            // Currency-aware value equality (not string): a EUR figure must not match a
+            // same-numeral non-EUR input, and `Money`/`Decimal` compares across scale.
+            if filing.sales_vat != input.sales_vat || filing.purchase_vat != input.purchase_vat {
+                return Err(ProcessError::VatFiguresMismatch(format!(
+                    "period {}: input sales_vat {} / purchase_vat {} disagree with the sealed \
+                     ledger's derived sales_vat {} / purchase_vat {}; Run {run_id} was not \
+                     filed and nothing was sent",
+                    input.period,
+                    input.sales_vat.amount_str(),
+                    input.purchase_vat.amount_str(),
+                    filing.sales_vat.amount_str(),
+                    filing.purchase_vat.amount_str(),
+                ))
+                .into());
             }
-        };
+            require_reconciled(&verified.reconciliation, acknowledgement)?;
 
-        // The sole projection builds the final API request. Persist its exact bytes;
-        // approval and dispatch both bind to this same string. A projection the
-        // adapter refuses (e.g. `VERO_VAT_CROSS_FIELD`) ends the reconcile effect
-        // like a failed preflight, so the Run does not stay `executing`.
-        let projection = (|| {
+            // ADR-9 preflight: read the authority's exact period before opening
+            // approval. A failed or refused read rejects the reconcile effect;
+            // nothing retries it automatically.
+            let vero_period = read_fileable_vero_period(input, broker, replacement.is_some())
+                .map_err(|failure| failure.into_reconcile(&run_id))?;
+
+            // The sole projection builds the final API request. Persist its exact
+            // bytes; approval and dispatch both bind to this same string. A projection
+            // the adapter refuses (e.g. `VERO_VAT_CROSS_FIELD`) rejects the reconcile
+            // effect like a failed preflight.
             let request = project_file_vat_return(
                 &input.period,
                 &filing.fields,
@@ -681,118 +685,120 @@ impl ProcessEngine {
             let filing_sent_hash = request.sent_hash().map_err(map_adapter)?;
             let filing_body = json!({ "request_bytes": request_string });
             let filing_approval_hash = filing_approval_hash(&filing_body, &vero_period)?;
-            Ok::<_, ProcessError>((request, filing_body, filing_sent_hash, filing_approval_hash))
-        })();
-        let (request, filing_body, filing_sent_hash, filing_approval_hash) = match projection {
-            Ok(projection) => projection,
-            Err(error) => {
-                journal.append(EventPayload::EffectRejected {
-                    effect_key: EFFECT_RECONCILE.to_string(),
-                    error_code: error.error_code().to_string(),
-                })?;
-                return Err(error);
-            }
-        };
 
-        // A replacement is prepared against the return the authority shows now.
-        let replacement = match replacement {
-            None => None,
-            Some((replaces_filings, reasons)) => {
-                match read_replaced_return(&request, &input.period, broker) {
-                    Ok((prior_filed_return, changes)) => Some((
+            // A replacement is prepared against the return the authority shows now.
+            let replacement = match replacement {
+                None => None,
+                Some((replaces_filings, reasons)) => {
+                    let (prior_filed_return, changes) =
+                        read_replaced_return(&request, &input.period, broker)
+                            .map_err(|failure| failure.into_reconcile(&run_id))?;
+                    Some((
                         ReplacementState {
                             replaces_filings,
                             reasons: reasons.to_vec(),
                             prior_filed_return,
                         },
                         changes,
-                    )),
-                    Err(PreflightFailure { code, detail }) => {
-                        journal.append(EventPayload::EffectRejected {
-                            effect_key: EFFECT_RECONCILE.to_string(),
-                            error_code: code.to_string(),
-                        })?;
-                        return Err(ProcessError::Store(format!(
-                            "{code}: {detail}; Run {run_id} needs attention, nothing was sent"
-                        )));
-                    }
+                    ))
                 }
+            };
+
+            // Payment remains a separate approval/effect. GetVATPeriods does not
+            // expose tax-account credit, so this slice displays the filing net without
+            // pretending it has reconciled a bank balance. A replacement changes the
+            // tax by its difference to the return in force, which this Run does not
+            // know as a payable amount (the earlier return may be paid, or not), so it
+            // pays nothing.
+            let bank_payment_required =
+                if replacement.is_some() || filing.net_vat.amount().is_sign_negative() {
+                    "0.00".to_string()
+                } else {
+                    filing.net_vat.amount_str()
+                };
+            let payment_body = json!({
+                "period": input.period.to_string(),
+                "amount": bank_payment_required,
+                "payee_iban": input.payee_iban,
+            });
+            let payment_env = Envelope::new(
+                SVC_PANKKI_MAKSU,
+                "pay-vat",
+                format!("pay:{}", input.period),
+                payment_body.clone(),
+            );
+            let payment_sent_hash = payment_env.sent_hash().map_err(map_broker)?;
+
+            // Acquire the local filing authority only after the read-only remote
+            // preflight and all projection validation have succeeded. An authority
+            // outage or invalid response must not strand an undiscoverable Run as the
+            // period's filing owner.
+            match &replacement {
+                None => drop(ledger.acquire_filing_authority(&input.period, &run_id)?),
+                Some((state, _)) => drop(ledger.acquire_replacement_authority(
+                    &input.period,
+                    &run_id,
+                    state.replaces_filings,
+                )?),
+            }
+            let replacement_preview =
+                replacement
+                    .as_ref()
+                    .map(|(state, changes)| ReplacementPreview {
+                        replaces_filing: state.replaces_filings,
+                        reasons: state.reasons.clone(),
+                        authority_return: state.prior_filed_return.clone(),
+                        changes: changes.clone(),
+                        payment_note: REPLACEMENT_PAYMENT_NOTE,
+                    });
+
+            self.write_file_vat_state(
+                &run_id,
+                &FileVatState {
+                    period: input.period.to_string(),
+                    policy_set: policy_set.id.clone(),
+                    voucher_source_fingerprint: verified.voucher_source_fingerprint,
+                    filing_fields: serde_json::to_value(&filing.fields)
+                        .map_err(|e| ProcessError::Store(e.to_string()))?,
+                    sales_vat: filing.sales_vat.amount_str(),
+                    purchase_vat: filing.purchase_vat.amount_str(),
+                    filing_body: filing_body.clone(),
+                    filing_sent_hash,
+                    payment_body,
+                    payment_sent_hash,
+                    bank_payment_required: bank_payment_required.clone(),
+                    net_vat: filing.net_vat.amount_str(),
+                    vero_period: vero_period.clone(),
+                    vat_reconciliation_acknowledgement: acknowledgement.cloned(),
+                    replacement: replacement.map(|(state, _)| state),
+                },
+            )?;
+            Ok(PreparedFiling {
+                filing,
+                vero_period,
+                filing_body,
+                filing_approval_hash,
+                bank_payment_required,
+                replacement_preview,
+            })
+        })();
+        let PreparedFiling {
+            filing,
+            vero_period,
+            filing_body,
+            filing_approval_hash,
+            bank_payment_required,
+            replacement_preview,
+        } = match prepared {
+            Ok(prepared) => prepared,
+            Err(ReconcileFailure { code, error }) => {
+                journal.append(EventPayload::EffectRejected {
+                    effect_key: EFFECT_RECONCILE.to_string(),
+                    error_code: code,
+                })?;
+                return Err(error);
             }
         };
-
-        // Payment remains a separate approval/effect. GetVATPeriods does not expose
-        // tax-account credit, so this slice displays the filing net without pretending
-        // it has reconciled a bank balance. A replacement changes the tax by its
-        // difference to the return in force, which this Run does not know as a
-        // payable amount (the earlier return may be paid, or not), so it pays nothing.
-        let bank_payment_required =
-            if replacement.is_some() || filing.net_vat.amount().is_sign_negative() {
-                "0.00".to_string()
-            } else {
-                filing.net_vat.amount_str()
-            };
-        let payment_body = json!({
-            "period": input.period.to_string(),
-            "amount": bank_payment_required,
-            "payee_iban": input.payee_iban,
-        });
-        let payment_env = Envelope::new(
-            SVC_PANKKI_MAKSU,
-            "pay-vat",
-            format!("pay:{}", input.period),
-            payment_body.clone(),
-        );
-        let payment_sent_hash = payment_env.sent_hash().map_err(map_broker)?;
-
-        // Acquire the local filing authority only after the read-only remote preflight
-        // and all projection validation have succeeded. An authority outage or invalid
-        // response must not strand an undiscoverable Run as the period's filing owner.
-        let authority = match &replacement {
-            None => ledger
-                .acquire_filing_authority(&input.period, &run_id)
-                .map(drop),
-            Some((state, _)) => ledger
-                .acquire_replacement_authority(&input.period, &run_id, state.replaces_filings)
-                .map(drop),
-        };
-        if let Err(error) = authority {
-            journal.append(EventPayload::EffectRejected {
-                effect_key: EFFECT_RECONCILE.to_string(),
-                error_code: error.error_code().to_string(),
-            })?;
-            return Err(error.into());
-        }
-        let replacement_preview = replacement
-            .as_ref()
-            .map(|(state, changes)| ReplacementPreview {
-                replaces_filing: state.replaces_filings,
-                reasons: state.reasons.clone(),
-                authority_return: state.prior_filed_return.clone(),
-                changes: changes.clone(),
-                payment_note: REPLACEMENT_PAYMENT_NOTE,
-            });
-
-        self.write_file_vat_state(
-            &run_id,
-            &FileVatState {
-                period: input.period.to_string(),
-                policy_set: policy_set.id.clone(),
-                voucher_source_fingerprint: verified.voucher_source_fingerprint,
-                filing_fields: serde_json::to_value(&filing.fields)
-                    .map_err(|e| ProcessError::Store(e.to_string()))?,
-                sales_vat: filing.sales_vat.amount_str(),
-                purchase_vat: filing.purchase_vat.amount_str(),
-                filing_body: filing_body.clone(),
-                filing_sent_hash: filing_sent_hash.clone(),
-                payment_body,
-                payment_sent_hash,
-                bank_payment_required: bank_payment_required.clone(),
-                net_vat: filing.net_vat.amount_str(),
-                vero_period: vero_period.clone(),
-                vat_reconciliation_acknowledgement: acknowledgement.cloned(),
-                replacement: replacement.map(|(state, _)| state),
-            },
-        )?;
 
         journal.append(EventPayload::EffectSucceeded {
             effect_key: EFFECT_RECONCILE.to_string(),
@@ -831,6 +837,46 @@ impl ProcessEngine {
             replacement: replacement_preview,
             run,
         })
+    }
+
+    /// `run resume` on a `file-vat` Run. A Run that stopped while reconciling
+    /// (its `reconcile` planned or executing) with no later step begun is settled:
+    /// the reconcile is rejected with `VAT_INTERRUPTED_BEFORE_FILING`, and the Run
+    /// reads `not_filed`. Such a Run has no approved request, so nothing of it can
+    /// have been sent. If its journal shows any later step, resume refuses and
+    /// names `file-vat status`. Every other `file-vat` Run is returned unchanged:
+    /// its recovery is `file-vat reconcile` or `file-vat status`.
+    ///
+    /// The caller holds the Run's lease, so a `file-vat start` still running is
+    /// not settled under it. The workflow version is not checked: settling runs
+    /// no step of the workflow, and the Runs it is for come from older builds.
+    pub(crate) fn resume_file_vat_before_filing(
+        &self,
+        journal: &Journal,
+        f: &Fold,
+    ) -> Result<RunView, ProcessError> {
+        let reconcile = f.effect(EFFECT_RECONCILE).map(|effect| effect.status);
+        if matches!(
+            reconcile,
+            Some(EffectStatus::Planned | EffectStatus::Executing)
+        ) {
+            if !filing_never_began(f) {
+                return Err(ProcessError::VatFilingUnresolved(format!(
+                    "Run {run_id} stopped while reconciling, but its journal shows a later \
+                     step (a gate, or a filing or payment step that began), so a filing may \
+                     have left the machine and resume does not settle it. Run `aggountant \
+                     file-vat status --period {period}`: it says what happened and names the \
+                     command that records it (`file-vat reconcile --run-id {run_id}`)",
+                    run_id = f.run_id,
+                    period = f.period,
+                )));
+            }
+            journal.append(EventPayload::EffectRejected {
+                effect_key: EFFECT_RECONCILE.to_string(),
+                error_code: VAT_INTERRUPTED_BEFORE_FILING.to_string(),
+            })?;
+        }
+        self.show(&f.run_id)
     }
 
     /// Answer a `file-vat` gate (`ApproveFiling` or `ApprovePayment`). `approve`
@@ -1970,6 +2016,54 @@ fn rebuild_filing_env(period: &PeriodId, body: &serde_json::Value) -> Envelope {
 struct PreflightFailure {
     code: &'static str,
     detail: String,
+}
+
+impl PreflightFailure {
+    /// The rejected reconcile this failure ends: the preflight's own code in the
+    /// journal, the detail and the Run's outcome for the caller.
+    fn into_reconcile(self, run_id: &str) -> ReconcileFailure {
+        let PreflightFailure { code, detail } = self;
+        ReconcileFailure {
+            code: code.to_string(),
+            error: ProcessError::Store(format!(
+                "{code}: {detail}; Run {run_id} was not filed and nothing was sent \
+                 — start a new file-vat Run when the cause is fixed"
+            )),
+        }
+    }
+}
+
+/// Why a `file-vat` reconcile was rejected: `code` is journalled on the effect,
+/// `error` goes to the caller. They differ only for a preflight refusal, whose
+/// code names the authority's answer while the caller gets the detail.
+struct ReconcileFailure {
+    code: String,
+    error: ProcessError,
+}
+
+impl From<ProcessError> for ReconcileFailure {
+    fn from(error: ProcessError) -> Self {
+        ReconcileFailure {
+            code: error.error_code().to_string(),
+            error,
+        }
+    }
+}
+
+impl From<aggountant_ledger::LedgerError> for ReconcileFailure {
+    fn from(error: aggountant_ledger::LedgerError) -> Self {
+        ProcessError::from(error).into()
+    }
+}
+
+/// What a successful reconcile hands to the approval gate and the caller.
+struct PreparedFiling {
+    filing: VatFiling,
+    vero_period: serde_json::Value,
+    filing_body: serde_json::Value,
+    filing_approval_hash: String,
+    bank_payment_required: String,
+    replacement_preview: Option<ReplacementPreview>,
 }
 
 /// Read the authority's period list and return the exact period of `input`, only

@@ -152,4 +152,27 @@ fn an_untagged_sale_vat_leg_warns_shows_in_preview_and_blocks_filing() {
     assert_ne!(code, 0);
     let error: Value = serde_json::from_str(&err).unwrap();
     assert_eq!(error["error_code"], "VAT_ACCOUNTS_UNRECONCILED", "{err}");
+
+    // The refused start leaves a finished Run that says it sent nothing, with the
+    // code on its reconcile step; `run resume` leaves it so.
+    let (_, runs, _) = run(home, None, &["run", "list"], "");
+    let run_id = runs["runs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .find(|id| id.starts_with("fv-"))
+        .unwrap()
+        .to_string();
+    for command in ["show", "resume"] {
+        let (code, view, err) = run(home, None, &["run", command, "--run-id", &run_id], "");
+        assert_eq!(code, 0, "{command}: {err}");
+        assert_eq!(view["status"], "not_filed", "{command}: {view}");
+        assert_eq!(view["effects"][0]["key"], "reconcile");
+        assert_eq!(
+            view["effects"][0]["error_code"],
+            "VAT_ACCOUNTS_UNRECONCILED"
+        );
+        assert_eq!(view["effects"][1]["status"], "planned");
+    }
 }

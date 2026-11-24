@@ -31,6 +31,21 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   code and the bank event identity are unchanged.
 
 ### Fixed
+
+- **VAT: a `file-vat` run that stopped before filing now ends.** A
+  `file-vat start` or `replace` refused before the approval (figures that do
+  not match the books, unreconciled VAT accounts, a failed or refusing period
+  read) used to leave its run `needs_attention` for good, and a run that
+  stopped mid-reconcile stayed `running`. Such a run now has the new final
+  status `not_filed` in `run show`: the return was not filed by it and nothing
+  was sent. Runs earlier versions left rejected read `not_filed` as they are;
+  `run resume` settles one left with `reconcile` executing (code
+  `VAT_INTERRUPTED_BEFORE_FILING`), and refuses with `VAT_FILING_UNRESOLVED`
+  if its journal shows a filing step began. Every error during the reconcile
+  is now journalled. `run resume` no longer applies month-close recovery to a
+  `file-vat` run. A rejected effect in `run show` now carries its
+  `error_code`. A caller that matches on `needs_attention` for these runs
+  must accept `not_filed`.
 <!-- oss-changelog:unreleased-end -->
 
 ## [0.3.0] - 2026-11-24

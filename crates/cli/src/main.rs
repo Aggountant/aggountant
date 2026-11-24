@@ -781,7 +781,9 @@ enum RunCmd {
     /// `accepted` with the recorded `receipt` (Vero `unique_identifier` and
     /// `accepted_timestamp`; Incomes Register `ir_delivery_id`, `ir_report_id`,
     /// `version`), `outcome_unknown` with the `next_command` that settles it, or
-    /// `rejected` with its `error_code`.
+    /// `rejected` with its `error_code`. A rejected effect carries its
+    /// `error_code`. Status `not_filed` (`file-vat`) is final: the Run stopped
+    /// before its filing was attempted and sent nothing.
     Show {
         #[arg(long)]
         run_id: String,
@@ -795,7 +797,12 @@ enum RunCmd {
         #[arg(long)]
         answer: String,
     },
-    /// Resume a Run (reconciles process state to authoritative fiscal state).
+    /// Resume a Run (reconciles process state to authoritative fiscal state). A
+    /// `file-vat` Run that stopped while reconciling, before any filing step
+    /// began, is settled `not_filed` (VAT_INTERRUPTED_BEFORE_FILING on its
+    /// reconcile step); one whose filing may have begun is refused with
+    /// VAT_FILING_UNRESOLVED (use `file-vat status`). Other `file-vat` Runs are
+    /// returned unchanged.
     Resume {
         #[arg(long)]
         run_id: String,

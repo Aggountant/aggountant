@@ -207,6 +207,10 @@ pub struct EffectView {
     pub key: String,
     pub effect_type: String,
     pub status: EffectStatus,
+    /// The code the effect was rejected with, while it is `rejected`; absent
+    /// otherwise. The same code the journal's `effect_rejected` event holds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     /// The authority's answer to a filing effect (VAT return, Incomes Register
     /// report): the recorded receipt, or that the outcome is unknown and how to
     /// settle it. Absent for every other effect.
@@ -242,6 +246,11 @@ pub enum RunStatus {
     Rejected,
     /// An effect Rejected (partial failure) — needs a human/driver decision.
     NeedsAttention,
+    /// (`file-vat`) Terminal: the Run stopped before its filing was attempted, so
+    /// the return was not filed by this Run and nothing was sent. The rejected
+    /// `reconcile` effect carries the reason in `error_code`; a new Run files the
+    /// period.
+    NotFiled,
     /// An effect is parked on a durable `Effect::Wait` (a quota backoff, S5). Rendered
     /// distinctly from `NeedsAttention`: no human action is needed, just time.
     Waiting,
@@ -314,6 +323,9 @@ impl Fold {
             .any(|g| g.answered.as_deref() == Some("reject"))
         {
             return RunStatus::Rejected;
+        }
+        if file_vat::stopped_before_filing(self) {
+            return RunStatus::NotFiled;
         }
         if self
             .effects
@@ -392,6 +404,7 @@ fn fold(run_id: &str, events: &[JournalEvent]) -> Result<Fold, ProcessError> {
                 key: effect_key.clone(),
                 effect_type: effect_type.clone(),
                 status: EffectStatus::Planned,
+                error_code: None,
                 outcome: None,
                 payment: None,
             }),
@@ -408,6 +421,9 @@ fn fold(run_id: &str, events: &[JournalEvent]) -> Result<Fold, ProcessError> {
                 error_code,
             } => {
                 set_effect(&mut f, effect_key, EffectStatus::Rejected)?;
+                if let Some(effect) = f.effects.iter_mut().find(|e| &e.key == effect_key) {
+                    effect.error_code = Some(error_code.clone());
+                }
                 f.error_codes.insert(effect_key.clone(), error_code.clone());
             }
             EventPayload::EffectSkipped { effect_key, .. } => {
@@ -458,6 +474,7 @@ fn set_effect(f: &mut Fold, key: &str, status: EffectStatus) -> Result<(), Proce
             ProcessError::JournalCorrupt(format!("state for unplanned effect {key}"))
         })?;
     e.status = status;
+    e.error_code = None;
     Ok(())
 }
 
@@ -731,11 +748,17 @@ impl ProcessEngine {
 
     /// Resume a Run: check the workflow version, reconcile any effect whose fiscal
     /// COMMIT landed but whose `EffectState` did not (ADR-6 §3 — fiscal wins), then
-    /// converge to the parked-at-gate state.
+    /// converge to the parked-at-gate state. A `file-vat` Run is handed to
+    /// [`Self::resume_file_vat_before_filing`] instead.
     pub fn resume(&self, run_id: &str) -> Result<RunView, ProcessError> {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
+        // A `file-vat` Run is not a close: its own recovery decides what resume may
+        // do with it, and the close-period steps below must never touch it.
+        if f.workflow == "file-vat" {
+            return self.resume_file_vat_before_filing(&journal, &f);
+        }
         self.check_version(&f)?;
 
         let period = self.period_of(&f)?;

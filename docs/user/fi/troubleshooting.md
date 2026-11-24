@@ -23,12 +23,21 @@ ajo huomaa sen eikä tee mitään toiseen kertaan.
 | Ajo | Jatkaminen |
 |---|---|
 | kuukauden sulku (`cp-…`) | `aggountant run resume --run-id cp-…` |
+| ALV-ilmoitus (`fv-…`), pysähtyi ennen lähetystä (`running`, `reconcile` `executing`) | `aggountant run resume --run-id fv-…` |
 | ALV-ilmoitus (`fv-…`), epävarma lähetys | `aggountant file-vat reconcile --run-id fv-…` |
 | ALV-ilmoitus (`fv-…`), keskeytyi lähetettäessä | `aggountant file-vat status --period VVVV-KK` ja sen nimeämä komento ([alla](#alv-ilmoitus-keskeytyi-lähetettäessä)) |
 | Tulorekisteri-ilmoitus (`wr-…`), epävarma lähetys | `aggountant file-wage reconcile wr-…` |
 | Tulorekisteri-ilmoituksen korjaus (`wc-…`), epävarma lähetys | `aggountant file-wage correction status wr-…` |
 | työnantajan erillisilmoitus (`er-…`), epävarma lähetys | `aggountant file-wage employer-report status --month VVVV-KK` |
 | tilinpäätös (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
+
+ALV-ilmoitusajo, joka pysähtyi ennen kuin mitään lähetettiin, päättyy
+jatkettaessa tilaan `not_filed`, ja sen `reconcile`-vaiheessa on koodi
+`VAT_INTERRUPTED_BEFORE_FILING`. Tilassa `not_filed` oleva ajo on päättynyt:
+se ei antanut ilmoitusta eikä lähettänyt mitään, joten se ei vaadi toimia
+eikä estä uutta ajoa samalle kaudelle. Jos ajo on voinut jo aloittaa
+lähetyksen, jatkaminen kieltäytyy (`VAT_FILING_UNRESOLVED`) ja ohjaa
+komentoon `file-vat status`.
 
 **Älä** käynnistä ilmoitusta uudelleen alusta. Ohjelma ei lähetä
 viranomaisilmoitusta uudelleen itsestään, eikä sitä pidä lähettää käsinkään,

@@ -74,8 +74,10 @@ on lisäksi kenttä `vat_reconciliation_acknowledgement`, jossa ovat perustelu
 Ennen hyväksyntää `file-vat start` lukee kauden Verohallinnolta. Jos luku
 epäonnistuu tai kausi ei ole ilmoitettavissa, komento päättyy virheeseen,
 joka kertoo syyn ja nimeää ajon. Mitään ei lähetetä, ja `run show` näyttää
-ajon tilassa `needs_attention` ja `reconcile`-efektin hylättynä. Ohjelma ei
-yritä uudelleen. Kun syy on korjattu, agentti aloittaa uuden ajon.
+ajon tilassa `not_filed` ja syyn koodin hylätyn `reconcile`-efektin kentässä
+`error_code`. Samoin käy, jos luvut eivät vastaa kirjanpitoa tai ALV-tilit
+eivät täsmää. Tilassa `not_filed` oleva ajo on päättynyt eikä estä uutta.
+Ohjelma ei yritä uudelleen. Kun syy on korjattu, agentti aloittaa uuden ajon.
 
 Ajo odottaa hyväksyntää `ApproveFiling`; hylkäys on `--answer reject`. Kun
 ilmoitus on annettu, ajo on tilassa `completed`. Kun veroa on maksettavaa,

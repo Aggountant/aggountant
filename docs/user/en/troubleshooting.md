@@ -22,12 +22,20 @@ before the crash, the run notices that and does nothing a second time.
 | Run | Continuing |
 |---|---|
 | month's close (`cp-…`) | `aggountant run resume --run-id cp-…` |
+| VAT return (`fv-…`), stopped before sending (`running`, `reconcile` `executing`) | `aggountant run resume --run-id fv-…` |
 | VAT return (`fv-…`), uncertain submission | `aggountant file-vat reconcile --run-id fv-…` |
 | VAT return (`fv-…`), interrupted while sending | `aggountant file-vat status --period YYYY-MM`, then the command it names ([below](#a-vat-filing-was-interrupted-while-sending)) |
 | Tulorekisteri report (`wr-…`), uncertain submission | `aggountant file-wage reconcile wr-…` |
 | a correction of a Tulorekisteri report (`wc-…`), uncertain submission | `aggountant file-wage correction status wr-…` |
 | employer's separate report (`er-…`), uncertain submission | `aggountant file-wage employer-report status --month YYYY-MM` |
 | year-end (`cy-…`) | `aggountant close-year resume --run-id cy-…` |
+
+A VAT return run that stopped before anything was sent ends as `not_filed`
+when resumed, with the code `VAT_INTERRUPTED_BEFORE_FILING` on its
+`reconcile` step. A run in the state `not_filed` is finished: the return was
+not filed by it and nothing was sent, so it needs nothing and does not stop a
+new run for the period. If the run may already have begun sending, resuming
+refuses (`VAT_FILING_UNRESOLVED`) and names `file-vat status`.
 
 **Do not** start a filing again from the beginning. The program does not
 send a filing to an authority again on its own, and you should not send one

@@ -1917,7 +1917,7 @@ fn only_run_and_reconcile_rejection(engine: &ProcessEngine) -> (String, Option<S
 }
 
 #[test]
-fn a_failed_period_read_parks_the_run_needs_attention() {
+fn a_failed_period_read_ends_the_run_not_filed() {
     let home = sealed_home();
     let engine = ProcessEngine::open(home.path());
     let unavailable = broker_with(
@@ -1935,16 +1935,38 @@ fn a_failed_period_read_parks_the_run_needs_attention() {
         err.to_string().contains(&run_id),
         "error names the Run: {err}"
     );
+    assert!(err.to_string().contains("was not filed"), "{err}");
     let view = engine.show(&run_id).unwrap();
-    assert_eq!(view.status, RunStatus::NeedsAttention);
+    assert_eq!(view.status, RunStatus::NotFiled);
     assert_eq!(effect_status(&view, "reconcile"), EffectStatus::Rejected);
     assert_eq!(effect_status(&view, "submit-filing"), EffectStatus::Planned);
     assert_eq!(code.as_deref(), Some("FETCH_FAILED"));
+    // The code stays on the Run's own view, not only in the journal.
+    let reconcile = view.effects.iter().find(|e| e.key == "reconcile").unwrap();
+    assert_eq!(reconcile.error_code.as_deref(), Some("FETCH_FAILED"));
     assert_no_filing_attempt(&unavailable);
+
+    // The Run blocks nothing: `file-vat status` says the period is not filed, and
+    // the corrected retry starts and reaches the approval.
+    match engine.file_vat_status_plan(&q1()).unwrap() {
+        FileVatStatusPlan::Answered(status) => {
+            assert_eq!(status.status, FileVatFilingStatus::NotFiled)
+        }
+        FileVatStatusPlan::Query(_) => panic!("a Run that sent nothing needs no query"),
+    }
+    let broker = broker_with(home.path(), verotili_ok(), vec![], vec![]);
+    let retry = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    assert_eq!(retry.run.status, RunStatus::AwaitingGate);
+    // `run resume` leaves the finished Run as it is.
+    let events = engine.journal(&run_id).unwrap().len();
+    assert_eq!(engine.resume(&run_id).unwrap().status, RunStatus::NotFiled);
+    assert_eq!(engine.journal(&run_id).unwrap().len(), events);
 }
 
 #[test]
-fn a_period_the_authority_will_not_accept_parks_the_run_needs_attention() {
+fn a_period_the_authority_will_not_accept_ends_the_run_not_filed() {
     let home = sealed_home();
     let engine = ProcessEngine::open(home.path());
     let filed = vec![ok(
@@ -1966,10 +1988,7 @@ fn a_period_the_authority_will_not_accept_parks_the_run_needs_attention() {
     );
 
     let (run_id, code) = only_run_and_reconcile_rejection(&engine);
-    assert_eq!(
-        engine.show(&run_id).unwrap().status,
-        RunStatus::NeedsAttention
-    );
+    assert_eq!(engine.show(&run_id).unwrap().status, RunStatus::NotFiled);
     assert_eq!(code.as_deref(), Some("VERO_VAT_PERIOD_NOT_FILEABLE"));
     assert_no_filing_attempt(&broker);
 }

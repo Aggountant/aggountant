@@ -47,8 +47,12 @@ tapauksia on kaksi ja ne ratkeavat eri tavoin:
 `aggountant file-vat start` ottaa esikatselun luvut, tarkistaa valmiuden, kysyy kauden
 tilan Verohallinnolta ja jää odottamaan hyväksyntää. Mitään ei ole vielä lähetetty.
 Syötteen `payee_iban` on OmaVeron näyttämä Verohallinnon tili. Jos käynnistys
-epäonnistuu, mitään ei lähtenyt, mutta ajo on käytetty: kun syy on korjattu, aloitetaan
-uusi ajo.
+epäonnistuu, mitään ei lähtenyt, ja ajo päättyy tilaan `not_filed`; syyn koodi on
+`reconcile`-efektin kentässä `error_code`. Kun syy on korjattu, aloitetaan uusi ajo.
+Tällainen ajo ei kaipaa mitään toimia eikä estä uutta. Jos ajo on jäänyt tilaan
+`running` niin, että `reconcile` on yhä `executing` (kaatuminen tai aiempi versio),
+`aggountant run resume --run-id …` päättää sen tilaan `not_filed`; jos ajon
+lähetysvaihe on ehtinyt alkaa, komento kieltäytyy ja ohjaa komentoon `file-vat status`.
 
 Näytä käyttäjälle se, minkä hän hyväksyy: yritys, kausi ja eräpäivä, numeroidut kentät
 euroina, nettosumma ja maksettava määrä. Hyväksyntä koskee juuri tätä ehdotusta, ja

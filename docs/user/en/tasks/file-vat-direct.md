@@ -76,9 +76,11 @@ voucher numbers the preview lists (`vouchers`).
 Before the approval, `file-vat start` reads the period from the Tax
 Administration. If that read fails or the period is not open for filing, the
 command fails with an error that gives the reason and names the run. Nothing
-is sent, and `run show` shows the run as `needs_attention` with the
-`reconcile` effect rejected. The program does not retry. Once the cause is
-fixed, the agent starts a new run.
+is sent, and `run show` shows the run as `not_filed`, with the code on the
+rejected `reconcile` effect (`error_code`). The same happens when the figures
+do not match the books or the VAT accounts do not reconcile. A `not_filed`
+run is finished and does not stop a new one. The program does not retry. Once
+the cause is fixed, the agent starts a new run.
 
 The run waits at the approval `ApproveFiling`; rejecting is
 `--answer reject`. Once the return is filed, the run is `completed`. When there
