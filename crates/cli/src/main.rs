@@ -3355,7 +3355,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                             .map(|a| a.len())
                             .unwrap_or(0)
                     ),
-                    &value,
+                    value,
                 ),
                 CamtCmd::Seal { dry_run: true, .. } => with_empty_report(
                     format!(
@@ -3366,7 +3366,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                         value["duplicate_observation_count"],
                         value["preparation_hash"]
                     ),
-                    &value,
+                    value,
                 ),
                 CamtCmd::Seal { .. } => with_empty_report(
                     format!(
@@ -3377,7 +3377,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                         value["duplicate_observation_count"],
                         value["attachment_ref"]
                     ),
-                    &value,
+                    value,
                 ),
                 CamtCmd::Observations { .. } => value["observations"]
                     .as_array()

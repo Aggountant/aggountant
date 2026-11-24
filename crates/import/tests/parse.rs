@@ -1272,6 +1272,13 @@ fn an_unbooked_entry_is_listed_unless_the_document_also_books_it() {
         "{}",
         empty.message
     );
+    // A pending entry with no usable reference is not listed in `unbooked`,
+    // but it is still counted: the account had activity awaiting booking.
+    let unreferenced = r#"<Ntry><Amt Ccy="EUR">5.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>PDNG</Sts>
+<BookgDt><Dt>2026-03-02</Dt></BookgDt></Ntry>"#;
+    let no_ref = parse_camt(&document(unreferenced)).unwrap();
+    assert!(no_ref.unbooked.is_empty());
+    assert_eq!(no_ref.empty_report.expect("empty").unbooked_count, 1);
     assert_eq!(
         only_pending.unbooked[0].natural_key,
         "bank-import:holvi:FI2112345600000785:REF-1"

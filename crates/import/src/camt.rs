@@ -169,7 +169,8 @@ pub struct EmptyReport {
     pub account_iban: String,
     /// The `FrToDt` of every report block that declares one, in document order.
     pub periods: Vec<StatementPeriod>,
-    /// Entries listed with a status other than booked (for example pending).
+    /// Entries listed with a status other than booked (for example pending),
+    /// including those without a reference that `unbooked` leaves out.
     pub unbooked_count: usize,
     /// One sentence that says all of the above, for a person or an agent.
     pub message: String,
@@ -409,6 +410,9 @@ pub fn parse_camt(xml: &str) -> Result<ParsedStatement, ImportError> {
 
     let mut transactions = Vec::new();
     let mut unbooked = Vec::new();
+    // Every non-booked entry, including those without a reference to match
+    // by, which `unbooked` leaves out.
+    let mut unbooked_count = 0;
     let mut statements = Vec::new();
     for report in &reports {
         // Refuse a multi-account document: every entry's natural_key is scoped by
@@ -430,8 +434,11 @@ pub fn parse_camt(xml: &str) -> Result<ParsedStatement, ImportError> {
         for ntry in children(*report, "Ntry") {
             match parse_entry(ntry, &account_iban, currency.as_deref())? {
                 ParsedEntry::Booked(txn) => transactions.push(txn),
-                ParsedEntry::Unbooked(Some(entry)) => unbooked.push(entry),
-                ParsedEntry::Unbooked(None) => {}
+                ParsedEntry::Unbooked(Some(entry)) => {
+                    unbooked_count += 1;
+                    unbooked.push(entry);
+                }
+                ParsedEntry::Unbooked(None) => unbooked_count += 1,
             }
         }
         statements.push(summarize_report(
@@ -461,7 +468,7 @@ pub fn parse_camt(xml: &str) -> Result<ParsedStatement, ImportError> {
 
     let empty_report = transactions
         .is_empty()
-        .then(|| EmptyReport::new(&account_iban, &statements, unbooked.len()));
+        .then(|| EmptyReport::new(&account_iban, &statements, unbooked_count));
     Ok(ParsedStatement {
         account_iban,
         currency,
