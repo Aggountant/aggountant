@@ -1390,14 +1390,15 @@ fn the_old_verbs_remain_aliases_of_import_camt() {
 fn a_malformed_camt052_reports_invalid_camt() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();
-    let broken = balance_only("052").replace(
-        "<Acct><Id><IBAN>FI2112345600000785</IBAN></Id>",
-        "<Acct><Id>",
-    );
+    let broken = balance_only("052").replace("<IBAN>FI2112345600000785</IBAN>", "");
     let file = write_export(home, "broken.xml", &broken);
     let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
     assert_ne!(code, 0, "{stdout}");
     let error: Value = serde_json::from_str(&stderr).unwrap();
     assert_eq!(error["error_code"], "INVALID_CAMT", "{stderr}");
+    assert!(
+        error["message"].as_str().unwrap().contains("IBAN"),
+        "{stderr}"
+    );
     assert!(!stderr.contains("053"), "{stderr}");
 }

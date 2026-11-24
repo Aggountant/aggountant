@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-24
 type: improvement
-status: open
+status: done
 priority: normal
 lane: bank-import
 lane_seq: 30
 collision: [crates/import, crates/cli/src/main.rs]
+closed: 2026-11-24
 ---
 
 # camt import: report empty statements and stop naming camt.052 as camt.053
@@ -43,3 +44,9 @@ produces them; reopen when one does.
 - [ ] A synthetic balance-only report yields an explicit empty-report result.
 - [ ] Error codes and names no longer claim camt.053 for camt.052 input.
 - [ ] `docs/user/` updated with the verb.
+
+## Resolution
+
+### 2026-11-24T08:04:07Z · @issuectl
+
+Empty reports return empty_report (account, periods, message) in parse, preview and seal; names are camt / INVALID_CAMT / import camt with camt053 and camt052 kept as aliases. See result.md.
