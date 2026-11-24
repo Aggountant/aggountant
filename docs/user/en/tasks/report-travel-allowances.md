@@ -18,8 +18,7 @@ report gives a health insurance contribution of €0.
   organisation → Näytä tiedot → Tee korvaava hakemus. The Tulorekisteri
   interfaces are Palkkatiedot and Etuustiedot, each as SFTP or Web service.
   Choose **Palkkatiedot (Web service)** and the purpose "ilmoitan itse
-  maksamiani tuloja". Keep Vero API ticked if you use it. The application can
-  be approved at once. You do not need a new certificate, because the same
+  maksamiani tuloja". Keep Vero API ticked if you use it. You do not need a new certificate, because the same
   one works for both, but you can also use a separate one. Once the
   permission is granted, the confirmation lists "Palkkatiedot tuottaja (Web
   service)" and, if you kept Vero API, "Vero API (Web service)".

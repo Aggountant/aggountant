@@ -19,7 +19,7 @@ sairausvakuutusmaksu 0 €.
   Palkkatiedot ja Etuustiedot, kumpikin SFTP- tai Web service -muodossa.
   Valitse **Palkkatiedot (Web service)** ja käyttötarkoitukseksi "ilmoitan
   itse maksamiani tuloja". Pidä Vero API valittuna, jos käytät sitä.
-  Hakemuksen voi hyväksyä heti. Uutta varmennetta et tarvitse, koska sama
+  Uutta varmennetta et tarvitse, koska sama
   varmenne kelpaa molempiin, mutta voit käyttää myös erillistä. Kun oikeus on
   myönnetty, vahvistuksessa lukee "Palkkatiedot tuottaja (Web service)" ja,
   jos pidit Vero API:n, "Vero API (Web service)".
