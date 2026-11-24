@@ -2,9 +2,12 @@
 created: 2026-11-24
 updated: 2026-11-24
 type: bug
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
+lane: vat-filing
+lane_seq: 11
+collision: [crates/process/src/file_vat.rs, skills/vero-fi/SKILL.md]
 ---
 
 # file-vat: a Run that stopped before filing cannot be retired
@@ -62,3 +65,9 @@ Reframing after reading `start_file_vat` on current main (`8acda3b`): both shape
 - **Stuck `executing` can still happen.** Between `EffectExecuting` and the reconcile outcome there are `?` paths that return without journalling a rejection (for example `Ledger::open`), so an error or crash there leaves `reconcile` `executing` and the Run `running`; `run resume` returns it unchanged.
 
 Suggested shape, likely simpler than an abandon command: a reconcile that is rejected before any filing attempt ends the Run in a terminal "not filed, nothing sent" state instead of `needs_attention`; every error path inside reconcile journals its rejection; and `run resume` settles an `executing` reconcile with no filing attempt to that same terminal state, which also retires the old Runs without a new command. Whether an explicit abandon command is still wanted is a triage question.
+
+## Decisions
+
+### 2026-11-24T16:27:19Z · @conductor
+
+Accepted for execution by Jari 24.11.2026, in the reframed shape of the previous comment: a reconcile rejected before any filing attempt ends the Run terminally (not filed, nothing sent); every reconcile error path journals its rejection; run resume settles an executing reconcile with no filing attempt to the same state, which also retires old Runs. Lane vat-filing ahead of tax-payment-references.
