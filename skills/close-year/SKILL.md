@@ -76,7 +76,10 @@ ehditty kirjata uuden vuoden kuluksi: tarkista se ennen käynnistystä ja korjaa
 uuden vuoden kirjaus, muuten sama meno on kuluna kahtena vuonna. Kirjaa vielä
 purkua odottavat jaksotukset kodin `TODO.md`-tiedostoon, kun ne on sinetöity.
 
-**Matkaennakot.** Selitä tilin `1730` saldo tase-erittelyä varten. Jos osakkaan
+**Matkaennakot.** Vain jos yhtiö on kirjannut matkaennakoita (tositteen selite
+viittaa ennakkoon tai yhtiön tiedot kertovat niistä): selitä ennakot tilin
+`1730` saldosta tase-erittelyä varten henkilöittäin. Muuten tilillä ei ole
+ennakoita, eikä niistä puhuta eikä kysytä. Jos osakkaan
 matkaennakko jäi avoimeksi kalenterivuoden lopussa, kerro se käyttäjälle: tehty
 matka tilitetään kululaskulla heti, ja käyttämätön ennakko palautetaan.
 Kirjaukset ovat `capture-receipt`-skillin matkaennakko-ohjeessa.

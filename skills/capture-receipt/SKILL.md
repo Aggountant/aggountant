@@ -181,8 +181,10 @@ Kaksi lukua paljastaa tavallisimmat virheet:
 
 Ohjelma ei tarkista kumpaakaan eikä yhdistä kuittia sen maksuriviin, ja kaksi
 vastakkaista virhettä kumoaa toisensa saldossa. Selitä siksi `2700`:n saldo
-laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua. Selitä
-samoin tilin `1730` saldo, matkaennakot henkilöittäin.
+laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua. Jos
+yhtiö on kirjannut matkaennakoita (tositteen selite viittaa ennakkoon tai
+yhtiön tiedot kertovat niistä), selitä ne tilin `1730` saldosta
+henkilöittäin. Muuten älä puhu ennakoista äläkä kysy niistä.
 
 Uuden tilikauden kuukaudelle `report statements` torjuu koodilla
 `PERIOD_NOT_SEALED`, kunnes edellinen tilikausi on sinetöity `close-year`-ajolla,
