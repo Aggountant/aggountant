@@ -11,6 +11,15 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Travel advances booked by hand.** The user guide has a new task page,
+  "Kirjaa matkaennakko ja sen tilitys" (Record a travel advance and its
+  settlement), and the `capture-receipt` skill bundles `matkaennakot.md`: the
+  advance is a receivable on `1730`, the expense claim is booked gross on
+  `2740`, the offset is a voucher of its own dated on the day the difference
+  is paid, and the advance is never reported to Tulorekisteri while the
+  claim's mileage and per diems are reported in full. The `tulorekisteri` and
+  `close-year` skills gained one point each on advances.
+
 - **Bank import: empty statements are named.** A camt.053 or camt.052
   statement with balances but no booked entries still imports (a quiet month
   needs no workaround: `{"assignments":[]}` previews and seals it with no

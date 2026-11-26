@@ -76,6 +76,11 @@ ehditty kirjata uuden vuoden kuluksi: tarkista se ennen käynnistystä ja korjaa
 uuden vuoden kirjaus, muuten sama meno on kuluna kahtena vuonna. Kirjaa vielä
 purkua odottavat jaksotukset kodin `TODO.md`-tiedostoon, kun ne on sinetöity.
 
+**Matkaennakot.** Selitä tilin `1730` saldo tase-erittelyä varten. Jos osakkaan
+matkaennakko jäi avoimeksi kalenterivuoden lopussa, kerro se käyttäjälle: tehty
+matka tilitetään kululaskulla heti, ja käyttämätön ennakko palautetaan.
+Kirjaukset ovat `capture-receipt`-skillin matkaennakko-ohjeessa.
+
 **Oikaisut.** Oikaisu on tekijän antama vienti, jota ohjelma ei laske: uudelleenluokittelu,
 kuukausilta löytynyt virhe tai itse laskettu poisto. Jokainen oikaisu sinetöidään
 erikseen komennolla `close-year seal-correction` ennen ensimmäistä hyväksyntää. Se on

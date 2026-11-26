@@ -76,6 +76,13 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   Agentti kertoo, jos osto on sellainen, ja silloin kysyt kirjanpitäjältäsi.
 - Omaa korjauskomentoa ei ole. Korjaus kirjataan tavallisena
   erikoiskirjauksena: [Korjaa virheellinen tosite](../tasks/correct-voucher.md).
+- Kululaskua ja matkaennakkoa ei ole omana toimintonaan. Agentti kirjaa
+  kululaskun kuitit kuittireitillä ja kilometrikorvaukset ja päivärahat
+  erikoiskirjauksena, ja sinä tarkistat summat, koska ohjelma ei laske
+  korvauksia matkasta. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
+  [Kirjaa matkaennakko ja sen tilitys](../tasks/record-travel-advance.md).
+  Kululaskun malli on päätetty, ja se odottaa toteutusta
+  (`expense-claim-model`).
 - Yksittäisen tositteen viennit näkyvät vain agentille, koska `voucher show`
   näyttää ilman `--json`-valitsinta vain numeron ja tunnisteen. Pyydä
   agenttia näyttämään tositteen viennit.

@@ -78,6 +78,14 @@ instructions are in
   bookkeeper.
 - There is no separate correction command. A correction is recorded as an
   ordinary manual entry: [Correct a wrong voucher](../tasks/correct-voucher.md).
+- There is no expense claim or travel advance as a feature of its own. The
+  agent records a claim's receipts through the receipt route and its mileage
+  and per diems as a manual entry, and you check the amounts, because the
+  program does not compute allowances from a trip. A travel advance and its
+  offset are recorded by hand in the same way:
+  [Record a travel advance and its settlement](../tasks/record-travel-advance.md).
+  The expense claim model has been decided and is waiting to be built
+  (`expense-claim-model`).
 - A single voucher's postings are visible only to the agent, because without
   `--json`, `voucher show` shows only the number and the hash. Ask the agent
   to show the voucher's postings.

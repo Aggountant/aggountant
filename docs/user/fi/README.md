@@ -45,6 +45,7 @@ Jos haluat mukaan ensimmäisten joukossa tai kehittämään, lue
 - [Ota suora ALV-ilmoittaminen käyttöön](tasks/set-up-vero-api.md), myös
   varmenteen vaihto
 - [Ilmoita matkakorvaukset Tulorekisteriin](tasks/report-travel-allowances.md)
+- [Kirjaa matkaennakko ja sen tilitys](tasks/record-travel-advance.md)
 - [Korjaa virheellinen tosite](tasks/correct-voucher.md)
 - [Varmuuskopioi ja palauta kirjanpito](tasks/back-up-and-restore.md)
 - [Päivitä aggountant](tasks/upgrade.md)

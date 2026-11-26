@@ -202,6 +202,10 @@ their own software and gets their own key. The key is secret.
 Ostovelat. A receipt paid from the company's account is recorded as a trade
 payable, and the statement's payment row clears it.
 
+**Travel advance (matkaennakko).** Money the company pays a person before a
+trip. It is the company's receivable on account 1730 until the trip's expense
+claim is offset against it. The advance is not reported to Tulorekisteri.
+
 **Tulorekisteri.** The Finnish Incomes Register, a national register to which
 wages, fees and allowances are reported.
 

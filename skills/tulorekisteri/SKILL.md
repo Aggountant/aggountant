@@ -40,6 +40,10 @@ matka- tai kululaskusta ja kysy käyttäjältä se, mitä laskusta ei näe:
   eikä ole sama asia kuin työttömyysturvan osaomistajuus.
 - Riveille kuuluvat vain kilometrikorvaukset ja päivärahat. Kuittia vastaan korvatut
   kulut, kuten hotelli tai pysäköinti, eivät kuulu niille.
+- Jos kululaskusta on kuitattu matkaennakkoa, ilmoita laskun kilometrikorvaukset ja
+  päivärahat kokonaan, ei ennakkoa eikä nettomaksua. Kuittauksella maksetun osan
+  maksupäivä on kuittauksen päivä
+  ([Verohallinnon ohje, luku 2.1](https://vero.fi/tulorekisteri/yritykset-ja-organisaatiot/yksityiskohtaiset-tulorekisterin-ohjeet/64028/tietojen-ilmoittaminen-tulorekisteriin-luontoisedut-ja-kustannusten-korvaukset12/)).
 - `source_reference` yksilöi maksun pysyvästi. Uusi tunniste tai muutettu maksupäivä
   olisi Tulorekisterille uusi ilmoitus, joten niitä ei vaihdeta hylkäyksen tai
   epävarmuuden kiertämiseksi. Samasta syystä kysy ennen aggountantia maksetusta

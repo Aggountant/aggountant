@@ -51,7 +51,7 @@ const SKILLS: &[BundledSkill] = &[
     BundledSkill {
         name: "capture-receipt",
         description: "Keep a month's books: receipts, the bank statement, special entries, reconciliation and the month close.",
-        files: skill_files!("capture-receipt": "SKILL.md"),
+        files: skill_files!("capture-receipt": "SKILL.md", "matkaennakot.md"),
         requires: &["aggountant-init"],
         schema_version: 1,
     },

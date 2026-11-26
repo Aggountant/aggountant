@@ -99,6 +99,10 @@ kertaan.
 
 **Liitetiedot.** Tilinpäätökseen kuuluvat lisätiedot laskelmien rinnalla.
 
+**Matkaennakko.** Raha, jonka yritys maksaa henkilölle ennen matkaa. Se on
+yrityksen saaminen tilillä 1730, kunnes matkan kululasku kuitataan sitä
+vastaan. Ennakkoa ei ilmoiteta Tulorekisteriin.
+
 **Ohjelmistoavain.** Verohallinnon API-portaalin antama avain, joka yksilöi
 rekisteröidyn ohjelmiston. Jokainen aggountantin käyttäjä rekisteröi oman
 ohjelmistonsa ja saa oman avaimensa. Avain on salainen.

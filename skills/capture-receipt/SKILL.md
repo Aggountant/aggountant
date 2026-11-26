@@ -163,6 +163,10 @@ ennen hyväksyntää, ellei vienti ole ALV:n maksu tai muu ilmoitukseen kuulumat
 siirto. Varoitus ei estä sinetöintiä; sinetöidyn puutteen löytää täsmäytyksen
 ALV-tarkistus (alla) ennen sulkua.
 
+Matkaennakko ja sen kuittaus kululaskua vastaan kirjataan näillä samoilla
+komennoilla, ja kirjausten muoto on tiedostossa
+[matkaennakot.md](matkaennakot.md).
+
 ## Täsmäytys
 
 `aggountant report statements` näyttää kuukauden tuloksen ja kuun lopun taseen.
@@ -177,7 +181,8 @@ Kaksi lukua paljastaa tavallisimmat virheet:
 
 Ohjelma ei tarkista kumpaakaan eikä yhdistä kuittia sen maksuriviin, ja kaksi
 vastakkaista virhettä kumoaa toisensa saldossa. Selitä siksi `2700`:n saldo
-laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua.
+laskuina, älä vain summana, ja nosta erot käyttäjälle ennen sulkua. Selitä
+samoin tilin `1730` saldo, matkaennakot henkilöittäin.
 
 Uuden tilikauden kuukaudelle `report statements` torjuu koodilla
 `PERIOD_NOT_SEALED`, kunnes edellinen tilikausi on sinetöity `close-year`-ajolla,
