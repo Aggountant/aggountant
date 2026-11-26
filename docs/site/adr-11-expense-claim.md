@@ -1,7 +1,7 @@
 # ADR-11 — Expense claims: the program computes the claim, one approval seals it, and its state is derived from what happens afterwards
 
-- **Status:** Proposed (2026-11-24)
-- **Date:** 2026-11-24, rewritten 2026-11-26
+- **Status:** Accepted (2026-11-26)
+- **Date:** 2026-11-24, rewritten and accepted 2026-11-26
 - **Authors:** technical-decision worker for issue `expense-claim-model`
   (taskfleet run `01m87gzzt5thzm0qb8xrqabanq`), from the product owner's
   decisions of 2026-11-24 and research kept outside this repository; the
@@ -9,8 +9,10 @@
   after a rethink (2026-11-25) that separated the product owner's decisions
   from the first writer's proposals and narrowed the text to what was
   decided; the product owner's answers of 2026-11-26 to the questions it
-  raised are folded in, applied by spinoff run `01m8aw1tra9jdfqq7gvdwa56w8`.
-  Decider: Jari Mustonen.
+  raised are folded in, applied by spinoff run `01m8aw1tra9jdfqq7gvdwa56w8`,
+  and his answers of the same day to the ADR's own open questions 1–9 by
+  spinoff run `01m8azxjdt7ce6e5r7vkgn6f2p`. Decider: Jari Mustonen, who
+  accepted the ADR on 2026-11-26.
 - **Refines:** [ADR-5](adr-5-seal-timing) (a claim draft is intake: approval
   seals at once, and an unresolved draft blocks the period close).
 
@@ -103,6 +105,20 @@ owner settled them:
 - The fiscal store and the personal-data store may each get one one-way
   migration, in the slices that need them (Consequences).
 
+He then answered the nine questions this text had left open:
+
+- A travel day across the year boundary gets the lower of the two years'
+  amounts; a free meal is one meal whatever its price, and a company-paid
+  own meal is deducted, not refused; rounding is once per claim; leisure
+  combined with a trip is computed from the times the user states
+  (section 2).
+- Claim payables get their own account in the next chart edition, and
+  retention is decided when deletion is built (section 5).
+- Every company has an "awaiting approval" step, acknowledged at once in a
+  one-person company (section 5).
+- The offset date is the Incomes Register payment date (section 6).
+- Travel advances are booked by hand in the first version (section 11).
+
 What was left to this ADR is how the claim is stored, computed, approved and
 followed afterwards.
 
@@ -164,6 +180,25 @@ inputs. So the boundary is drawn at the input, not at the rule:
   decision and guidance do not settle, which the calculator issue lists. A
   refusal names its reason with a machine-readable code and blocks approval,
   not the draft.
+
+Where the sources leave the computation a choice, it is settled as follows:
+
+- **A travel day across the year boundary** gets the lower of the two
+  years' amounts.
+- **A free meal is one meal whatever its price**, and the per diem is
+  halved by the number of free meals. A meal the traveller buys and the
+  company pays, for example with the company's card, is not a free meal:
+  the tax-free per diem is the per diem minus the meal's cost, but never
+  less than half the per diem
+  ([Tax Administration guidance VH/630/00.01.00/2026](https://www.vero.fi/syventavat-vero-ohjeet/ohje-hakusivu/48013/tyomatkakustannusten-korvaukset-verotuksessa7/),
+  8.3.3 and example 60). An expensive meal therefore ends at the same half
+  as a free meal and is not refused.
+- **Rounding** is done once per claim, half away from zero.
+- **Leisure combined with a trip** is computed from the work time and the
+  travel times the user states (the same guidance, 8.3.2): the number of per
+  diems comes from that duration, and free meals and, abroad, the country
+  are asked for each computed per diem day, not by the clock. It is not
+  refused in the first version.
 
 The yearly maximums are a rate table bundled with the program, one edition
 per year with the decision it comes from, chosen by the date of the trip
@@ -230,19 +265,35 @@ claim document to the artifact store and seals:
 - one voucher per calendar month in which a trip ends, holding that month's
   scheduled allowances (accrual, KPL 2:3).
 
+Claim payables get their own account in the next chart edition (proposed
+`2741` Kululaskuvelat). Until a home is on that edition they are booked on
+`2740` Muut lyhytaikaiset velat with other payables, and what each claim
+owes is derived from the links between its vouchers (section 6).
+
 Every voucher carries the document's hash as its attachment. The seal
 therefore covers the claim and, through the hashes in it, the receipts. The
 document is the travel claim as a voucher: it names the claimant and holds
 the trips, their workplace snapshots, the computation with the rate table
 used, and the approval. It is kept outside the hash chain so that its
 personal data can be erased when retention ends without breaking the chain.
+How long it is kept is decided when deletion is built, likely about ten
+years for the data an Incomes Register correction may rely on; nothing is
+deleted before then.
 
 Each approval entry says which kind it is. An **own approval** records the
 approver's name, role and time, and optionally evidence such as an approving
 e-mail. A **recorded outside approval** is described in section 8.
-Self-approval is allowed and shown as such. A second approver is a second
-entry in the same command. No "approved once, waiting for the second" state
-is stored, because nobody would own it. The claimant's statement that the
+Self-approval is allowed and shown as such.
+
+Every company records who approves its claims, and the step "awaiting
+approval by X" is in the first version in every company. In a company with
+several people, the claim the claimant submits waits for that approver, and
+the wait ends with one of its closing commands: the approver approves or
+rejects, or the claimant withdraws the claim. In a one-person company the
+step exists but is acknowledged at once: the claimant's approval is recorded
+visibly as self-approval, with no separate wait. A second approver is a
+second entry in the same approval. No "approved once, waiting for the
+second" state is stored, because nobody would own it. The claimant's statement that the
 receiptless costs and the meals are declared truthfully is part of the
 approval. The program cannot verify who is at the keyboard; it records who
 the operator states approved.
@@ -272,6 +323,13 @@ Run it is. The rule is new: the first claim slice writes it into
   with its evidence. aggountant still pays nothing and keeps no payables
   ledger ("Vouchers, not ledgers of receivables", `crates/AGENTS.md`): what a
   claim is owed is derived from the links between its vouchers.
+- **Payment by offset** against a receivable from the claimant, such as a
+  travel advance (section 11), is a settlement like a bank payment, and the
+  offset date is the Incomes Register payment date
+  ([Tax Administration, VH/5655/05.00.00/2026](https://vero.fi/tulorekisteri/yritykset-ja-organisaatiot/yksityiskohtaiset-tulorekisterin-ohjeet/64028/tietojen-ilmoittaminen-tulorekisteriin-luontoisedut-ja-kustannusten-korvaukset12/),
+  ch. 2.1). When the offset and the bank payment of the difference fall in
+  different months, the source does not say which date the report uses, so
+  the guidance is to date the offset on the day the difference is paid.
 - **The Incomes Register report** is built from sealed claim documents and
   the payment date, not retyped. One per diem amount carries every per diem
   type it contains, as the register's guidance describes; `file-wage`
@@ -279,7 +337,8 @@ Run it is. The rule is new: the first claim slice writes it into
   into one report, and a payment belongs to exactly one report. The deadline
   shown is the statutory one.
 - **State** is computed on request, with the deadline and the next command,
-  for one claim or for everything unfinished. Every unfinished state has a
+  for one claim or for everything unfinished, including a claim awaiting its
+  approver (section 5). Every unfinished state has a
   command that ends it truthfully; the states and their closing commands are
   listed in `expense-claim-status`.
 
@@ -347,6 +406,33 @@ and what is carried forward is the claims open at the cutover, the
 reimbursements not yet reported, each claimant's regular workplace and the
 earlier work at customer sites that the three-year rule needs.
 
+### 11. Travel advances are booked by hand in the first version
+
+The program does not handle travel advances (matkaennakko) in the first
+version. They are booked by hand with today's commands, and the agent
+guidance says how:
+
+- The advance paid is a receivable from the person, `1730` Muut
+  lyhytaikaiset saamiset (in the next chart edition its own account,
+  proposed `1740` Matkaennakot), without VAT.
+- The claim is always booked gross as a payable, as if there were no
+  advance.
+- The offset of the advance against the claim is its own voucher, debit
+  the payable and credit the receivable, dated on the day the difference is
+  paid or returned (section 6).
+- The difference comes from the bank statement either way: the company's
+  payment against the payable, the person's return against the receivable.
+- The advance itself is never reported to the Incomes Register. The claim's
+  mileage (311) and per diem (331) are reported in full, whether they were
+  paid from the bank or by offset.
+- The agent warns about an advance still open a month after the trip ended,
+  and for a shareholder always before 31 December. A company may record its
+  own practice in the company's knowledge.
+
+Programmatic support comes after the first version: the chart edition with
+the advance and claim-payable accounts, and an advance slice, which needs
+payment matching to settle one claim in parts (offset and bank).
+
 ## Consequences
 
 - Two companies get the same per diem for the same trip, and a release that
@@ -380,29 +466,6 @@ earlier work at customer sites that the three-year rule needs.
 - **An outside approval taken as is.** If the program sealed content it had
   not computed to the same result, the seal would bind amounts nobody in
   aggountant checked. Section 8.
-
-## Open questions for the product owner
-
-Each has the default this text assumes.
-
-1. **Travel day across the year boundary:** the lower of the two years'
-   amounts (default), or the amount of the year in which the travel day ends?
-2. **Company-paid meal above half the per diem:** refuse (default), or pay
-   half the per diem?
-3. **Rounding:** once per claim, half away from zero (default), or truncate
-   so that the maximum is never exceeded by a fraction of a cent?
-4. **Payable account:** `2740`, shared with other payables and reconciled
-   per claim from the links (default), or its own account?
-5. **Retention of claim documents:** six years or about ten? Nothing is
-   deleted until deletion is built.
-6. **Leisure combined with a trip:** refused in the first version (default),
-   or computed from the work time the user states?
-7. **Payment by offset:** is the offset date the Incomes Register payment
-   date? Until answered, the user states the date and the reason.
-8. **Waiting for an approver:** does an accounting firm need a visible
-   "awaiting approval by X" in the first version? It would need its own
-   closing command.
-9. **Travel advances:** out of the first version (default)?
 
 ## Implementation issues
 
