@@ -1,0 +1,67 @@
+---
+created: 2026-11-26
+updated: 2026-11-26
+type: feature
+reporter: jari
+status: open
+priority: normal
+lane: migrate
+lane_seq: 10
+collision: [skills/migrate-books, crates/cli/src/skill.rs]
+---
+
+# migrate skill: phased, per-domain migration (replaces migrate-books)
+
+## Problem
+
+Moving a company to aggountant is rarely one cutover. A company may move its
+bookkeeping first and its Incomes Register reporting (pay data, travel
+reimbursements, the employer's separate report) or its travel and expense
+claims later, each on its own date. The `migrate-books` skill covers one
+thing: collecting and archiving the old books and handing the cutover
+balances to `aggountant-init`. It does not say how a later domain is moved
+when the books are already in aggountant, although the product already has
+pieces for it (`file-wage employer-report` imports months reported elsewhere
+from transcript 630 and checks the employer-register start in YTJ).
+
+## Expected
+
+One skill, `migrate`, replaces `migrate-books`. It moves a company from
+another program domain by domain, each with its own cutover date, in any
+order the dependencies allow:
+
+- **Bookkeeping**: what `migrate-books` does today (collect, verify, archive,
+  cutover balances, open invoices, first bank statement after the cutover).
+- **VAT**: filed returns and receipts to the archive; the first period
+  aggountant files.
+- **Incomes Register / employer**: the employee register, months reported
+  elsewhere (transcript 630), filed reports and their identifiers kept for
+  later corrections, payments made but not yet reported.
+- **Travel and expense claims** (after ADR-11's slices exist): old claims are
+  already vouchers with attachments and go to the archive with them; carried
+  forward are open (approved, unpaid) claims at the cutover, unreported
+  reimbursements, and each claimant's regular workplace and prior work at
+  customer sites for the three-year rule.
+
+The skill says which domains depend on which (for example claims and the
+Incomes Register need the employee register), and records per domain what
+was moved and from which date, so a later session can continue the next
+domain. `aggountant skill install` keeps working for homes that installed
+`migrate-books` (rename handled so old installs do not break silently), and
+the user guide page on moving from another program follows.
+
+## Acceptance criteria
+
+- [ ] `skills/migrate/SKILL.md` replaces `skills/migrate-books/`; install,
+      list and print handle the rename; tests updated.
+- [ ] Domains as above, each with its own cutover date and dependencies.
+- [ ] The travel-claim part is either written against ADR-11 or left as a
+      clearly marked placeholder until its slices land.
+- [ ] Guide (fi/en) `move-from-another-program` and `install` updated;
+      CHANGELOG notes the rename.
+
+## Decisions
+
+### 2026-11-26T02:47:35Z · @conductor
+
+Jari 26.11.2026: the system supports phased migration (bookkeeping first, later Incomes Register / payroll and travel claims separately); the skill is just 'migrate'.
