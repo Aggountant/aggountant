@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -19,13 +19,24 @@ originating_run_kind: technical-decision
 
 The agent builds an expense claim over days or weeks through the CLI, and
 after each write the program answers with what is still missing. The user
-can see the claim as Markdown at any time. Decided in ADR-11
-(`docs/site/adr-11-expense-claim.md`, sections 1, 2, 4 and 5).
+can see the claim as Markdown at any time. Follows ADR-11
+(`docs/site/adr-11-expense-claim.md`, sections 1, 2 and 4; product owner
+2026-11-26: the draft is program-owned and written only by commands, and
+Markdown is a rendered view); this issue owns the draft's details.
 
 ## Scope
 
 - Program-owned draft at `intake/expense-claims/<claim_id>/draft.json`,
-  atomic writes, a program-created `.gitignore` in `intake/expense-claims/`.
+  atomic writes, a program-created `.gitignore` in `intake/expense-claims/`
+  (it protects homes whose root `.gitignore` predates the directory; the
+  root file is never rewritten). Removed when its version is sealed or it is
+  discarded.
+- The draft is an intake kind under ADR-5, so it inherits ADR-5's
+  accepted-change log (content hashes, not content) when that log is built:
+  the sealed document records the draft's last revision hash, and a discard
+  keeps its reason in that log (review finding F7 in
+  `issues/expense-claim-model/`).
+- The Markdown and JSON views are rendered on demand and never stored.
 - Commands (names indicative): `claim trip add|revise|remove`,
   `claim line add|revise|remove` (receipt lines; scheduled allowances are
   computed, the draft may only record a lower paid amount), `claim show
@@ -35,8 +46,15 @@ can see the claim as Markdown at any time. Decided in ADR-11
   meals on a per-diem trip, meal-allowance answers, workplace entry, travel
   day boundary locations abroad.
 - `recorded_at` and `source` per trip and line (user statement, imported
-  record, confirmed reconstruction); "recorded afterwards" marker after
-  60 days; evidence artifact hashes on trips and drives.
+  record, confirmed reconstruction); a "recorded afterwards" marker for a
+  trip recorded clearly after it ended, with the threshold settled in this
+  slice (the first ADR text proposed 60 days; no source gives a number);
+  evidence artifact hashes on trips and drives.
+- Free and company-paid meals per travel day are filled in by the agent; an
+  empty answer is an open question, never "none". The claimant declares them
+  true at approval (`expense-claim-approve-seal`).
+- The agent may propose drives from a calendar or mail; a drive enters the
+  draft only when the user confirms it. Proposals are not stored as facts.
 - Plausibility checks: kilometres vs route and per diem distance, receipt
   outside every trip, possible duplicate
   receipt, overlapping trips across open drafts and claims in force (a
@@ -65,4 +83,4 @@ Needs `travel-allowance-rates-and-calculator` and `claimant-workplace-register`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

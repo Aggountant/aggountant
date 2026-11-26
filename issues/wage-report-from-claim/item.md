@@ -1,6 +1,6 @@
 ---
 created: 2026-11-10
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: open
 priority: high
@@ -51,3 +51,7 @@ ADR-11 (`docs/site/adr-11-expense-claim.md`, Proposed, section 9) confirms this 
 - Monthly combination: `from-claim` accepts several settlements of one claimant in one payment month (law 53/2018, 12 §). `source_reference` = the claim id for one claim, `expense-claims-<employee_id>-<YYYY-MM>` for several, `<claim_id>-p<n>` for a supplementary payment. A settlement belongs to exactly one report: the `file-wage` process state lists the settlements it reports and `from-claim` refuses one already reported.
 - The "optional: record the payment" part moves to `expense-claim-payment-matching`.
 Depends on `expense-claim-approve-seal` and `expense-claim-payment-matching`.
+
+### 2026-11-26T02:54:02Z · @worker
+
+ADR-11 was rewritten on 2026-11-26 to the product owner's decisions and now states principles only. The earlier comment's section number refers to the first text; the details it lists stand as this issue's own (the Incomes Register is now ADR-11 section 6). The `source_reference` patterns and the left-out lines are this issue's proposals, not ADR decisions.

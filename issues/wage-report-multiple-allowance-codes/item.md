@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: improvement
 status: untriaged
 priority: normal
@@ -19,8 +19,9 @@ originating_run_kind: technical-decision
 
 A month with full and partial per diems is reported as one daily-allowance
 amount (331) carrying every per diem type it contains, as the Incomes
-Register's guidance describes, instead of two 331 transactions. Decided in
-ADR-11 (`docs/site/adr-11-expense-claim.md`, section 9).
+Register's guidance describes, instead of two 331 transactions. Follows
+ADR-11 (`docs/site/adr-11-expense-claim.md`, section 6); this issue owns the
+format change.
 
 ## Problem
 
@@ -58,4 +59,4 @@ None; `wage-report-from-claim` uses it.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

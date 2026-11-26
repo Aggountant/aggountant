@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -19,8 +19,8 @@ originating_run_kind: technical-decision
 
 An approved claim can be corrected or cancelled without editing anything
 sealed, and the Incomes Register side follows the Tax Administration's
-correction rules. Decided in ADR-11 (`docs/site/adr-11-expense-claim.md`,
-sections 7 and 9).
+correction rules. Follows ADR-11 (`docs/site/adr-11-expense-claim.md`,
+section 7); this issue owns the correction details.
 
 ## Scope
 
@@ -59,4 +59,4 @@ Needs `expense-claim-approve-seal`, `expense-claim-payment-matching` and
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

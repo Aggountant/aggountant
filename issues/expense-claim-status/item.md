@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -19,17 +19,33 @@ originating_run_kind: technical-decision
 
 "What is unfinished with expense claims, by when, and what next?" is one
 command, and the month close shows it. Every unfinished state has a command
-that closes it. Decided in ADR-11 (`docs/site/adr-11-expense-claim.md`,
-section 7).
+that closes it. Follows ADR-11 (`docs/site/adr-11-expense-claim.md`,
+section 6); this issue owns the states and their closing commands.
 
 ## Scope
 
 - `claim status <id>` and `claim list --open [--json]`: state derived every
   time from facts (draft, open questions, version link, settlement link,
-  `file-wage` run state), never stored. States and closing commands as in
-  ADR-11 section 7's table, with `next_command` and the statutory Incomes
-  Register deadline from the payment month; a pointer to the employer's
-  separate report when a month's only payments are tax-free reimbursements.
+  `file-wage` run state), never stored, with `next_command` and the
+  statutory Incomes Register deadline from the payment month; a pointer to
+  the employer's separate report (`file-wage employer-report`) when a
+  month's only payments are tax-free reimbursements.
+- States and their closing commands (command names indicative):
+
+  | Derived state | From | Closing commands |
+  |---|---|---|
+  | Draft with open questions | draft exists, questions remain | answer (draft write, register entry) or `claim discard --reason` |
+  | Ready for approval | draft, no open questions | `claim approve` or `claim discard --reason` |
+  | Approved, unpaid | version link, no settlement | bank import settles it; `claim settle` with evidence (offset or another account); `claim cancel` |
+  | Paid, report due *(deadline)* | settlement, reportable lines, no accepted report | `file-wage from-claim` then the `file-wage` Run; `file-wage complete-manual` for a report given in the e-service |
+  | Report outcome unknown | the `file-wage` Run is `OutcomeUnknown` | `file-wage reconcile` (never a resend) |
+  | Register correction outside aggountant | a correction reduced an amount already paid and reported | `file-wage correction complete-manual` with the e-service evidence |
+  | Complete | settled, and reported or nothing to report | none |
+  | Superseded / cancelled | a later version or a cancellation exists | none |
+
+- A refusal leaves no claim state to close: a preview that refuses records
+  nothing, and a refused approval leaves the draft as it was, with the
+  ledger's rejection record as for any refused seal.
 - `close-period`: a draft with trips or lines in the period is unresolved
   intake (ADR-5 must-seal), dispositioned by approval, discard or reasoned
   deferral; approved but unpaid or unreported claims are warnings.
@@ -54,4 +70,4 @@ the slice can land before them with those states tested through fixtures.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

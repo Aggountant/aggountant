@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -21,8 +21,9 @@ The program computes Finnish scheduled travel allowances for a trip, so the
 user (and the product owner trying it) can give a synthetic trip as JSON and
 see the travel days, per diem, mileage, meal and night allowances, the
 Incomes Register lines and the proposed postings, with the rate-table edition
-used. Nothing is written. Decided in ADR-11 (`docs/site/adr-11-expense-claim.md`,
-sections 1 and 4).
+used. Nothing is written. Follows ADR-11 (`docs/site/adr-11-expense-claim.md`,
+sections 2 and 5); this issue owns the computation, the refusals and the
+defaults below.
 
 ## Scope
 
@@ -39,13 +40,39 @@ sections 1 and 4).
   usual-eating-place and lunch-benefit answers, decision 14 §), night
   allowance (4 h between 21 and 07, no lodging provided), company-paid meal
   deduction (ohje example 60), rounding once per claim half away from zero.
-- Refusals with machine-readable codes for the unsettled cases listed in
-  ADR-11 section 4 (free and company-paid meal on one day, company-paid meal
-  above half, foreign trip through Finland, holiday-home start, leisure,
-  border-crossing allowance, posting, work abroad), `TRAVEL_RATES_MISSING`,
-  `ALLOWANCE_ABOVE_MAXIMUM`.
-- Defaults shown when the result depends on them: lower amount for a travel
-  day across the year boundary; elapsed time across a daylight-saving change.
+- The edition is chosen by the date of the part of the trip (decision
+  19 §), never by payment or approval date; the table hash and decision
+  identifiers are stamped into the output. Every new edition ships test
+  vectors, including a trip across the year boundary.
+- Refusals, each with a machine-readable code and an explanation; a refusal
+  blocks approval, never the draft write:
+  - an amount above the scheduled maximum (`ALLOWANCE_ABOVE_MAXIMUM`), with
+    the explanation that the excess is pay and needs withholding, which the
+    product cannot do yet (product owner 2026-11-24);
+  - a missing rate-table edition (`TRAVEL_RATES_MISSING`); an invalid country
+    code (never falls to the "not separately listed" row);
+  - free meals not answered on a trip that earns a per diem (an empty answer
+    is not "no free meals"); for a meal allowance, the usual-eating-place and
+    lunch-benefit answers not given;
+  - a meal allowance with a per diem; a night travel allowance with lodging
+    paid for that night;
+  - the cases the sources do not settle: a free meal and a company-paid meal
+    on the same travel day, a company-paid meal above half the per diem
+    (ADR-11 open question 2), a foreign trip that passes through Finland and
+    continues abroad, a trip that starts from a holiday home, leisure
+    combined with the trip (open question 6), a workplace change inside a
+    trip (split the trip), border-crossing allowance, posting (komennus), and
+    work abroad.
+- Defaults where the sources are silent, shown in the preview when the
+  result depends on them: a travel day across the year boundary gets the
+  lower of the two years' amounts (open question 1); a travel day is 24
+  hours of elapsed time, so a daylight-saving change counts as it happened;
+  rounding once per claim, half away from zero (open question 3).
+- `crates/AGENTS.md` gains the product rule ADR-11 adopted (product owner
+  2026-11-26): a Run exists only for the program's own irreversible outside
+  act (a filing to an authority, a payment). This is the first claim slice
+  in the ADR's order; if another claim slice lands first, that slice adds
+  the rule instead.
 - A read-only CLI preview, for example `claim compute --json < trip.json`.
 
 ## Acceptance criteria
@@ -59,6 +86,8 @@ sections 1 and 4).
 - [ ] The foreign table is checked against the decision (row count and spot checks); an invalid country code refuses instead of falling to "not listed".
 - [ ] A missing year edition refuses; nothing is extrapolated.
 - [ ] Output stamps the table hash and decision identifiers.
+- [ ] Every refusal above has a code and a test with a synthetic trip.
+- [ ] `crates/AGENTS.md` carries the Run rule (unless an earlier claim slice already added it).
 - [ ] User guide (fi/en) describes the preview.
 
 ## Likely files
@@ -75,4 +104,4 @@ trip's workplace classification as input and says so.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

@@ -65,3 +65,15 @@ the user guide page on moving from another program follows.
 ### 2026-11-26T02:47:35Z · @conductor
 
 Jari 26.11.2026: the system supports phased migration (bookkeeping first, later Incomes Register / payroll and travel claims separately); the skill is just 'migrate'.
+
+## Comments
+
+### 2026-11-26T02:54:02Z · @worker
+
+What ADR-11 (rewritten 2026-11-26, section 10) expects from the travel-claim part of `migrate`:
+
+- Old claims are not re-entered or resealed. They are already vouchers with their attachments and go to the archive with them. Where the old vouchers live in aggountant's own books, `expense-claim-legacy-migration` can attach them to a claim identity as they are; the skill uses that rather than building documents.
+- Carried forward at the domain's cutover date: claims approved but unpaid, reimbursements paid but not yet reported to the Incomes Register, each claimant's regular workplace (as a confirmed, dated entry in the register of `claimant-workplace-register`, with its basis code; never inferred), and earlier work at customer sites the three-year rule needs (as earlier exposure and principal-site assessments in `three-year-site-clock`).
+- An open claim that needs completing is entered through the claim commands as a draft, so the program computes and asks for what is missing; the skill keeps no calculation of its own.
+- Moving one home's own claim file format is not a product command; the skill describes the generic path, and a home with its own format does its import on its side.
+- Dependencies: the employee register (claimants), the claim slices above, and the Incomes Register domain for unreported reimbursements. Until the claim slices land, the travel-claim part stays a clearly marked placeholder, as this issue's acceptance criteria already allow.

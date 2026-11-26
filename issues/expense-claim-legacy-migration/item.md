@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -11,35 +11,48 @@ originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
 ---
 
-# Register file-based expense claims without resealing approved months
+# Attach an already sealed voucher to an expense claim identity
 
 ## Description
 
 ## Goal
 
-A company that already keeps its expense claims as files (one file per line
-and a monthly summary sealed as the payable voucher's attachment) moves to
-the product's claims without resealing any approved month. Decided in
-ADR-11 (`docs/site/adr-11-expense-claim.md`, section 12).
+A voucher sealed for an earlier expense claim (for example a payable voucher
+whose attachment is a monthly summary) can be attached, as it is, to a claim
+identity, so the product's claim status, verification and corrections see it
+without resealing anything. Follows ADR-11
+(`docs/site/adr-11-expense-claim.md`, section 10; product owner 2026-11-26,
+answer 15a: attaching a sealed voucher to a claim identity stays in the
+product).
+
+## Out of scope
+
+- Importing one home's own claim files (line files, an open month) into
+  drafts. Moving a home's own file format is done on that home's side, not
+  by a product command (product owner 2026-11-26, answer 15b).
+- Claim history in general when a company moves in: the phased `migrate`
+  skill (`migrate-skill-phased`) archives old claims with their vouchers and
+  carries forward what is still open.
 
 ## Scope
 
-- `claim register-legacy`: for an approved month, a link row of kind
-  `legacy` (the claim id in the home's existing format, version 1, document
-  hash = the voucher's existing `attachment_ref`, voucher number), the
-  settlement link from the existing payment voucher, and the existing
-  `file-wage` report found by its `source_reference`. No new document is
-  made for a sealed month. `claim show` renders the sealed summary as it is.
-- `claim import --legacy`: reads a month's line files into a draft and
-  reports what is missing (free meals, start place, workplace entry) instead
-  of inventing it. Documented to run on a throwaway copy of the home first.
+- `claim attach-sealed` (name indicative): records a link row of kind
+  `legacy` (the claim id in the format the home used, version 1, document
+  hash = the voucher's existing `attachment_ref`, the voucher number). No
+  new document and no new voucher: a second structured document for the
+  same booking would be a second voucher for one transaction.
+- Optionally in the same command, the settlement link from an existing
+  payment voucher and the existing `file-wage` report found by its
+  `source_reference`, so the derived status (paid, reported) is right.
+- `claim show` renders an attached version's sealed attachment as it is.
 - The guide says a summary edited after approval is not the voucher.
 
 ## Acceptance criteria
 
-- [ ] Synthetic legacy home (Esimerkki Oy): two approved months register with correct status (paid, reported); the open month imports as a draft with open questions.
-- [ ] `voucher verify` and `claim verify` pass after registration; no voucher is sealed by registration.
-- [ ] Registering the same month twice is idempotent; a hash that does not match the voucher refuses.
+- [ ] Synthetic home (Esimerkki Oy): two sealed claim vouchers attach with correct status (paid, reported).
+- [ ] `voucher verify` and `claim verify` pass after attaching; nothing is sealed by attaching.
+- [ ] Attaching the same voucher twice is idempotent; a hash that does not match the voucher refuses.
+- [ ] User guide (fi/en) describes attaching.
 
 ## Likely files
 
@@ -48,9 +61,15 @@ ADR-11 (`docs/site/adr-11-expense-claim.md`, section 12).
 
 ## Dependencies
 
-Needs `expense-claim-approve-seal` (registration), `expense-claim-draft`
-(import) and `expense-claim-payment-matching` (settlement link).
+Needs `expense-claim-approve-seal` (link tables) and
+`expense-claim-payment-matching` (settlement link).
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Comments
+
+### 2026-11-26T02:54:02Z · @worker
+
+Narrowed on 2026-11-26 to the product owner's answer 15a: attaching an already sealed voucher to a claim identity stays in the product. The former `claim import --legacy` (reading one home's line files into a draft) is out of product scope by answer 15b: a home's own file format is moved on that home's side, and claim history in general goes through the phased `migrate` skill (`migrate-skill-phased`). The dependency on `expense-claim-draft` went with it.

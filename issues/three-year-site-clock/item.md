@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -19,9 +19,10 @@ originating_run_kind: technical-decision
 
 The program tracks the three-year rule for customer sites (TVL 72 a §) and
 refuses tax-free allowances when it has run out, so a long customer
-engagement cannot silently turn into pay or a hidden dividend. Decided in
-ADR-11 (`docs/site/adr-11-expense-claim.md`, sections 3 and 4; product owner
-2026-11-24: the rule is tracked from the first version).
+engagement cannot silently turn into pay or a hidden dividend. Follows
+ADR-11 (`docs/site/adr-11-expense-claim.md`, section 3; product owner
+2026-11-24: the rule is tracked from the first version; 2026-11-26: the rule
+is strict). This issue owns the clock, its refusals and questions.
 
 ## Scope
 
@@ -32,10 +33,12 @@ ADR-11 (`docs/site/adr-11-expense-claim.md`, sections 3 and 4; product owner
 - Site clock: visit days derived from drafts and sealed claims plus earlier
   exposure; six-month gaps by the guidance's date rule (ohje 5.3.4, month
   end clamping); clock start at the principal period; last tax-free day.
-- Refusals: principal site past its last day, principal site open-ended or
-  known from the start to exceed three years (ohje 5.3.1–5.3.3); open
-  questions: principal status needed (share of weekdays over 90 days or age),
-  gap confirmation needed; warnings: approaching the limit, assessment
+- Refusals (product owner 2026-11-26: strict, on the same footing as an
+  amount above the maximum): principal site past its last day, principal
+  site open-ended or known from the start to exceed three years (ohje
+  5.3.1–5.3.3). Open questions that block approval while the draft can still
+  be written: principal-site assessment needed but not recorded (share of
+  weekdays over 90 days or age), gap confirmation needed; warnings: approaching the limit, assessment
   contradicted by the trip pattern, a place recorded as occasional visited
   weekly (KHO 2017:178).
 - `claim verify` lists sealed claims whose workplace snapshot differs from
@@ -58,4 +61,4 @@ Needs `claimant-workplace-register` and `expense-claim-draft`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

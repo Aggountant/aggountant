@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: feature
 status: untriaged
 priority: normal
@@ -19,8 +19,11 @@ originating_run_kind: technical-decision
 
 When the bank statement shows the payment to the claimant, the import books
 it as the settlement of the named claims, so the claim knows it is paid and
-the Incomes Register payment date is a fact from the bank. Decided in ADR-11
-(`docs/site/adr-11-expense-claim.md`, section 8).
+the Incomes Register payment date is a fact from the bank. Follows ADR-11
+(`docs/site/adr-11-expense-claim.md`, section 6); this issue owns the
+settlement details. aggountant pays nothing and keeps no payables ledger
+(`crates/AGENTS.md`, "Vouchers, not ledgers of receivables"): the amount
+outstanding is derived from links between vouchers.
 
 ## Scope
 
@@ -54,4 +57,4 @@ Needs `expense-claim-approve-seal`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24); decision issue `expense-claim-model`. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

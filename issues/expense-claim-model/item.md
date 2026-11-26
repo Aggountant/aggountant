@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-24
+updated: 2026-11-26
 type: task
 status: untriaged
 priority: normal
@@ -35,3 +35,9 @@ review record (`review.md`, `assessment.md`) beside this issue.
 
 - [ ] Jari accepts, amends or rejects ADR-11 and answers its open questions.
 - [ ] If accepted, its implementation slices (listed in the ADR's last section) are triaged and laned.
+
+## Comments
+
+### 2026-11-26T02:54:02Z · @worker
+
+ADR-11 rewritten on 2026-11-26 (status still Proposed): the product owner's answers to the rethink's questions 10-16 are folded in as decisions, the ADR's own open questions 1-9 stay open, and field lists, commands, the state table, refusal cases, basis codes and the ADR-5 change-log inheritance (review F7) moved into the implementation issues, which now own their details. Run `01m8aw1tra9jdfqq7gvdwa56w8`.
