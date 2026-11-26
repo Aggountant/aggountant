@@ -298,6 +298,10 @@ receiptless costs and the meals are declared truthfully is part of the
 approval. The program cannot verify who is at the keyboard; it records who
 the operator states approved.
 
+The approver is asked when the company's first claim is submitted, never in
+`init`, onboarding or a normal month. A company with no claims records
+nothing.
+
 A claim may well come after its month is closed, since a claim is not tied
 to a month. The allowances of a trip in a month already closed are booked in
 the first open period of the same fiscal year, as a correction is, and the
@@ -450,6 +454,14 @@ payment matching to settle one claim in parts (offset and bank).
 - Trips add routes, times and the home as a workplace to stores that are
   still unencrypted and have no deletion path. That work is not part of this
   ADR.
+
+**Companies that do not use claims.** Nothing is asked or required until the
+first trip or claim is recorded. When no claim draft or claim exists, the
+period close and the year close behave exactly as before this ADR. The
+regular-workplace question is asked only for a claimant. The store
+migrations add empty tables and change no existing data or command output.
+The rate table is read only when a claim is computed. The skills mention
+claims only where the user is doing one.
 
 ## Rejected alternatives
 
