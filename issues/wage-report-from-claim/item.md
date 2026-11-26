@@ -3,10 +3,11 @@ created: 2026-11-10
 updated: 2026-11-26
 type: feature
 status: open
-priority: high
+priority: normal
 lane: wage-reporting
-lane_seq: 20
+lane_seq: 90
 collision: [crates/cli/src/wage.rs, crates/cli/src/main.rs]
+blocked_by: ['@wage-report-multiple-allowance-codes', '@expense-claim-approve-seal']
 ---
 
 # Build a Tulorekisteri travel report from an approved expense claim

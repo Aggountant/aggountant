@@ -2,13 +2,16 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: feature
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:three-year-site-clock
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: workplace
+lane_seq: 20
+blocked_by: ['@expense-claim-draft']
 ---
 
 # Track the three-year rule for customer sites and refuse expired tax-free allowances

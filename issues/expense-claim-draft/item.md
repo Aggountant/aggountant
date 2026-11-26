@@ -2,13 +2,17 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: feature
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:expense-claim-draft
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: expense-claim
+lane_seq: 10
+blocked_by: ['@travel-allowance-rates-and-calculator', '@claimant-workplace-register']
+collision: [crates/cli/src/main.rs]
 ---
 
 # Expense claim draft: collect trips and receipt lines through the CLI with open questions

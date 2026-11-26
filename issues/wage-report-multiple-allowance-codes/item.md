@@ -2,13 +2,15 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: improvement
-status: untriaged
-priority: normal
+status: open
+priority: high
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:wage-report-multiple-allowance-codes
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: wage-reporting
+lane_seq: 17
 ---
 
 # file-wage: one 331 daily allowance carrying several per diem types

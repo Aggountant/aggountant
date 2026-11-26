@@ -2,13 +2,16 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: feature
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:claimant-workplace-register
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: workplace
+lane_seq: 10
+collision: [crates/cli/src/main.rs]
 ---
 
 # Dated regular-workplace register and claimant facts in the personal-data store

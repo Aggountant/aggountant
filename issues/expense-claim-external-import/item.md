@@ -2,13 +2,16 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: feature
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:expense-claim-external-import
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: expense-claim
+lane_seq: 70
+blocked_by: ['@expense-claim-approve-seal']
 ---
 
 # Import an expense claim from an outside travel-claim system with its lifecycle facts

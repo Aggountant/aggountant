@@ -2,13 +2,15 @@
 created: 2026-11-24
 updated: 2026-11-26
 type: feature
-status: untriaged
+status: open
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/slice:travel-allowance-rates-and-calculator
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+lane: travel-calc
+lane_seq: 10
 ---
 
 # Compute Finnish travel allowances from a trip (rate table and calculator preview)
