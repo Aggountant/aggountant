@@ -59,12 +59,17 @@ the user guide page on moving from another program follows.
       clearly marked placeholder until its slices land.
 - [ ] Guide (fi/en) `move-from-another-program` and `install` updated;
       CHANGELOG notes the rename.
+- [ ] The travel-claim part is skipped entirely, with no question about claims, for a company that has none.
 
 ## Decisions
 
 ### 2026-11-26T02:47:35Z · @conductor
 
 Jari 26.11.2026: the system supports phased migration (bookkeeping first, later Incomes Register / payroll and travel claims separately); the skill is just 'migrate'.
+
+### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
+
+Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
 
 ## Comments
 

@@ -73,6 +73,7 @@ this issue owns the register's shape, its basis codes and the refusals.
 - [ ] Refusal codes covered by tests with synthetic people (Esimerkki Oy).
 - [ ] No personal data goes to git or the fiscal store.
 - [ ] User guide uses the legal terms with a plain explanation in parentheses (ADR-11 section 9; product owner 2026-11-24) and adds them to the glossary. Proposed wording, settled in the guide: varsinainen työpaikka (paikka, jossa teet työtä vakituisesti, esimerkiksi oma toimisto tai kotitoimisto); toissijainen työpaikka (oman yhtiön toinen vakituinen toimipaikka toisessa kunnassa); erityinen työntekemispaikka (tilapäinen paikka, kuten asiakkaan luona); matkavuorokausi (24 tunnin jakso matkan alkamisesta, ei kalenteripäivä); ilmainen ateria (työnantajan tai esimerkiksi asiakkaan tarjoama ateria, ei hotellin aamiainen).
+- [ ] Copy-comparison test: a synthetic home without claims is copied, migrated, and existing commands produce the same outputs on both copies. The regular-workplace question is asked only for a claimant.
 
 ## Likely files
 
@@ -89,3 +90,9 @@ Related: `employee-pii-entry` (tax card optional for travel-only claimants).
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Decisions
+
+### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
+
+Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.

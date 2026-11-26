@@ -109,6 +109,7 @@ defaults below.
 - [ ] Every refusal above has a code and a test with a synthetic trip.
 - [ ] `crates/AGENTS.md` carries the Run rule (unless an earlier claim slice already added it).
 - [ ] User guide (fi/en) describes the preview.
+- [ ] The rate table is loaded only when a claim is computed; commands unrelated to claims do not read it (test).
 
 ## Likely files
 
@@ -125,3 +126,9 @@ trip's workplace classification as input and says so.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Decisions
+
+### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
+
+Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.

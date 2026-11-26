@@ -105,6 +105,8 @@ document, the approval record and the vouchers.
 - [ ] A synthetic trip in a closed month seals its allowance voucher in the first open period with the trip dates in the document.
 - [ ] The document is byte-stable across machines (golden vector).
 - [ ] User guide (fi/en): approving and what the vouchers are.
+- [ ] The approver is asked when the company's first claim is submitted and never otherwise; `init` and onboarding have no approver prompt or required field (test: `init` on a fresh synthetic home asks nothing about claims and its output is unchanged).
+- [ ] A home without claims opens and migrates; the migration adds only empty tables, and existing commands produce the same outputs as on the unmigrated copy (copy-comparison test).
 
 ## Likely files
 
@@ -121,3 +123,9 @@ Needs `expense-claim-draft`.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Decisions
+
+### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
+
+Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.

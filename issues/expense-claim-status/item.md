@@ -64,6 +64,7 @@ section 6); this issue owns the states and their closing commands.
 - [ ] No state is persisted; deleting nothing but changing facts changes the status.
 - [ ] `close-period` refuses with a stable blocker id for an open draft and only warns for post-approval states.
 - [ ] User guide (fi/en) month-close page lists the claim checks.
+- [ ] With no claim drafts or claims, `close-period` and `close-year` preview output and behaviour are unchanged (regression test on a synthetic home without claims), and the claim check adds no noticeable time to them.
 
 ## Likely files
 
@@ -79,3 +80,9 @@ the slice can land before them with those states tested through fixtures.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Decisions
+
+### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
+
+Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
