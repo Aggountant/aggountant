@@ -54,7 +54,26 @@ document, the approval record and the vouchers.
   `attachment_ref` and a natural key naming claim, version and part; link
   tables outside the hash chain (version, vouchers, receipt hashes).
 - Chart role `expense-claim-payable` in a new role file (masterdata by
-  addition), `fi-general-2026` mapped to `2740`.
+  addition), `fi-general-2026` mapped to `2740`. The product owner decided
+  on 2026-11-26 that claim payables get their own account in the next chart
+  edition (proposed `2741` Kululaskuvelat, in the same edition as `1740`
+  Matkaennakot for travel advances); the role maps to it there. The chart
+  edition itself, and how an existing home moves to it, is a later slice,
+  not part of this issue.
+- The approver (product owner 2026-11-26, ADR-11 section 5): the company
+  records who approves its claims, and "awaiting approval by X" exists in
+  every company. In a company with several people the claimant submits the
+  previewed content and the claim waits for that approver; the wait ends
+  when the approver approves or rejects (back to the draft) or the claimant
+  withdraws. In a one-person company the step is acknowledged at once and
+  the claimant's approval is recorded visibly as self-approval, with no
+  separate wait. Settle in this slice where the approver record lives and
+  what a draft write after submission does (the binding to previewed
+  content suggests it withdraws the submission).
+- Retention (product owner 2026-11-26): nothing is deleted. The retention
+  period is decided when deletion is built, likely about ten years for the
+  data an Incomes Register correction may rely on; the document stays
+  outside the hash chain so that this remains possible.
 - Closed periods (product owner 2026-11-26): the allowance voucher of a
   trip in a month already closed is booked in the first open period of the
   same fiscal year, as a correction is, and the document shows the trip's
@@ -78,6 +97,7 @@ document, the approval record and the vouchers.
 - [ ] Re-running approve with the same content is idempotent; a changed draft refuses.
 - [ ] `claim verify` detects a missing or altered document.
 - [ ] Self-approval is visible in preview, document and `claim show`.
+- [ ] In a synthetic two-person company a submitted claim waits for the recorded approver and leaves the wait by approval, rejection or withdrawal; in a one-person company the step is acknowledged at once as self-approval.
 - [ ] A recorded outside approval seals when the computation matches and refuses with the differing items when it does not; the document shows both the outside approver and the recorder.
 - [ ] A synthetic trip in a closed month seals its allowance voucher in the first open period with the trip dates in the document.
 - [ ] The document is byte-stable across machines (golden vector).
@@ -97,4 +117,4 @@ Needs `expense-claim-draft`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

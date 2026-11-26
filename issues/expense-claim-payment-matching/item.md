@@ -31,10 +31,17 @@ outstanding is derived from links between vouchers.
   voucher (claimant payable to bank) and writes the settlement link in the
   same batch transaction. The named claims' outstanding amounts (derived
   from links) must equal the payment; partial payment refuses for now.
+  Partial settlement (offset plus bank payment of one claim) comes later
+  with the travel-advance slice after the first version (ADR-11 section 11),
+  so the settlement link should not assume one settling voucher per claim.
 - `claim settle` for a payment made otherwise (offset against a receivable
   from the claimant, an account whose statement is not imported): seals the
-  settling voucher with evidence. For an offset the user states the payment
-  date with a reason (ADR-11 open question 7).
+  settling voucher with evidence. The offset date is the Incomes Register
+  payment date (product owner 2026-11-26, ADR-11 section 6; Tax
+  Administration VH/5655/05.00.00/2026, ch. 2.1). When the offset and the
+  bank payment of the difference would fall in different months the source
+  does not settle the date; the guidance is to date the offset on the day
+  the difference is paid.
 - A claim payment never also matches as an ordinary bank entry
   (`BANK_ENTRY_POSSIBLY_BOOKED` rules unchanged).
 
@@ -57,4 +64,4 @@ Needs `expense-claim-approve-seal`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

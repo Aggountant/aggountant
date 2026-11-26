@@ -35,7 +35,8 @@ section 6); this issue owns the states and their closing commands.
   | Derived state | From | Closing commands |
   |---|---|---|
   | Draft with open questions | draft exists, questions remain | answer (draft write, register entry) or `claim discard --reason` |
-  | Ready for approval | draft, no open questions | `claim approve` or `claim discard --reason` |
+  | Ready for approval | draft, no open questions | `claim submit` (in a one-person company acknowledged at once as self-approval), or `claim discard --reason` |
+  | Awaiting approval by *X* | submitted, the company's recorded approver has not acted | `claim approve` by the approver, `claim reject` (back to the draft) by the approver, `claim withdraw` by the claimant |
   | Approved, unpaid | version link, no settlement | bank import settles it; `claim settle` with evidence (offset or another account); `claim cancel` |
   | Paid, report due *(deadline)* | settlement, reportable lines, no accepted report | `file-wage from-claim` then the `file-wage` Run; `file-wage complete-manual` for a report given in the e-service |
   | Report outcome unknown | the `file-wage` Run is `OutcomeUnknown` | `file-wage reconcile` (never a resend) |
@@ -43,6 +44,10 @@ section 6); this issue owns the states and their closing commands.
   | Complete | settled, and reported or nothing to report | none |
   | Superseded / cancelled | a later version or a cancellation exists | none |
 
+- "Awaiting approval by X" is in the first version in every company
+  (product owner 2026-11-26, ADR-11 section 5); in a one-person company the
+  step exists but is never seen waiting. The approver comes from the
+  company's approver record (`expense-claim-approve-seal`).
 - A refusal leaves no claim state to close: a preview that refuses records
   nothing, and a refused approval leaves the draft as it was, with the
   ledger's rejection record as for any refused seal.
@@ -70,4 +75,4 @@ the slice can land before them with those states tested through fixtures.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.

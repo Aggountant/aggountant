@@ -44,7 +44,10 @@ Markdown is a rendered view); this issue owns the draft's details.
 - Every write validates typed fields and returns open questions: missing
   statutory fields (EPA 17 §), start-place role, vehicle ownership, free
   meals on a per-diem trip, meal-allowance answers, workplace entry, travel
-  day boundary locations abroad.
+  day boundary locations abroad. For a trip combined with leisure the draft
+  takes the user's work time and travel times, and asks the free meals and,
+  abroad, the country for each per diem day the calculator computes from
+  that duration, not by the clock (product owner 2026-11-26).
 - `recorded_at` and `source` per trip and line (user statement, imported
   record, confirmed reconstruction); a "recorded afterwards" marker for a
   trip recorded clearly after it ended, with the threshold settled in this
@@ -83,4 +86,4 @@ Needs `travel-allowance-rates-and-calculator` and `claimant-workplace-register`.
 
 ## Decision
 
-ADR-11, `docs/site/adr-11-expense-claim.md` (Proposed 2026-11-24, rewritten 2026-11-26 to the product owner's decisions); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
