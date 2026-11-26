@@ -4,43 +4,42 @@ Tämä on yhteenveto ADR-11:n päätöksestä ohjelmistoarkkitehdille. Varsinain
 
 ## Päätös
 
-Kululasku on ohjelman omistama luonnos, johon kirjoitetaan vain CLI:n kautta (JSON stdinissä). Puhdas `domain::travel::fi` laskee kaavamaiset korvaukset ja kieltäytyy koneluettavalla koodilla, kun syöte vaatii tulkintaa. Yksi sisältöön sidottu komento hyväksyy laskun ja kirjoittaa samassa transaktiossa jäädytetyn asiakirjan liitevarastoon sekä sinetöi tositteet, joiden `attachment_ref` on asiakirjan tiiviste. Hyväksynnän jälkeen kululaskuun ei kirjoiteta. Maksu, Tulorekisteri-ilmoitus ja korjaukset ovat omia faktojaan, ja tila johdetaan niistä joka kerta. Pitkää kululaskuajoa (Run) ei tehdä.
+Kululasku on ohjelman omistama luonnos, ADR-5:n intake-laji git-hallinnan ulkopuolella, johon kirjoitetaan vain CLI:n kautta. Jokainen kirjoitus validoi tyypitetyt kentät ja palauttaa avoimet kysymykset. Markdown on renderöity näkymä, jota ei tallenneta. Domainin Suomi-moduuli laskee kaavamaiset korvaukset ja kieltäytyy koneluettavalla koodilla, kun syöte vaatii tulkintaa. Yksi esikatselun sisältöön sidottu hyväksyntä kirjoittaa samassa transaktiossa jäädytetyn asiakirjan liitevarastoon ja sinetöi tositteet, joiden liitteenä on asiakirjan tiiviste. Sen jälkeen kululaskuun ei kirjoiteta. Maksu, Tulorekisteri-ilmoitus ja korjaukset ovat omia faktojaan, ja tila johdetaan niistä joka kerta.
+
+Kenttäluettelot, komentojen nimet, polut, taulut, virhekoodit ja asiakirjan sisältö ovat toteutusissueiden omistamia, eivät ADR:n.
 
 ## Missä mikin asuu
 
 | Tieto | Paikka |
 |---|---|
-| Luonnos | `intake/expense-claims/<claim_id>/draft.json`, atominen kirjoitus, hakemiston oma `.gitignore`. ADR-5:n intake-laji. |
-| Kuitit ja todisteet | `artifacts/` keruuhetkellä, luonnoksessa tiiviste |
-| Hyväksytty asiakirja | `artifacts/`, kanoninen JSON wire-kooderilla, oma `record_type` ja `schema_version` |
-| Tositteet | `fiscal.sqlite`: yksi per kuittirivi (kuitin päivä, Domainin ALV-purku), yksi per kuukausi kaavamaisille korvauksille |
-| Linkit (versio, tositteet, maksu, kuittitiiviste) | `fiscal.sqlite`, ketjun ulkopuoliset taulut samassa transaktiossa kuin sinetöinti (`bank_event`-ennakkotapaus) |
-| Työpaikkarekisteri, suhde yhtiöön, osakkuus | `pii.sqlite`, kaksiaikainen ja vain lisättävä (`valid_from`/`valid_to` ja `recorded_at`, korjaus `supersedes`-rivillä) |
-| Korvausmäärät | `crates/domain/data/fi-travel-allowances.json`, vuosipainokset, ulkomaan päivärahat ISO 3166 -avaimin, tiiviste asiakirjaan |
+| Luonnos | Datakodin intake, git-hallinnan ulkopuolella, vain ohjelman kirjoittama |
+| Kuitit ja todisteet | Liitevarasto keruuhetkellä, luonnoksessa tiiviste |
+| Hyväksytty asiakirja | Liitevarasto, hash-ketjun ulkopuolella, jotta henkilötiedot voi poistaa säilytysajan jälkeen ketjua rikkomatta |
+| Tositteet | Kirjanpitokanta: yksi per kuittirivi kuitin päivälle, yksi per kuukausi, jona matka päättyy, kaavamaisille korvauksille |
+| Linkit (versio, tositteet, maksu) | Kirjanpitokanta, uudet taulut yksisuuntaisella migraatiolla |
+| Työpaikkarekisteri, suhde yhtiöön, osakkuus | Henkilötietokanta, vain lisättävä, kaksiaikainen (milloin tieto pätee ja milloin ohjelma sai tietää), uudet taulut yksisuuntaisella migraatiolla |
+| Korvausmäärät | Ohjelman mukana tuleva taulukko, vuosipainos päätöksineen, valitaan matkan päivästä |
 
-Tositteen tiiviste kattaa asiakirjan, ja asiakirja kattaa kuitit ja matkan tilannekuvan työpaikkarekisteristä. Maksu, kuittaukset ja rekisterin nykyarvot jäävät sinetin ulkopuolelle. `claim verify` seuraa linkit ja tarkistaa, että asiakirja on olemassa ja tiivistyy oikein, mitä `voucher verify` ei tee.
+Molemmat migraatiot tehdään vasta niitä tarvitsevassa viipaleessa, varmuuskopio ensin ja migroitua kopiota alkuperäiseen verraten.
 
 ## Invariantit
 
-- Laskennan syötekentät ovat tyypitettyjä ja validoidaan jokaisessa kirjoituksessa. Vapaa teksti on vain selitystä.
-- Kaavamaisia rivejä ei syötetä: ne johdetaan matkasta. Pienempi maksettava määrä sallitaan, suurempi kieltäytyy (`ALLOWANCE_ABOVE_MAXIMUM`).
-- Ilman voimassa olevaa työpaikkamerkintää matkan päivälle ei synny verovapaita matkakorvauksia. Lähteiden ratkaisemattomat tapaukset kieltäytyvät. Vuodenvaihteen matkavuorokausi saa pienemmän määrän, ja kesäaika lasketaan kuluneena aikana.
-- Taulukkopainos valitaan matkan osan päivästä. Puuttuva painos kieltäytyy (`TRAVEL_RATES_MISSING`), eikä mitään ekstrapoloida.
-- Hyväksyntä sitoo esikatselun tiivisteen ja tallentaa jokaisen hyväksyjän. `self_approved` on näkyvä merkintä. Odottavaa "ensimmäinen hyväksyntä tehty" -tilaa ei tallenneta.
-- Jokaisesta keskeneräisestä johdetusta tilasta on päättävä komento (taulukko ADR:n luvussa 7). Hylkäys ennen peruuttamatonta tekoa ei jätä jälkeä.
-- Suomi on moduuli, ei parametri: matkalla on `jurisdiction: FI`, ja kaikki Suomi-spesifinen on `domain::travel::fi`:ssä. Muuta arvoa ei hyväksytä, eikä trait-kerrosta rakenneta nyt.
-
-## Muutokset nykyiseen
-
-- `ledger` saa kululaskun batch-sinetöinnin ja linkkitaulut (yksisuuntainen migraatio).
-- `pii.sqlite` saa rekisteritaulut (yksisuuntainen migraatio, harmiton kodille ilman kululaskuja).
-- `TravelLine::DailyAllowance` kantaa joukon päivärahatyyppejä, ja XML tuottaa yhden 331-tapahtuman (`AllowanceCode` `maxOccurs="unbounded"` vendoroidussa skeemassa). Vanha yksi koodi luetaan edelleen.
-- `file-wage from-claim` rakentaa syötteen sinetöidyistä asiakirjoista ja voi koota saman hakijan saman maksukuukauden maksut. Yksi maksu kuuluu täsmälleen yhteen ilmoitukseen: jo ilmoitettua maksua ei oteta uuteen ilmoitukseen, vaan se muuttuu vain ilmoituksensa korjauksella.
-- Tiliotetuonti tunnistaa kululaskun maksun ja kirjoittaa maksulinkin samassa batchissa.
-- Uusi roolitiedosto `expense-claim-payable` (lisäys, `fi-general-2026` → `2740`).
+- Laskennan syötekentät ovat tyypitettyjä ja ohjelman validoimia. Vapaa teksti on vain selitystä.
+- Kaavamaisia rivejä ei syötetä: ne johdetaan matkasta. Pienempi maksettava määrä sallitaan, suurempi kieltäytyy.
+- Ilman voimassa olevaa työpaikkamerkintää matkan päivälle ei synny verovapaita matkakorvauksia. Kolmen vuoden raja ja kirjaamaton pääasiallisuusarvio estävät hyväksynnän, eivät luonnosta.
+- Puuttuva taulukkopainos kieltäytyy, eikä mitään ekstrapoloida.
+- Hyväksyntämerkintä kertoo lajinsa: oma hyväksyntä tai kirjattu ulkoinen hyväksyntä (hyväksyjä, aika, järjestelmä, viite; kirjaaja erikseen). Ulkoinen kirjataan vain, kun ohjelman laskelma täsmää ulkoisesti hyväksyttyyn sisältöön. Odottavaa "ensimmäinen hyväksyntä tehty" -tilaa ei tallenneta.
+- Jokaisesta keskeneräisestä johdetusta tilasta on päättävä komento; tilat ja komennot omistaa `expense-claim-status`.
+- Suljettuun kuukauteen osuvan matkan korvaukset kirjataan saman tilikauden ensimmäiselle avoimelle kaudelle; tilikauden raja ylitetään tilinpäätöksen siirtovelalla.
+- Suomi on Domainin moduuli, ei parametri. Kululasku, kuittirivit, hyväksyntä ja tila eivät sisällä mitään Suomi-spesifistä, eikä plugin-kerrosta rakenneta nyt.
 
 ## Miksi ei ajoa
 
-Laskun myöhemmät vaiheet päättää joku muu: käyttäjä maksaa, Tulorekisteri kuittaa ja asiakas maksaa. Ajo jäisi auki viikoiksi, osuisi jokaisen julkaisun versiolukkoon ja tarvitsisi silti peruutus-, "maksettu muualla"- ja korjauskomennot. `file-wage` pysyy ajona, koska se on ohjelman oma peruuttamaton lähetys.
+ADR ottaa tuotteen säännöksi, että ajo (Run) on vain ohjelman omalle peruuttamattomalle ulkoiselle teolle, kuten lähetykselle viranomaiselle tai maksulle. Laskun myöhemmät vaiheet päättää joku muu: käyttäjä maksaa, Tulorekisteri vastaa ja asiakas maksaa. Niitä odottava ajo jäisi auki viikoiksi ja näyttäisi keskeneräistä työtä asian jo ratkettua muualla, kuten ALV-ajoille kävi. `file-wage` pysyy ajona, koska se on ohjelman oma peruuttamaton lähetys. Ensimmäinen kululaskuviipale kirjaa säännön `crates/AGENTS.md`:hen.
 
-**Lopputulos:** uusia rakenteita on neljä: luonnos, asiakirja, linkkitaulut ja rekisteri. Kaikki muu käyttää olemassa olevia polkuja: kuitin ALV-purkua, tiliotteen batchia, `file-wage`-ajoa ja liitevarastoa.
+## Rajaukset
+
+- aggountant ei maksa mitään eikä pidä reskontraa (`crates/AGENTS.md`: "Vouchers, not ledgers of receivables"). Laskun avoin määrä johdetaan tositteiden linkeistä.
+- Vanhojen sinetöityjen tositteiden liittäminen kululaskutunnisteeseen kuuluu tuotteeseen. Yhden kodin oman tiedostomuodon siirto ei ole tuotekomento, ja muu historia siirretään vaiheittaisella `migrate`-skillillä.
+
+**Lopputulos:** uusia rakenteita on neljä: luonnos, asiakirja, linkkitaulut ja rekisteri. Kaikki muu käyttää olemassa olevia polkuja: kuitin ALV-käsittelyä, tiliotteen tuontia, `file-wage`-ajoa ja liitevarastoa.

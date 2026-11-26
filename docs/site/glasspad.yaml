@@ -40,7 +40,7 @@ groups:
         desc: Ehdotus siitä, että viranomais- ja pankkipalvelujen käyttötieto on paketoitu skill, joka karttuu yritysten agenteilta synteettisinä julkisina issueina.
       - slug: adr-11-expense-claim
         title: ADR-11 · Kululasku
-        desc: Ehdotus kululaskun mallista, tallennuksesta, laskennasta ja käsittelystä matkoineen, riveineen, työpaikkarekistereineen ja Tulorekisteri-ilmoituksineen.
+        desc: Ehdotus kululaskusta – ohjelma laskee matkasta, yksi hyväksyntä sinetöi, ja tila johdetaan myöhemmistä faktoista.
         children:
           - { slug: adr-11-expense-claim-kirjanpitajalle, title: · Kirjanpitäjälle }
           - { slug: adr-11-expense-claim-arkkitehdille, title: · Arkkitehdille }
