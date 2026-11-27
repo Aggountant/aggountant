@@ -54,7 +54,7 @@ fn offline_preview_start_dryrun_approval_guard_and_manual_fallback() {
     assert_eq!(code, 0, "{err}");
     let p: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(p["schema_version"], 1);
-    assert_eq!(p["deadline"], "2026-10-30");
+    assert_eq!(p["deadline"], "2026-11-05");
     assert_eq!(p["report"]["joint_owner"], true);
     assert!(p["sensitive"]["record_hash"]
         .as_str()

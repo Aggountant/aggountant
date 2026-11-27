@@ -156,8 +156,8 @@ e-service, and record the payroll voucher in aggountant:
 ## Tulorekisteri and employees
 
 - aggountant reports only tax-free travel allowances to Tulorekisteri:
-  mileage allowances (311) and per diems (331) for one income earner and one
-  payment at a time. The
+  mileage allowances (311) and per diems (331) for one income earner at a
+  time. The
   [replacement report and the cancellation](../tasks/report-travel-allowances.md#correct-an-accepted-report)
   of an accepted report are also made with aggountant.
 - aggountant files

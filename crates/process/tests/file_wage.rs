@@ -105,7 +105,7 @@ fn offline_preview_start_and_approve_once_with_pii_isolation() {
     let e = ProcessEngine::open(h.path());
     let r = report();
     let p = e.preview_wage(&r, time()).unwrap();
-    assert_eq!(p.deadline, "2026-10-30");
+    assert_eq!(p.deadline, "2026-11-05");
     assert!(p.report.joint_owner);
     assert_eq!(p.report.period_start.to_string(), "2026-09-01");
     let preview = serde_json::to_string(&p).unwrap();

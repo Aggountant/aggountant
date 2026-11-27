@@ -695,7 +695,10 @@ pub(crate) const FILE_WAGE_REPORT: &str = r#"INPUT (JSON on stdin)
   source_reference  the payer's own stable reference, 1..200 bytes.
   employee_id       an id stored with `employee add`.
   payment_date      YYYY-MM-DD, 2019-01-01 or later and at most 45 days ahead.
-                    The report is due five days after it.
+                    The report is due on the 5th of the following month,
+                    or the next business day when the 5th is not one. One
+                    report may combine a month's payments to one earner; it
+                    then carries the latest payment date.
   period_start, period_end
                     YYYY-MM-DD, the earning period, given explicitly.
   joint_owner       true or false: joint ownership (IncomeEarnerType 2), stated

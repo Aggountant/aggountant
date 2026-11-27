@@ -1,4 +1,5 @@
 //! The deliberately narrow, tax-free travel-only earnings report. No salary mapping.
+use crate::bank_days::{is_finnish_bank_day, next_finnish_bank_day};
 use crate::{resolve_tulolaji, DomainError};
 use aggountant_model::{BusinessId, Date, FilingContactName, FilingContactPhone, Instant};
 use jiff::civil::Date as CivilDate;
@@ -112,8 +113,12 @@ impl WageReport {
         }
         Ok(())
     }
+    /// The statutory deadline of this report. Every line a `WageReport` can
+    /// carry is a tax-exempt travel reimbursement, so this is
+    /// [`travel_report_deadline`] of the payment date. A report that combines a
+    /// month's payments carries the latest of them as its payment date.
     pub fn deadline(&self) -> CivilDate {
-        self.payment_date.inner() + 5.days()
+        travel_report_deadline(self.payment_date.inner())
     }
     /// Full framed natural-key digest retained locally; bounded public references are not payload hashes.
     pub fn identity_hash(&self) -> String {
@@ -135,6 +140,59 @@ impl WageReport {
     }
     pub fn report_id(&self) -> String {
         format!("r-{}", &self.identity_hash()[..38])
+    }
+}
+
+/// The Incomes Register deadline for a report of `income_type` paid on
+/// `payment_date`. The deadline depends on the income type: tax-exempt travel
+/// reimbursements (311 kilometre allowance, 331 daily allowance) follow
+/// [`travel_report_deadline`]. Any other income type is refused rather than
+/// given a guessed deadline; a taxable type, when one is modelled, is added
+/// here with the five-day rule of pay data (`palkkatieto_deadline`).
+pub fn report_deadline(
+    income_type: &str,
+    payment_date: CivilDate,
+) -> Result<CivilDate, DomainError> {
+    match income_type {
+        "311" | "331" => Ok(travel_report_deadline(payment_date)),
+        other => Err(DomainError::Tulolaji(format!(
+            "no Incomes Register deadline is modelled for income type {other:?}; only 311 and 331 are"
+        ))),
+    }
+}
+
+/// The statutory deadline of a tax-exempt travel reimbursement report: the
+/// 5th day of the month after the payment month, moved to the next business
+/// day when the 5th is not one.
+///
+/// Laki tulotietojärjestelmästä (53/2018) 12 § 11 mom.: tax-exempt
+/// reimbursements of expenses are reported "kuukausittain viimeistään
+/// maksukuukautta seuraavan kalenterikuukauden viidentenä päivänä". Several
+/// payments of one month may go in one report with the latest payment date
+/// (Verohallinto, "Reporting reimbursements of expenses to the Incomes
+/// Register").
+///
+/// The shift: Verohallinto's detailed guidance "Wages: reporting data to the
+/// Incomes Register" (section 2.1) says that a filing deadline falling on a
+/// Saturday, Sunday or other holiday may be met on the following business day,
+/// under section 5 of laki säädettyjen määräaikain laskemisesta (150/1930).
+/// That section names pyhäpäivät (Sundays and church holidays), Independence
+/// Day, May Day, Christmas Eve, Midsummer Eve and weekday Saturdays. Its
+/// weekday holidays are exactly the Finnish bank holidays of
+/// [`crate::bank_days`], so the first day it allows is the next bank day.
+pub fn travel_report_deadline(payment_date: CivilDate) -> CivilDate {
+    let fifth = payment_date
+        .first_of_month()
+        .checked_add(1.month())
+        .expect("a payment date validated after 2019 has a following month")
+        .with()
+        .day(5)
+        .build()
+        .expect("every month has a 5th day");
+    if is_finnish_bank_day(fifth) {
+        fifth
+    } else {
+        next_finnish_bank_day(fifth)
     }
 }
 
@@ -282,6 +340,59 @@ mod tests {
         bad = c;
         bad.corrects_version = Some(0);
         assert!(bad.validate(today).is_err());
+    }
+    fn date(s: &str) -> CivilDate {
+        s.parse().unwrap()
+    }
+    #[test]
+    fn travel_deadline_is_the_fifth_of_the_following_month() {
+        for (paid, due) in [
+            // Thursday 5 November 2026.
+            ("2026-10-25", "2026-11-05"),
+            // Every day of the month has the same deadline, month end included.
+            ("2026-10-01", "2026-11-05"),
+            ("2026-10-31", "2026-11-05"),
+            ("2026-01-31", "2026-02-05"),
+            ("2028-02-29", "2028-03-06"), // 5 March 2028 is a Sunday.
+            // December → January of the next year: 5 January 2027 is a Tuesday.
+            ("2026-12-31", "2027-01-05"),
+            // Saturday 5 September 2026 → Monday 7 September.
+            ("2026-08-14", "2026-09-07"),
+            // Sunday 5 July 2026 → Monday 6 July.
+            ("2026-06-30", "2026-07-06"),
+            // Easter 2026 is 5 April: Sunday, then Easter Monday 6 April → Tuesday 7 April.
+            ("2026-03-02", "2026-04-07"),
+            // Easter Monday 5 April 2021 → Tuesday 6 April.
+            ("2021-03-31", "2021-04-06"),
+            // Good Friday 5 April 2075 (Easter 7 April) → Tuesday 9 April.
+            ("2075-03-15", "2075-04-09"),
+            // Ascension Day 5 May 2016 → Friday 6 May.
+            ("2016-04-29", "2016-05-06"),
+            // Saturday 5 January 2030, Epiphany falls on the Sunday → Monday 7 January.
+            ("2029-12-10", "2030-01-07"),
+            // Sunday 5 January 2025, then Epiphany Monday 6 January → Tuesday 7 January.
+            ("2024-12-20", "2025-01-07"),
+        ] {
+            assert_eq!(travel_report_deadline(date(paid)), date(due), "{paid}");
+        }
+    }
+    #[test]
+    fn deadline_is_a_function_of_the_income_type() {
+        let paid = date("2026-10-25");
+        for code in ["311", "331"] {
+            assert_eq!(report_deadline(code, paid).unwrap(), date("2026-11-05"));
+        }
+        assert!(report_deadline("101", paid).is_err());
+        let mut r = report();
+        assert_eq!(r.deadline(), date("2026-11-05"));
+        r.lines = vec![TravelLine::DailyAllowance {
+            amount: Decimal::ONE,
+            allowance_code: 3,
+        }];
+        assert_eq!(r.deadline(), date("2026-11-05"));
+        // Pay data keeps its five-day rule.
+        let pay = aggountant_model::Date::parse("2026-10-25").unwrap();
+        assert_eq!(crate::palkkatieto_deadline(pay).to_string(), "2026-10-30");
     }
     #[test]
     fn reject_missing_ownership_unknown_fields_and_non_decimal_strings() {

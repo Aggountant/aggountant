@@ -30,9 +30,12 @@ palauttaa kuittauksen, ilmoitus on rekisterissä.
 
 ## Matkakorvausilmoitus
 
-Yksi ilmoitus on yksi maksu yhdelle tulonsaajalle (`aggountant file-wage preview`,
-jonka ohje kertoo syötteen). Ohjelma näyttää varovaisen määräpäivän, viisi päivää
-maksupäivästä. Laadi ilmoitus
+Yksi ilmoitus koskee yhtä tulonsaajaa (`aggountant file-wage preview`, jonka ohje
+kertoo syötteen). Verovapaat matkakorvaukset saa ilmoittaa kuukausittain: saman
+kuukauden maksut voi koota yhteen ilmoitukseen, jonka maksupäivä on niistä viimeisin
+(laki tulotietojärjestelmästä 12 § 11 mom.). Ohjelma näyttää lakisääteisen
+määräpäivän, maksukuukautta seuraavan kuukauden 5. päivän, tai sitä seuraavan
+arkipäivän, jos 5. päivä on lauantai, sunnuntai tai muu pyhäpäivä. Laadi ilmoitus
 matka- tai kululaskusta ja kysy käyttäjältä se, mitä laskusta ei näe:
 
 - Ansaintajakso annetaan itse; ohjelma ei päättele sitä kululaskusta.

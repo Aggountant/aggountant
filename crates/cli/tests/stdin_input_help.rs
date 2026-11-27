@@ -82,7 +82,7 @@ fn offline_stdin_commands_accept_their_printed_example() {
         "file-wage preview",
         &["--timestamp", "2026-10-25T12:00:00Z"],
     );
-    assert_eq!(report["deadline"], "2026-10-30");
+    assert_eq!(report["deadline"], "2026-11-05");
 
     let payroll = call("run-payroll start", &[]);
     assert!(payroll["run_id"].is_string());

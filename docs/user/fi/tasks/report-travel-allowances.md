@@ -1,9 +1,11 @@
 # Ilmoita matkakorvaukset Tulorekisteriin
 
 Kun yritys maksaa työntekijälle tai sinulle itsellesi verovapaita
-matkakorvauksia, ne ilmoitetaan Tulorekisteriin. aggountant ilmoittaa
-kilometrikorvaukset ja päivärahat yhdelle tulonsaajalle ja yhdestä maksusta
-kerrallaan Tulorekisterin tuotantoyhteydellä. Rahapalkkoja sillä
+matkakorvauksia, ne ilmoitetaan Tulorekisteriin viimeistään maksukuukautta
+seuraavan kuukauden 5. päivänä. Saman kuukauden maksut voi koota yhteen
+ilmoitukseen, jonka maksupäivä on niistä viimeisin. aggountant ilmoittaa
+kilometrikorvaukset ja päivärahat yhdelle tulonsaajalle kerrallaan
+Tulorekisterin tuotantoyhteydellä. Rahapalkkoja sillä
 [ei vielä voi maksaa eikä ilmoittaa](../reference/status.md#palkat).
 
 Jos yritys on työnantajarekisterissä, se antaa Tulorekisteriin lisäksi joka
@@ -102,8 +104,10 @@ tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
 
 3. **Agentti esikatselee ilmoituksen.** Esikatselu ei ota verkkoyhteyttä. Se
    näyttää rivit, jakson, maksupäivän, osakkuustiedon, yhteyshenkilön ja
-   määräpäivän. Määräpäivänä aggountant näyttää varovaisesti viidennen
-   kalenteripäivän maksupäivästä.
+   määräpäivän. Määräpäivä on maksukuukautta seuraavan kuukauden 5. päivä.
+   Jos 5. päivä on lauantai, sunnuntai tai muu pyhäpäivä, aggountant näyttää
+   sitä seuraavan arkipäivän, jolloin ilmoituksen saa vielä antaa (laki
+   säädettyjen määräaikain laskemisesta 5 §).
 
 4. **Tarkista ja hyväksy** rivit, jakso, maksupäivä ja osakkuustieto.
 

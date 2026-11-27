@@ -153,8 +153,8 @@ asiointipalvelussa ja kirjaa palkkatosite aggountantiin:
 ## Tulorekisteri ja työntekijät
 
 - Tulorekisteriin aggountant ilmoittaa vain verovapaat matkakorvaukset:
-  kilometrikorvaukset (311) ja päivärahat (331) yhdelle tulonsaajalle ja
-  yhdestä maksusta kerrallaan. Myös hyväksytyn ilmoituksen
+  kilometrikorvaukset (311) ja päivärahat (331) yhdelle tulonsaajalle
+  kerrallaan. Myös hyväksytyn ilmoituksen
   [korvaava ilmoitus ja mitätöinti](../tasks/report-travel-allowances.md#korjaa-hyväksytty-ilmoitus)
   tehdään aggountantilla.
 - [Työnantajan erillisilmoituksen](../tasks/file-employer-report.md)

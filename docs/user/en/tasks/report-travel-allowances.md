@@ -1,9 +1,11 @@
 # Report travel allowances to Tulorekisteri
 
 When the company pays tax-free travel allowances to an employee or to you,
-they are reported to Tulorekisteri, the Finnish Incomes Register. aggountant
-reports mileage allowances and per diems for one income earner and one
-payment at a time, over the Tulorekisteri production connection. Cash wages
+they are reported to Tulorekisteri, the Finnish Incomes Register, by the 5th
+of the month after the payment month. A month's payments may be combined in
+one report whose payment date is the latest of them. aggountant reports
+mileage allowances and per diems for one income earner at a time, over the
+Tulorekisteri production connection. Cash wages
 [cannot yet be paid or reported](../reference/status.md#payroll) with it.
 
 If the company is in the employer register, it also files
@@ -107,8 +109,11 @@ needlessly.
 
 3. **The agent previews the report.** The preview makes no network
    connection. It shows the rows, the period, the payment date, the
-   shareholding, the contact person and the deadline. As the deadline
-   aggountant shows a cautious one, five calendar days after the payment date.
+   shareholding, the contact person and the deadline. The deadline is the 5th
+   of the month after the payment month. When the 5th is a Saturday, Sunday or
+   other holiday, aggountant shows the next business day, on which the report
+   may still be filed (section 5 of the act on the calculation of statutory
+   time limits).
 
 4. **Check and approve** the rows, the period, the payment date and the
    shareholding.

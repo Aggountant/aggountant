@@ -31,6 +31,15 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Changed
 
+- **`file-wage` shows the statutory deadline for travel reports.** A
+  tax-exempt travel report (income types 311 and 331) is due on the 5th of
+  the month after the payment month (laki tulotietojärjestelmästä 12 § 11
+  mom.), or on the next business day when the 5th is a Saturday, Sunday or
+  holiday (laki säädettyjen määräaikain laskemisesta 5 §). `file-wage
+  preview` showed five days after the payment date. The guide and the
+  `tulorekisteri` skill say that one report may combine a month's payments
+  to one earner with the latest payment date.
+
 - **Breaking: the bank import verb is `import camt` and its parse error is
   `INVALID_CAMT`.** The parser reads camt.052 as well as camt.053, so the
   names no longer claim camt.053. `import camt053` (and `import camt052`)
