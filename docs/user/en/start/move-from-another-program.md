@@ -5,7 +5,14 @@ aggountant starts from the opening balances on the cutover date. The old
 system's history is exported from the old program and the bank into an
 archive, which you keep for as long as the law requires. Collect the material
 before you give up the old program, because afterwards you may no longer be
-able to get it. The agent uses the `migrate-books` skill for the collection.
+able to get it. The agent uses the `migrate` skill for the move.
+
+The move does not have to happen all at once. The books move first, and the
+VAT returns, the Incomes Register (Tulorekisteri) reports and travel and
+expense claims can follow later, each on its own date. This page describes
+moving the books; the other areas are under
+[Other areas later](#other-areas-later). The agent asks only about the areas
+your company has.
 
 ## Before you start
 
@@ -131,6 +138,34 @@ The setup commands are on the pages
 - The opening balance voucher
   [agrees with the balance list](set-up-company.md#done-when).
 - The home's `AGENTS.md` says where the old system's archive is.
+- The company facts record the date from which the books are in aggountant.
+
+## Other areas later
+
+Each area has its own cutover date, and the agent records in the company
+facts what was moved and from which date. The next area can therefore start
+months later in another session:
+
+> Let's now move Esimerkki Oy's Incomes Register reports to aggountant from
+> 1 March 2026.
+
+- **VAT returns** need the books, because the return is calculated from
+  aggountant's vouchers. The first period aggountant files lies wholly in its
+  books, so set the books' cutover date at the turn of a VAT period. Agree
+  who files the old system's last period: its due date usually falls after
+  the cutover.
+- **Incomes Register reports** (tax-free travel allowances and the
+  employer's separate report) move at the turn of a month. The agent imports
+  the months already reported from the Incomes Register's report 630
+  ([When an earlier payroll service filed reports](../tasks/file-employer-report.md#when-an-earlier-payroll-service-filed-reports)),
+  and you agree with the previous reporter who reports the payments of the
+  cutover month. aggountant does not report cash wages.
+- **Travel and expense claims** apply only to a company that pays them. Old
+  claims stay in the archive with their vouchers. What carries over is the
+  claims approved but unpaid on the cutover date, unreported reimbursements
+  and each person's [regular workplace](../tasks/record-regular-workplace.md).
+  The program has no expense claim commands yet, so part of this area waits
+  for them: [Receipts and entries](../reference/status.md#receipts-and-entries).
 
 ## Notes for specific programs
 

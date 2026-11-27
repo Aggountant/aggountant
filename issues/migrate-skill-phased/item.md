@@ -1,13 +1,15 @@
 ---
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
 reporter: jari
-status: open
+status: done
 priority: normal
 lane: migrate
 lane_seq: 10
 collision: [skills/migrate-books, crates/cli/src/skill.rs]
+closed: 2026-11-27
+closed_by: spinoff-01m8f29vs6esbc93pqv250b1sj
 ---
 
 # migrate skill: phased, per-domain migration (replaces migrate-books)
@@ -52,14 +54,14 @@ the user guide page on moving from another program follows.
 
 ## Acceptance criteria
 
-- [ ] `skills/migrate/SKILL.md` replaces `skills/migrate-books/`; install,
+- [x] `skills/migrate/SKILL.md` replaces `skills/migrate-books/`; install,
       list and print handle the rename; tests updated.
-- [ ] Domains as above, each with its own cutover date and dependencies.
-- [ ] The travel-claim part is either written against ADR-11 or left as a
+- [x] Domains as above, each with its own cutover date and dependencies.
+- [x] The travel-claim part is either written against ADR-11 or left as a
       clearly marked placeholder until its slices land.
-- [ ] Guide (fi/en) `move-from-another-program` and `install` updated;
+- [x] Guide (fi/en) `move-from-another-program` and `install` updated;
       CHANGELOG notes the rename.
-- [ ] The travel-claim part is skipped entirely, with no question about claims, for a company that has none.
+- [x] The travel-claim part is skipped entirely, with no question about claims, for a company that has none.
 
 ## Decisions
 
@@ -82,3 +84,9 @@ What ADR-11 (rewritten 2026-11-26, section 10) expects from the travel-claim par
 - An open claim that needs completing is entered through the claim commands as a draft, so the program computes and asks for what is missing; the skill keeps no calculation of its own.
 - Moving one home's own claim file format is not a product command; the skill describes the generic path, and a home with its own format does its import on its side.
 - Dependencies: the employee register (claimants), the claim slices above, and the Incomes Register domain for unreported reimbursements. Until the claim slices land, the travel-claim part stays a clearly marked placeholder, as this issue's acceptance criteria already allow.
+
+## Resolution
+
+### 2026-11-27T18:08:21Z · @spinoff-01m8f29vs6esbc93pqv250b1sj
+
+Implemented; see result.md.

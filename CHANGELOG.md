@@ -80,6 +80,20 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Changed
 
+- **Skills: `migrate-books` is now `migrate`, phased by domain.** The skill
+  moves a company from another program one domain at a time, each on its own
+  cutover date: the books (what `migrate-books` did), VAT returns, Incomes
+  Register reports and travel and expense claims, with the dependencies
+  between them and a company fact per domain recording what moved from which
+  date. A company that has no expense claims is not asked about them; the
+  claim part waits for the claim commands where they are missing. `skill
+  install` turns an earlier install's `migrate-books/SKILL.md` into a pointer
+  to `migrate` (reported under `renamed`; nothing is deleted), `skill list
+  --json` lists the rename, and `skill install migrate-books` or `skill print
+  migrate-books` fails with `SKILL_RENAMED` naming the new name. `migrate`
+  installs `vero-fi`, `tulorekisteri` and `e-services` with it. Guide pages
+  "Move your books from another program" and "Install" follow.
+
 - **`file-wage` shows the statutory deadline for travel reports.** A
   tax-exempt travel report (income types 311 and 331) is due on the 5th of
   the month after the payment month (laki tulotietojärjestelmästä 12 § 11

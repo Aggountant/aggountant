@@ -41,7 +41,7 @@ program.
    | Skill | What the agent uses it for |
    |---|---|
    | `aggountant-init` | setting up a company home with a readiness checklist and one source request, or continuing an unfinished setup |
-   | `migrate-books` | moving the books from another program: exporting, checking and archiving the old material |
+   | `migrate` | moving from another program one area at a time (the books, VAT, the Incomes Register, expense claims): exporting, checking and archiving the old material |
    | `capture-receipt` | the month's books: receipts, the bank statement, manual entries, reconciliation and the month close |
    | `vero-fi` | the VAT return to the Tax Administration and setting up direct VAT filing |
    | `tulorekisteri` | the Incomes Register travel allowance report and the employer's separate report |
@@ -78,7 +78,15 @@ same from its root with `cargo install --locked --path crates/cli`.
 When you install `capture-receipt` on its own, `aggountant-init` comes with
 it, because they share a role description. `vero-fi` and `tulorekisteri` also
 bring each other and `e-services`, which they rely on for the steps done in
-the authorities' web services.
+the authorities' web services. `migrate` brings all of these, because the
+VAT and Incomes Register parts of a move continue in them.
+
+`migrate` used to be called `migrate-books`. If the skill directory still
+has the old `migrate-books`, installing replaces its `SKILL.md` with a
+pointer to `migrate`, so that the agent does not read the old instructions.
+Installing never deletes anything, so you can remove the directory yourself.
+`skill install migrate-books` answers with the error `SKILL_RENAMED`, which
+names the new name.
 
 `skill print` shows a skill's content without installing anything. `--file`
 shows the skill's other files, such as the shared role description `SOUL.md`.

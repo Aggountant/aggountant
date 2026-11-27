@@ -4,8 +4,14 @@ Kun yritys siirtyy aggountantiin toisesta kirjanpito-ohjelmasta, aggountant
 aloittaa vaihtopäivän avaavista saldoista. Vanhan järjestelmän historia
 viedään vanhasta ohjelmasta ja pankista arkistoksi, jota säilytät lain
 vaatiman ajan. Kerää aineisto ennen kuin luovut vanhasta ohjelmasta, koska sen
-jälkeen sitä ei välttämättä enää saa. Agentti käyttää keruuseen
-`migrate-books`-skilliä.
+jälkeen sitä ei välttämättä enää saa. Agentti käyttää siirtoon
+`migrate`-skilliä.
+
+Siirron ei tarvitse tapahtua kerralla. Kirjanpito siirtyy ensin, ja
+ALV-ilmoitukset, Tulorekisteri-ilmoitukset ja matka- ja kululaskut voivat
+siirtyä myöhemmin, kukin omana päivänään. Tämä sivu kuvaa kirjanpidon siirron;
+muut alueet ovat kohdassa [Muut alueet myöhemmin](#muut-alueet-myöhemmin).
+Agentti kysyy vain niistä alueista, joita yritykselläsi on.
 
 ## Ennen kuin aloitat
 
@@ -130,6 +136,35 @@ Käyttöönoton komennot ovat sivuilla
 - Avaavien saldojen tosite
   [täsmää saldoluetteloon](set-up-company.md#valmis-kun).
 - Kodin `AGENTS.md` kertoo, missä vanhan järjestelmän arkisto on.
+- Yritystietoihin on kirjattu, mistä päivästä kirjanpito on aggountantissa.
+
+## Muut alueet myöhemmin
+
+Kullakin alueella on oma vaihtopäivänsä, ja agentti kirjaa yritystietoihin,
+mitä siirrettiin ja mistä päivästä. Seuraava alue voi siis alkaa kuukausia
+myöhemmin toisessa istunnossa:
+
+> Siirretään nyt Esimerkki Oy:n Tulorekisteri-ilmoitukset aggountantiin
+> 1.3.2026 alkaen.
+
+- **ALV-ilmoitukset** edellyttävät kirjanpitoa, koska ilmoitus lasketaan
+  aggountantin tositteista. Ensimmäinen aggountantin kausi on kokonaan sen
+  kirjanpidossa, joten kirjanpidon vaihtopäivä kannattaa asettaa ALV-kauden
+  vaihteeseen. Sovi, kuka antaa vanhan järjestelmän viimeisen kauden
+  ilmoituksen: sen määräpäivä osuu yleensä vaihtopäivän jälkeen.
+- **Tulorekisteri-ilmoitukset** (verovapaat matkakorvaukset ja työnantajan
+  erillisilmoitus) siirtyvät kuukauden vaihteessa. Agentti tuo aiemmin
+  annetut kuukaudet Tulorekisterin raportista 630
+  ([Kun aiempi palkanlaskija on antanut ilmoituksia](../tasks/file-employer-report.md#kun-aiempi-palkanlaskija-on-antanut-ilmoituksia)),
+  ja te sovitte vanhan ilmoittajan kanssa, kuka ilmoittaa vaihtokuukauden
+  maksut. Rahapalkkoja aggountant ei ilmoita.
+- **Matka- ja kululaskut** koskevat vain yritystä, joka maksaa niitä.
+  Vanhat laskut jäävät arkistoon tositteidensa mukana. Mukaan siirtyvät
+  vaihtopäivänä hyväksytyt mutta maksamattomat laskut, ilmoittamattomat
+  korvaukset ja kunkin henkilön
+  [varsinainen työpaikka](../tasks/record-regular-workplace.md). Kululaskun
+  omia komentoja ei vielä ole, joten osa tästä alueesta odottaa niitä:
+  [Kuitit ja kirjaukset](../reference/status.md#kuitit-ja-kirjaukset).
 
 ## Ohjelmakohtaisia huomioita
 

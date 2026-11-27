@@ -99,15 +99,57 @@ const SKILLS: &[BundledSkill] = &[
         schema_version: 1,
     },
     BundledSkill {
-        name: "migrate-books",
-        description: "Move a company's books from another program: inventory, read-only export, a checksummed archive and the hand-off to setup.",
-        files: skill_files!("migrate-books": "SKILL.md", "briox.md", "holvi.md"),
-        requires: &["aggountant-init"],
+        name: "migrate",
+        description: "Move a company from another program domain by domain, each on its own cutover date: the books, VAT, the Incomes Register and expense claims.",
+        files: skill_files!(
+            "migrate": "SKILL.md",
+            "kirjanpito.md",
+            "alv.md",
+            "tulorekisteri.md",
+            "kululaskut.md",
+            "briox.md",
+            "holvi.md",
+        ),
+        // The VAT and Incomes Register domains hand over to the filing skills.
+        requires: &["aggountant-init", "vero-fi", "tulorekisteri"],
         schema_version: 1,
     },
 ];
 
+/// A skill that was renamed: `(old name, new name)`. Installing never deletes,
+/// so an agent that had the old skill installed would keep reading its stale
+/// text next to the new one; installing the new skill replaces the old
+/// `SKILL.md` with a pointer instead, and the old name is refused by name.
+const RENAMED: &[(&str, &str)] = &[("migrate-books", "migrate")];
+
+/// What an old skill's `SKILL.md` becomes once its successor is installed.
+fn renamed_pointer(old: &str, new: &str) -> String {
+    format!(
+        "---\n\
+name: {old}\n\
+description: >-\n  \
+Vanha nimi skillille {new}. Avaa {new} tämän sijaan.\n\
+---\n\
+\n\
+# {old} on nyt {new}\n\
+\n\
+Tämän skillin sisältö on skillissä [{new}](../{new}/SKILL.md). Avaa se. Tämä hakemisto\n\
+on jäänne aiemmasta asennuksesta, sen muut tiedostot ovat vanhentuneita, ja sen voi\n\
+poistaa.\n"
+    )
+}
+
 fn find(name: &str) -> Result<&'static BundledSkill, CliError> {
+    if let Some((old, new)) = RENAMED.iter().find(|(old, _)| *old == name) {
+        return Err(CliError::user(
+            "SKILL_RENAMED",
+            format!(
+                "skill {old:?} was renamed to {new:?}; use `aggountant skill install {new}` \
+                 or `aggountant skill print {new}`"
+            ),
+        )
+        .with_details(json!({ "renamed_from": old, "renamed_to": new })));
+    }
     SKILLS
         .iter()
         .find(|skill| skill.name == name)
@@ -153,6 +195,10 @@ pub(super) fn list() -> Value {
             "path_in_repo": skill.path_in_repo(),
             "files": skill.files.iter().map(|(file, _)| *file).collect::<Vec<_>>(),
             "requires": skill.requires,
+        })).collect::<Vec<_>>(),
+        "renamed": RENAMED.iter().map(|(old, new)| json!({
+            "name": old,
+            "renamed_to": new,
         })).collect::<Vec<_>>(),
     })
 }
@@ -269,12 +315,49 @@ pub(super) fn install(name: Option<&str>, target_roots: &[PathBuf]) -> Result<Va
         }
     }
 
+    let mut renamed = Vec::new();
+    for target in target_roots {
+        for (old, new) in RENAMED {
+            let pointer = target.join(old).join("SKILL.md");
+            // Only an earlier install of the old skill gets the pointer; a
+            // target that never had it gets no new directory.
+            if !selected.iter().any(|skill| skill.name == *new) || !pointer.is_file() {
+                continue;
+            }
+            renamed.push(json!({
+                "name": old,
+                "renamed_to": new,
+                "path": pointer.display().to_string(),
+                "action": install_file(&pointer, &renamed_pointer(old, new))?,
+            }));
+        }
+    }
+
     Ok(json!({
         "schema_version": 1,
         "installed": installed,
+        "renamed": renamed,
         "count": installed.len(),
         "targets": target_roots.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
     }))
+}
+
+/// The text-output note on old skill directories that now point to their
+/// new name, empty when there are none.
+pub(super) fn renamed_line(value: &Value) -> String {
+    value["renamed"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|entry| {
+            format!(
+                "; {} now points to {} ({})",
+                entry["path"].as_str().unwrap_or("?"),
+                entry["renamed_to"].as_str().unwrap_or("?"),
+                entry["action"].as_str().unwrap_or("?")
+            )
+        })
+        .collect()
 }
 
 fn install_file(destination: &Path, content: &str) -> Result<&'static str, CliError> {
@@ -530,6 +613,33 @@ aggountant file-vat help status
 ```
 ";
         assert_eq!(unknown_command_paths(&root, fine), [] as [&str; 0]);
+    }
+
+    /// A company without expense claims must meet no claim questions while
+    /// it migrates: everything about claims is in `kululaskut.md`, which only
+    /// the domain table of `SKILL.md` opens, and no other file of the skill
+    /// names a claim command.
+    #[test]
+    fn migrate_keeps_expense_claims_in_their_own_domain_file() {
+        let skill = SKILLS.iter().find(|skill| skill.name == "migrate").unwrap();
+        for (file, content) in skill.files {
+            if *file == "kululaskut.md" {
+                assert!(content.contains("`aggountant claimant add`"));
+                continue;
+            }
+            for command in ["aggountant claim", "claimant "] {
+                assert!(
+                    !content.contains(command),
+                    "migrate/{file} names {command:?}; claim material belongs in kululaskut.md"
+                );
+            }
+            let links = content.matches("](kululaskut.md)").count();
+            assert_eq!(
+                links,
+                usize::from(*file == "SKILL.md"),
+                "migrate/{file}: only the domain table of SKILL.md opens kululaskut.md"
+            );
+        }
     }
 
     #[test]

@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
 status: open
 priority: normal
@@ -76,3 +76,7 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 ### 2026-11-26T02:54:02Z · @worker
 
 Narrowed on 2026-11-26 to the product owner's answer 15a: attaching an already sealed voucher to a claim identity stays in the product. The former `claim import --legacy` (reading one home's line files into a draft) is out of product scope by answer 15b: a home's own file format is moved on that home's side, and claim history in general goes through the phased `migrate` skill (`migrate-skill-phased`). The dependency on `expense-claim-draft` went with it.
+
+### 2026-11-27T18:08:17Z · @spinoff-01m8f29vs6esbc93pqv250b1sj
+
+When this lands, update `skills/migrate/kululaskut.md`: its "Odottaa ohjelmaa" section says attaching an old aggountant voucher to a claim identity is not in the program yet. Replace that with when the migrate skill uses this command.

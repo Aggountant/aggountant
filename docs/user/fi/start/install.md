@@ -40,7 +40,7 @@ ohjelman.
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
    | `aggountant-init` | yrityskodin käyttöönotto valmiuslistan ja yhden aineistopyynnön avulla tai keskeneräisen käyttöönoton jatkaminen |
-   | `migrate-books` | kirjanpidon siirto toisesta ohjelmasta: vanhan aineiston vienti, tarkistus ja arkistointi |
+   | `migrate` | siirto toisesta ohjelmasta alue kerrallaan: kirjanpito, ALV, Tulorekisteri ja kululaskut, vanhan aineiston vienti, tarkistus ja arkistointi |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | ALV-ilmoitus Verohallinnolle ja suoran ALV-ilmoittamisen käyttöönotto |
    | `tulorekisteri` | Tulorekisterin matkakorvausilmoitus ja työnantajan erillisilmoitus |
@@ -78,6 +78,14 @@ Kun asennat pelkän `capture-receipt`-skillin, mukaan tulee myös
 `aggountant-init`, koska niillä on yhteinen roolikuvaus. `vero-fi` ja
 `tulorekisteri` tuovat lisäksi toisensa ja `e-services`-skillin, jonka
 varassa ne tekevät viranomaisten verkkopalveluissa tehtävät vaiheet.
+`migrate` tuo nämä kaikki, koska siirron ALV- ja Tulorekisteri-osuus jatkuu
+niissä.
+
+`migrate` oli aiemmin nimeltään `migrate-books`. Jos skillihakemistossa on
+vanha `migrate-books`, asennus korvaa sen `SKILL.md`-tiedoston viittauksella
+`migrate`-skilliin, jotta agentti ei lue vanhaa ohjetta. Asennus ei poista
+mitään, joten hakemiston voi poistaa itse. `skill install migrate-books`
+vastaa virheellä `SKILL_RENAMED`, joka kertoo uuden nimen.
 
 `skill print` näyttää skillin sisällön asentamatta mitään. `--file` näyttää
 skillin muut tiedostot, kuten yhteisen roolikuvauksen `SOUL.md`.

@@ -325,8 +325,10 @@ enum SkillCmd {
     List,
     /// Install one skill, or all bundled skills when NAME is omitted.
     /// A named skill brings the skills it links to: every skill installs
-    /// aggountant-init (the shared SOUL.md), and vero-fi and tulorekisteri
-    /// install each other and e-services.
+    /// aggountant-init (the shared SOUL.md), vero-fi and tulorekisteri
+    /// install each other and e-services, and migrate installs both.
+    /// A renamed skill's old directory from an earlier install gets a
+    /// SKILL.md that points to its new name (`renamed` in the output).
     Install {
         /// Skill name; omit to install every bundled skill.
         name: Option<String>,
@@ -3065,7 +3067,7 @@ fn human_line(command: &Command, value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join("\n"),
             SkillCmd::Install { .. } => format!(
-                "installed {} skill file(s) into {}",
+                "installed {} skill file(s) into {}{}",
                 value["count"],
                 value["targets"]
                     .as_array()
@@ -3076,7 +3078,8 @@ fn human_line(command: &Command, value: &Value) -> String {
                             .collect::<Vec<_>>()
                             .join(", ")
                     })
-                    .unwrap_or_else(|| "?".to_string())
+                    .unwrap_or_else(|| "?".to_string()),
+                skill::renamed_line(value)
             ),
             // Text `skill print` bypasses this line formatter in `main` so its
             // bytes stay identical to the bundled and installed file.

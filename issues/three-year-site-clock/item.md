@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
 status: open
 priority: normal
@@ -65,3 +65,9 @@ Needs `claimant-workplace-register` and `expense-claim-draft`.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Comments
+
+### 2026-11-27T18:08:17Z · @spinoff-01m8f29vs6esbc93pqv250b1sj
+
+When this lands, update `skills/migrate/kululaskut.md`: earlier work at customer sites is collected during migration and kept in the archive until the program tracks the three-year rule ("Odottaa ohjelmaa"). Replace that with how the migrate skill enters it as earlier exposure.

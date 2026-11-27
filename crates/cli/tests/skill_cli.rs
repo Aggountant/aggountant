@@ -32,10 +32,22 @@ fn list_exposes_bundled_skill_metadata_in_text_and_json() {
         "skills/e-services/SKILL.md"
     );
     assert_eq!(payload["skills"][5]["name"], "close-year");
-    assert_eq!(payload["skills"][6]["name"], "migrate-books");
+    assert_eq!(payload["skills"][6]["name"], "migrate");
     assert_eq!(
         payload["skills"][6]["files"],
-        serde_json::json!(["SKILL.md", "briox.md", "holvi.md"])
+        serde_json::json!([
+            "SKILL.md",
+            "kirjanpito.md",
+            "alv.md",
+            "tulorekisteri.md",
+            "kululaskut.md",
+            "briox.md",
+            "holvi.md"
+        ])
+    );
+    assert_eq!(
+        payload["renamed"],
+        serde_json::json!([{"name": "migrate-books", "renamed_to": "migrate"}])
     );
     assert_eq!(
         payload["skills"][0]["cli_version"],
@@ -430,4 +442,129 @@ fn list_json_names_each_skill_file_and_requirement() {
         vero["requires"],
         serde_json::json!(["aggountant-init", "e-services", "tulorekisteri"])
     );
+}
+
+#[test]
+fn the_old_migrate_books_name_is_refused_with_its_new_name() {
+    for args in [
+        ["--json", "skill", "print", "migrate-books"],
+        ["--json", "skill", "install", "migrate-books"],
+    ] {
+        let output = invoke(&args);
+        assert_eq!(output.status.code(), Some(1), "{args:?}");
+        assert!(output.stdout.is_empty());
+        let payload: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(payload["error_code"], "SKILL_RENAMED");
+        assert_eq!(payload["error_kind"], "user");
+        assert_eq!(payload["details"]["renamed_to"], "migrate");
+        let message = payload["message"].as_str().unwrap();
+        assert!(message.contains("skill install migrate"), "{message}");
+    }
+}
+
+/// An earlier install left `migrate-books/` with the old text. Installing
+/// never deletes, so its SKILL.md becomes a pointer to `migrate`; a target
+/// that never had the old skill gets no such directory.
+#[test]
+fn installing_migrate_turns_an_old_migrate_books_install_into_a_pointer() {
+    let fresh = tempfile::tempdir().unwrap();
+    let output = invoke(&[
+        "--json",
+        "skill",
+        "install",
+        "--target",
+        fresh.path().to_str().unwrap(),
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["renamed"], serde_json::json!([]));
+    assert!(!fresh.path().join("migrate-books").exists());
+
+    let target = tempfile::tempdir().unwrap();
+    let old = target.path().join("migrate-books");
+    std::fs::create_dir_all(&old).unwrap();
+    std::fs::write(
+        old.join("SKILL.md"),
+        "---\nname: migrate-books\n---\nold text\n",
+    )
+    .unwrap();
+    std::fs::write(old.join("briox.md"), "old observations\n").unwrap();
+
+    // Installing an unrelated skill leaves the old directory alone.
+    let args = |name: &'static str| {
+        [
+            "--json",
+            "skill",
+            "install",
+            name,
+            "--target",
+            target.path().to_str().unwrap(),
+        ]
+        .map(str::to_string)
+    };
+    let output = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .args(args("capture-receipt"))
+        .output()
+        .unwrap();
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["renamed"], serde_json::json!([]));
+
+    let output = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .args(args("migrate"))
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let names: Vec<_> = payload["installed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "migrate",
+            "aggountant-init",
+            "vero-fi",
+            "tulorekisteri",
+            "e-services"
+        ]
+    );
+    assert_eq!(payload["renamed"][0]["name"], "migrate-books");
+    assert_eq!(payload["renamed"][0]["renamed_to"], "migrate");
+    assert_eq!(payload["renamed"][0]["action"], "updated");
+    let pointer = std::fs::read_to_string(old.join("SKILL.md")).unwrap();
+    assert!(
+        pointer.starts_with("---\nname: migrate-books\n"),
+        "{pointer}"
+    );
+    let link = pointer
+        .split_once("](")
+        .unwrap()
+        .1
+        .split_once(')')
+        .unwrap()
+        .0;
+    assert_eq!(
+        std::fs::read(old.join(link)).unwrap(),
+        include_bytes!("../../../skills/migrate/SKILL.md")
+    );
+    // Nothing is deleted: the stale reference file stays, unlinked.
+    assert!(old.join("briox.md").is_file());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .args(args("migrate"))
+        .output()
+        .unwrap();
+    let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["renamed"][0]["action"], "unchanged");
+
+    let text = Command::new(env!("CARGO_BIN_EXE_aggountant"))
+        .args(["skill", "install", "migrate", "--target"])
+        .arg(target.path())
+        .output()
+        .unwrap();
+    let text = String::from_utf8(text.stdout).unwrap();
+    assert!(text.contains("now points to migrate"), "{text}");
 }

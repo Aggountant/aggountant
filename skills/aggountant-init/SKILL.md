@@ -87,7 +87,7 @@ kirjata. Määrittely ratkaisee siis myös sen, mille päivälle avaava tosite v
 Koskee vain toisesta järjestelmästä siirtyvää yritystä; uudella yrityksellä ei ole
 avaavia saldoja. Saldot kirjataan tavallisena sinetöitynä tositteena,
 lähdesaldoluettelo liitteenä. Vanhan järjestelmän aineiston kerääminen arkistoksi on
-`migrate-books`-skillissä; tee se ennen kuin käyttäjä luopuu vanhasta ohjelmasta.
+`migrate`-skillissä; tee se ennen kuin käyttäjä luopuu vanhasta ohjelmasta.
 Sinetöinti on pysyvä, ja virheellinen avaus jättää ketjuun kolme tositetta yhden
 sijaan. Kysy siksi ensin se, mitä saldoluettelo ei kerro (alla), koska vastaukset
 voivat muuttaa saldoja, ja näytä käyttäjälle tilit ja päivä ennen sinetöintiä.
