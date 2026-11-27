@@ -38,17 +38,16 @@ aggountantissa ei ole tuontia toisen ohjelman laskuille.
 
 ## Odottaa ohjelmaa
 
-Kululaskun omat komennot ovat tekeillä. Tätä kirjoitettaessa ohjelmassa ei ole
-kululaskun luonnosta eikä hyväksyntää, ei vanhan aggountant-tositteen liittämistä
-laskuun eikä kolmen vuoden säännön seurantaa. Jos `aggountant --help` jo näyttää ne,
-käytä niitä tämän osion sijaan: keskeneräinen lasku syötetään luonnoksena, jolloin
-ohjelma laskee korvaukset ja kysyy puuttuvan, eikä omaa laskelmaa tehdä.
+Vaihtopäivänä keskeneräinen lasku syötetään kululaskun luonnokseksi
+(`expense-claim`-skilli), jolloin ohjelma laskee korvaukset ja kysyy puuttuvan, eikä
+omaa laskelmaa tehdä. Tätä kirjoitettaessa ohjelmassa ei ole kululaskun hyväksyntää,
+vanhan aggountant-tositteen liittämistä laskuun eikä kolmen vuoden säännön seurantaa.
+Jos `aggountant --help` jo näyttää ne, käytä niitä tämän osion sijaan.
 
 Siihen asti:
 
-- Vaihtopäivänä keskeneräinen lasku käsitellään kuten uusi kululasku nykyisin
-  (`capture-receipt`-skilli), ja `aggountant claim compute` näyttää korvaukset
-  työpaikkarekisterin perusteella.
+- Valmiin luonnoksen korvaukset kirjataan kuten uusi kululasku nykyisin
+  (`capture-receipt`-skilli).
 - Aiemman työskentelyn luettelo säilytetään arkiston johdettujen tiedostojen joukossa,
   koska siinä on henkilötietoja, ja `TODO.md`-tiedostoon kirjataan, että se syötetään
   ohjelmaan, kun seuranta on käytössä.
