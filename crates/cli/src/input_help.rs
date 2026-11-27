@@ -709,9 +709,14 @@ pub(crate) const FILE_WAGE_REPORT: &str = r#"INPUT (JSON on stdin)
                     positive decimal string in EUR cents:
                       {"income_type":"311","amount":"...","kilometers":N}
                           kilometre allowance, positive whole kilometres.
-                      {"income_type":"331","amount":"...","allowance_code":N}
-                          daily allowance: 1 meal, 2 partial, 3 full,
-                          4 international.
+                      {"income_type":"331","amount":"...","allowance_codes":[N,...]}
+                          daily allowance: one amount and every per diem
+                          type it contains, distinct, 1 meal, 2 partial,
+                          3 full, 4 international (a month with partial and
+                          full per diems is one line with [2,3]). The output
+                          of `claim compute` has this shape. A single type
+                          may also be given as "allowance_code":N, and a
+                          one-type line is printed that way.
 
 Example JSON (input-shape demonstration only; fictional company and person):
 ```json
@@ -727,7 +732,7 @@ Example JSON (input-shape demonstration only; fictional company and person):
   "contact_phone": "+358 40 1234567",
   "lines": [
     {"income_type": "311", "amount": "120.00", "kilometers": 218},
-    {"income_type": "331", "amount": "54.00", "allowance_code": 3}
+    {"income_type": "331", "amount": "79.00", "allowance_codes": [2, 3]}
   ]
 }
 ```

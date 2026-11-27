@@ -238,8 +238,8 @@ impl Default for PolicySet {
 
 pub mod wage_report;
 pub use wage_report::{
-    report_deadline, travel_report_deadline, TravelLine, WageCorrection, WageCorrectionAction,
-    WageReport,
+    report_deadline, travel_report_deadline, AllowanceCodes, TravelLine, WageCorrection,
+    WageCorrectionAction, WageReport,
 };
 
 #[cfg(test)]

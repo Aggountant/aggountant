@@ -43,6 +43,12 @@ matka- tai kululaskusta ja kysy käyttäjältä se, mitä laskusta ei näe:
   eikä ole sama asia kuin työttömyysturvan osaomistajuus.
 - Riveille kuuluvat vain kilometrikorvaukset ja päivärahat. Kuittia vastaan korvatut
   kulut, kuten hotelli tai pysäköinti, eivät kuulu niille.
+- Laskun päivärahat ilmoitetaan yhtenä 331-rivinä, jolla on kaikki summaan sisältyvät
+  päivärahan lajit: Verohallinnon ohjeen mukaan samalle summalle voi valita useita
+  lajeja, ja puolitettu päiväraha ilmoitetaan alkuperäisellä lajillaan (ohjeen luku
+  2.1.3). Jos korvaukset on laskettu `claim compute` -komennolla, käytä sen
+  `incomes_register_lines` sellaisenaan. Älä jaa summaa lajeittain: laskelma
+  pyöristää kerran koko laskulle, joten lajikohtaisia summia ei ole.
 - Jos kululaskusta on kuitattu matkaennakkoa, ilmoita laskun kilometrikorvaukset ja
   päivärahat kokonaan, ei ennakkoa eikä nettomaksua. Kuittauksella maksetun osan
   maksupäivä on kuittauksen päivä

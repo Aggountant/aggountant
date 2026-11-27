@@ -25,8 +25,45 @@ pub struct WageReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "income_type", deny_unknown_fields)]
+#[serde(try_from = "WireLine", into = "WireLine")]
 pub enum TravelLine {
+    Kilometres {
+        amount: Decimal,
+        kilometers: i32,
+    },
+    /// One daily-allowance amount and every per diem type it contains. The
+    /// Incomes Register reports them together: "Arvoja voi valita useita
+    /// samalle summalle" (Verohallinto, detailed guidance on benefits and
+    /// reimbursements of expenses, 2.1.3 Päiväraha).
+    DailyAllowance {
+        amount: Decimal,
+        allowance_codes: AllowanceCodes,
+    },
+}
+
+/// The per diem types (`AllowanceCode`) of one 331 amount, in ascending order,
+/// so the same set always serializes and is sent the same way.
+/// [`WageReport::validate`] refuses an empty set, a duplicate and a code
+/// outside 1–4.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AllowanceCodes(Vec<u8>);
+impl AllowanceCodes {
+    pub fn new(mut codes: Vec<u8>) -> Self {
+        codes.sort_unstable();
+        Self(codes)
+    }
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// The JSON shape of a travel line. A 331 line takes `allowance_codes`, or
+/// `allowance_code` for one type, the shape every report had before several
+/// types were supported. A one-type line is written back as `allowance_code`,
+/// so stored state and the proposal hash bound to it stay byte-identical.
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "income_type", deny_unknown_fields)]
+enum WireLine {
     #[serde(rename = "311")]
     Kilometres {
         #[serde(with = "decimal_string")]
@@ -37,8 +74,76 @@ pub enum TravelLine {
     DailyAllowance {
         #[serde(with = "decimal_string")]
         amount: Decimal,
-        allowance_code: u8,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "present"
+        )]
+        allowance_code: Option<u8>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "present"
+        )]
+        allowance_codes: Option<Vec<u8>>,
     },
+}
+/// A key that is given must carry a value; `null` is refused, not read as absent.
+fn present<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+impl TryFrom<WireLine> for TravelLine {
+    type Error = String;
+    fn try_from(line: WireLine) -> Result<Self, String> {
+        Ok(match line {
+            WireLine::Kilometres { amount, kilometers } => Self::Kilometres { amount, kilometers },
+            WireLine::DailyAllowance {
+                amount,
+                allowance_code,
+                allowance_codes,
+            } => {
+                let codes = match (allowance_code, allowance_codes) {
+                    (Some(code), None) => vec![code],
+                    (None, Some(codes)) => codes,
+                    (Some(_), Some(_)) => {
+                        return Err(
+                            "a 331 line takes allowance_codes or allowance_code, not both".into(),
+                        )
+                    }
+                    (None, None) => return Err("a 331 line requires allowance_codes".into()),
+                };
+                Self::DailyAllowance {
+                    amount,
+                    allowance_codes: AllowanceCodes::new(codes),
+                }
+            }
+        })
+    }
+}
+impl From<TravelLine> for WireLine {
+    fn from(line: TravelLine) -> Self {
+        match line {
+            TravelLine::Kilometres { amount, kilometers } => {
+                Self::Kilometres { amount, kilometers }
+            }
+            TravelLine::DailyAllowance {
+                amount,
+                allowance_codes,
+            } => {
+                let (allowance_code, allowance_codes) = match allowance_codes.as_slice() {
+                    [code] => (Some(*code), None),
+                    codes => (None, Some(codes.to_vec())),
+                };
+                Self::DailyAllowance {
+                    amount,
+                    allowance_code,
+                    allowance_codes,
+                }
+            }
+        }
+    }
 }
 impl TravelLine {
     pub fn code(&self) -> &'static str {
@@ -94,10 +199,14 @@ impl WageReport {
                 }
                 TravelLine::DailyAllowance {
                     amount,
-                    allowance_code,
+                    allowance_codes,
                 } => {
-                    if !matches!(allowance_code, 1..=4) {
-                        return Err(bad("331 allowance_code must be 1 (meal), 2 (partial), 3 (full), or 4 (international)"));
+                    let codes = allowance_codes.as_slice();
+                    if codes.is_empty()
+                        || codes.windows(2).any(|w| w[0] == w[1])
+                        || codes.iter().any(|c| !matches!(c, 1..=4))
+                    {
+                        return Err(bad("331 allowance_codes must be one or more distinct codes: 1 (meal), 2 (partial), 3 (full), 4 (international)"));
                     }
                     amount
                 }
@@ -296,12 +405,12 @@ mod tests {
         assert!(r.validate(today).is_err());
         r.lines = vec![TravelLine::DailyAllowance {
             amount: Decimal::ONE,
-            allowance_code: 5,
+            allowance_codes: AllowanceCodes::new(vec![5]),
         }];
         assert!(r.validate(today).is_err());
         r.lines = vec![TravelLine::DailyAllowance {
             amount: Decimal::from_str_exact("1.001").unwrap(),
-            allowance_code: 3,
+            allowance_codes: AllowanceCodes::new(vec![3]),
         }];
         assert!(r.validate(today).is_err());
         r = report();
@@ -387,12 +496,68 @@ mod tests {
         assert_eq!(r.deadline(), date("2026-11-05"));
         r.lines = vec![TravelLine::DailyAllowance {
             amount: Decimal::ONE,
-            allowance_code: 3,
+            allowance_codes: AllowanceCodes::new(vec![3]),
         }];
         assert_eq!(r.deadline(), date("2026-11-05"));
         // Pay data keeps its five-day rule.
         let pay = aggountant_model::Date::parse("2026-10-25").unwrap();
         assert_eq!(crate::palkkatieto_deadline(pay).to_string(), "2026-10-30");
+    }
+    fn daily(line: serde_json::Value) -> Result<TravelLine, serde_json::Error> {
+        serde_json::from_value(line)
+    }
+    #[test]
+    fn one_daily_allowance_carries_several_per_diem_types() {
+        let today = CivilDate::constant(2026, 10, 24);
+        // The shape of every report before several types: read as a set of
+        // one and written back byte-identically, so stored proposal hashes hold.
+        let legacy = json!({"income_type":"331","amount":"54.00","allowance_code":3});
+        let line = daily(legacy.clone()).unwrap();
+        assert_eq!(
+            line,
+            TravelLine::DailyAllowance {
+                amount: Decimal::from_str_exact("54.00").unwrap(),
+                allowance_codes: AllowanceCodes::new(vec![3]),
+            }
+        );
+        assert_eq!(
+            serde_json::to_string(&line).unwrap(),
+            r#"{"income_type":"331","amount":"54.00","allowance_code":3}"#
+        );
+        assert_eq!(
+            daily(json!({"income_type":"331","amount":"54.00","allowance_codes":[3]})).unwrap(),
+            line
+        );
+        // Several types: one order, whatever order they were given in.
+        let several =
+            daily(json!({"income_type":"331","amount":"79.00","allowance_codes":[3,2]})).unwrap();
+        assert_eq!(
+            serde_json::to_value(&several).unwrap(),
+            json!({"income_type":"331","amount":"79.00","allowance_codes":[2,3]})
+        );
+        let mut r = report();
+        r.lines = vec![several];
+        r.validate(today).unwrap();
+        // Exactly one of the two keys, and a given key has a value.
+        for bad in [
+            json!({"income_type":"331","amount":"1.00"}),
+            json!({"income_type":"331","amount":"1.00","allowance_code":3,"allowance_codes":[2]}),
+            json!({"income_type":"331","amount":"1.00","allowance_code":null}),
+            json!({"income_type":"331","amount":"1.00","allowance_codes":null}),
+            json!({"income_type":"331","amount":"1.00","allowance_codes":[2],"kilometers":1}),
+            json!({"income_type":"311","amount":"1.00","kilometers":1,"allowance_codes":[2]}),
+        ] {
+            assert!(daily(bad.clone()).is_err(), "{bad}");
+        }
+        // Empty, duplicate and unknown codes are refused by validation.
+        for codes in [vec![], vec![3, 3], vec![2, 5], vec![0]] {
+            let mut r = report();
+            r.lines = vec![TravelLine::DailyAllowance {
+                amount: Decimal::ONE,
+                allowance_codes: AllowanceCodes::new(codes.clone()),
+            }];
+            assert!(r.validate(today).is_err(), "{codes:?}");
+        }
     }
     #[test]
     fn reject_missing_ownership_unknown_fields_and_non_decimal_strings() {

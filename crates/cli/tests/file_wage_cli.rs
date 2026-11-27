@@ -502,3 +502,48 @@ fn employer_report_preview_missing_manual_evidence_and_offline_guards() {
     again[4] = "2026-08";
     assert_eq!(fails(&again), "EMPLOYER_REPORT_ALREADY_FILED");
 }
+
+#[test]
+fn one_daily_allowance_with_several_per_diem_types_previews_as_one_line() {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    ledger
+        .upsert_employee(&EmployeeState {
+            employee_id: "emp-1".into(),
+            name: "Fictional Employee".into(),
+            hetu: "010101A123N".into(),
+            iban: "FI2112345600000785".into(),
+            tax_card: TaxCard {
+                withholding_pct: "0".into(),
+            },
+        })
+        .unwrap();
+    let report = |line: Value| {
+        json!({"business_id":"1234567-1","source_reference":"fictional-expense","employee_id":"emp-1","payment_date":"2026-10-25","period_start":"2026-09-01","period_end":"2026-09-30","joint_owner":false,"contact_name":"Fictional Contact","contact_phone":"+358 40 1234567","lines":[line]}).to_string()
+    };
+    let preview = [
+        "file-wage",
+        "preview",
+        "--timestamp",
+        "2026-10-25T12:00:00Z",
+    ];
+    let (code, out, err) = run(
+        home.path(),
+        &preview,
+        &report(json!({"income_type":"331","amount":"79.00","allowance_codes":[3,2]})),
+    );
+    assert_eq!(code, 0, "{err}");
+    let p: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        p["report"]["lines"],
+        json!([{"income_type":"331","amount":"79.00","allowance_codes":[2,3]}])
+    );
+    for bad in [
+        json!({"income_type":"331","amount":"79.00","allowance_codes":[2,2]}),
+        json!({"income_type":"331","amount":"79.00","allowance_codes":[]}),
+        json!({"income_type":"331","amount":"79.00","allowance_code":2,"allowance_codes":[3]}),
+    ] {
+        let (code, out, _) = run(home.path(), &preview, &report(bad.clone()));
+        assert_ne!(code, 0, "{bad} -> {out}");
+    }
+}

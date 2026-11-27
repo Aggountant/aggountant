@@ -715,6 +715,13 @@ fn incomes_register_lines_and_postings() {
             {"income_type": "331", "amount": "79.00", "allowance_codes": [2, 3]}
         ])
     );
+    // file-wage reads the calculator's lines as they are.
+    let lines: Vec<aggountant_domain::TravelLine> =
+        serde_json::from_value(v["incomes_register_lines"].clone()).unwrap();
+    assert_eq!(
+        serde_json::to_value(&lines).unwrap(),
+        v["incomes_register_lines"]
+    );
     assert_eq!(
         v["postings"],
         json!([{"month": "2026-03", "lines": [

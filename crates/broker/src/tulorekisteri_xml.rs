@@ -169,9 +169,15 @@ fn wage_report_record(
                 "<KmAllowance>{}</KmAllowance>",
                 e("Kilometers", &kilometers.to_string())
             ),
-            TravelLine::DailyAllowance { allowance_code, .. } => format!(
+            TravelLine::DailyAllowance {
+                allowance_codes, ..
+            } => format!(
                 "<DailyAllowance>{}</DailyAllowance>",
-                e("AllowanceCode", &allowance_code.to_string())
+                allowance_codes
+                    .as_slice()
+                    .iter()
+                    .map(|code| e("AllowanceCode", &code.to_string()))
+                    .collect::<String>()
             ),
         };
         data += "</Transaction>";

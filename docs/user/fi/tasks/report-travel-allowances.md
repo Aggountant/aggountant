@@ -89,8 +89,12 @@ tilinumeron selväkielisinä, joten agentti ei aja sitä tarpeettomasti.
 
 2. **Agentti laatii ilmoituksen** matka- tai kululaskusta.
    Kilometrikorvauksen rivillä (311) ovat summa ja kokonaiskilometrit.
-   Päivärahan rivillä (331) ovat summa ja päivärahan laji: 1 ateriakorvaus,
-   2 osapäiväraha, 3 kokopäiväraha tai 4 ulkomaan päiväraha.
+   Päivärahan rivillä (331) ovat summa ja päivärahan lajit: 1 ateriakorvaus,
+   2 osapäiväraha, 3 kokopäiväraha tai 4 ulkomaan päiväraha. Kun matka- tai
+   kululaskun päivärahoissa on useaa lajia, esimerkiksi osa- ja
+   kokopäivärahoja, ne ilmoitetaan yhtenä summana, jolla on kaikki sen lajit,
+   kuten Verohallinnon ohje neuvoo. [Matkan korvausten laskelma](compute-travel-allowances.md)
+   antaa rivin valmiiksi tässä muodossa.
    Kuittiperusteiset kulut, kuten hotelli tai pysäköinti, eivät kuulu näille
    riveille.
 

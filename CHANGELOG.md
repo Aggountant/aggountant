@@ -107,6 +107,16 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   installs `vero-fi`, `tulorekisteri` and `e-services` with it. Guide pages
   "Move your books from another program" and "Install" follow.
 
+- **`file-wage`: one per diem line with several types.** A 331 daily
+  allowance line now takes `allowance_codes`, every per diem type its amount
+  contains (for example `[2, 3]` for partial and full per diems), and the
+  report carries one 331 transaction with an `AllowanceCode` for each, as the
+  Tax Administration's Incomes Register guidance describes. The lines
+  `claim compute` prints are accepted as they are. The single
+  `allowance_code` is still read, and a one-type line is written and sent
+  exactly as before, so open and finished reports keep working. No store
+  migration.
+
 - **`file-wage` shows the statutory deadline for travel reports.** A
   tax-exempt travel report (income types 311 and 331) is due on the 5th of
   the month after the payment month (laki tulotietojärjestelmästä 12 § 11

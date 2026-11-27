@@ -91,9 +91,13 @@ needlessly.
 
 2. **The agent prepares the report** from the travel or expense claim. A
    mileage allowance (kilometrikorvaus) row (311) has the amount and the total
-   kilometres. A per diem (päiväraha) row (331) has the amount and the kind of
-   per diem: 1 meal allowance, 2 partial per diem, 3 full per diem or
-   4 foreign per diem. Receipt-based costs, such as a hotel or parking, do not
+   kilometres. A per diem (päiväraha) row (331) has the amount and the kinds
+   of per diem: 1 meal allowance, 2 partial per diem, 3 full per diem or
+   4 foreign per diem. When the per diems of a claim are of several kinds, for
+   example partial and full per diems, they are reported as one amount
+   carrying all of its kinds, as the Tax Administration's guidance says. The
+   [computation of a trip's allowances](compute-travel-allowances.md) gives
+   the row in this form. Receipt-based costs, such as a hotel or parking, do not
    belong on these rows.
 
    The report also has the payment date, the start and end of the earning

@@ -464,6 +464,42 @@ fn travel_report_replacement_and_cancellation_validate_against_the_official_sche
     let hetu = "010101A123N";
     let new = wage_record(&wage_report(), hetu, at()).unwrap();
     wage.validate(&new).unwrap_or_else(|e| panic!("{e}\n{new}"));
+    // A single per diem type is written as it always was.
+    assert!(new.contains(
+        "<Transaction><TransactionBasic><TransactionCode>331</TransactionCode><Amount>54.00</Amount></TransactionBasic><DailyAllowance><AllowanceCode>3</AllowanceCode></DailyAllowance></Transaction>"
+    ));
+    // One 331 amount carrying partial and full per diems: one transaction with
+    // both types, in ascending order, valid against the schema in a new
+    // report and in a replacement.
+    let mut several = serde_json::to_value(wage_report()).unwrap();
+    several["lines"][1] = json!({"income_type":"331","amount":"79.00","allowance_codes":[3,2]});
+    let several: WageReport = serde_json::from_value(several).unwrap();
+    let xml = wage_record(&several, hetu, at()).unwrap();
+    assert_eq!(
+        xml.matches("<TransactionCode>331</TransactionCode>")
+            .count(),
+        1
+    );
+    assert!(xml.contains(
+        "<Amount>79.00</Amount></TransactionBasic><DailyAllowance><AllowanceCode>2</AllowanceCode><AllowanceCode>3</AllowanceCode></DailyAllowance>"
+    ));
+    wage.validate(&xml).unwrap_or_else(|e| panic!("{e}\n{xml}"));
+    let replacement = wage_replacement_record(
+        &WageCorrection {
+            action: WageCorrectionAction::Replacement,
+            report: several,
+            ir_report_id: IR_REPORT.into(),
+            corrects_version: Some(1),
+        },
+        hetu,
+        at(),
+    )
+    .unwrap();
+    assert!(
+        replacement.contains("<AllowanceCode>2</AllowanceCode><AllowanceCode>3</AllowanceCode>")
+    );
+    wage.validate(&replacement)
+        .unwrap_or_else(|e| panic!("{e}\n{replacement}"));
     for corrects_version in [Some(1), None] {
         let correction = WageCorrection {
             action: WageCorrectionAction::Replacement,
