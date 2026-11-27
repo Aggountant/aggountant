@@ -56,14 +56,6 @@ const SKILLS: &[BundledSkill] = &[
         schema_version: 1,
     },
     BundledSkill {
-        name: "expense-claim",
-        description: "Collect an expense claim: trips, drives and receipts into a draft, with its open questions.",
-        files: skill_files!("expense-claim": "SKILL.md"),
-        // Travel advances are kept in `capture-receipt`'s reference file.
-        requires: &["aggountant-init", "capture-receipt"],
-        schema_version: 1,
-    },
-    BundledSkill {
         name: "aggountant-init",
         description: "Prepare a company accounting home and its bookkeeping starting point.",
         files: skill_files!(
@@ -120,6 +112,14 @@ const SKILLS: &[BundledSkill] = &[
         ),
         // The VAT and Incomes Register domains hand over to the filing skills.
         requires: &["aggountant-init", "vero-fi", "tulorekisteri"],
+        schema_version: 1,
+    },
+    BundledSkill {
+        name: "expense-claim",
+        description: "Collect an expense claim: trips, drives and receipts into a draft, with its open questions.",
+        files: skill_files!("expense-claim": "SKILL.md"),
+        // Travel advances are kept in `capture-receipt`'s reference file.
+        requires: &["aggountant-init", "capture-receipt"],
         schema_version: 1,
     },
 ];
