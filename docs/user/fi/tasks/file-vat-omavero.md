@@ -72,7 +72,10 @@ kuukaudelle ja tarkistaa sillä aiemmat ilmoitukset. Se ei tarkista, onko suora
 ilmoittaminen käytössä, joten sen ohjeessa ovat molemmat reitit: suora
 ilmoitus, kun `aggountant vero-fi status` kertoo valmiuden olevan kunnossa, ja
 muuten tämän sivun käsin tehtävä reitti. Neljännesvuosikaudella kausi annetaan
-muodossa `2026-Q1`.
+muodossa `2026-Q1`. Kun yrityksen
+[maksutiedot](file-vat-direct.md#tallenna-verohallinnon-maksutiedot-kerran)
+on tallennettu, suljetun kuukauden esikatselun maksuohje nimeää tilin ja
+viitteen, jolla ALV maksetaan (`payee_iban`, `payment_reference`).
 
 Täsmäytys jättää pois ALV:n maksut, palautukset ja ALV-tilien väliset siirrot,
 koska ne eivät kuulu ilmoitukseen. Ne jäävät pois, vaikka samalla tositteella

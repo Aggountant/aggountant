@@ -95,7 +95,7 @@ fn input() -> FileVatInput {
         "business_id": "1234567-1",
         "contact_name": "Esimerkki Oy",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap()
 }

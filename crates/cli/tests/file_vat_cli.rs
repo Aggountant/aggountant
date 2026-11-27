@@ -84,6 +84,15 @@ fn run(
     )
 }
 
+/// Store the company's VAT payment reference (fictional), which a first
+/// return's payment proposal requires.
+fn store_vat_reference(home: &std::path::Path) {
+    let (code, _, err) = run(home, None, &["tax-payments", "set"], TAX_PAYMENTS);
+    assert_eq!(code, 0, "{err}");
+}
+
+const TAX_PAYMENTS: &str = r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#;
+
 /// A `voucher seal` stdin for a balanced VAT voucher. The `tagged` line carries
 /// `base` with `code`, on its accrual side — sales VAT accrues on the credit side,
 /// purchase VAT on the debit side — so the derived VAT is positive (a normal
@@ -115,6 +124,7 @@ fn vat_seal_json(natural_key: &str, tagged: &str, base: &str, code: &str, counte
 /// 1020,00 deductible VAT) voucher so the in-Run derived-vs-input cross-check passes.
 fn seal_q1(home: &std::path::Path) {
     assert_eq!(run(home, None, &["init"], "").0, 0);
+    store_vat_reference(home);
     // Sales output VAT: base on the credit line (revenue) tagged sales-*.
     let (code, _, err) = run(
         home,
@@ -905,4 +915,111 @@ fn replace_and_manual_replacement_refuse_what_they_cannot_record() {
     );
     assert_ne!(code, 0);
     assert!(err.contains("VAT_REPLACEMENT_REASON_REQUIRED"), "{err}");
+}
+
+/// The payee account and the VAT reference come from the company's tax payment
+/// details: a first return without a VAT reference is refused before a Run
+/// exists, the preview and the payment proposal name the stored values, the
+/// payment arrangement reference never reaches a VAT payment, and a stdin
+/// account that differs from the stored one is refused.
+#[test]
+fn vat_payment_details_come_from_the_tax_payment_master_data() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    seal_q1(home);
+    let script = home.join("broker_script.json");
+    std::fs::write(&script, happy_script()).unwrap();
+    let set = |details: &str| {
+        let (code, stdout, err) = run(home, None, &["tax-payments", "set"], details);
+        assert_eq!(code, 0, "{err}");
+        serde_json::from_str::<Value>(&stdout).unwrap()
+    };
+
+    // Only an arrangement reference: no reference a VAT payment may use.
+    set(r#"{"schema_version":1,"payment_arrangement_reference":"33334442"}"#);
+    let process_before = file_snapshot(&home.join("process"));
+    let (code, _, err) = run(home, Some(&script), &["file-vat", "start"], FILE_VAT_INPUT);
+    assert_eq!(code, 1);
+    let error: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(
+        error["error_code"], "TAX_PAYMENT_REFERENCE_MISSING",
+        "{error}"
+    );
+    assert_eq!(file_snapshot(&home.join("process")), process_before);
+
+    // Without a stored or given account the start is refused too.
+    let no_iban: Value = {
+        let mut input: Value = serde_json::from_str(FILE_VAT_INPUT).unwrap();
+        input.as_object_mut().unwrap().remove("payee_iban");
+        input
+    };
+    let (code, _, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "start"],
+        &no_iban.to_string(),
+    );
+    assert_eq!(code, 1);
+    let error: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(error["error_code"], "TAX_PAYEE_IBAN_MISSING", "{error}");
+
+    // A company paying with the general reference.
+    let stored = set(
+        r#"{"schema_version":1,"payee_iban":"FI2112345600000785","general_reference":"76543216","payment_arrangement_reference":"33334442"}"#,
+    );
+    assert_eq!(stored["vat_reference"]["kind"], "general");
+
+    let (code, stdout, err) = run(
+        home,
+        None,
+        &["file-vat", "preview", "--period", "2026-Q1"],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let preview: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(preview["payee_iban"], "FI2112345600000785");
+    assert_eq!(preview["payment_reference"]["reference"], "76543216");
+    let instruction = preview["payment_instruction"].as_str().unwrap();
+    assert!(instruction.contains("FI2112345600000785"), "{instruction}");
+    assert!(instruction.contains("76543216"), "{instruction}");
+    assert!(!instruction.contains("33334442"), "{instruction}");
+
+    // A different account on stdin is refused; none on stdin uses the stored one.
+    let other = FILE_VAT_INPUT.replace("FI2112345600000785", "FI9112345600000786");
+    let (code, _, err) = run(home, Some(&script), &["file-vat", "start"], &other);
+    assert_eq!(code, 1);
+    let error: Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(error["error_code"], "TAX_PAYEE_IBAN_MISMATCH", "{error}");
+
+    let (code, stdout, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "start"],
+        &no_iban.to_string(),
+    );
+    assert_eq!(code, 0, "{err}");
+    let run_id = serde_json::from_str::<Value>(&stdout).unwrap()["run_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (code, _, err) = run(
+        home,
+        Some(&script),
+        &["file-vat", "approve-filing", "--run-id", &run_id],
+        "",
+    );
+    assert_eq!(code, 0, "{err}");
+    let (code, stdout, err) = run(home, None, &["run", "show", "--run-id", &run_id], "");
+    assert_eq!(code, 0, "{err}");
+    let shown: Value = serde_json::from_str(&stdout).unwrap();
+    let payment = shown["effects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["key"] == "submit-payment")
+        .unwrap()["payment"]
+        .clone();
+    assert_eq!(payment["payee_iban"], "FI2112345600000785", "{shown}");
+    assert_eq!(payment["reference"], "76543216", "{shown}");
+    assert_eq!(payment["reference_kind"], "general", "{shown}");
 }

@@ -74,6 +74,10 @@ fn offline_stdin_commands_accept_their_printed_example() {
     let retired = call("knowledge company retire", &["bank-fees-practice"]);
     assert_eq!(retired["document"]["revisions"][2]["status"], "retired");
 
+    assert_eq!(call("tax-payments set", &["--dry-run"])["written"], false);
+    let stored = call("tax-payments set", &[]);
+    assert_eq!(stored["vat_reference"]["kind"], "self_assessed");
+
     let configured = call("vero-fi configure", &["--dry-run"]);
     assert_eq!(configured["written"], false);
 

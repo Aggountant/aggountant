@@ -56,6 +56,13 @@ fn an_untagged_sale_vat_leg_warns_shows_in_preview_and_blocks_filing() {
     let home = tempfile::tempdir().unwrap();
     let home = home.path();
     assert_eq!(run(home, None, &["init"], "").0, 0);
+    let stored = run(
+        home,
+        None,
+        &["tax-payments", "set"],
+        r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#,
+    );
+    assert_eq!(stored.0, 0, "{}", stored.2);
 
     let (code, report, err) = run(home, None, &["voucher", "validate"], &sale().to_string());
     assert_eq!(code, 0, "{err}");

@@ -74,6 +74,13 @@ fn seal(home: &Path, key: &str, tagged: &str, counter: &str, base: &str, code: &
 /// Esimerkki Oy's Q1: 2550,00 sales VAT and 1020,00 deductible VAT, sealed.
 fn sealed_q1(home: &Path) {
     assert_eq!(run(home, None, &["init"], "").0, 0);
+    let stored = run(
+        home,
+        None,
+        &["tax-payments", "set"],
+        r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#,
+    );
+    assert_eq!(stored.0, 0, "{}", stored.2);
     seal(
         home,
         "sales",

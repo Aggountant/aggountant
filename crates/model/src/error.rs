@@ -35,6 +35,8 @@ pub enum ModelError {
     InvalidVatExpansion(String),
     #[error("INVALID_IBAN: {0}")]
     InvalidIban(String),
+    #[error("INVALID_PAYMENT_REFERENCE: {0}")]
+    InvalidPaymentReference(String),
     #[error("INVALID_PERSON_ID: {0}")]
     InvalidPersonId(String),
     #[error("INVALID_VERO_FILING_IDENTITY: {0}")]
@@ -64,6 +66,7 @@ impl ModelError {
             ModelError::InvalidOpeningBalance(_) => "INVALID_OPENING_BALANCE",
             ModelError::InvalidVatExpansion(_) => "INVALID_VAT_EXPANSION",
             ModelError::InvalidIban(_) => "INVALID_IBAN",
+            ModelError::InvalidPaymentReference(_) => "INVALID_PAYMENT_REFERENCE",
             ModelError::InvalidPersonId(_) => "INVALID_PERSON_ID",
             ModelError::InvalidVeroFilingIdentity(_) => "INVALID_VERO_FILING_IDENTITY",
             ModelError::InvalidFiscalYear(_) => "INVALID_FISCAL_YEAR",

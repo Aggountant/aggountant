@@ -11,6 +11,61 @@ the return. A return that has been sent cannot be withdrawn, but it can be
 - [Direct filing is set up](set-up-vero-api.md), meaning the readiness check
   shows `ready`.
 - The month has not yet been reported to the Tax Administration in any way.
+- Your company's [Tax Administration payment details](#store-the-tax-administration-payment-details-once)
+  are stored.
+
+## Store the Tax Administration payment details once
+
+The payment proposal of a VAT return carries the Tax Administration's bank
+account number and the reference number your company pays VAT with. With a
+wrong reference the payment goes to another tax, so the program takes the
+reference from the company's stored payment details and never makes one up.
+Without a reference, sending a VAT return does not start
+(`TAX_PAYMENT_REFERENCE_MISSING`).
+
+1. **Look up the payment details in OmaVero:** Maksutilanne (payment status) >
+   Verojen maksaminen ja maksutiedot (paying taxes and payment details). A
+   limited company or other corporate entity has a general tax reference
+   number that pays almost every tax, VAT and prepayments included. A sole
+   trader, or an entity that does not use the general reference, pays VAT
+   with the reference for self-assessed taxes.
+2. **Give them to the agent,** for example:
+
+   > Store the Tax Administration payment details: account
+   > FI21 1234 5600 0007 85, general tax reference 7654 3216.
+
+   The agent stores them and shows them to you. Check them against OmaVero.
+
+The payment details are stored in the home, in
+`masterdata/tax-payments.json`; they are not secret, and the file belongs in
+version control. The program checks the check digits of the reference and the
+account number. It does not accept the general reference together with
+tax-specific references, because the Tax Administration advises paying every
+tax the same way; otherwise payments can go to other taxes than intended. A
+payment arrangement reference can be stored, but it is never used in a VAT
+payment proposal.
+
+The Tax Administration's Danske Bank account (starting `FI56`) is replaced by
+an OP account on 1 December 2026 and closed at the end of May 2027. If the
+stored account is that one, the program warns (`TAX_PAYEE_IBAN_RETIRING`):
+replace it with the Nordea account or the new OP account from OmaVero.
+
+<details>
+<summary>Commands the agent runs</summary>
+
+```sh
+aggountant tax-payments set --dry-run < payment-details.json
+aggountant tax-payments set < payment-details.json
+aggountant tax-payments show
+```
+
+The input is the whole set of payment details and replaces what is stored:
+the fields are `payee_iban`, `general_reference`, `self_assessed_reference`,
+`prepayment_reference` and `payment_arrangement_reference`, all optional,
+plus `schema_version` 1. A reference is given without spaces.
+`tax-payments show` tells in `vat_reference` which reference VAT is paid
+with.
+</details>
 
 ## How to do it
 
@@ -21,9 +76,9 @@ the return. A return that has been sent cannot be withdrawn, but it can be
 2. **The agent previews the figures** from the closed month's books, the same
    way as for [a return filed in OmaVero](file-vat-omavero.md).
 
-3. **The agent prepares the submission.** It gives the program the month, the
-   tax on sales and on purchases, and the Tax Administration's bank account
-   number, which is shown in OmaVero. The program calculates the figures from
+3. **The agent prepares the submission.** It gives the program the month and
+   the tax on sales and on purchases. The program takes the account number
+   and the reference from the stored payment details. It calculates the figures from
    the books once more and refuses if they differ or if the VAT accounts do
    not reconcile with the return (`VAT_ACCOUNTS_UNRECONCILED`). The program
    then checks readiness, asks the Tax Administration for the month's status
@@ -49,10 +104,9 @@ the return. A return that has been sent cannot be withdrawn, but it can be
    instead is under
    [The return does not show in OmaVero](../troubleshooting.md#the-return-does-not-show-in-omavero).
 
-6. **Pay the tax yourself**, if there is any to pay, with the reference shown
-   in OmaVero. aggountant does not pay it. The run is complete once the
-   return is filed, and `run show` gives the amount, the account and the due
-   date.
+6. **Pay the tax yourself**, if there is any to pay. aggountant does not pay
+   it. The run is complete once the return is filed, and `run show` gives the
+   amount, the account, the reference and the due date.
 
 <details>
 <summary>Commands the agent runs</summary>
@@ -67,8 +121,10 @@ aggountant period show --period 2026-03
 aggountant file-vat status --period 2026-03
 ```
 
-`file-vat start` gets the Tax Administration's bank account number in the
-input field `payee_iban`. If the agent acknowledges untagged postings on the
+`file-vat start` takes the account number and the reference from the stored
+payment details. The input field `payee_iban` is optional, and if it differs
+from the stored account the command refuses (`TAX_PAYEE_IBAN_MISMATCH`). If
+the agent acknowledges untagged postings on the
 VAT accounts, the input also has the field
 `vat_reconciliation_acknowledgement`, with the reason (`reason`) and the
 voucher numbers the preview lists (`vouchers`).
@@ -85,7 +141,8 @@ the cause is fixed, the agent starts a new run.
 The run waits at the approval `ApproveFiling`; rejecting is
 `--answer reject`. Once the return is filed, the run is `completed`. When there
 is tax to pay, the `submit-payment` effect is `skipped` and its `payment` field
-has `state` `left_to_user`, `amount`, `payee_iban` and `due_date`: the user
+has `state` `left_to_user`, `amount`, `payee_iban`, `reference` and
+`due_date`: the user
 pays it, and nothing says it has been paid. A run that an earlier version left
 waiting at `ApprovePayment` is completed with
 `file-vat user-pays --run-id fv-…`, which sends nothing.

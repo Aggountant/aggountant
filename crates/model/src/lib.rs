@@ -20,6 +20,7 @@ pub mod fiscal_year;
 pub mod instant;
 pub mod newtype;
 pub mod opening_balance;
+pub mod payment_reference;
 pub mod period;
 pub mod vat_expansion;
 pub mod vero;
@@ -31,6 +32,7 @@ pub use fiscal_year::{FiscalCalendar, FiscalYear, MAX_FISCAL_YEAR_MONTHS};
 pub use instant::Instant;
 pub use newtype::{AccountId, Currency, Date, FinnishPersonId, Hash, Iban, Money, VatCode};
 pub use opening_balance::{OpeningBalance, OpeningBalanceSource};
+pub use payment_reference::PaymentReference;
 pub use period::PeriodId;
 pub use vat_expansion::{
     GeneratedVatLeg, GeneratedVatRole, VatExpansion, VatExpansionDeductibility,

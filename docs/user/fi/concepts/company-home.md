@@ -100,6 +100,7 @@ sisällä.
 | Kodissa | Mitä se on | Kuuluuko gitiin |
 |---|---|---|
 | `masterdata/reference/` | tilikartta ja ALV-roolit | kyllä |
+| `masterdata/tax-payments.json` | Verohallinnon tilinumero ja yrityksen verojen viitenumerot | kyllä |
 | `knowledge/company/` | yrityksen tallennetut faktat ja käytännöt | kyllä |
 | `process/` | sulku- ja ilmoitusajojen tila, avoimet velvoitteet | kyllä |
 | `vero-filing.json` | suoran ALV-ilmoittamisen asetukset ilman salaisuuksia | kyllä |

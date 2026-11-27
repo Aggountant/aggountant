@@ -58,6 +58,7 @@ mod input_help;
 mod knowledge;
 mod reports;
 mod skill;
+mod tax_payments;
 mod tulorekisteri;
 mod vero_fi;
 mod wage;
@@ -158,6 +159,12 @@ enum Command {
     Run {
         #[command(subcommand)]
         cmd: RunCmd,
+    },
+    /// The company's Tax Administration payment details: payee account and payment
+    /// references (`tax-payments show|set`). `file-vat` payment proposals take them.
+    TaxPayments {
+        #[command(subcommand)]
+        cmd: tax_payments::TaxPaymentsCmd,
     },
     /// Inspect and configure the own-organisation Incomes Register (Tulorekisteri)
     /// channel profile: `tulorekisteri status` (offline readiness, itemised) and
@@ -312,7 +319,9 @@ struct CliFileVatInput {
     contact_name: Option<FilingContactName>,
     #[serde(default)]
     contact_phone: Option<FilingContactPhone>,
-    payee_iban: String,
+    /// Optional when `masterdata/tax-payments.json` has the account.
+    #[serde(default)]
+    payee_iban: Option<String>,
     #[serde(default)]
     vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
     #[serde(default)]
@@ -1129,7 +1138,8 @@ impl From<aggountant_process::ProcessError> for CliError {
             | OpenObligation(_)
             | CloseContentChanged(_)
             | CloseYearBlocked(_)
-            | IncomesRegister { .. } => ErrorClass::CallerActionable,
+            | IncomesRegister { .. }
+            | TaxPayments { .. } => ErrorClass::CallerActionable,
         };
         CliError {
             code: e.error_code().to_string(),
@@ -1598,6 +1608,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         Command::FileWage { cmd } => wage::execute(cmd, &existing_home(cli)?),
         Command::Claim { cmd } => claim::run(cmd, &existing_home(cli)?),
         Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &existing_home(cli)?),
+        Command::TaxPayments { cmd } => tax_payments::run(cmd, &existing_home(cli)?),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => Ok(json!({
                 "schema_version": 1,
@@ -2011,7 +2022,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 FileVatCmd::Start => {
                     let input: CliFileVatInput = read_stdin_json()?;
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
-                    let input = resolve_file_vat_input(input, operation.profile.as_ref())?;
+                    let input = resolve_file_vat_input(&home, input, operation.profile.as_ref())?;
                     let started =
                         engine.start_file_vat(&input, &operation.broker, &PolicySet::default())?;
                     Ok(serde_json::to_value(started).expect("file-vat start serializes"))
@@ -2019,7 +2030,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 FileVatCmd::Replace => {
                     let input: CliFileVatInput = read_stdin_json()?;
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
-                    let input = resolve_file_vat_input(input, operation.profile.as_ref())?;
+                    let input = resolve_file_vat_input(&home, input, operation.profile.as_ref())?;
                     let started = engine.start_file_vat_replacement(
                         &input,
                         &operation.broker,
@@ -2431,9 +2442,11 @@ fn decode_camt(raw: &[u8], path: &std::path::Path) -> Result<String, CliError> {
 }
 
 fn resolve_file_vat_input(
+    home: &Path,
     input: CliFileVatInput,
     ready_profile: Option<&VeroFilingProfile>,
 ) -> Result<FileVatInput, CliError> {
+    let payee = aggountant_process::resolve_vat_payee(home, input.payee_iban.as_deref())?;
     let (business_id, contact_name, contact_phone) = if let Some(profile) = ready_profile {
         // `build_file_vat_broker` has already passed this exact profile through
         // ProductionFiling readiness, whose invariant requires all identity fields.
@@ -2497,7 +2510,8 @@ fn resolve_file_vat_input(
         business_id,
         contact_name,
         contact_phone,
-        payee_iban: input.payee_iban,
+        payee_iban: payee.payee_iban,
+        payment_reference: payee.reference,
         vat_reconciliation_acknowledgement: input.vat_reconciliation_acknowledgement,
         replacement_reasons: input.replacement_reasons,
     })
@@ -3295,6 +3309,7 @@ fn human_line(command: &Command, value: &Value) -> String {
             }
         },
         Command::Knowledge { cmd } => knowledge::human_line(cmd, value),
+        Command::TaxPayments { cmd } => tax_payments::human_line(cmd, value),
         Command::Claimant { cmd } => claimant::human_line(cmd, value),
         Command::Home { cmd } => home::human_line(cmd, value),
         Command::Intake { .. } => format!(
@@ -3621,7 +3636,8 @@ mod tests {
             attestations: VeroAttestations::default(),
         };
 
-        let resolved = resolve_file_vat_input(input, Some(&profile)).unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let resolved = resolve_file_vat_input(home.path(), input, Some(&profile)).unwrap();
         assert_eq!(resolved.business_id.as_str(), "1572860-0");
         assert_eq!(resolved.contact_name.as_str(), "Ada Operator");
         assert_eq!(resolved.contact_phone.as_str(), "+358401234567");

@@ -103,6 +103,7 @@ home.
 | In the home | What it is | In git? |
 |---|---|---|
 | `masterdata/reference/` | chart of accounts and VAT roles | yes |
+| `masterdata/tax-payments.json` | the Tax Administration account and the company's tax reference numbers | yes |
 | `knowledge/company/` | the company's saved facts and practices | yes |
 | `process/` | state of close and filing runs, open obligations | yes |
 | `vero-filing.json` | direct VAT filing settings, without secrets | yes |

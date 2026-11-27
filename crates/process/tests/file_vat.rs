@@ -409,7 +409,7 @@ fn input_json() -> Value {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     })
 }
 
@@ -829,7 +829,7 @@ fn vat_a_domestic_input_period_files_the_deductible_vat() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap();
 
@@ -875,7 +875,7 @@ fn file_vat_preview_contains_complete_shared_service_category_fields() {
             "business_id": "1572860-0",
             "contact_name": "Ada Operator",
             "contact_phone": "+358401234567",
-            "payee_iban": "FI2112345600000785"
+            "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"}
         }))
         .unwrap();
         let start = engine
@@ -934,7 +934,7 @@ fn vat_a_period_refuses_a_zero_filing_that_ignores_the_sealed_legs() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap();
     let err = engine
@@ -958,7 +958,7 @@ fn vat_a_filing_binds_the_sealed_expansion_policy() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap();
 
@@ -2193,7 +2193,7 @@ fn refund_period_completes_after_filing_without_a_payment() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap();
     let broker = broker_with(
@@ -2261,7 +2261,7 @@ fn file_vat_refuses_figures_that_disagree_with_the_sealed_ledger() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785",
+        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
     }))
     .unwrap();
 
@@ -2713,7 +2713,7 @@ fn monthly_filing_is_scoped_to_the_sealed_month() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban":"FI2112345600000785"
+        "payee_iban":"FI2112345600000785","payment_reference":{"reference":"12345672","kind":"self_assessed"}
     }))
     .unwrap();
     let started = engine
@@ -2871,15 +2871,77 @@ fn a_payable_direct_route_filing_completes_with_the_payment_left_to_the_user() {
     assert_eq!(payment["payee_iban"], "FI2112345600000785");
     assert_eq!(payment["due_date"], "2026-05-12");
     assert!(payment.get("next_command").is_none());
+    assert_eq!(payment["reference"], "12345672");
+    assert_eq!(payment["reference_kind"], "self_assessed");
     let message = payment["message"].as_str().unwrap();
     assert!(message.contains("did not pay"), "{message}");
-    assert!(message.contains("OmaVero"), "{message}");
+    assert!(message.contains("with the reference 12345672"), "{message}");
     // No bank payment was attempted.
     assert!(broker
         .outbox_entry(SVC_PANKKI_MAKSU, "submit-payment:2026-Q1")
         .unwrap()
         .is_none());
     assert!(Ledger::open(home.path()).unwrap().verify().unwrap().ok);
+}
+
+/// A Run started before aggountant kept payment references stored no
+/// `reference` in its payment proposal. It reads as it did: no reference
+/// fields, and the message points to OmaVero for the reference.
+#[test]
+fn a_run_stored_without_a_payment_reference_reads_unchanged() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = direct_broker(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+    );
+    let start = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap();
+    // Rewrite the stored proposal as an older build wrote it.
+    let state_path = home
+        .path()
+        .join("process")
+        .join("runs")
+        .join(&start.run.run_id)
+        .join("file_vat_state.json");
+    let mut state: Value = serde_json::from_slice(&std::fs::read(&state_path).unwrap()).unwrap();
+    let body = state["payment_body"].as_object_mut().unwrap();
+    assert_eq!(body.remove("reference").unwrap(), "12345672");
+    assert_eq!(body.remove("reference_kind").unwrap(), "self_assessed");
+    std::fs::write(&state_path, serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+
+    let payment = payment_json(&engine.show(&start.run.run_id).unwrap());
+    assert_eq!(payment["payee_iban"], "FI2112345600000785");
+    assert!(payment.get("reference").is_none(), "{payment}");
+    assert!(payment.get("reference_kind").is_none(), "{payment}");
+    let message = payment["message"].as_str().unwrap();
+    assert!(
+        message.contains("with the company's VAT payment reference shown in OmaVero"),
+        "{message}"
+    );
+}
+
+/// The payment proposal of a first return names the reference it is paid
+/// with, so a first return without one is refused before a Run exists. A
+/// replacement pays nothing and does not need it.
+#[test]
+fn a_first_return_needs_the_vat_payment_reference() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = direct_broker(home.path(), verotili_ok(), vec![]);
+    let mut without = input_json();
+    without.as_object_mut().unwrap().remove("payment_reference");
+    let without: FileVatInput = serde_json::from_value(without).unwrap();
+    let err = engine
+        .start_file_vat(&without, &broker, &PolicySet::default())
+        .unwrap_err();
+    assert_eq!(err.error_code(), "TAX_PAYMENT_REFERENCE_MISSING");
+    assert!(engine.list().unwrap().is_empty());
 }
 
 #[test]

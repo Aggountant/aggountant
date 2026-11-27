@@ -75,7 +75,11 @@ for a month that has already been filed and use it to check earlier returns.
 It does not check whether direct filing is set up, so its guidance names both
 routes: direct filing when `aggountant vero-fi status` reports ready, and
 otherwise the manual route on this page. For a quarterly period, the period is
-given as `2026-Q1`.
+given as `2026-Q1`. When the company's
+[payment details](file-vat-direct.md#store-the-tax-administration-payment-details-once)
+are stored, the payment instruction of a closed month's preview names the
+account and the reference VAT is paid with (`payee_iban`,
+`payment_reference`).
 
 The reconciliation leaves out VAT payments, refunds and transfers between VAT
 accounts, because they do not belong in a return. They are left out even when

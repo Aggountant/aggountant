@@ -630,8 +630,14 @@ pub(crate) const FILE_VAT_START: &str = concat!(
   period         required, the VAT period (YYYY-MM or YYYY-Qn).
   sales_vat      required, {"amount":"...","currency":"EUR"}.
   purchase_vat   required, {"amount":"...","currency":"EUR"}.
-  payee_iban     required. Goes only into the local payment proposal (the Tax
-                 Administration account shown in OmaVero); nothing is paid.
+  payee_iban     optional when `tax-payments set` has stored it, and refused
+                 when it differs from the stored one (TAX_PAYEE_IBAN_MISMATCH);
+                 without either, TAX_PAYEE_IBAN_MISSING. Goes only into the
+                 local payment proposal; nothing is paid.
+  The payment proposal also carries the company's VAT reference from
+  `tax-payments set` (general_reference, else self_assessed_reference; never
+  the payment arrangement reference). Without one the start is refused before
+  a Run exists (TAX_PAYMENT_REFERENCE_MISSING). There is no stdin field for it.
   business_id, contact_name, contact_phone
                  optional; taken from vero-filing.json and refused when they
                  differ from it (VERO_FILING_PROFILE_MISMATCH). Required only
@@ -661,9 +667,11 @@ pub(crate) const FILE_VAT_REPLACE: &str = concat!(
   return is already filed, plus the reason. Take the figures from `file-vat
   preview` of that period: they include later vouchers sealed with
   `corrects_vat_period` for it. Unknown fields are refused.
-  period, sales_vat, purchase_vat, payee_iban
-                 required, as for `file-vat start`. payee_iban is recorded
-                 only; a replacement Run pays nothing.
+  period, sales_vat, purchase_vat
+                 required, as for `file-vat start`.
+  payee_iban     optional, as for `file-vat start`. Recorded only: a
+                 replacement Run pays nothing, so it does not need the VAT
+                 reference, and carries it when one is stored.
   replacement_reasons
                  required, one or more of calculation-error, legal-practice,
                  tax-audit-guidance, law-interpretation (FileVATReturn/v2
@@ -997,6 +1005,11 @@ mod tests {
                 "tulorekisteri configure",
                 parses::<aggountant_broker::tulorekisteri::WageProfile>,
             ),
+            ("tax-payments set", |json| {
+                aggountant_process::TaxPaymentDetails::from_json(json)
+                    .map(drop)
+                    .map_err(|e| e.to_string())
+            }),
             ("file-vat start", parses::<crate::CliFileVatInput>),
             ("file-vat replace", parses::<crate::CliFileVatInput>),
             ("file-wage preview", parse_wage_report),

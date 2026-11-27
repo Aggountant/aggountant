@@ -35,6 +35,7 @@ mod journal;
 mod knowledge;
 mod obligation;
 mod run_payroll;
+mod tax_payments;
 mod vat_reconciliation;
 
 pub use authority::{AuthorityOutcome, AuthorityReceipt};
@@ -64,6 +65,11 @@ pub use hunt_receipts::{BankTransaction, HuntReceiptsInput};
 pub use intake::{Intake, MatchCandidate, MatchStatus};
 pub use knowledge::Knowledge;
 pub use obligation::{Obligation, ObligationStatus, Obligations};
+pub use tax_payments::{
+    read_tax_payments, resolve_vat_payee, tax_payments_path, validate_payee_iban,
+    write_tax_payments, TaxPaymentDetails, TaxPaymentWarning, VatPayee, VatPaymentReference,
+    VatReferenceKind, TAX_PAYMENTS_SCHEMA_VERSION,
+};
 pub use vat_reconciliation::{VatAttentionItem, VatReconciliationAcknowledgement};
 
 use std::fs::{self, OpenOptions};

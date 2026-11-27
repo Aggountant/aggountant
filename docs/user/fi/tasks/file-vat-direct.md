@@ -11,6 +11,58 @@ ilmoituksen. Lähetettyä ilmoitusta ei voi perua, mutta sen voi
 - [Suora ilmoittaminen on otettu käyttöön](set-up-vero-api.md), eli
   valmiuden tarkistus näyttää `ready`.
 - Kuukautta ei ole vielä ilmoitettu Verohallinnolle millään tavalla.
+- Yrityksen [Verohallinnon maksutiedot](#tallenna-verohallinnon-maksutiedot-kerran)
+  on tallennettu.
+
+## Tallenna Verohallinnon maksutiedot kerran
+
+ALV-ilmoituksen maksuehdotukseen tulevat Verohallinnon tilinumero ja
+viitenumero, jolla yrityksesi maksaa ALV:n. Väärällä viitteellä maksu
+kohdistuu toiseen veroon, joten ohjelma ottaa viitteen yrityksen
+tallennetuista maksutiedoista eikä keksi sitä. Ilman viitettä ALV-ilmoituksen
+lähetys ei ala (`TAX_PAYMENT_REFERENCE_MISSING`).
+
+1. **Katso maksutiedot OmaVerosta:** Maksutilanne > Verojen maksaminen ja
+   maksutiedot. Osakeyhtiöllä ja muulla yhteisöllä on yleinen verojen
+   viitenumero, jolla maksetaan lähes kaikki verot, myös ALV ja ennakkovero.
+   Toiminimi ja yhteisö, joka ei käytä yleistä viitettä, maksaa ALV:n
+   oma-aloitteisten verojen viitenumerolla.
+2. **Anna ne agentille,** esimerkiksi:
+
+   > Tallenna Verohallinnon maksutiedot: tili FI21 1234 5600 0007 85,
+   > yleinen verojen viitenumero 7654 3216.
+
+   Agentti tallentaa ne ja näyttää ne vielä sinulle. Tarkista ne OmaVerosta.
+
+Maksutiedot tallentuvat kotiin tiedostoon `masterdata/tax-payments.json`;
+ne eivät ole salaisia, ja tiedosto kuuluu versionhallintaan. Ohjelma tarkistaa
+viitenumeron ja tilinumeron tarkisteen. Se ei hyväksy yleistä viitettä
+samaan aikaan verolajien viitteiden kanssa, koska Verohallinto neuvoo
+maksamaan kaikki verot samalla tavalla; muuten maksut voivat kohdistua eri
+veroihin kuin oli tarkoitus. Maksujärjestelyn viitteen voi tallentaa, mutta
+ALV:n maksuehdotukseen sitä ei koskaan oteta.
+
+Verohallinnon Danske Bankin tili (alkaa `FI56`) vaihtuu OP:n tiliin
+1.12.2026 ja poistuu käytöstä toukokuun 2027 lopussa. Jos tallennettu tili on
+se, ohjelma varoittaa (`TAX_PAYEE_IBAN_RETIRING`): vaihda tilalle Nordean
+tai uusi OP:n tili OmaVerosta.
+
+<details>
+<summary>Komennot, joita agentti ajaa</summary>
+
+```sh
+aggountant tax-payments set --dry-run < maksutiedot.json
+aggountant tax-payments set < maksutiedot.json
+aggountant tax-payments show
+```
+
+Syöte on koko maksutietojen joukko, ja se korvaa tallennetun: kentät ovat
+`payee_iban`, `general_reference`, `self_assessed_reference`,
+`prepayment_reference` ja `payment_arrangement_reference`, kaikki
+valinnaisia, sekä `schema_version` 1. Viite annetaan ilman välilyöntejä.
+`tax-payments show` kertoo kentässä `vat_reference`, millä viitteellä ALV
+maksetaan.
+</details>
 
 ## Näin teet sen
 
@@ -21,9 +73,9 @@ ilmoituksen. Lähetettyä ilmoitusta ei voi perua, mutta sen voi
 2. **Agentti esikatselee luvut** suljetun kuukauden kirjanpidosta samalla
    tavalla kuin [OmaVerossa tehtävää ilmoitusta](file-vat-omavero.md) varten.
 
-3. **Agentti valmistelee lähetyksen.** Se antaa ohjelmalle kuukauden, myynnin
-   ja ostojen veron sekä Verohallinnon tilinumeron, joka näkyy OmaVerossa.
-   Ohjelma laskee luvut vielä kerran kirjanpidosta ja kieltäytyy, jos ne
+3. **Agentti valmistelee lähetyksen.** Se antaa ohjelmalle kuukauden sekä
+   myynnin ja ostojen veron. Tilinumeron ja viitteen ohjelma ottaa
+   tallennetuista maksutiedoista. Ohjelma laskee luvut vielä kerran kirjanpidosta ja kieltäytyy, jos ne
    eroavat tai jos ALV-tilit eivät täsmää ilmoitukseen
    (`VAT_ACCOUNTS_UNRECONCILED`). Sen jälkeen ohjelma tarkistaa valmiuden,
    kysyy kuukauden tilan Verohallinnolta ja jää odottamaan hyväksyntääsi.
@@ -49,9 +101,9 @@ ilmoituksen. Lähetettyä ilmoitusta ei voi perua, mutta sen voi
    näy.** Mitä silloin tehdään, on kohdassa
    [Ilmoitus ei näy OmaVerossa](../troubleshooting.md#ilmoitus-ei-näy-omaverossa).
 
-6. **Maksa vero itse**, jos maksettavaa on, OmaVeron viitteellä. aggountant
-   ei maksa sitä. Ajo on valmis, kun ilmoitus on annettu, ja `run show`
-   kertoo määrän, tilin ja eräpäivän.
+6. **Maksa vero itse**, jos maksettavaa on. aggountant ei maksa sitä. Ajo on
+   valmis, kun ilmoitus on annettu, ja `run show` kertoo määrän, tilin,
+   viitteen ja eräpäivän.
 
 <details>
 <summary>Komennot, joita agentti ajaa</summary>
@@ -66,8 +118,9 @@ aggountant period show --period 2026-03
 aggountant file-vat status --period 2026-03
 ```
 
-`file-vat start` saa Verohallinnon tilinumeron syötteen kentässä
-`payee_iban`. Jos agentti kuittaa ALV-tilien merkitsemättömät viennit, syötteessä
+`file-vat start` ottaa tilinumeron ja viitteen tallennetuista
+maksutiedoista. Syötteen kenttä `payee_iban` on valinnainen, ja jos se eroaa
+tallennetusta tilistä, komento kieltäytyy (`TAX_PAYEE_IBAN_MISMATCH`). Jos agentti kuittaa ALV-tilien merkitsemättömät viennit, syötteessä
 on lisäksi kenttä `vat_reconciliation_acknowledgement`, jossa ovat perustelu
 (`reason`) ja esikatselun luettelemat tositenumerot (`vouchers`).
 
@@ -82,7 +135,7 @@ Ohjelma ei yritä uudelleen. Kun syy on korjattu, agentti aloittaa uuden ajon.
 Ajo odottaa hyväksyntää `ApproveFiling`; hylkäys on `--answer reject`. Kun
 ilmoitus on annettu, ajo on tilassa `completed`. Kun veroa on maksettavaa,
 `submit-payment`-efekti on `skipped` ja sen kentässä `payment` ovat `state`
-`left_to_user`, `amount`, `payee_iban` ja `due_date`: käyttäjä maksaa veron,
+`left_to_user`, `amount`, `payee_iban`, `reference` ja `due_date`: käyttäjä maksaa veron,
 eikä mikään väitä sitä maksetuksi. Ajo, jonka aiempi versio jätti odottamaan
 hyväksyntää `ApprovePayment`, päätetään komennolla
 `file-vat user-pays --run-id fv-…`, joka ei lähetä mitään.

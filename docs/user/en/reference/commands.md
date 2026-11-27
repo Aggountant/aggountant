@@ -27,6 +27,7 @@ the agent).
 | `period` | shows a period's state (`open`, `closing`, `sealed`) and whether its VAT return has been filed | [Periods, closing and the fiscal year](../concepts/periods.md) |
 | `fiscal-year` | shows a fiscal year's dates and state (`open`, `sealed`) and defines a fiscal year that is not the calendar year | [Fiscal-year status](../concepts/periods.md#fiscal-year-status) |
 | `file-vat` | previews the VAT return, sends it directly, sends a replacement return, shows the status of a filed return, settles a submission whose outcome is unknown and records a return made by hand | [File the VAT return in OmaVero](../tasks/file-vat-omavero.md), [Send the VAT return directly to the Tax Administration](../tasks/file-vat-direct.md) |
+| `tax-payments` | stores and shows the company's Tax Administration payment details: the account number and the reference numbers, from which the VAT payment proposal takes its own | [Send the VAT return directly to the Tax Administration](../tasks/file-vat-direct.md#store-the-tax-administration-payment-details-once) |
 | `tulorekisteri` | saves the Tulorekisteri channel profile and checks readiness | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `vero-fi` | saves the direct filing settings, checks readiness and runs the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | adds an employee to the employee register and shows the register's data | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |

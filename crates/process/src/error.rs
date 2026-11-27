@@ -116,6 +116,10 @@ pub enum ProcessError {
     /// could not be settled. `code` is the machine-readable reason.
     #[error("{code}: {message}")]
     IncomesRegister { code: &'static str, message: String },
+    /// The company's Tax Administration payment details (payee account and
+    /// references) are invalid, missing or disagree with the input.
+    #[error("{code}: {message}")]
+    TaxPayments { code: &'static str, message: String },
 }
 
 impl ProcessError {
@@ -148,6 +152,7 @@ impl ProcessError {
             ProcessError::CloseContentChanged(_) => "CLOSE_CONTENT_CHANGED",
             ProcessError::CloseYearBlocked(_) => "CLOSE_YEAR_BLOCKED",
             ProcessError::IncomesRegister { code, .. } => code,
+            ProcessError::TaxPayments { code, .. } => code,
         }
     }
 

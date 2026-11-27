@@ -46,7 +46,10 @@ tapauksia on kaksi ja ne ratkeavat eri tavoin:
 
 `aggountant file-vat start` ottaa esikatselun luvut, tarkistaa valmiuden, kysyy kauden
 tilan Verohallinnolta ja jää odottamaan hyväksyntää. Mitään ei ole vielä lähetetty.
-Syötteen `payee_iban` on OmaVeron näyttämä Verohallinnon tili. Jos käynnistys
+Maksuehdotuksen tili ja ALV:n viite tulevat yrityksen maksutiedoista
+(`aggountant tax-payments`). Väärällä viitteellä maksu kohdistuu toiseen velkaan, joten
+ne kopioidaan käyttäjän kanssa OmaVerosta (Verojen maksaminen ja maksutiedot), ei
+päätellä vanhoista tiliotteista. Jos käynnistys
 epäonnistuu, mitään ei lähtenyt, ja ajo päättyy tilaan `not_filed`; syyn koodi on
 `reconcile`-efektin kentässä `error_code`. Kun syy on korjattu, aloitetaan uusi ajo.
 Tällainen ajo ei kaipaa mitään toimia eikä estä uutta. Jos ajo on jäänyt tilaan
@@ -65,9 +68,9 @@ ilmoituksen, ei että se on käsitelty: OmaVerossa ilmoitus on näkynyt vasta no
 vuorokauden kuluttua. `aggountant file-vat status --period 2026-08` kertoo käsittelyn
 tilan lähettämättä mitään.
 
-Veron maksaa käyttäjä itse OmaVeron viitteellä; aggountant ei maksa. Ajo päättyy,
+Veron maksaa käyttäjä itse maksuehdotuksen viitteellä; aggountant ei maksa. Ajo päättyy,
 kun ilmoitus on annettu. Maksettavassa ilmoituksessa `submit-payment`-efektin kenttä
-`payment` (`left_to_user`) kertoo määrän, tilin ja eräpäivän: kerro ne käyttäjälle
+`payment` (`left_to_user`) kertoo määrän, tilin, viitteen ja eräpäivän: kerro ne käyttäjälle
 äläkä väitä veroa maksetuksi. Jos ajo silti odottaa hyväksyntää `ApprovePayment`
 (aiemman version ajo), sitä ei hyväksytä vaan se päätetään komennolla
 `aggountant file-vat user-pays --run-id …`, jonka `run show` antaa kentässä

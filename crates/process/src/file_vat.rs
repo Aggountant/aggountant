@@ -38,6 +38,7 @@ use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Money,
 use sha2::{Digest, Sha256};
 
 use crate::journal::{EventPayload, Journal};
+use crate::tax_payments::{read_tax_payments, VatPaymentReference, VatReferenceKind};
 use crate::vat_reconciliation::{
     attention_items, reconcile_period, require_reconciled, VatAttentionItem,
     VatReconciliationAcknowledgement,
@@ -103,6 +104,12 @@ pub struct FileVatInput {
     pub contact_phone: FilingContactPhone,
     /// The IBAN for the separate payment approval.
     pub payee_iban: String,
+    /// The reference the payment proposal carries, from the company's tax
+    /// payment details (`tax_payments::resolve_vat_payee`). A first return's
+    /// proposal requires it; a replacement pays nothing and carries it only
+    /// when known.
+    #[serde(default)]
+    pub payment_reference: Option<VatPaymentReference>,
     /// Required only when the period has untagged VAT-account postings.
     #[serde(default)]
     pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
@@ -246,7 +253,13 @@ pub struct OfflineVatPreview {
     /// Every filing recorded for the period, oldest first; the last is in force.
     pub filings: Vec<VatFilingRecord>,
     pub filing_instruction: &'static str,
-    pub payment_instruction: &'static str,
+    pub payment_instruction: String,
+    /// The Tax Administration account from the company's tax payment details.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payee_iban: Option<String>,
+    /// The reference a VAT payment uses, from the same details.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_reference: Option<VatPaymentReference>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -373,6 +386,26 @@ impl ProcessEngine {
         } else {
             filing.net_vat.amount_str()
         };
+        let tax_payments = read_tax_payments(&self.home)?;
+        let payee_iban = tax_payments.as_ref().and_then(|d| d.payee_iban.clone());
+        let payment_reference = tax_payments.as_ref().and_then(|d| d.vat_reference());
+        let pay_first_return = match (&payee_iban, &payment_reference) {
+            (Some(iban), Some(reference)) => format!(
+                "Pay separately to {iban} with the reference {} (the company's {} reference \
+                 from its tax payment details) by the due date shown in OmaVero; aggountant \
+                 does not initiate the payment.",
+                reference.reference,
+                match reference.kind {
+                    VatReferenceKind::General => "general tax",
+                    VatReferenceKind::SelfAssessed => "self-assessed tax",
+                }
+            ),
+            _ => "Pay separately using the current payment details and reference shown in \
+                  OmaVero; aggountant does not initiate the payment. Store the account and \
+                  the reference once with `aggountant tax-payments set` and this instruction \
+                  names them."
+                .to_string(),
+        };
         const NOT_YET_PAYABLE: &str =
             "Nothing to pay yet: the amount is known once the closed period is previewed.";
         let (filing_instruction, payment_instruction) = match period_state {
@@ -382,7 +415,7 @@ impl ProcessEngine {
             ),
             PeriodState::Sealed => (
                 "Two routes; this preview is offline and did not check which one is available. Direct filing through the Vero.fi API: when `aggountant vero-fi status` reports ready, start the filing with `file-vat start` using these figures and approve it at the `ApproveFiling` gate (`file-vat approve-filing`). Manual filing otherwise: enter these numbered fields in OmaVero (or send an Ilmoitin.fi file you prepared yourself; aggountant does not create one) and record it with `file-vat complete-manual`.",
-                "Pay separately using the current payment details and reference shown in OmaVero; aggountant does not initiate the payment.",
+                pay_first_return.as_str(),
             ),
             PeriodState::Open => (
                 "Not fileable: the period is not closed, so these are draft figures. Correct any finding with a voucher in this period, close it (`run start close-period`), and preview again before filing.",
@@ -406,7 +439,9 @@ impl ProcessEngine {
             vat_reconciliation: verified.reconciliation,
             filings,
             filing_instruction,
-            payment_instruction,
+            payment_instruction: payment_instruction.to_string(),
+            payee_iban,
+            payment_reference,
         })
     }
 
@@ -522,6 +557,20 @@ impl ProcessEngine {
                  replacement return; start it with `file-vat replace`"
                     .into(),
             ));
+        }
+        // Refused before a Run exists: the payment proposal of a first return
+        // names the reference the tax is paid with, and a wrong one allocates the
+        // payment to another debt.
+        if input.payment_reference.is_none() {
+            return Err(ProcessError::TaxPayments {
+                code: "TAX_PAYMENT_REFERENCE_MISSING",
+                message: "the VAT payment proposal needs the company's reference for VAT: \
+                          store general_reference (companies paying all taxes with the \
+                          general tax reference) or self_assessed_reference with `aggountant \
+                          tax-payments set`, as OmaVero shows it under Verojen maksaminen ja \
+                          maksutiedot. Nothing was started"
+                    .into(),
+            });
         }
         // A filed period is refused before a Run exists and before its figures are
         // compared: whatever the input says, the answer is a replacement return.
@@ -716,11 +765,18 @@ impl ProcessEngine {
                 } else {
                     filing.net_vat.amount_str()
                 };
-            let payment_body = json!({
+            let mut payment_body = json!({
                 "period": input.period.to_string(),
                 "amount": bank_payment_required,
                 "payee_iban": input.payee_iban,
             });
+            // Runs started before payment references have no `reference` in
+            // their stored body; it is added only when known so their bytes and
+            // approval hashes stay as they were.
+            if let Some(reference) = &input.payment_reference {
+                payment_body["reference"] = json!(reference.reference);
+                payment_body["reference_kind"] = json!(reference.kind);
+            }
             let payment_env = Envelope::new(
                 SVC_PANKKI_MAKSU,
                 "pay-vat",
@@ -1661,16 +1717,21 @@ impl ProcessEngine {
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
             .to_string();
+        let (reference, reference_kind) = stored_payment_reference(&run_state.payment_body);
         let due = due_date
             .as_deref()
             .unwrap_or("the due date shown in OmaVero");
+        let with_reference = match &reference {
+            Some(reference) => format!("with the reference {reference}"),
+            None => "with the company's VAT payment reference shown in OmaVero".to_string(),
+        };
         let (next_command, message) = match state {
             VatPaymentState::LeftToUser => (
                 None,
                 format!(
                     "aggountant did not pay this tax. The user pays {amount} EUR to \
-                     {payee_iban} by {due} with the company's VAT payment reference shown in \
-                     OmaVero; the tax account in OmaVero shows when it is paid."
+                     {payee_iban} by {due} {with_reference}; the tax account in OmaVero \
+                     shows when it is paid."
                 ),
             ),
             VatPaymentState::AwaitingApproval => (
@@ -1691,6 +1752,8 @@ impl ProcessEngine {
             amount,
             currency: "EUR",
             payee_iban,
+            reference,
+            reference_kind,
             due_date,
             next_command,
             message,
@@ -1717,6 +1780,12 @@ pub struct VatPayment {
     pub amount: String,
     pub currency: &'static str,
     pub payee_iban: String,
+    /// The payment reference the proposal carries; absent for a Run started
+    /// before aggountant kept the company's references.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_kind: Option<VatReferenceKind>,
     /// The period's due date from GetVATPeriods when the Run started.
     pub due_date: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1745,10 +1814,29 @@ fn user_payment_reason(state: &FileVatState) -> String {
         .get("payee_iban")
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
+    let reference = match stored_payment_reference(&state.payment_body).0 {
+        Some(reference) => format!(" with reference {reference}"),
+        None => String::new(),
+    };
     format!(
-        "payment left to the user: {} EUR to {iban}, due {due}; aggountant did not pay it",
+        "payment left to the user: {} EUR to {iban}{reference}, due {due}; aggountant did not \
+         pay it",
         state.bank_payment_required
     )
+}
+
+/// The reference stored in a Run's payment proposal, if the Run has one.
+fn stored_payment_reference(
+    payment_body: &serde_json::Value,
+) -> (Option<String>, Option<VatReferenceKind>) {
+    let reference = payment_body
+        .get("reference")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let kind = payment_body
+        .get("reference_kind")
+        .and_then(|kind| serde_json::from_value(kind.clone()).ok());
+    (reference, kind)
 }
 
 /// Refuse a payment step on a broker that cannot submit a bank payment.

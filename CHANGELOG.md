@@ -32,6 +32,23 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   A period without such sales files exactly what it filed before. A new
   voucher that puts such a sale together with a `purchase-` line is refused
   (`VAT_STRUCTURE`): record them as two vouchers. No store migration.
+- **Tax Administration payment details as company master data
+  (`tax-payments set|show`).** The payee account and the payment references
+  (general tax reference, self-assessed taxes, prepayment, payment
+  arrangement) are stored once in `masterdata/tax-payments.json`, plaintext
+  and committed with the home; no store migration. References and the account
+  are refused when their check digits do not hold, and the general reference
+  is not stored together with tax-specific ones, as the Tax Administration
+  asks companies to pay all taxes one way. A stored Danske Bank account
+  (`FI56…`, closed at the end of May 2027) is accepted with the warning
+  `TAX_PAYEE_IBAN_RETIRING`. `file-vat start` and `replace` take the account
+  from it (`payee_iban` on stdin is now optional and must match), and the
+  payment proposal, `run show` and the closed month's `file-vat preview` name
+  the VAT reference: the general reference when stored, otherwise the
+  self-assessed one, never the arrangement reference. **A first return now
+  needs the VAT reference:** without it `file-vat start` refuses before a Run
+  exists (`TAX_PAYMENT_REFERENCE_MISSING`); store it once with `tax-payments
+  set`. Runs started earlier read as before.
 
 - **Travel allowances computed from a trip (`claim compute`).** A new
   read-only command takes trips as JSON on stdin and computes the scheduled
