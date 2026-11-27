@@ -16,9 +16,10 @@
 //!   *Kansainvälisen viitteen käyttöönotto suomalaisessa yrityksessä*
 //!   (November 2022), <https://www.finanssiala.fi/wp-content/uploads/2022/12/kansainvalisen-viitteen-kayttoonotto-suomalaisessa-yrityksessa.pdf>.
 //!
-//! The canonical form has no spaces: the printed grouping (five digits, or four
-//! characters for RF) is presentation, and accepting it silently would let two
-//! spellings of one reference compare unequal.
+//! The canonical form has no spaces and, for the domestic form, no leading
+//! zeros ("Etunollia ei tulosteta"): the printed grouping (five digits, or four
+//! characters for RF) is presentation, and accepting either silently would let
+//! two spellings of one reference compare unequal.
 
 use std::fmt;
 
@@ -71,6 +72,11 @@ fn validate_domestic(raw: &str) -> Result<(), &'static str> {
     }
     if !(4..=20).contains(&bytes.len()) {
         return Err("a domestic reference has 4 to 20 digits, the check digit included");
+    }
+    // "Etunollia ei tulosteta": a reference has no leading zeros, so one
+    // reference has one spelling and two stored references compare by text.
+    if bytes[0] == b'0' {
+        return Err("a domestic reference has no leading zeros");
     }
     let (base, check) = bytes.split_at(bytes.len() - 1);
     if domestic_check_digit(base) != check[0] - b'0' {
@@ -151,6 +157,8 @@ mod tests {
     fn domestic_reference_length_is_four_to_twenty_digits() {
         assert!(PaymentReference::new("1232").is_ok()); // 1·1+2·3+3·7 = 28 → 2
         assert!(PaymentReference::new("123").is_err());
+        // Leading zeros do not change the check digit, but are not written.
+        assert!(PaymentReference::new("01234561").is_err());
         let base = "1234567890123456789";
         let check = domestic_check_digit(base.as_bytes());
         assert!(PaymentReference::new(format!("{base}{check}")).is_ok());

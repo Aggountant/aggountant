@@ -2022,7 +2022,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 FileVatCmd::Start => {
                     let input: CliFileVatInput = read_stdin_json()?;
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
-                    let input = resolve_file_vat_input(&home, input, operation.profile.as_ref())?;
+                    let input = resolve_file_vat_input(input, operation.profile.as_ref())?;
                     let started =
                         engine.start_file_vat(&input, &operation.broker, &PolicySet::default())?;
                     Ok(serde_json::to_value(started).expect("file-vat start serializes"))
@@ -2030,7 +2030,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
                 FileVatCmd::Replace => {
                     let input: CliFileVatInput = read_stdin_json()?;
                     let operation = build_file_vat_broker(&home, broker_script.as_deref())?;
-                    let input = resolve_file_vat_input(&home, input, operation.profile.as_ref())?;
+                    let input = resolve_file_vat_input(input, operation.profile.as_ref())?;
                     let started = engine.start_file_vat_replacement(
                         &input,
                         &operation.broker,
@@ -2442,11 +2442,9 @@ fn decode_camt(raw: &[u8], path: &std::path::Path) -> Result<String, CliError> {
 }
 
 fn resolve_file_vat_input(
-    home: &Path,
     input: CliFileVatInput,
     ready_profile: Option<&VeroFilingProfile>,
 ) -> Result<FileVatInput, CliError> {
-    let payee = aggountant_process::resolve_vat_payee(home, input.payee_iban.as_deref())?;
     let (business_id, contact_name, contact_phone) = if let Some(profile) = ready_profile {
         // `build_file_vat_broker` has already passed this exact profile through
         // ProductionFiling readiness, whose invariant requires all identity fields.
@@ -2510,8 +2508,7 @@ fn resolve_file_vat_input(
         business_id,
         contact_name,
         contact_phone,
-        payee_iban: payee.payee_iban,
-        payment_reference: payee.reference,
+        payee_iban: input.payee_iban,
         vat_reconciliation_acknowledgement: input.vat_reconciliation_acknowledgement,
         replacement_reasons: input.replacement_reasons,
     })
@@ -3636,8 +3633,7 @@ mod tests {
             attestations: VeroAttestations::default(),
         };
 
-        let home = tempfile::tempdir().unwrap();
-        let resolved = resolve_file_vat_input(home.path(), input, Some(&profile)).unwrap();
+        let resolved = resolve_file_vat_input(input, Some(&profile)).unwrap();
         assert_eq!(resolved.business_id.as_str(), "1572860-0");
         assert_eq!(resolved.contact_name.as_str(), "Ada Operator");
         assert_eq!(resolved.contact_phone.as_str(), "+358401234567");

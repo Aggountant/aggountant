@@ -32,6 +32,7 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   A period without such sales files exactly what it filed before. A new
   voucher that puts such a sale together with a `purchase-` line is refused
   (`VAT_STRUCTURE`): record them as two vouchers. No store migration.
+
 - **Tax Administration payment details as company master data
   (`tax-payments set|show`).** The payee account and the payment references
   (general tax reference, self-assessed taxes, prepayment, payment
@@ -48,7 +49,9 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   self-assessed one, never the arrangement reference. **A first return now
   needs the VAT reference:** without it `file-vat start` refuses before a Run
   exists (`TAX_PAYMENT_REFERENCE_MISSING`); store it once with `tax-payments
-  set`. Runs started earlier read as before.
+  set`. A return whose account or reference was corrected after its Run
+  started is not approved with the old one (`TAX_PAYMENT_DETAILS_CHANGED`;
+  reject and start again). Runs started earlier read as before.
 
 - **Travel allowances computed from a trip (`claim compute`).** A new
   read-only command takes trips as JSON on stdin and computes the scheduled

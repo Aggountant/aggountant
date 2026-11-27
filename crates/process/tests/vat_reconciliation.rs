@@ -76,6 +76,7 @@ fn home_with(vouchers: Vec<Vec<Posting>>) -> tempfile::TempDir {
 fn open_home_with(vouchers: Vec<Vec<Posting>>) -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     for (i, postings) in vouchers.into_iter().enumerate() {
         seal(&ledger, &format!("v{i}"), postings);
     }
@@ -121,7 +122,7 @@ fn input(sales_vat: &str, acknowledgement: Option<Value>) -> FileVatInput {
         "business_id": "1234567-1",
         "contact_name": "Maija Meikäläinen",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     });
     if let Some(ack) = acknowledgement {
         value["vat_reconciliation_acknowledgement"] = ack;
@@ -301,6 +302,7 @@ fn input_vat_on_the_input_vat_account_reconciles() {
     // Sealed as the expansion produced it, so the generated-leg markers are kept.
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     ledger
         .seal(
             &purchase,
@@ -489,6 +491,7 @@ fn a_vat_payment_reconciles_in_a_home_with_settlement_roles() {
 fn without_settlement_roles_a_vat_payment_blocks_and_the_preview_says_why() {
     let home = tempfile::tempdir().unwrap();
     Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     // A home from before the role file.
     std::fs::remove_file(
         home.path()
@@ -648,4 +651,15 @@ fn filing_an_open_period_is_still_refused() {
         )
         .unwrap_err();
     assert_eq!(err.error_code(), "PERIOD_NOT_SEALED");
+}
+
+/// Store the company's VAT payment reference (fictional), which a first
+/// return's payment proposal requires.
+fn store_vat_reference(home: &std::path::Path) {
+    aggountant_process::write_tax_payments(
+        home,
+        &serde_json::from_str(r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#)
+            .unwrap(),
+    )
+    .unwrap();
 }

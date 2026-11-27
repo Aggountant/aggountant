@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-27
 type: feature
-status: open
+status: done
 priority: high
 lane: vat-filing
 lane_seq: 12
 collision: [crates/process/src/file_vat.rs]
+closed: 2026-11-27
 ---
 
 # Typed Tax Administration payment references and payee account
@@ -34,6 +35,12 @@ in git.
 
 ## Acceptance criteria
 
-- [ ] Master-data schema and CLI to set and show the references.
-- [ ] The VAT payment proposal includes the correct reference and IBAN; `payee_iban` input becomes optional when master data has it.
-- [ ] A clear error when the self-assessed-tax reference is missing while a payment proposal is built.
+- [x] Master-data schema and CLI to set and show the references.
+- [x] The VAT payment proposal includes the correct reference and IBAN; `payee_iban` input becomes optional when master data has it.
+- [x] A clear error when the self-assessed-tax reference is missing while a payment proposal is built.
+
+## Resolution
+
+### 2026-11-27T18:28:38Z · @issuectl
+
+Built: tax-payments set|show master data; file-vat payment proposals, run show and preview carry the stored account and VAT reference. See result.md, review.md, assessment.md.

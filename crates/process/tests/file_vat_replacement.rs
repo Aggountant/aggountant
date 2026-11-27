@@ -112,7 +112,7 @@ fn input(sales_vat: &str, reasons: Option<Value>) -> FileVatInput {
         "business_id": "1234567-1",
         "contact_name": "Esimerkki Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     });
     if let Some(reasons) = reasons {
         input["replacement_reasons"] = reasons;
@@ -164,6 +164,7 @@ fn seal_sale(
 fn sealed_october() -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     seal_sale(
         &ledger,
         "october-sale",
@@ -1092,4 +1093,15 @@ fn a_manual_replacement_with_resolution_evidence_settles_an_unknown_replacement(
         .find(|key| key.contains(":replaces-2:"))
         .expect("the Run replaces the second filing");
     assert_eq!(attempts(home, &key), 0);
+}
+
+/// Store the company's VAT payment reference (fictional), which a first
+/// return's payment proposal requires.
+fn store_vat_reference(home: &std::path::Path) {
+    aggountant_process::write_tax_payments(
+        home,
+        &serde_json::from_str(r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#)
+            .unwrap(),
+    )
+    .unwrap();
 }

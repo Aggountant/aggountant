@@ -120,6 +120,7 @@ fn seal_vat_vouchers(ledger: &Ledger, sales_base: &str, purchase_base: &str) {
 fn sealed_home_with(sales_base: &str, purchase_base: &str) -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     seal_vat_vouchers(&ledger, sales_base, purchase_base);
     let auth = ledger.begin_close(&q1(), "close-run", "closer").unwrap();
     ledger.seal_period(&q1(), &auth, "closer").unwrap();
@@ -212,6 +213,7 @@ fn domestic_input_draft() -> VoucherDraft {
 fn sealed_home_domestic_input() -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     ledger
         .seal(
             &domestic_input_draft(),
@@ -232,6 +234,7 @@ fn sealed_home_shared_reverse_charge_services(tagged_sale: bool) -> tempfile::Te
         "fi-general-2026@dd5d3f339cebfbc670f55cbd0942c775904c58523d9b07ad8eb48b589c79b63b";
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     let d = Date::parse("2026-02-15").unwrap();
     for (natural_key, amount, scope) in [
         ("eu-service", "100.00", ReverseChargeScope::EuServices),
@@ -409,7 +412,7 @@ fn input_json() -> Value {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     })
 }
 
@@ -829,7 +832,7 @@ fn vat_a_domestic_input_period_files_the_deductible_vat() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap();
 
@@ -875,7 +878,7 @@ fn file_vat_preview_contains_complete_shared_service_category_fields() {
             "business_id": "1572860-0",
             "contact_name": "Ada Operator",
             "contact_phone": "+358401234567",
-            "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"}
+            "payee_iban": "FI2112345600000785"
         }))
         .unwrap();
         let start = engine
@@ -934,7 +937,7 @@ fn vat_a_period_refuses_a_zero_filing_that_ignores_the_sealed_legs() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap();
     let err = engine
@@ -958,7 +961,7 @@ fn vat_a_filing_binds_the_sealed_expansion_policy() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap();
 
@@ -2088,6 +2091,7 @@ fn payment_amount_must_equal_reconciled_required() {
 fn file_vat_requires_a_sealed_period() {
     let home = tempfile::tempdir().unwrap();
     Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     let engine = ProcessEngine::open(home.path());
     let broker = broker_with(home.path(), verotili_ok(), vec![], vec![]);
     let err = engine
@@ -2193,7 +2197,7 @@ fn refund_period_completes_after_filing_without_a_payment() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap();
     let broker = broker_with(
@@ -2261,7 +2265,7 @@ fn file_vat_refuses_figures_that_disagree_with_the_sealed_ledger() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap();
 
@@ -2689,6 +2693,7 @@ fn resume_is_idempotent_and_a_noop_on_a_settled_run() {
 fn monthly_filing_is_scoped_to_the_sealed_month() {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     let july = PeriodId::parse("2026-07").unwrap();
     let authority = ledger.begin_close(&july, "july-close", "closer").unwrap();
     ledger.seal_period(&july, &authority, "closer").unwrap();
@@ -2713,7 +2718,7 @@ fn monthly_filing_is_scoped_to_the_sealed_month() {
         "business_id": "1572860-0",
         "contact_name": "Ada Operator",
         "contact_phone": "+358401234567",
-        "payee_iban":"FI2112345600000785","payment_reference":{"reference":"12345672","kind":"self_assessed"}
+        "payee_iban":"FI2112345600000785"
     }))
     .unwrap();
     let started = engine
@@ -2927,21 +2932,74 @@ fn a_run_stored_without_a_payment_reference_reads_unchanged() {
 }
 
 /// The payment proposal of a first return names the reference it is paid
-/// with, so a first return without one is refused before a Run exists. A
-/// replacement pays nothing and does not need it.
+/// with, so a first return without one is refused before a Run exists. The
+/// payment arrangement reference is never taken for it.
 #[test]
 fn a_first_return_needs_the_vat_payment_reference() {
     let home = sealed_home();
+    aggountant_process::write_tax_payments(
+        home.path(),
+        &serde_json::from_str(r#"{"schema_version":1,"payment_arrangement_reference":"33334442"}"#)
+            .unwrap(),
+    )
+    .unwrap();
     let engine = ProcessEngine::open(home.path());
     let broker = direct_broker(home.path(), verotili_ok(), vec![]);
-    let mut without = input_json();
-    without.as_object_mut().unwrap().remove("payment_reference");
-    let without: FileVatInput = serde_json::from_value(without).unwrap();
     let err = engine
-        .start_file_vat(&without, &broker, &PolicySet::default())
+        .start_file_vat(&input(), &broker, &PolicySet::default())
         .unwrap_err();
     assert_eq!(err.error_code(), "TAX_PAYMENT_REFERENCE_MISSING");
     assert!(engine.list().unwrap().is_empty());
+}
+
+/// A reference or account corrected after the Run prepared its proposal is
+/// not filed with the old one: the approval is refused before anything is
+/// sent, and the Run can still be rejected.
+#[test]
+fn a_payment_detail_corrected_after_the_start_refuses_the_filing_approval() {
+    let home = sealed_home();
+    let engine = ProcessEngine::open(home.path());
+    let broker = direct_broker(
+        home.path(),
+        verotili_ok(),
+        vec![ok(200, json!({"receipt": "VERO-R1"}))],
+    );
+    let start = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    aggountant_process::write_tax_payments(
+        home.path(),
+        &serde_json::from_str(r#"{"schema_version":1,"self_assessed_reference":"11112220"}"#)
+            .unwrap(),
+    )
+    .unwrap();
+    let err = engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "TAX_PAYMENT_DETAILS_CHANGED");
+    assert_eq!(filing_attempts(home.path()), 0);
+    let rejected = engine
+        .answer_file_vat(&start.run.run_id, "ApproveFiling", "reject", &broker)
+        .unwrap();
+    assert_eq!(rejected.status, RunStatus::Rejected);
+
+    // The same reference with a corrected account is refused too.
+    let broker = direct_broker(home.path(), verotili_ok(), vec![]);
+    let again = engine
+        .start_file_vat(&input(), &broker, &PolicySet::default())
+        .unwrap();
+    aggountant_process::write_tax_payments(
+        home.path(),
+        &serde_json::from_str(
+            r#"{"schema_version":1,"payee_iban":"FI9112345600000786","self_assessed_reference":"11112220"}"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let err = engine
+        .answer_file_vat(&again.run.run_id, "ApproveFiling", "approve", &broker)
+        .unwrap_err();
+    assert_eq!(err.error_code(), "TAX_PAYMENT_DETAILS_CHANGED");
 }
 
 #[test]
@@ -3197,6 +3255,7 @@ fn user_pays_on_a_refund_records_no_payment_required_instead() {
 fn sealed_home_with_zero_rated_sales() -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     let d = Date::parse("2026-02-15").unwrap();
     let sale =
         |nk: &str, account: &str, base: &str, side: Side, code: &str, buyer: Option<&str>| {
@@ -3326,4 +3385,15 @@ fn zero_rated_and_eu_sales_are_filed_in_309_310_311() {
         sales["SalesOfServicesToEUMemberStates"].to_string(),
         "2500.00"
     );
+}
+
+/// Store the company's VAT payment reference (fictional), which a first
+/// return's payment proposal requires.
+fn store_vat_reference(home: &std::path::Path) {
+    aggountant_process::write_tax_payments(
+        home,
+        &serde_json::from_str(r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#)
+            .unwrap(),
+    )
+    .unwrap();
 }

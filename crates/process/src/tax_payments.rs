@@ -107,7 +107,10 @@ fn invalid(message: impl Into<String>) -> ProcessError {
 /// a valid checksum. The message never echoes the value.
 pub fn validate_payee_iban(iban: &str) -> Result<(), ProcessError> {
     Iban::new(iban).map_err(|e| invalid(format!("payee_iban: {e}")))?;
-    if !iban.starts_with("FI") || iban.len() != 18 {
+    if !iban.starts_with("FI")
+        || iban.len() != 18
+        || !iban.as_bytes()[2..].iter().all(u8::is_ascii_digit)
+    {
         return Err(invalid(
             "payee_iban: the Tax Administration's accounts are Finnish IBANs (FI and 16 digits)",
         ));
@@ -389,6 +392,8 @@ mod tests {
     fn payee_iban_must_be_a_finnish_iban() {
         assert!(validate_payee_iban("FI2112345600000785").is_ok());
         assert!(validate_payee_iban("FI2112345600000786").is_err());
+        // Letters pass the international checksum but not the Finnish form.
+        assert!(validate_payee_iban("FI211234A600000785").is_err());
         // A valid German IBAN is not a Tax Administration account.
         assert!(validate_payee_iban("DE89370400440532013000").is_err());
         let err = validate_payee_iban("FI2112345600000786").unwrap_err();

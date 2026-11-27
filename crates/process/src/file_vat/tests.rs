@@ -31,6 +31,7 @@ fn eur(amount: &str) -> Money {
 fn sealed_july() -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     let ledger = Ledger::init(home.path()).unwrap();
+    store_vat_reference(home.path());
     let date = Date::parse("2026-07-15").unwrap();
     let posting = |account: &str, amount: &str, side, vat: Option<&str>| Posting {
         account: AccountId::new(account).unwrap(),
@@ -101,7 +102,7 @@ fn input() -> FileVatInput {
         "business_id": "1234567-1",
         "contact_name": "Esimerkki Oy",
         "contact_phone": "+358401234567",
-        "payee_iban": "FI2112345600000785", "payment_reference": {"reference": "12345672", "kind": "self_assessed"},
+        "payee_iban": "FI2112345600000785",
     }))
     .unwrap()
 }
@@ -372,4 +373,15 @@ fn resume_refuses_to_settle_a_reconcile_whose_filing_may_have_begun() {
             RunStatus::NotFiled
         );
     }
+}
+
+/// Store the company's VAT payment reference (fictional), which a first
+/// return's payment proposal requires.
+fn store_vat_reference(home: &std::path::Path) {
+    crate::tax_payments::write_tax_payments(
+        home,
+        &serde_json::from_str(r#"{"schema_version":1,"self_assessed_reference":"12345672"}"#)
+            .unwrap(),
+    )
+    .unwrap();
 }

@@ -38,7 +38,9 @@ use aggountant_model::{BusinessId, FilingContactName, FilingContactPhone, Money,
 use sha2::{Digest, Sha256};
 
 use crate::journal::{EventPayload, Journal};
-use crate::tax_payments::{read_tax_payments, VatPaymentReference, VatReferenceKind};
+use crate::tax_payments::{
+    read_tax_payments, resolve_vat_payee, VatPayee, VatPaymentReference, VatReferenceKind,
+};
 use crate::vat_reconciliation::{
     attention_items, reconcile_period, require_reconciled, VatAttentionItem,
     VatReconciliationAcknowledgement,
@@ -102,14 +104,12 @@ pub struct FileVatInput {
     pub business_id: BusinessId,
     pub contact_name: FilingContactName,
     pub contact_phone: FilingContactPhone,
-    /// The IBAN for the separate payment approval.
-    pub payee_iban: String,
-    /// The reference the payment proposal carries, from the company's tax
-    /// payment details (`tax_payments::resolve_vat_payee`). A first return's
-    /// proposal requires it; a replacement pays nothing and carries it only
-    /// when known.
+    /// The Tax Administration account for the payment proposal. Optional when
+    /// the company's tax payment details have it, and refused when it differs
+    /// from them. The proposal's reference comes only from those details
+    /// (`tax_payments::resolve_vat_payee`), never from the input.
     #[serde(default)]
-    pub payment_reference: Option<VatPaymentReference>,
+    pub payee_iban: Option<String>,
     /// Required only when the period has untagged VAT-account postings.
     #[serde(default)]
     pub vat_reconciliation_acknowledgement: Option<VatReconciliationAcknowledgement>,
@@ -561,7 +561,8 @@ impl ProcessEngine {
         // Refused before a Run exists: the payment proposal of a first return
         // names the reference the tax is paid with, and a wrong one allocates the
         // payment to another debt.
-        if input.payment_reference.is_none() {
+        let payee = resolve_vat_payee(&self.home, input.payee_iban.as_deref())?;
+        if payee.reference.is_none() {
             return Err(ProcessError::TaxPayments {
                 code: "TAX_PAYMENT_REFERENCE_MISSING",
                 message: "the VAT payment proposal needs the company's reference for VAT: \
@@ -586,7 +587,7 @@ impl ProcessEngine {
                 )),
             ));
         }
-        self.start_filing(input, None, broker, policy_set)
+        self.start_filing(input, &payee, None, broker, policy_set)
     }
 
     /// Start a `file-vat` Run that replaces the filed return of a period: the
@@ -601,6 +602,7 @@ impl ProcessEngine {
         broker: &Broker,
         policy_set: &PolicySet,
     ) -> Result<FileVatStart, ProcessError> {
+        let payee = resolve_vat_payee(&self.home, input.payee_iban.as_deref())?;
         let Some(reasons) = input.replacement_reasons.as_deref() else {
             return Err(ProcessError::InvalidAnswer(
                 "VAT_REPLACEMENT_REASON_REQUIRED: a replacement return needs \
@@ -621,12 +623,19 @@ impl ProcessEngine {
                 )),
             ));
         }
-        self.start_filing(input, Some((replaces_filings, reasons)), broker, policy_set)
+        self.start_filing(
+            input,
+            &payee,
+            Some((replaces_filings, reasons)),
+            broker,
+            policy_set,
+        )
     }
 
     fn start_filing(
         &self,
         input: &FileVatInput,
+        payee: &VatPayee,
         replacement: Option<(usize, &[VatReplacementReason])>,
         broker: &Broker,
         policy_set: &PolicySet,
@@ -768,12 +777,12 @@ impl ProcessEngine {
             let mut payment_body = json!({
                 "period": input.period.to_string(),
                 "amount": bank_payment_required,
-                "payee_iban": input.payee_iban,
+                "payee_iban": payee.payee_iban,
             });
             // Runs started before payment references have no `reference` in
             // their stored body; it is added only when known so their bytes and
             // approval hashes stay as they were.
-            if let Some(reference) = &input.payment_reference {
+            if let Some(reference) = &payee.reference {
                 payment_body["reference"] = json!(reference.reference);
                 payment_body["reference_kind"] = json!(reference.kind);
             }
@@ -1020,6 +1029,7 @@ impl ProcessEngine {
         // approved once the earlier filing is resolved. The dispatch checks again.
         if answer == "approve" && gate_id == GATE_APPROVE_FILING {
             self.refuse_while_filing_unresolved(&period, Some(run_id))?;
+            self.refuse_superseded_payment_details(run_id, &state)?;
         }
         // An approved payment this route cannot carry would leave the Run running
         // behind an answered gate, so it is refused before anything is recorded.
@@ -1837,6 +1847,53 @@ fn stored_payment_reference(
         .get("reference_kind")
         .and_then(|kind| serde_json::from_value(kind.clone()).ok());
     (reference, kind)
+}
+
+impl ProcessEngine {
+    /// Refuse to file a payable return whose payment proposal names an account
+    /// or a reference the company has since corrected in its tax payment
+    /// details: after filing, the Run's proposal is what tells the user how to
+    /// pay, and a superseded reference sends the money to another debt. Nothing
+    /// has been sent yet, so the Run is rejected and started again. A Run
+    /// prepared before payment references were kept carries none and is not
+    /// checked.
+    fn refuse_superseded_payment_details(
+        &self,
+        run_id: &str,
+        state: &FileVatState,
+    ) -> Result<(), ProcessError> {
+        let (Some(bound_reference), _) = stored_payment_reference(&state.payment_body) else {
+            return Ok(());
+        };
+        if is_zero_eur(&state.bank_payment_required) {
+            return Ok(());
+        }
+        let current = read_tax_payments(&self.home)?;
+        let current_reference = current
+            .as_ref()
+            .and_then(|details| details.vat_reference())
+            .map(|reference| reference.reference.to_string());
+        let bound_iban = state
+            .payment_body
+            .get("payee_iban")
+            .and_then(serde_json::Value::as_str);
+        let iban_changed = current
+            .as_ref()
+            .and_then(|details| details.payee_iban.as_deref())
+            .is_some_and(|iban| Some(iban) != bound_iban);
+        if current_reference.as_deref() != Some(bound_reference.as_str()) || iban_changed {
+            return Err(ProcessError::TaxPayments {
+                code: "TAX_PAYMENT_DETAILS_CHANGED",
+                message: format!(
+                    "the company's Tax Administration account or VAT reference changed after \
+                     Run {run_id} prepared its payment proposal; reject it (`file-vat \
+                     approve-filing --run-id {run_id} --answer reject`) and start a new one. \
+                     Nothing was sent"
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 /// Refuse a payment step on a broker that cannot submit a bank payment.
