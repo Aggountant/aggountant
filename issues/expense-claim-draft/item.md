@@ -16,9 +16,9 @@ collision: [crates/cli/src/main.rs]
 closed: 2026-11-27
 closed_by: spinoff-01m8f29st77pphgskfeam3chpt
 commits:
-- hash: b3f2595
+- hash: 0b9e0f5
   summary: claim draft of trips and receipt lines
-- hash: 36f5f1e
+- hash: 2212d61
   summary: 'review fixes: destinations, stored-trip validation, lost receipts'
 ---
 
