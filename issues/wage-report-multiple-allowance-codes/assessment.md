@@ -1,7 +1,7 @@
 # Assessment of the wage-report-multiple-allowance-codes review
 
-Assessed against the branch head (the golden-hash test is in the closing
-commit).
+Assessed against the branch after the review (the golden-hash test is the
+second commit of the slice).
 
 | # | Finding | Conf | Like | Read | Arch | Confidence | Recommendation |
 |---|---|---|---|---|---|---|---|

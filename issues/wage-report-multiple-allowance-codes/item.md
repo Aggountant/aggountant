@@ -1,8 +1,8 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: improvement
-status: open
+status: done
 priority: high
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
@@ -11,6 +11,7 @@ originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
 lane: wage-reporting
 lane_seq: 17
+closed: 2026-11-27
 ---
 
 # file-wage: one 331 daily allowance carrying several per diem types
@@ -62,3 +63,9 @@ None; `wage-report-from-claim` uses it.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Resolution
+
+### 2026-11-27T18:09:52Z · @issuectl
+
+Done: one 331 line carries several per diem types; single-code reports byte-identical; see result.md, review.md, assessment.md.
