@@ -830,6 +830,28 @@ mod tests {
         };
         assert_eq!(err.error_code(), "STORE_ERROR");
         assert!(err.to_string().contains("predates"), "{err}");
+        crate::store::migrations::tests::assert_refusal_gives_no_reset_advice(&err.to_string());
+    }
+
+    /// A PII store written by a newer aggountant (the case met when a binary is
+    /// rolled back after a pii migration) is refused without reset advice.
+    #[test]
+    fn a_newer_pii_store_is_refused_without_reset_advice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pii.sqlite");
+        drop(SqlitePiiStore::open(&path).unwrap());
+        {
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", MIGRATIONS.len() as i32 + 1)
+                .unwrap();
+        }
+        let err = match SqlitePiiStore::open(&path) {
+            Ok(_) => panic!("a newer PII store must be refused"),
+            Err(e) => e,
+        };
+        assert_eq!(err.error_code(), "STORE_ERROR");
+        assert!(err.to_string().contains("newer aggountant"), "{err}");
+        crate::store::migrations::tests::assert_refusal_gives_no_reset_advice(&err.to_string());
     }
 
     /// Every row of the v1 tables, as text, in key order.

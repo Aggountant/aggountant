@@ -292,6 +292,37 @@ ohjelmaversiolla, ja ajon määritys on sen jälkeen muuttunut
 **Tee näin.** Anna agentille lupa
 [siirtää ajo uuteen versioon](tasks/upgrade.md).
 
+## Ohjelma ei avaa kotihakemiston tietokantaa
+
+**Mitä todennäköisesti tapahtui.** Komento pysähtyi koodiin `STORE_ERROR`, ja
+viestin mukaan tositetietokanta (`fiscal`) tai henkilötietokanta (`pii`) on
+kirjoitettu uudemmalla aggountantilla (`written by a newer aggountant`).
+Uudempi versio muutti tietokannan muotoa avatessaan sen, eikä vanhempi versio
+osaa enää lukea sitä. Näin käy, kun ohjelma on päivityksen jälkeen vaihdettu
+takaisin vanhempaan versioon tai kun kotihakemistoa käytetään koneella, jossa
+on vanhempi versio. Komento ei muuttanut mitään, ja kirjanpito on tallessa.
+
+**Tarkista.** Pyydä agenttia näyttämään `aggountant --version` ja
+virheilmoitus kokonaan.
+
+**Tee näin.** Asenna aggountantin se versio, joka kirjoitti kotihakemiston,
+tai sitä uudempi ([Päivitä aggountant](tasks/upgrade.md)), ja aja komento
+uudelleen.
+
+Jos viesti sanoo, että tietokanta on vanhempi kuin muodon päivitykset
+(`predates the schema-migration framework`), kotihakemisto on perustettu
+hyvin varhaisella kehitysversiolla. Avaa se sillä versiolla, joka sen
+perusti. Kotihakemiston saa poistaa ja perustaa uudelleen `init`-komennolla
+vain, kun olet tarkistanut, ettei siinä ole oikeaa kirjanpitoa, esimerkiksi
+kun se on [harjoituskuukauden](start/practice-month.md) kotihakemisto. Jos
+siinä on oikean yrityksen kirjanpitoa, jätä se ennalleen ja kerro tilanteesta
+projektin [issue-seurannassa](https://github.com/aggountant/aggountant/issues).
+
+**Älä** muokkaa, poista tai perusta kotihakemistoa uudelleen saadaksesi
+komennon toimimaan. Tietokannassa ovat sinetöidyt tositteet, annetut
+ilmoitukset ja henkilötiedot, eikä niitä saa takaisin muualta kuin
+varmuuskopiosta.
+
 ## Ilmoitus merkittiin tehdyksi, vaikka mitään ei lähetetty
 
 **Mitä todennäköisesti tapahtui.** Ympäristömuuttuja `AGGOUNTANT_BROKER_SCRIPT`

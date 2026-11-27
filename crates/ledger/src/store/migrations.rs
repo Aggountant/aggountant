@@ -27,7 +27,7 @@
 //! baseline that a fresh home initializes to; from v2 onward, migrations describe
 //! *changes*.
 //!
-//! **Baseline + legacy homes (pre-production).** v1 captures the schema *as it
+//! **Baseline + legacy homes.** v1 captures the schema *as it
 //! stands today* — including columns that landed inline in earlier slices (e.g.
 //! S3's `vouchers.sent_hash`) rather than through a migration. It cannot
 //! retroactively add such a column to a genuinely old DB that predates that inline
@@ -35,8 +35,11 @@
 //! claims to be current but errors at runtime with `no such column`), [`apply`]
 //! **refuses** it: a `user_version == 0` database that already contains
 //! application tables predates this framework and is rejected with an actionable
-//! error. This is safe for a pre-production, single-user system whose dev/test
-//! data is resettable — reset such a home rather than migrate it. A truly fresh DB
+//! error. The refusal never suggests resetting the home: a store may hold a
+//! company's live books, so every refusal names only what is safe (keep the home
+//! as it is and open it with the aggountant version that wrote it, or a newer
+//! one). The rare case where deleting a home is safe is described, with its
+//! conditions, in the user guide's troubleshooting page. A truly fresh DB
 //! (`user_version == 0`, no tables) initializes to v1; from there the framework
 //! carries schema changes forward for any DB created at or after v1.
 //!
@@ -73,8 +76,8 @@ pub(crate) struct Migration {
 /// programming error; (b) a database whose `user_version` is *newer* than this
 /// binary's latest migration (a downgrade); (c) a corrupt/foreign negative
 /// `user_version`; and (d) a `user_version == 0` database that already holds
-/// application tables — a home that predates this framework, which is refused with
-/// a reset instruction rather than silently stamped to v1 (see the module docs).
+/// application tables — a home that predates this framework, which is refused
+/// rather than silently stamped to v1 (see the module docs).
 ///
 /// All pending migrations run in a single `IMMEDIATE` transaction so the upgrade
 /// is atomic and race-free across concurrent openers; an already-current database
@@ -122,7 +125,7 @@ pub(crate) fn apply(
         // created before this framework existed. v1's `IF NOT EXISTS` would no-op
         // over such tables and stamp it "current" while columns added inline in
         // later slices (e.g. `vouchers.sent_hash`) stay missing. Refuse loudly
-        // instead — the data is resettable (see module docs).
+        // instead and leave the file untouched (see module docs).
         let table_count: i64 = tx.query_row(
             "SELECT count(*) FROM sqlite_master \
              WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
@@ -133,8 +136,8 @@ pub(crate) fn apply(
             return Err(LedgerError::Store(format!(
                 "{label} database predates the schema-migration framework \
                  (user_version 0 with existing tables) and may be missing columns \
-                 added in later slices — reset this home and re-run (its data is \
-                 resettable)"
+                 this binary reads, so it was not opened and nothing was changed. \
+                 {KEEP_THE_HOME} wrote it."
             )));
         }
     }
@@ -159,6 +162,13 @@ pub(crate) fn apply(
     Ok(())
 }
 
+/// The safe course every store refusal names. A store may hold a company's live
+/// books (sealed vouchers, filed returns, employee and claimant records), and the
+/// error JSON is what an agent reads and may act on, so a refusal never suggests
+/// resetting, deleting or editing the home.
+const KEEP_THE_HOME: &str = "Do not modify, delete or reset this home: it may hold the \
+     company's live books. Open it with the aggountant version that";
+
 /// Reject a `user_version` outside the accepted range `[0, latest]`: a negative
 /// value (corrupt or foreign metadata) or one newer than this binary knows (a
 /// downgrade we will not silently run an old code path against).
@@ -166,21 +176,21 @@ fn check_version_range(label: &str, current: i32, latest: i32) -> Result<(), Led
     if current < 0 {
         return Err(LedgerError::Store(format!(
             "{label} database has a negative user_version ({current}) — corrupt or \
-             not a aggountant database; refusing to open"
+             not an aggountant database; refusing to open, nothing was changed"
         )));
     }
     if current > latest {
         return Err(LedgerError::Store(format!(
             "{label} database schema is v{current} but this binary only knows up to \
-             v{latest} — the database was written by a newer aggountant; upgrade the \
-             binary (or reset this home, its data is resettable)"
+             v{latest} — the database was written by a newer aggountant, so it was not \
+             opened and nothing was changed. {KEEP_THE_HOME} wrote it, or a newer one."
         )));
     }
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn user_version(conn: &Connection) -> i32 {
@@ -196,6 +206,29 @@ mod tests {
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
+    }
+
+    /// A store refusal must not advise resetting, deleting or recreating the home:
+    /// the store may hold live books and an agent acts on the message. The only
+    /// mention of a reset allowed is the prohibition [`KEEP_THE_HOME`] states.
+    pub(crate) fn assert_refusal_gives_no_reset_advice(message: &str) {
+        let rest = message
+            .replace("Do not modify, delete or reset this home", "")
+            .to_lowercase();
+        for advice in [
+            "reset",
+            "resettable",
+            "delete",
+            "remove",
+            "recreate",
+            "re-run init",
+            "start over",
+        ] {
+            assert!(
+                !rest.contains(advice),
+                "store refusal advises `{advice}`: {message}"
+            );
+        }
     }
 
     const V1: Migration = Migration {
@@ -308,7 +341,14 @@ mod tests {
         apply(&mut conn, "test", &[V1, V2]).unwrap();
         // Older binary that only knows v1 opening a v2 DB.
         let err = apply(&mut conn, "test", &[V1]).unwrap_err();
+        assert_eq!(err.error_code(), "STORE_ERROR");
         assert!(err.to_string().contains("newer aggountant"), "{err}");
+        assert!(
+            err.to_string()
+                .contains("aggountant version that wrote it, or a newer one"),
+            "{err}"
+        );
+        assert_refusal_gives_no_reset_advice(&err.to_string());
         // The downgrade guard must not have touched the version.
         assert_eq!(user_version(&conn), 2);
     }
@@ -322,8 +362,15 @@ mod tests {
         conn.execute("CREATE TABLE legacy(a TEXT)", []).unwrap();
         assert_eq!(user_version(&conn), 0);
         let err = apply(&mut conn, "test", &[V1, V2]).unwrap_err();
+        assert_eq!(err.error_code(), "STORE_ERROR");
         assert!(err.to_string().contains("predates"), "{err}");
-        // Nothing applied: the DB is left untouched at v0 for the operator to reset.
+        assert!(
+            err.to_string()
+                .contains("aggountant version that wrote it."),
+            "{err}"
+        );
+        assert_refusal_gives_no_reset_advice(&err.to_string());
+        // Nothing applied: the DB is left untouched at v0.
         assert_eq!(user_version(&conn), 0);
     }
 
@@ -333,6 +380,7 @@ mod tests {
         conn.pragma_update(None, "user_version", -5).unwrap();
         let err = apply(&mut conn, "test", &[V1, V2]).unwrap_err();
         assert!(err.to_string().contains("negative user_version"), "{err}");
+        assert_refusal_gives_no_reset_advice(&err.to_string());
     }
 
     #[test]

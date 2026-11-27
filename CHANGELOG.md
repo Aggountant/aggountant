@@ -88,6 +88,15 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Fixed
 
+- **Store refusals no longer suggest resetting the home.** When the voucher
+  database (`fiscal`) or the personal data database (`pii`) was written by a
+  newer aggountant, or predates the schema-migration framework, the refusal
+  (`STORE_ERROR`, unchanged) used to suggest resetting the home. It now says
+  that nothing was changed, that the home may hold live books and must not be
+  modified, deleted or reset, and to open it with the aggountant version that
+  wrote it (or a newer one). The guide's troubleshooting page has a new
+  section for this refusal. No store migration.
+
 - **VAT: a `file-vat` run that stopped before filing now ends.** A
   `file-vat start` or `replace` refused before the approval (figures that do
   not match the books, unreconciled VAT accounts, a failed or refusing period

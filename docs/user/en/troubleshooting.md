@@ -300,6 +300,36 @@ program, and the run's definition has changed since
 **Do this.** Give the agent permission to
 [move the run to the new version](tasks/upgrade.md).
 
+## aggountant does not open the home's database
+
+**What probably happened.** The command stopped with the code `STORE_ERROR`,
+and the message says the voucher database (`fiscal`) or the personal data
+database (`pii`) was written by a newer aggountant
+(`written by a newer aggountant`). The newer version changed the database's
+format when it opened it, and the older version can no longer read it. This
+happens when the program was switched back to an older version after an
+upgrade, or when the home is used on a machine with an older version. The
+command changed nothing, and the books are safe.
+
+**Check.** Ask the agent to show `aggountant --version` and the whole error
+message.
+
+**Do this.** Install the aggountant version that wrote the home, or a newer
+one ([Upgrade aggountant](tasks/upgrade.md)), and run the command again.
+
+If the message says the database predates format upgrades
+(`predates the schema-migration framework`), the home was set up with a very
+early development version. Open it with the version that set it up. Delete
+the home and set it up again with `init` only after you have checked that it
+holds no real books, for example when it is the home of the
+[practice month](start/practice-month.md). If it holds a real company's
+books, leave it as it is and report the situation in the project's
+[issue tracker](https://github.com/aggountant/aggountant/issues).
+
+**Do not** edit, delete or set up the home again to make the command work.
+The database holds the sealed vouchers, the filed returns and personal data,
+and the only place to get them back from is a backup.
+
 ## A return was marked filed although nothing was sent
 
 **What probably happened.** The environment variable `AGGOUNTANT_BROKER_SCRIPT`

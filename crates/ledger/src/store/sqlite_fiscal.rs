@@ -2676,10 +2676,10 @@ mod migration_tests {
 
     /// A home that predates the migration framework (tables present, `user_version`
     /// still 0) is *refused* on open — not silently stamped to v1 while missing
-    /// columns added inline in later slices. The operator resets it (data is
-    /// resettable).
+    /// columns added inline in later slices. The refusal keeps the home as it is
+    /// and gives no reset advice: the store may hold live books.
     #[test]
-    fn a_pre_framework_home_is_refused_with_a_reset_message() {
+    fn a_pre_framework_home_is_refused_without_reset_advice() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("fiscal.sqlite");
 
@@ -2697,6 +2697,30 @@ mod migration_tests {
         };
         assert_eq!(err.error_code(), "STORE_ERROR");
         assert!(err.to_string().contains("predates"), "{err}");
+        migrations::tests::assert_refusal_gives_no_reset_advice(&err.to_string());
+    }
+
+    /// A fiscal store written by a newer aggountant is refused without reset
+    /// advice and left untouched.
+    #[test]
+    fn a_newer_fiscal_store_is_refused_without_reset_advice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fiscal.sqlite");
+        drop(SqliteFiscalStore::open(&path).unwrap());
+        let newer = MIGRATIONS.len() as i32 + 1;
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", newer).unwrap();
+        }
+        let err = match SqliteFiscalStore::open(&path) {
+            Ok(_) => panic!("a newer fiscal store must be refused"),
+            Err(e) => e,
+        };
+        assert_eq!(err.error_code(), "STORE_ERROR");
+        assert!(err.to_string().contains("newer aggountant"), "{err}");
+        migrations::tests::assert_refusal_gives_no_reset_advice(&err.to_string());
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(user_version(&conn), newer);
     }
 
     /// Re-opening an already-migrated fiscal DB is a no-op (no error, version

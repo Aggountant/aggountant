@@ -2,7 +2,7 @@
 created: 2026-11-27
 updated: 2026-11-27
 type: bug
-status: open
+status: fixed
 priority: high
 provenance: other
 provenance_detail: observed during the pii migration copy comparison of claimant-workplace-register
@@ -12,6 +12,8 @@ originating_run_kind: spinoff
 lane: store-safety
 lane_seq: 10
 collision: [crates/ledger/src/store]
+closed: 2026-11-27
+closed_by: agent
 ---
 
 # Store version refusals tell the operator to reset a home that holds live books
@@ -55,3 +57,9 @@ user guide's troubleshooting page with the conditions under which it is safe.
 ### 2026-11-27T17:52:58Z · @conductor
 
 Product owner 2026-11-27: accepted for immediate execution; both production homes now hold a pii v2 store that the previous build refuses with this message.
+
+## Resolution
+
+### 2026-11-27T18:00:18Z · @agent
+
+Store refusals give no reset advice; troubleshooting section added. See result.md.
