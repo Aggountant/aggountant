@@ -541,7 +541,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "close-year")?;
         let state = self.read_close_year_state(run_id)?;
 
         let key = correction_effect_key(correction_id);
@@ -618,7 +618,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "close-year")?;
 
         let gate = f.gate(gate_id).ok_or_else(|| {
             ProcessError::GateNotOpen(format!("no gate {gate_id} on run {run_id}"))
@@ -715,7 +715,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "close-year")?;
         let state = self.read_close_year_state(run_id)?;
         let ledger = Ledger::open(&self.home)?;
         let fy = ledger.fiscal_year_view(state.year)?;

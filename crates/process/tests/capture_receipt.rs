@@ -752,3 +752,53 @@ impl VoucherCount for ProcessEngine {
         Ledger::open(home).unwrap().verify().unwrap().voucher_count
     }
 }
+
+/// Issue `run-commands-workflow-guard`: the generic `run answer` / `run resume`
+/// implement close-period. A capture-receipt Run id given to them by mistake, for a
+/// period that is still open, must be refused before the month-close recovery can
+/// move the period to Closing under that Run or journal an unplanned effect.
+#[test]
+fn generic_run_answer_and_resume_refuse_a_capture_receipt_run() {
+    let home = home();
+    let engine = ProcessEngine::open(home.path());
+    let run = engine
+        .start_capture_receipt(&no_obligation_input(false), &PolicySet::default())
+        .unwrap();
+    let hashes = |engine: &ProcessEngine| -> Vec<String> {
+        engine
+            .journal(&run.run_id)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.hash)
+            .collect()
+    };
+    let journal_before = hashes(&engine);
+    let ledger = Ledger::open(home.path()).unwrap();
+    let state = |ledger: &Ledger| ledger.period_view(&q1()).unwrap();
+    let before = state(&ledger);
+    assert_eq!(before.state, aggountant_ledger::PeriodState::Open);
+
+    let err = engine.resume(&run.run_id).unwrap_err();
+    assert_eq!(err.error_code(), "INVALID_ANSWER");
+    assert!(
+        err.to_string()
+            .contains("capture-receipt Run, not a close-period Run")
+            && err.to_string().contains("aggountant capture-receipt"),
+        "{err}"
+    );
+    for gate in ["ApproveClose", "ApproveConsultDisclosure"] {
+        let err = engine.answer(&run.run_id, gate, "approve").unwrap_err();
+        assert_eq!(err.error_code(), "INVALID_ANSWER", "{gate}: {err}");
+    }
+
+    let after = state(&ledger);
+    assert_eq!(after.state, aggountant_ledger::PeriodState::Open);
+    assert_eq!(after.owning_run_id, before.owning_run_id);
+    assert_eq!(after.head_transition_hash, before.head_transition_hash);
+    assert_eq!(hashes(&engine), journal_before);
+    // The Run is still the capture-receipt Run it was and folds cleanly.
+    assert_eq!(
+        engine.show(&run.run_id).unwrap().status,
+        RunStatus::AwaitingGate
+    );
+}

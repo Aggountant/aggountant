@@ -396,7 +396,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "run-payroll")?;
 
         let compute_key = k_compute(employee_id);
         if f.effect(&compute_key).map(|e| e.status) != Some(EffectStatus::Rejected) {
@@ -452,7 +452,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "run-payroll")?;
 
         let gate = f.gate(GATE_APPROVE_RUN).ok_or_else(|| {
             ProcessError::GateNotOpen(format!("ApproveRun is not open on run {run_id}"))
@@ -514,7 +514,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "run-payroll")?;
 
         if f.gate(GATE_APPROVE_RUN).and_then(|g| g.answered.as_deref()) != Some("approve") {
             return Err(ProcessError::GateNotOpen(
@@ -559,7 +559,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "run-payroll")?;
         let mut state = self.read_payroll_state(run_id)?;
 
         match f.gate(GATE_APPROVE_RUN).map(|g| g.answered.clone()) {

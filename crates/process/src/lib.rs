@@ -687,7 +687,7 @@ impl ProcessEngine {
         let journal = self.open_journal(run_id)?;
         let events = journal.read_all()?;
         let f = fold(run_id, &events)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "close-period")?;
 
         let gate = f.gate(gate_id).ok_or_else(|| {
             ProcessError::GateNotOpen(format!("no gate {gate_id} on run {run_id}"))
@@ -759,7 +759,7 @@ impl ProcessEngine {
         if f.workflow == "file-vat" {
             return self.resume_file_vat_before_filing(&journal, &f);
         }
-        self.check_version(&f)?;
+        self.check_version(&f, "close-period")?;
 
         let period = self.period_of(&f)?;
         let ledger = Ledger::open(&self.home)?;
@@ -908,7 +908,13 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        let target_version = self.expected_version(&f.workflow);
+        let target_version = self.expected_version(&f.workflow).ok_or_else(|| {
+            ProcessError::InvalidAnswer(format!(
+                "run migrate has no version of workflow {} to move run {run_id} to; {}",
+                f.workflow,
+                own_commands_hint(&f.workflow)
+            ))
+        })?;
         if f.effective_version == target_version {
             return Err(ProcessError::InvalidAnswer(format!(
                 "run {run_id} already at version {target_version}"
@@ -1076,19 +1082,36 @@ impl ProcessEngine {
     /// The workflow version this engine's code implements for `workflow`. Each
     /// workflow pins its own definition hash; the close-period override
     /// (`open_with_version`) still drives the close-period mismatch test.
-    fn expected_version(&self, workflow: &str) -> String {
+    /// `None` for a workflow the engine keeps no version for here (the
+    /// Incomes Register workflows check their own) or does not know at all.
+    fn expected_version(&self, workflow: &str) -> Option<String> {
         match workflow {
-            "file-vat" => file_vat_workflow_version(),
-            "run-payroll" => payroll_workflow_version(),
-            "capture-receipt" => capture_receipt_workflow_version(),
-            "hunt-receipts" => hunt_receipts_workflow_version(),
-            "close-year" => close_year_workflow_version(),
-            _ => self.workflow_version.clone(),
+            "close-period" => Some(self.workflow_version.clone()),
+            "file-vat" => Some(file_vat_workflow_version()),
+            "run-payroll" => Some(payroll_workflow_version()),
+            "capture-receipt" => Some(capture_receipt_workflow_version()),
+            "hunt-receipts" => Some(hunt_receipts_workflow_version()),
+            "close-year" => Some(close_year_workflow_version()),
+            _ => None,
         }
     }
 
-    fn check_version(&self, f: &Fold) -> Result<(), ProcessError> {
-        let expected = self.expected_version(&f.workflow);
+    /// Refuse a Run that is not of `workflow` (the one the calling command
+    /// implements), then a Run started under a different version of it. Each
+    /// command acts on its own workflow's journal shape and fiscal effects, so a
+    /// Run id of another workflow is refused before anything is read or written.
+    fn check_version(&self, f: &Fold, workflow: &str) -> Result<(), ProcessError> {
+        if f.workflow != workflow {
+            return Err(ProcessError::InvalidAnswer(format!(
+                "run {} is a {} Run, not a {workflow} Run; {}",
+                f.run_id,
+                f.workflow,
+                own_commands_hint(&f.workflow)
+            )));
+        }
+        let expected = self.expected_version(workflow).ok_or_else(|| {
+            ProcessError::JournalCorrupt(format!("no engine version for workflow {workflow}"))
+        })?;
         if f.effective_version != expected {
             return Err(ProcessError::WorkflowVersionMismatch(format!(
                 "run started under {}, engine is {expected} — run migrate --confirm to continue",
@@ -1194,6 +1217,24 @@ fn workflow_version_of(def: &str) -> String {
     format!("wf-{}", hex::encode(&h.finalize()[..8]))
 }
 
+/// Where a Run of `workflow` is continued, for a refusal that met it elsewhere.
+fn own_commands_hint(workflow: &str) -> String {
+    let family = match workflow {
+        "close-period" => "run",
+        "file-vat" | "run-payroll" | "capture-receipt" | "hunt-receipts" | "close-year"
+        | "file-wage" => workflow,
+        "file-wage-correction" => "file-wage correction",
+        "file-employer-report" => "file-wage employer-report",
+        _ => {
+            return format!(
+                "this aggountant does not know the {workflow} workflow; continue the Run \
+                 with the aggountant version that started it"
+            );
+        }
+    };
+    format!("continue it with `aggountant {family}` commands")
+}
+
 fn git_commit() -> String {
     std::env::var("AGGOUNTANT_GIT_COMMIT").unwrap_or_else(|_| "unknown".to_string())
 }
@@ -1243,3 +1284,186 @@ pub use employer_report_history::{
     RegistrationComparison, TranscriptConflict, TranscriptConflictKind, TranscriptEvidence,
     TranscriptImport, TranscriptMonthRecord,
 };
+
+#[cfg(test)]
+mod workflow_guard_tests {
+    use super::*;
+
+    /// A Run whose journal names `workflow` at `version` for an open 2026-Q1, as a
+    /// newer or older aggountant might have left it.
+    fn foreign_run(home: &Path, workflow: &str, version: &str) -> String {
+        let run_id = new_run_id_with("xx");
+        let engine = ProcessEngine::open(home);
+        let journal = journal::Journal::new(&engine.run_dir(&run_id));
+        journal
+            .append(EventPayload::RunStarted {
+                workflow: workflow.to_string(),
+                workflow_version: version.to_string(),
+                git_commit: "unknown".to_string(),
+                policy_set: PolicySet::default().id,
+                period: "2026-Q1".to_string(),
+            })
+            .unwrap();
+        journal
+            .append(EventPayload::EffectPlanned {
+                effect_key: EFFECT_TRANSITION.to_string(),
+                effect_type: "TransitionPeriod".to_string(),
+            })
+            .unwrap();
+        run_id
+    }
+
+    fn untouched(home: &Path, run_id: &str, events: usize) {
+        let q1 = PeriodId::parse("2026-Q1").unwrap();
+        let view = Ledger::open(home).unwrap().period_view(&q1).unwrap();
+        assert_eq!(view.state, PeriodState::Open);
+        assert_eq!(view.owning_run_id, None);
+        let engine = ProcessEngine::open(home);
+        assert_eq!(engine.journal(run_id).unwrap().len(), events);
+    }
+
+    #[test]
+    fn a_run_of_an_unknown_workflow_is_refused_with_an_actionable_error() {
+        let home = tempfile::tempdir().unwrap();
+        Ledger::init(home.path()).unwrap();
+        // Even claiming the close-period version, the workflow name decides.
+        let run_id = foreign_run(home.path(), "retired-workflow", &current_workflow_version());
+        let engine = ProcessEngine::open(home.path());
+
+        for err in [
+            engine.resume(&run_id).unwrap_err(),
+            engine
+                .answer(&run_id, GATE_APPROVE_CLOSE, "approve")
+                .unwrap_err(),
+            engine.migrate(&run_id).unwrap_err(),
+        ] {
+            assert_eq!(err.error_code(), "INVALID_ANSWER", "{err}");
+            assert!(
+                err.to_string()
+                    .contains("does not know the retired-workflow workflow"),
+                "{err}"
+            );
+        }
+        untouched(home.path(), &run_id, 2);
+    }
+
+    #[test]
+    fn migrate_refuses_a_workflow_it_keeps_no_version_for() {
+        // An Incomes Register Run checks its own version; `run migrate` used to move
+        // it to the close-period version, which no command accepts.
+        let home = tempfile::tempdir().unwrap();
+        Ledger::init(home.path()).unwrap();
+        let run_id = foreign_run(home.path(), "file-wage", "wf-0000000000000000");
+        let engine = ProcessEngine::open(home.path());
+
+        let err = engine.migrate(&run_id).unwrap_err();
+        assert_eq!(err.error_code(), "INVALID_ANSWER", "{err}");
+        assert!(err.to_string().contains("aggountant file-wage"), "{err}");
+        let err = engine.resume(&run_id).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("file-wage Run, not a close-period Run"),
+            "{err}"
+        );
+        untouched(home.path(), &run_id, 2);
+    }
+
+    #[test]
+    fn a_close_period_run_is_refused_by_every_other_workflows_commands() {
+        use aggountant_broker::{Broker, Registry, Vault};
+        let home = tempfile::tempdir().unwrap();
+        Ledger::init(home.path()).unwrap();
+        let run_id = foreign_run(home.path(), "close-period", &current_workflow_version());
+        let engine = ProcessEngine::open(home.path());
+        let broker = Broker::new(home.path(), Vault::new(), Registry::new());
+        let clock = SystemClock;
+        let id = run_id.as_str();
+        let gate = GATE_APPROVE_CLOSE;
+
+        let refusals: Vec<(&str, ProcessError)> = vec![
+            (
+                "capture-receipt",
+                engine
+                    .answer_capture_receipt(id, gate, "approve", &broker, &clock)
+                    .unwrap_err(),
+            ),
+            (
+                "capture-receipt",
+                engine
+                    .resume_capture_receipt(id, &broker, &clock)
+                    .unwrap_err(),
+            ),
+            (
+                "close-year",
+                engine.seal_close_year_correction(id, "c1").unwrap_err(),
+            ),
+            (
+                "close-year",
+                engine.answer_close_year(id, gate, "approve").unwrap_err(),
+            ),
+            ("close-year", engine.resume_close_year(id).unwrap_err()),
+            (
+                "file-vat",
+                engine
+                    .answer_file_vat_seam(id, gate, "approve", &broker, Seam::None)
+                    .unwrap_err(),
+            ),
+            (
+                "file-vat",
+                engine
+                    .retry_file_vat_submit(id, "submit", &broker)
+                    .unwrap_err(),
+            ),
+            ("file-vat", engine.resume_file_vat(id, &broker).unwrap_err()),
+            (
+                "file-vat",
+                engine
+                    .reconcile_file_vat_at(id, &broker, &clock)
+                    .unwrap_err(),
+            ),
+            (
+                "file-vat",
+                engine
+                    .leave_file_vat_payment_to_user(id, &broker)
+                    .unwrap_err(),
+            ),
+            (
+                "hunt-receipts",
+                engine
+                    .resume_hunt_receipts(id, &broker, &clock)
+                    .unwrap_err(),
+            ),
+            (
+                "hunt-receipts",
+                engine.answer_hunt(id, gate, "approve").unwrap_err(),
+            ),
+            ("run-payroll", engine.resolve_errors(id, "e1").unwrap_err()),
+            (
+                "run-payroll",
+                engine
+                    .answer_run_payroll(id, "approve", &broker)
+                    .unwrap_err(),
+            ),
+            (
+                "run-payroll",
+                engine
+                    .handle_payment_failure(id, "e1", &broker)
+                    .unwrap_err(),
+            ),
+            (
+                "run-payroll",
+                engine.resume_run_payroll(id, &broker).unwrap_err(),
+            ),
+        ];
+        for (workflow, err) in refusals {
+            assert_eq!(err.error_code(), "INVALID_ANSWER", "{workflow}: {err}");
+            let text = err.to_string();
+            assert!(
+                text.contains(&format!("close-period Run, not a {workflow} Run"))
+                    && text.contains("`aggountant run`"),
+                "{text}"
+            );
+        }
+        untouched(home.path(), &run_id, 2);
+    }
+}

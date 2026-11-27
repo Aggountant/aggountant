@@ -565,7 +565,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "capture-receipt")?;
 
         let gate = f.gate(gate_id).ok_or_else(|| {
             ProcessError::GateNotOpen(format!("no gate {gate_id} on run {run_id}"))
@@ -650,7 +650,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "capture-receipt")?;
         let mut state = self.read_capture_state(run_id)?;
 
         // (a) A quota wait whose deadline passed → re-drive the consult.

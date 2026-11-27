@@ -108,6 +108,17 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   wrote it (or a newer one). The guide's troubleshooting page has a new
   section for this refusal. No store migration.
 
+- **A Run id of the wrong workflow is refused before anything changes.**
+  `run answer` and `run resume` handle month closes, but given a
+  capture-receipt, hunt-receipts, payroll or year-end Run id by mistake they
+  ran the month-close recovery on it, which could move that Run's open month to
+  closing under a Run that never seals it and leave the Run unreadable. Every
+  workflow's answer, resume and retry commands now refuse a Run of another
+  workflow with `INVALID_ANSWER`, naming the commands that continue it. A Run
+  of a workflow this version does not know, and `run migrate` for a Run whose
+  workflow has no version to move to, are refused the same way instead of being
+  treated as a month close.
+
 - **VAT: a `file-vat` run that stopped before filing now ends.** A
   `file-vat start` or `replace` refused before the approval (figures that do
   not match the books, unreconciled VAT accounts, a failed or refusing period

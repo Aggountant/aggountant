@@ -1,11 +1,12 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-27
 type: bug
-status: open
+status: fixed
 priority: normal
 lane: run-workflow-guard
 collision: [crates/process/src/lib.rs]
+closed: 2026-11-27
 ---
 
 # Generic run commands must reject a Run of the wrong workflow
@@ -34,6 +35,12 @@ instead of falling back.
 
 ## Acceptance criteria
 
-- [ ] `run answer` / `run resume` with a real non-close Run id fail without side effects.
-- [ ] A Run with an unknown workflow fails with an actionable error.
-- [ ] Tests fail if either guard is removed.
+- [x] `run answer` / `run resume` with a real non-close Run id fail without side effects.
+- [x] A Run with an unknown workflow fails with an actionable error.
+- [x] Tests fail if either guard is removed.
+
+## Resolution
+
+### 2026-11-27T18:06:35Z · @issuectl
+
+Every Run-continuing command checks the Run's workflow in check_version; see result.md. Also covers run-resume-refuses-other-workflows (left for triage).

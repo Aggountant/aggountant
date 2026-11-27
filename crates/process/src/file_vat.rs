@@ -907,7 +907,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "file-vat")?;
 
         let gate = f.gate(gate_id).ok_or_else(|| {
             ProcessError::GateNotOpen(format!("no gate {gate_id} on run {run_id}"))
@@ -1009,7 +1009,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "file-vat")?;
         let state = self.read_file_vat_state(run_id)?;
         let period = PeriodId::parse(&state.period)
             .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
@@ -1092,7 +1092,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "file-vat")?;
         let state = self.read_file_vat_state(run_id)?;
         let period = PeriodId::parse(&state.period)
             .map_err(|e| ProcessError::JournalCorrupt(format!("bad period: {e}")))?;
@@ -1548,13 +1548,7 @@ impl ProcessEngine {
         let _lease = self.acquire_lease(run_id)?;
         let journal = self.open_journal(run_id)?;
         let f = fold(run_id, &journal.read_all()?)?;
-        if f.workflow != "file-vat" {
-            return Err(ProcessError::InvalidAnswer(format!(
-                "run {run_id} is a {} Run, not a file-vat Run",
-                f.workflow
-            )));
-        }
-        self.check_version(&f)?;
+        self.check_version(&f, "file-vat")?;
         if !f.effect_succeeded(EFFECT_SUBMIT_FILING) {
             return Err(ProcessError::InvalidAnswer(format!(
                 "the return of Run {run_id} has not been accepted, so there is no tax to pay \

@@ -235,7 +235,7 @@ impl ProcessEngine {
         let journal = self.open_journal(run_id)?;
         let events = journal.read_all()?;
         let f = fold(run_id, &events)?;
-        self.check_version(&f)?;
+        self.check_version(&f, "file-vat")?;
         let filing = f.effect(EFFECT_SUBMIT_FILING).map(|effect| effect.status);
         if !matches!(
             filing,
