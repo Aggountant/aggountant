@@ -189,7 +189,7 @@ pub(super) fn compute(
         if workplace == Workplace::SecondaryWorkplace {
             ctx.note(
                 "secondary_workplace",
-                format!("Trip {n} goes to a secondary workplace (toissijainen työpaikka): only travel and lodging costs are tax-free (decision 4 §), so no per diem, meal or night travel allowance is computed, and the journeys between the lodging and the secondary workplace are not tax-free travel (guidance 4.3): leave those drives out."),
+                format!("Trip {n} goes to a secondary workplace (toissijainen työpaikka): only travel and lodging costs are tax-free (decision 4 §), so no per diem, meal or night travel allowance is computed, and the journeys between the lodging and the secondary workplace are not tax-free travel (guidance 4.3): leave those drives out. If the trip also went to a place the register does not name, split it into one trip per workplace."),
                 Some(n),
             );
         } else if !distance_test_passed {
@@ -252,7 +252,12 @@ pub(super) fn compute(
         }
     }
 
-    let payable = payable(n, trip, &maximum, ctx);
+    // A trip the register refused was never classified: nothing is computed,
+    // so nothing is payable either, whatever `paid` states.
+    let payable = match workplace {
+        None => Amounts::default(),
+        Some(_) => payable(n, trip, &maximum, ctx),
+    };
     // The Incomes Register gets the kilometres and per diem types of what is
     // paid, not of an entitlement the company leaves unpaid.
     let mut codes = BTreeSet::new();

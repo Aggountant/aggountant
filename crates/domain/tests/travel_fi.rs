@@ -1233,8 +1233,14 @@ fn without_a_regular_workplace_entry_the_trip_computes_nothing() {
         "drives",
         json!([{"date": "2026-03-10", "km": "100", "vehicle": "car"}]),
     );
-    let c = compute_claim(&claim(json!([trip.clone()])), &places, &facts, now()).unwrap();
-    assert_eq!(codes(&c), ["REGULAR_WORKPLACE_UNKNOWN"]);
+    let mut paid = trip.clone();
+    paid["paid"] = json!({"daily_allowances": "54.00", "mileage": "55.00"});
+    // The second trip states paid amounts: still nothing is payable.
+    let c = compute_claim(&claim(json!([trip.clone(), paid])), &places, &facts, now()).unwrap();
+    assert_eq!(
+        codes(&c),
+        ["REGULAR_WORKPLACE_UNKNOWN", "REGULAR_WORKPLACE_UNKNOWN"]
+    );
     assert!(!c.approvable);
     assert_eq!(c.totals.total, "0.00");
     assert_eq!(as_json(&c)["trips"][0]["workplace"], Value::Null);
