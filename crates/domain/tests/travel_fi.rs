@@ -5,11 +5,69 @@
 //! from VH/630/00.01.00/2026.
 
 use aggountant_domain::travel::fi::{compute_claim, ClaimComputation, ClaimInput};
+use aggountant_domain::workplace::{ClaimantFact, Place};
+use aggountant_domain::DomainError;
+use aggountant_model::Instant;
 use serde_json::{json, Value};
 
+/// The synthetic claimant's register: an employee of Esimerkki Oy whose
+/// regular workplace is the Tampere office, with a secondary workplace in Oulu
+/// and a customer site in Turku, all recorded in 2020.
+fn register() -> (Vec<Place>, Vec<ClaimantFact>) {
+    let place = |id: &str, kind: &str, municipality: &str| {
+        json!({"employee_id": "maija", "place_id": id, "kind": kind, "label": id,
+               "location": format!("Esimerkkikatu 1, {municipality}"),
+               "municipality": municipality, "replaces": null,
+               "recorded_at": "2020-01-01T00:00:00Z", "confirmed_by": "Maija Meikäläinen"})
+    };
+    let places = serde_json::from_value(json!([
+        place("home", "home", "Tampere"),
+        place("office", "company_premises", "Tampere"),
+        place("branch", "company_premises", "Oulu"),
+        place("customer", "customer_site", "Turku"),
+    ]))
+    .unwrap();
+    let fact = |id: i64, fact: Value| {
+        json!({"fact_id": id, "employee_id": "maija",
+               "change": {"assert": {"valid_from": "2020-01-01", "valid_to": null, "fact": fact}},
+               "recorded_at": "2020-01-01T00:00:00Z", "confirmed_by": "Maija Meikäläinen",
+               "evidence_hash": null, "supersedes": null, "reason": null})
+    };
+    let facts = serde_json::from_value(json!([
+        fact(
+            1,
+            json!({"kind": "relationship", "relationship": "employee"})
+        ),
+        fact(
+            2,
+            json!({"kind": "workplace", "role": "regular_primary", "place_id": "office",
+                       "basis": "works_there_regularly"})
+        ),
+        fact(
+            3,
+            json!({"kind": "workplace", "role": "secondary", "place_id": "branch",
+                       "basis": "premises_in_another_municipality"})
+        ),
+    ]))
+    .unwrap();
+    (places, facts)
+}
+
+fn now() -> Instant {
+    Instant::parse("2030-01-01T00:00:00Z").unwrap()
+}
+
+fn claim(trips: Value) -> ClaimInput {
+    serde_json::from_value(json!({ "employee_id": "maija", "trips": trips })).unwrap()
+}
+
+fn run(input: &ClaimInput) -> Result<ClaimComputation, DomainError> {
+    let (places, facts) = register();
+    compute_claim(input, &places, &facts, now())
+}
+
 fn compute(trips: Value) -> ClaimComputation {
-    let input: ClaimInput = serde_json::from_value(json!({ "trips": trips })).unwrap();
-    compute_claim(&input).unwrap()
+    run(&claim(trips)).unwrap()
 }
 
 fn as_json(c: &ClaimComputation) -> Value {
@@ -22,7 +80,7 @@ fn domestic(start: &str, end: &str) -> Value {
         "kind": "domestic",
         "start": start,
         "end": end,
-        "workplace": "special_work_place",
+        "places": {"start_place_id": "home", "destination_place_ids": ["customer"]},
         "distances_km": {"from_departure": "80", "from_home": "80", "from_regular_workplace": "78"}
     })
 }
@@ -738,7 +796,7 @@ fn secondary_workplace_earns_mileage_only() {
         "drives",
         json!([{"date": "2026-03-10", "km": "100", "vehicle": "car"}]),
     );
-    trip["workplace"] = json!("secondary_workplace");
+    trip["places"]["destination_place_ids"] = json!(["branch"]);
     let c = compute(json!([trip]));
     assert!(c.approvable);
     assert_eq!(daily(&c), "0.00");
@@ -1125,10 +1183,86 @@ fn refusal_situations_the_sources_do_not_settle() {
 #[test]
 fn refusal_trip_to_the_regular_workplace() {
     let mut trip = domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00");
-    trip["workplace"] = json!("regular_workplace");
+    trip["places"]["destination_place_ids"] = json!(["office"]);
     let c = compute(json!([trip]));
     assert_eq!(codes(&c), ["TRAVEL_TO_REGULAR_WORKPLACE"]);
     assert_eq!(c.totals.total, "0.00");
+}
+
+// --- the regular-workplace register ----------------------------------------
+
+#[test]
+fn the_register_classifies_the_trip() {
+    let trip = with(
+        domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
+        "days",
+        no_free_meals(1),
+    );
+    let c = compute(json!([trip]));
+    assert!(c.approvable);
+    let out = as_json(&c);
+    assert_eq!(out["trips"][0]["workplace"], "special_work_place");
+    assert!(
+        !out["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n["rule"] == "workplace_from_trip_input"),
+        "the classification no longer comes from the trip input"
+    );
+    // A caller cannot supply the classification.
+    let mut typed = domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00");
+    typed["workplace"] = json!("special_work_place");
+    assert!(serde_json::from_value::<ClaimInput>(
+        json!({"employee_id": "maija", "trips": [typed]})
+    )
+    .is_err());
+}
+
+#[test]
+fn without_a_regular_workplace_entry_the_trip_computes_nothing() {
+    let (places, facts) = register();
+    // Only the relationship: no workplace entry on the trip's date.
+    let facts: Vec<ClaimantFact> = facts.into_iter().take(1).collect();
+    let trip = with(
+        with(
+            domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
+            "days",
+            no_free_meals(1),
+        ),
+        "drives",
+        json!([{"date": "2026-03-10", "km": "100", "vehicle": "car"}]),
+    );
+    let c = compute_claim(&claim(json!([trip.clone()])), &places, &facts, now()).unwrap();
+    assert_eq!(codes(&c), ["REGULAR_WORKPLACE_UNKNOWN"]);
+    assert!(!c.approvable);
+    assert_eq!(c.totals.total, "0.00");
+    assert_eq!(as_json(&c)["trips"][0]["workplace"], Value::Null);
+    // Without a relationship, the relationship is what is missing.
+    let c = compute_claim(&claim(json!([trip])), &places, &[], now()).unwrap();
+    assert_eq!(codes(&c), ["CLAIMANT_RELATIONSHIP_UNKNOWN"]);
+    assert_eq!(c.totals.total, "0.00");
+}
+
+#[test]
+fn the_register_refusals_reach_the_result() {
+    let base = with(
+        domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
+        "days",
+        no_free_meals(1),
+    );
+    for (destinations, code) in [
+        (json!(["home"]), "TRIP_TO_HOME"),
+        (json!(["nowhere"]), "PLACE_NOT_FOUND"),
+        // A secondary workplace and a registered special site: split the trip.
+        (json!(["branch", "customer"]), "TRAVEL_WORKPLACE_CHANGE"),
+    ] {
+        let mut trip = base.clone();
+        trip["places"]["destination_place_ids"] = destinations.clone();
+        let c = compute(json!([trip]));
+        assert_eq!(codes(&c), [code], "{destinations}");
+        assert_eq!(c.totals.total, "0.00", "{destinations}");
+    }
 }
 
 #[test]
@@ -1200,9 +1334,9 @@ fn two_meal_allowances_need_a_trip_over_eleven_hours() {
         meal.clone(),
     );
     short["distances_km"]["from_departure"] = json!("10");
-    let input: ClaimInput = serde_json::from_value(json!({ "trips": [short] })).unwrap();
+    let input = claim(json!([short]));
     assert_eq!(
-        compute_claim(&input).unwrap_err().error_code(),
+        run(&input).unwrap_err().error_code(),
         "TRAVEL_INPUT_INVALID"
     );
     let mut long = with(
@@ -1218,7 +1352,10 @@ fn two_meal_allowances_need_a_trip_over_eleven_hours() {
 fn an_omitted_regular_workplace_distance_is_an_error() {
     let mut trip = domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00");
     trip["distances_km"] = json!({"from_departure": "80", "from_home": "80"});
-    assert!(serde_json::from_value::<ClaimInput>(json!({ "trips": [trip.clone()] })).is_err());
+    assert!(serde_json::from_value::<ClaimInput>(
+        json!({ "employee_id": "maija", "trips": [trip.clone()] })
+    )
+    .is_err());
     trip["distances_km"]["from_regular_workplace"] = Value::Null;
     trip["days"] = no_free_meals(1);
     assert_eq!(daily(&compute(json!([trip]))), "54.00");
@@ -1302,10 +1439,7 @@ fn unpaid_allowances_leave_no_kilometres_or_types_in_the_report() {
 
 #[test]
 fn malformed_trip_input_is_an_error() {
-    let bad = |trip: Value| {
-        let input: ClaimInput = serde_json::from_value(json!({ "trips": [trip] })).unwrap();
-        compute_claim(&input).unwrap_err().error_code()
-    };
+    let bad = |trip: Value| run(&claim(json!([trip]))).unwrap_err().error_code();
     assert_eq!(
         bad(domestic(
             "2026-03-10T19:00:00+02:00",
@@ -1330,16 +1464,18 @@ fn malformed_trip_input_is_an_error() {
         "TRAVEL_INPUT_INVALID"
     );
     // Times need an explicit offset.
-    let input = serde_json::from_value::<ClaimInput>(json!({"trips": [domestic(
-        "2026-03-10T08:00:00",
-        "2026-03-10T19:00:00+02:00"
-    )]}));
+    let input =
+        serde_json::from_value::<ClaimInput>(json!({"employee_id": "maija", "trips": [domestic(
+            "2026-03-10T08:00:00",
+            "2026-03-10T19:00:00+02:00"
+        )]}));
     assert!(input.is_err());
     // Amounts are strings with at most two decimals.
-    let input = serde_json::from_value::<ClaimInput>(json!({"trips": [with(
-        domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
-        "drives",
-        json!([{"date": "2026-03-10", "km": "10.123", "vehicle": "car"}])
-    )]}));
+    let input =
+        serde_json::from_value::<ClaimInput>(json!({"employee_id": "maija", "trips": [with(
+            domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
+            "drives",
+            json!([{"date": "2026-03-10", "km": "10.123", "vehicle": "car"}])
+        )]}));
     assert!(input.is_err());
 }

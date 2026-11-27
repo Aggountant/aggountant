@@ -84,9 +84,8 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   erikoiskirjauksena. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
   [Kirjaa matkaennakko ja sen tilitys](../tasks/record-travel-advance.md).
   Kululaskun malli on päätetty, ja se odottaa toteutusta
-  (`expense-claim-model`). Sen ensimmäinen osa,
-  [varsinaisen työpaikan rekisteri](../tasks/record-regular-workplace.md), on
-  käytössä, mutta toistaiseksi sitä käyttää vain matkan paikkojen luokittelu.
+  (`expense-claim-model`). Laskenta luokittelee matkat
+  [varsinaisen työpaikan rekisteristä](../tasks/record-regular-workplace.md).
 - Yksittäisen tositteen viennit näkyvät vain agentille, koska `voucher show`
   näyttää ilman `--json`-valitsinta vain numeron ja tunnisteen. Pyydä
   agenttia näyttämään tositteen viennit.

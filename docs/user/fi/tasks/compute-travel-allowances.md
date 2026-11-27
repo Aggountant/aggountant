@@ -12,18 +12,22 @@ eikä ilmoita mitään Tulorekisteriin.
 - Tiedät jokaiselta matkavuorokaudelta, montako ilmaista ateriaa sait ja
   maksoiko yritys jonkin ateriasi.
 - Jos ajoit omalla autolla, tiedät ajojen päivät ja kilometrit.
-- Yrityskotia ei tarvita. Laskennan voi kokeilla myös keksityllä matkalla.
+- Matkustajan varsinainen työpaikka ja suhde yhtiöön on kirjattu:
+  [Kirjaa varsinainen työpaikka](record-regular-workplace.md). Laskenta
+  luokittelee matkan kohteen rekisteristä, ei agentin kertomasta.
 
 ## Näin teet sen
 
 1. **Kerro agentille matkasta.**
 
    > Laske Maija Meikäläisen Tampereen matkan korvaukset: lähtö kotoa 10.3.
-   > klo 7.30, paluu klo 19.15, ajoi omalla autolla 344,6 km. Tampere on
-   > Maijalle erityinen työntekemispaikka, 172 km kotoa. Asiakas tarjosi
-   > lounaan.
+   > klo 7.30, paluu klo 19.15, ajoi omalla autolla 344,6 km asiakkaan luo
+   > Tampereelle, 172 km kotoa. Asiakas tarjosi lounaan.
 
-2. **Agentti** kokoaa matkan tiedot ja laskee ne. Jos laskennalta puuttuu
+2. **Agentti** kokoaa matkan tiedot ja laskee ne. Matkan kohde luokitellaan
+   rekisteristä matkan alkamispäivän mukaan: varsinaiselle työpaikalle ei
+   makseta verovapaita korvauksia, toissijaiselle työpaikalle vain
+   matkakulut, ja muut paikat ovat erityisiä työntekemispaikkoja. Jos laskennalta puuttuu
    vastaus, agentti kysyy sen: ensimmäinen laskenta näyttää matkavuorokaudet,
    ja jokaiselta päivärahapäivältä tarvitaan ilmaisten aterioiden määrä.
    Tyhjä vastaus ei tarkoita, ettei aterioita ollut, joten agentti kysyy,
@@ -92,8 +96,8 @@ mainitsee säännön, kun summa riippuu siitä:
 aggountant --json claim compute < matka.json
 ```
 
-`claim compute` lukee matkat JSON-muodossa ja tulostaa laskelman. Se ei
-tarvitse yrityskotia eikä kirjoita mitään. Syötteen kentät näkyvät komennolla
+`claim compute` lukee matkustajan ja matkat JSON-muodossa, luokittelee matkat
+yrityskodin rekisteristä ja tulostaa laskelman. Se ei kirjoita mitään. Syötteen kentät näkyvät komennolla
 `aggountant claim compute --help`.
 </details>
 
@@ -107,9 +111,10 @@ tarvitse yrityskotia eikä kirjoita mitään. Syötteen kentät näkyvät komenn
 
 - Matkaa ei vielä tallenneta, eikä kululaskua voi hyväksyä aggountantissa:
   korvaukset kirjataan ja ilmoitetaan käsin.
-- Varsinaisen työpaikan rekisteriä ei vielä ole. Agentti kertoo laskennalle,
-  onko matkan kohde erityinen työntekemispaikka, toissijainen työpaikka vai
-  varsinainen työpaikka, ja tulos mainitsee sen. Varmista luokitus itse.
+- Jos matkustajalle ei ole kirjattu suhdetta yhtiöön tai varsinaista
+  työpaikkaa matkan päivälle, laskenta kieltäytyy
+  (`CLAIMANT_RELATIONSHIP_UNKNOWN`, `REGULAR_WORKPLACE_UNKNOWN`) eikä laske
+  matkasta mitään.
 - [Mitä on valmista ja mitä ei](../reference/status.md#kuitit-ja-kirjaukset)
   kertoo tilanteen.
 

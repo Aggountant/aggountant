@@ -13,19 +13,23 @@ nothing to Tulorekisteri.
 - For each travel day you know how many free meals you had and whether the
   company paid for one of your meals.
 - If you drove your own car, you know the dates and kilometres of the drives.
-- No company home is needed. You can also try the computation with a made-up
-  trip.
+- The traveller's regular workplace and relationship to the company are
+  recorded: [Record your regular workplace](record-regular-workplace.md). The
+  computation classifies the destination from the register, not from what the
+  agent says.
 
 ## How to do it
 
 1. **Tell the agent about the trip.**
 
    > Compute the allowances for Maija Meikäläinen's trip to Tampere: left home
-   > on 10 March at 7:30, back at 19:15, drove her own car 344.6 km. Tampere
-   > is a special place of work for Maija, 172 km from home. The customer
-   > offered lunch.
+   > on 10 March at 7:30, back at 19:15, drove her own car 344.6 km to the
+   > customer in Tampere, 172 km from home. The customer offered lunch.
 
-2. **The agent** gathers the trip's details and computes them. When the
+2. **The agent** gathers the trip's details and computes them. The
+   destination is classified from the register for the trip's start date: a
+   regular workplace earns no tax-free allowance, a secondary workplace travel
+   costs only, and other places are special work sites. When the
    computation is missing an answer, the agent asks for it: the first run
    shows the travel days, and every per diem day needs the number of free
    meals. An empty answer does not mean there were none, so the agent asks
@@ -94,8 +98,9 @@ result names the rule when an amount depends on it:
 aggountant --json claim compute < trip.json
 ```
 
-`claim compute` reads the trips as JSON and prints the computation. It needs
-no company home and writes nothing. The input fields are shown by
+`claim compute` reads the traveller and the trips as JSON, classifies the
+trips from the company home's register and prints the computation. It writes
+nothing. The input fields are shown by
 `aggountant claim compute --help`.
 </details>
 
@@ -109,10 +114,10 @@ no company home and writes nothing. The input fields are shown by
 
 - The trip is not stored yet, and an expense claim cannot be approved in
   aggountant: the allowances are recorded and reported by hand.
-- There is no register of regular workplaces yet. The agent tells the
-  computation whether the destination is a special place of work, a secondary
-  workplace or the regular workplace, and the result says so. Check the
-  classification yourself.
+- If no relationship to the company or regular workplace is recorded for the
+  traveller on the trip date, the computation refuses
+  (`CLAIMANT_RELATIONSHIP_UNKNOWN`, `REGULAR_WORKPLACE_UNKNOWN`) and computes
+  nothing for the trip.
 - [What is ready and what is not](../reference/status.md#receipts-and-entries)
   describes the situation.
 

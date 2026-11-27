@@ -7,9 +7,7 @@ use std::path::Path;
 use clap::Subcommand;
 use serde_json::{json, Value};
 
-use aggountant_domain::workplace::{
-    trip_scope, CorrectionInput, FactInput, NewPlace, SnapshotRequest,
-};
+use aggountant_domain::workplace::{CorrectionInput, FactInput, NewPlace, SnapshotRequest};
 use aggountant_ledger::Ledger;
 use aggountant_model::Instant;
 
@@ -49,9 +47,9 @@ pub(crate) enum ClaimantCmd {
         #[arg(long)]
         employee: String,
     },
-    /// Classify a trip's places from stdin JSON and show what the trip may be
-    /// reimbursed for. Refuses without a relationship or a regular-workplace
-    /// entry on the date, and for a trip to a regular workplace.
+    /// Classify a trip's places from stdin JSON, as `claim compute` does.
+    /// Refuses without a relationship or a regular-workplace entry on the
+    /// date, and for the home as a destination.
     #[command(after_help = crate::input_help::CLAIMANT_SNAPSHOT)]
     Snapshot,
 }
@@ -104,8 +102,7 @@ pub(crate) fn run(cmd: &ClaimantCmd, home: &Path) -> Result<Value, CliError> {
         ClaimantCmd::Snapshot => {
             let request: SnapshotRequest = read_stdin_json()?;
             let snapshot = ledger.claimant_trip_snapshot(&request, now)?;
-            let scope = trip_scope(&snapshot).map_err(aggountant_ledger::LedgerError::from)?;
-            Ok(json!({ "snapshot": snapshot, "scope": scope }))
+            Ok(json!({ "workplace": snapshot.workplace(), "snapshot": snapshot }))
         }
     }
 }
@@ -154,11 +151,13 @@ pub(crate) fn human_line(cmd: &ClaimantCmd, value: &Value) -> String {
             value["facts"].as_array().map_or(0, Vec::len),
         ),
         ClaimantCmd::Snapshot => format!(
-            "trip on {}: scope {}",
+            "trip on {}: {}",
             value["snapshot"]["register"]["date"]
                 .as_str()
                 .unwrap_or("?"),
-            value["scope"].as_str().unwrap_or("?")
+            value["workplace"]
+                .as_str()
+                .unwrap_or("secondary and special workplaces mixed; split the trip")
         ),
     }
 }

@@ -97,7 +97,8 @@ enum Command {
         cmd: wage::WageCmd,
     },
     /// Expense claims: `claim compute` previews the scheduled tax-free travel
-    /// allowances of trips from stdin JSON (read-only; no company home needed).
+    /// allowances of a claimant's trips from stdin JSON, classified by the
+    /// regular-workplace register (read-only).
     Claim {
         #[command(subcommand)]
         cmd: claim::ClaimCmd,
@@ -1587,7 +1588,7 @@ fn draft_to_json(draft: &VoucherDraft) -> Value {
 fn run(cli: &Cli) -> Result<Value, CliError> {
     match &cli.command {
         Command::FileWage { cmd } => wage::execute(cmd, &existing_home(cli)?),
-        Command::Claim { cmd } => claim::run(cmd),
+        Command::Claim { cmd } => claim::run(cmd, &existing_home(cli)?),
         Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &existing_home(cli)?),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => Ok(json!({

@@ -1,11 +1,16 @@
 //! `claim`: expense claims. Only the read-only preview exists so far:
-//! `claim compute` computes the scheduled travel allowances of the trips on
-//! stdin and writes nothing. It needs no company home.
+//! `claim compute` computes the scheduled travel allowances of a claimant's
+//! trips on stdin, with each trip's workplace classified by the claimant's
+//! regular-workplace register, and writes nothing.
+
+use std::path::Path;
 
 use clap::Subcommand;
 use serde_json::{json, Value};
 
 use aggountant_domain::travel::fi::{compute_claim, ClaimInput};
+use aggountant_ledger::Ledger;
+use aggountant_model::Instant;
 
 use crate::{parse_stdin_json, read_stdin_text, CliError};
 
@@ -19,16 +24,17 @@ pub(crate) enum ClaimCmd {
     Compute,
 }
 
-pub(crate) fn run(cmd: &ClaimCmd) -> Result<Value, CliError> {
+pub(crate) fn run(cmd: &ClaimCmd, home: &Path) -> Result<Value, CliError> {
     match cmd {
-        ClaimCmd::Compute => compute(&read_stdin_text()?),
+        ClaimCmd::Compute => compute(&read_stdin_text()?, home),
     }
 }
 
-/// The preview of the claim in `input`.
-pub(crate) fn compute(input: &str) -> Result<Value, CliError> {
+/// The preview of the claim in `input`, classified by the register in `home`.
+pub(crate) fn compute(input: &str, home: &Path) -> Result<Value, CliError> {
     let input: ClaimInput = parse_stdin_json(input)?;
-    let computed = compute_claim(&input)?;
+    let register = Ledger::open(home)?.claimant_history(&input.employee_id)?;
+    let computed = compute_claim(&input, &register.places, &register.facts, Instant::now())?;
     let mut value = json!({ "schema_version": 1 });
     let object = value.as_object_mut().expect("object");
     if let Value::Object(fields) = serde_json::to_value(computed).expect("computation serializes") {
@@ -67,18 +73,23 @@ pub(crate) fn human_line(cmd: &ClaimCmd, value: &Value) -> String {
 }
 
 pub(crate) const CLAIM_COMPUTE: &str = r#"INPUT (JSON on stdin)
-  {"trips":[trip, ...]}, 1..100 trips of one claim. Each trip:
+  {"employee_id":"...","trips":[trip, ...]}: the claimant (a person in the
+  claimant register, `claimant add`) and 1..100 trips of one claim. Each trip:
   Required: kind ("domestic" or "foreign"); start and end (RFC 3339 with an
   offset, e.g. 2026-03-10T08:00:00+02:00: leaving and returning home or to the
-  workplace); workplace ("special_work_place" erityinen työntekemispaikka,
-  "secondary_workplace" toissijainen työpaikka: mileage only, or
-  "regular_workplace": refused); distances_km {from_departure, from_home,
+  workplace); places {start_place_id, destination_place_ids}: the registered
+  places the trip starts from and goes to for work (a destination the register
+  does not name is a special work site and is not listed). The register
+  classifies the trip for its start date, as `claimant snapshot` shows:
+  erityinen työntekemispaikka (all allowances), toissijainen työpaikka
+  (mileage only) or varsinainen työpaikka (refused,
+  TRAVEL_TO_REGULAR_WORKPLACE); without a relationship or a regular-workplace
+  entry on that date the trip is refused (CLAIMANT_RELATIONSHIP_UNKNOWN,
+  REGULAR_WORKPLACE_UNKNOWN) and computes nothing; distances_km {from_departure, from_home,
   from_regular_workplace} as decimal strings along the shortest route
   (from_regular_workplace is required, null only when the claimant has none;
   a per diem needs over 15 km from where the trip started and over 5 km from
   both).
-  The workplace classification is the caller's answer until the
-  regular-workplace register exists; the output says so.
   Foreign trips: destination_country (ISO 3166 code) and optional
   destination_region (a city or region the decision lists: london, edinburgh,
   hong-kong, istanbul, moscow, st-petersburg, new-york, los-angeles,
@@ -115,19 +126,65 @@ OUTPUT
   zero), incomes_register_lines (311, 331), postings (one proposed voucher per
   month a trip ends in), refusals [{code, message, trip, day}] and notes on
   the rules the result depends on. A refusal blocks approval; the command
-  still exits 0. Malformed input is TRAVEL_INPUT_INVALID or INVALID_INPUT.
-  Nothing is written, and no company home is needed.
+  still exits 0. Malformed input is TRAVEL_INPUT_INVALID or INVALID_INPUT; an
+  employee_id not in the register is EMPLOYEE_NOT_FOUND. Nothing is written.
 
 Example JSON (synthetic trip):
 ```json
-{"trips":[{"id":"tampere-2026-03","kind":"domestic","start":"2026-03-10T07:30:00+02:00","end":"2026-03-10T19:15:00+02:00","workplace":"special_work_place","distances_km":{"from_departure":"172","from_home":"172","from_regular_workplace":"170"},"days":[{"free_meals":1}],"drives":[{"date":"2026-03-10","km":"344.6","vehicle":"car"}]}]}
+{"employee_id":"maija","trips":[{"id":"tampere-2026-03","kind":"domestic","start":"2026-03-10T07:30:00+02:00","end":"2026-03-10T19:15:00+02:00","places":{"start_place_id":"home","destination_place_ids":["customer"]},"distances_km":{"from_departure":"172","from_home":"172","from_regular_workplace":"170"},"days":[{"free_meals":1}],"drives":[{"date":"2026-03-10","km":"344.6","vehicle":"car"}]}]}
 ```
-  aggountant --home ./accounting --json claim compute < trip.json
-  (the command reads no home, so --home may be left out)"#;
+  aggountant --home ./accounting --json claim compute < trip.json"#;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Record the synthetic claimant of the examples in `home`: Maija, an
+    /// employee whose regular workplace is the office, with her home and a
+    /// customer site registered.
+    pub(crate) fn record_claimant(home: &Path) {
+        use aggountant_domain::workplace::{FactInput, NewPlace};
+        let ledger = Ledger::open(home).unwrap();
+        ledger
+            .upsert_employee(&aggountant_ledger::EmployeeState {
+                employee_id: "maija".into(),
+                name: "Maija Meikäläinen".into(),
+                hetu: "131052-308T".into(),
+                iban: "FI2112345600000785".into(),
+                tax_card: aggountant_domain::TaxCard {
+                    withholding_pct: "0.00".into(),
+                },
+            })
+            .unwrap();
+        let now = Instant::now();
+        for (id, kind) in [
+            ("home", "home"),
+            ("office", "company_premises"),
+            ("customer", "customer_site"),
+        ] {
+            let place: NewPlace = serde_json::from_value(json!({
+                "employee_id": "maija", "place_id": id, "kind": kind, "label": id,
+                "location": "Esimerkkikatu 1, Tampere", "municipality": "Tampere",
+                "confirmed_by": "Maija Meikäläinen"
+            }))
+            .unwrap();
+            ledger.add_claimant_place(&place, now).unwrap();
+        }
+        for fact in [
+            json!({"kind": "relationship", "relationship": "employee"}),
+            json!({"kind": "workplace", "role": "regular_primary", "place_id": "office",
+                   "basis": "works_there_regularly"}),
+        ] {
+            let input: FactInput = serde_json::from_value(json!({
+                "employee_id": "maija", "valid_from": "2020-01-01", "fact": fact,
+                "confirmed_by": "Maija Meikäläinen"
+            }))
+            .unwrap();
+            ledger
+                .record_claimant_fact(&input.into_new_fact(), now)
+                .unwrap();
+        }
+    }
 
     #[test]
     fn example_computes() {
@@ -136,7 +193,10 @@ mod tests {
             .and_then(|(_, rest)| rest.split_once("\n```"))
             .unwrap()
             .0;
-        let value = compute(example).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        Ledger::init(dir.path()).unwrap();
+        record_claimant(dir.path());
+        let value = compute(example, dir.path()).unwrap();
         assert_eq!(value["schema_version"], 1);
         assert_eq!(value["approvable"], true);
         assert_eq!(value["totals"]["daily_allowances"], "54.00");
@@ -192,6 +252,7 @@ mod tests {
 
         let start = reads();
         run(&["init"]);
+        record_claimant(std::path::Path::new(home));
         let before: Vec<Value> = commands.iter().map(|c| run(c)).collect();
         assert_eq!(
             reads(),
@@ -201,7 +262,8 @@ mod tests {
         let files_before = tree(dir.path());
 
         compute(
-            r#"{"trips":[{"kind":"domestic","start":"2026-03-10T08:00:00+02:00","end":"2026-03-10T19:00:00+02:00","workplace":"special_work_place","distances_km":{"from_departure":"80","from_home":"80","from_regular_workplace":"78"},"days":[{"free_meals":0}]}]}"#,
+            r#"{"employee_id":"maija","trips":[{"kind":"domestic","start":"2026-03-10T08:00:00+02:00","end":"2026-03-10T19:00:00+02:00","places":{"start_place_id":"home","destination_place_ids":[]},"distances_km":{"from_departure":"80","from_home":"80","from_regular_workplace":"78"},"days":[{"free_meals":0}]}]}"#,
+            std::path::Path::new(home),
         )
         .unwrap();
         assert!(reads() > start, "the claim preview reads the table");

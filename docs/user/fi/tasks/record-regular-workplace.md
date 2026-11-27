@@ -89,8 +89,8 @@ aggountant claimant snapshot < matka.json
 `claimant add` tallentaa yhden päivätyn tiedon: työpaikan roolin
 perusteineen, suhteen yhtiöön tai pääomaosakkuuden. `claimant show` näyttää,
 mitä päivänä oli voimassa, ja `--as-known-at` sen, mitä siitä tiedettiin
-annettuna hetkenä. `claimant snapshot` luokittelee matkan paikat ja kertoo,
-mitä matkasta saa korvata. `aggountant claimant add --help` luettelee
+annettuna hetkenä. `claimant snapshot` luokittelee matkan paikat samoin kuin
+`claim compute`. `aggountant claimant add --help` luettelee
 perusteet ja ohjeen kohdat.
 </details>
 
@@ -103,7 +103,8 @@ perusteet ja ohjeen kohdat.
 ## Rajoitukset
 
 - Kululaskua ei vielä tehdä ohjelmalla, joten rekisteriä käyttää toistaiseksi
-  vain matkan luokittelu ([Mitä on valmista ja mitä ei](../reference/status.md#kuitit-ja-kirjaukset)).
+  vain [matkan korvausten laskenta](compute-travel-allowances.md)
+  ([Mitä on valmista ja mitä ei](../reference/status.md#kuitit-ja-kirjaukset)).
 - Rekisteri tallentuu työntekijärekisterin tavoin salaamattomana
   ([Mitä on valmista ja mitä ei](../reference/status.md#tulorekisteri-ja-työntekijät)).
 

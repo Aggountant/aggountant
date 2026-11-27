@@ -93,8 +93,8 @@ aggountant claimant snapshot < trip.json
 `claimant add` records one dated fact: a workplace role with its basis, a
 relationship to the company, or the shareholding. `claimant show` shows what
 was in force on a date, and with `--as-known-at` what was known about it at a
-given moment. `claimant snapshot` classifies a trip's places and says what the
-trip may be reimbursed for. `aggountant claimant add --help` lists the bases
+given moment. `claimant snapshot` classifies a trip's places as
+`claim compute` does. `aggountant claimant add --help` lists the bases
 and the guidance passages.
 </details>
 
@@ -106,8 +106,9 @@ and the guidance passages.
 
 ## Limitations
 
-- Expense claims are not yet made with the program, so for now only the trip
-  classification uses the register ([What is ready and what is not](../reference/status.md#receipts-and-entries)).
+- Expense claims are not yet made with the program, so for now only
+  [the computation of a trip's allowances](compute-travel-allowances.md) uses
+  the register ([What is ready and what is not](../reference/status.md#receipts-and-entries)).
 - Like the employee register, the register is stored unencrypted
   ([What is ready and what is not](../reference/status.md#tulorekisteri-and-employees)).
 

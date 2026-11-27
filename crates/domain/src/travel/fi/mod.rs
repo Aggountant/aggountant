@@ -24,9 +24,11 @@
 //! leisure combined with a trip is computed from the work and travel time the
 //! user states.
 //!
-//! The trip carries its own workplace classification ([`Workplace`]). The
-//! regular-workplace register will produce that value from its snapshot for
-//! the trip's start date and pass it here unchanged.
+//! A trip names its registered places, and the claimant's regular-workplace
+//! register classifies them ([`Workplace`]) from its snapshot for the trip's
+//! start date (ADR-11 section 3). Without a relationship or a regular-workplace
+//! entry on that date the trip is refused and computes nothing; a caller
+//! cannot supply the classification itself.
 
 mod mileage;
 mod rates;
@@ -39,7 +41,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use aggountant_model::{Date, Instant};
 
+use crate::bank_days::finnish_local_time;
+use crate::workplace::{trip_snapshot, ClaimantFact, Place, SnapshotRequest};
 use crate::DomainError;
+
+pub use crate::workplace::Workplace;
 
 pub use rates::{reads_on_this_thread as rate_table_reads_on_this_thread, Decision};
 
@@ -51,6 +57,8 @@ pub use rates::{reads_on_this_thread as rate_table_reads_on_this_thread, Decisio
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClaimInput {
+    /// The claimant, a person in the personal-data register.
+    pub employee_id: String,
     pub trips: Vec<TripInput>,
 }
 
@@ -69,8 +77,8 @@ pub struct TripInput {
     /// Return home or to the workplace, RFC 3339 with an offset.
     #[serde(deserialize_with = "instant")]
     pub end: Instant,
-    /// What the place of work is for this claimant on the trip's date.
-    pub workplace: Workplace,
+    /// The trip's registered places; the register classifies them.
+    pub places: TripPlaces,
     /// The distances of decision 11 §, along the shortest available route.
     pub distances_km: Distances,
     /// The destination country (ISO 3166 code) of a foreign trip; it sets the
@@ -112,16 +120,17 @@ pub enum TripKind {
     Foreign,
 }
 
-/// The place of work the trip goes to, for this claimant (ADR-11 section 3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Workplace {
-    /// Erityinen työntekemispaikka: all scheduled allowances can be due.
-    SpecialWorkPlace,
-    /// Toissijainen työpaikka: travel costs only (decision 4 §).
-    SecondaryWorkplace,
-    /// Varsinainen työpaikka: no tax-free travel allowance; refused.
-    RegularWorkplace,
+/// The places of a trip, as recorded in the claimant register.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TripPlaces {
+    /// The registered place the trip starts from, if it starts from one.
+    #[serde(default)]
+    pub start_place_id: Option<String>,
+    /// The registered places the trip goes to for work. A destination the
+    /// register does not name is a special work site and is not listed.
+    #[serde(default)]
+    pub destination_place_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -380,7 +389,9 @@ pub struct TripComputation {
     pub trip: usize,
     pub id: Option<String>,
     pub kind: TripKind,
-    pub workplace: Workplace,
+    /// The register's classification of the trip; `None` when the register
+    /// refused the trip (the refusal says why).
+    pub workplace: Option<Workplace>,
     pub start: String,
     pub end: String,
     /// Finnish local times of the start and end, for reading.
@@ -549,6 +560,54 @@ pub mod refusal {
 // Computation
 // ---------------------------------------------------------------------------
 
+/// The trip's workplace from the register snapshot for its start date (the
+/// Finnish calendar date it starts on), or `None` with a refusal recorded.
+fn workplace_from_register(
+    n: usize,
+    trip: &TripInput,
+    input: &ClaimInput,
+    places: &[Place],
+    facts: &[ClaimantFact],
+    now: Instant,
+    ctx: &mut Context,
+) -> Result<Option<Workplace>, DomainError> {
+    let start = finnish_local_time(trip.start).date();
+    let date = Date::from_ymd(
+        i32::from(start.year()),
+        start.month() as u32,
+        start.day() as u32,
+    )?;
+    let request = SnapshotRequest {
+        employee_id: input.employee_id.clone(),
+        date,
+        start_place_id: trip.places.start_place_id.clone(),
+        destination_place_ids: trip.places.destination_place_ids.clone(),
+        as_known_at: None,
+    };
+    let snapshot = match trip_snapshot(&request, places, facts, now) {
+        Ok(snapshot) => snapshot,
+        Err(refused) => {
+            ctx.refuse(
+                refused.error_code(),
+                format!("Trip {n}: {}.", refused.message),
+                n,
+                None,
+            );
+            return Ok(None);
+        }
+    };
+    let workplace = snapshot.workplace();
+    if workplace.is_none() {
+        ctx.refuse(
+            refusal::TRAVEL_WORKPLACE_CHANGE,
+            format!("Trip {n} goes both to a secondary workplace (toissijainen työpaikka) and to a special work site (erityinen työntekemispaikka), whose allowances differ; split it into one trip per workplace."),
+            n,
+            None,
+        );
+    }
+    Ok(workplace)
+}
+
 /// The accounts of the proposed postings, from the general chart
 /// `fi-general-2026`. The approval slice resolves them from the home's active
 /// chart when it seals; the preview only shows the shape.
@@ -558,10 +617,18 @@ const ACCOUNT_PAYABLE: (&str, &str) = ("2740", "Muut lyhytaikaiset velat");
 
 const MAX_TRIPS: usize = 100;
 
-/// Compute the scheduled tax-free travel allowances of a claim. Input that
-/// is malformed or contradictory is an error (`TRAVEL_INPUT_INVALID`); a
-/// situation the program does not compute is a [`Refusal`] in the result.
-pub fn compute_claim(input: &ClaimInput) -> Result<ClaimComputation, DomainError> {
+/// Compute the scheduled tax-free travel allowances of a claim, with each
+/// trip's workplace classified by the claimant's register rows (`places`,
+/// `facts`) as known `now`. Input that is malformed or contradictory is an
+/// error (`TRAVEL_INPUT_INVALID`); a situation the program does not compute,
+/// including a trip the register cannot classify, is a [`Refusal`] in the
+/// result.
+pub fn compute_claim(
+    input: &ClaimInput,
+    places: &[Place],
+    facts: &[ClaimantFact],
+    now: Instant,
+) -> Result<ClaimComputation, DomainError> {
     if input.trips.is_empty() || input.trips.len() > MAX_TRIPS {
         return Err(DomainError::TravelInput(format!(
             "a claim holds 1..={MAX_TRIPS} trips, got {}",
@@ -572,7 +639,8 @@ pub fn compute_claim(input: &ClaimInput) -> Result<ClaimComputation, DomainError
     let mut trips = Vec::with_capacity(input.trips.len());
     let mut payable = Vec::with_capacity(input.trips.len());
     for (i, trip) in input.trips.iter().enumerate() {
-        let computed = trip::compute(i + 1, trip, &mut ctx)?;
+        let workplace = workplace_from_register(i + 1, trip, input, places, facts, now, &mut ctx)?;
+        let computed = trip::compute(i + 1, trip, workplace, &mut ctx)?;
         payable.push(computed.payable.clone());
         trips.push(computed);
     }

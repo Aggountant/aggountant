@@ -177,23 +177,21 @@ fn the_register_records_corrects_and_refuses() {
     let office_id = office["fact"]["fact_id"].as_i64().unwrap();
     let known_before_correction = office["fact"]["recorded_at"].as_str().unwrap().to_string();
     let snapshot = ok(home, &["claimant", "snapshot"], &to_customer);
-    assert_eq!(snapshot["scope"], "full");
+    assert_eq!(snapshot["workplace"], "special_work_place");
     assert_eq!(
         snapshot["snapshot"]["destinations"][0]["classification"],
-        "special_work_site"
+        "special_work_place"
     );
     assert_eq!(
         snapshot["snapshot"]["register"]["part_owner"]["value"],
         true
     );
-    assert_eq!(
-        refused(
-            home,
-            &["claimant", "snapshot"],
-            &trip("2025-03-04", "home", &["office"])
-        ),
-        "TRIP_TO_REGULAR_WORKPLACE"
+    let snapshot = ok(
+        home,
+        &["claimant", "snapshot"],
+        &trip("2025-03-04", "home", &["office"]),
     );
+    assert_eq!(snapshot["workplace"], "regular_workplace");
 
     // Oulu is a secondary workplace: travel and lodging only.
     ok(
@@ -211,7 +209,7 @@ fn the_register_records_corrects_and_refuses() {
         &["claimant", "snapshot"],
         &trip("2025-03-04", "office", &["branch"]),
     );
-    assert_eq!(snapshot["scope"], "travel_and_lodging_only");
+    assert_eq!(snapshot["workplace"], "secondary_workplace");
     // The home cannot be a secondary workplace.
     assert_eq!(
         refused(
@@ -299,7 +297,7 @@ fn the_register_records_corrects_and_refuses() {
         &["claimant", "snapshot"],
         &trip("2025-03-04", "home", &["office"]),
     );
-    assert_eq!(snapshot["scope"], "full");
+    assert_eq!(snapshot["workplace"], "special_work_place");
 
     // The home is never a destination.
     assert_eq!(
@@ -543,4 +541,99 @@ fn a_home_without_claims_upgrades_with_unchanged_output() {
         })
         .collect();
     assert_eq!(files_after, files_before);
+}
+
+/// `claim compute` classifies each trip from the home's register: no entry on
+/// the trip's date refuses the trip, a regular workplace refuses it, and a
+/// special work site computes.
+#[test]
+fn claim_compute_takes_the_workplace_from_the_register() {
+    let home = common::initialized_home();
+    let home = home.path();
+    add_employee(home);
+    for p in [
+        place("home", "home", "Esimerkkikatu 7, 33100 Tampere", "Tampere"),
+        place(
+            "office",
+            "company_premises",
+            "Toimistotie 1, 33100 Tampere",
+            "Tampere",
+        ),
+        place(
+            "customer",
+            "customer_site",
+            "Asiakaskuja 3, 20100 Turku",
+            "Turku",
+        ),
+    ] {
+        ok(home, &["claimant", "place", "add"], &p);
+    }
+    ok(
+        home,
+        &["claimant", "add"],
+        &fact(
+            "2026-01-01",
+            None,
+            json!({"kind": "relationship", "relationship": "employee"}),
+        ),
+    );
+    ok(
+        home,
+        &["claimant", "add"],
+        &fact(
+            "2026-03-01",
+            None,
+            json!({"kind": "workplace", "role": "regular_primary", "place_id": "office",
+                   "basis": "works_there_regularly"}),
+        ),
+    );
+    let trip = |date: &str, destination: &str| {
+        json!({
+            "kind": "domestic",
+            "start": format!("{date}T08:00:00+02:00"),
+            "end": format!("{date}T19:00:00+02:00"),
+            "places": {"start_place_id": "home", "destination_place_ids": [destination]},
+            "distances_km": {"from_departure": "165", "from_home": "165",
+                             "from_regular_workplace": "165"},
+            "days": [{"free_meals": 0}]
+        })
+    };
+    let compute = |trips: Value| {
+        ok(
+            home,
+            &["claim", "compute"],
+            &json!({"employee_id": "maija", "trips": trips}),
+        )
+    };
+    let codes = |v: &Value| -> Vec<String> {
+        v["refusals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["code"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    let special = compute(json!([trip("2026-03-10", "customer")]));
+    assert_eq!(special["approvable"], true, "{special}");
+    assert_eq!(special["trips"][0]["workplace"], "special_work_place");
+    assert_eq!(special["totals"]["daily_allowances"], "54.00");
+
+    // Before the workplace entry, the trip is refused and computes nothing.
+    let unknown = compute(json!([trip("2026-02-10", "customer")]));
+    assert_eq!(codes(&unknown), ["REGULAR_WORKPLACE_UNKNOWN"]);
+    assert_eq!(unknown["totals"]["total"], "0.00");
+
+    let regular = compute(json!([trip("2026-03-10", "office")]));
+    assert_eq!(codes(&regular), ["TRAVEL_TO_REGULAR_WORKPLACE"]);
+
+    // An unknown claimant is an error, not a computation.
+    assert_eq!(
+        refused(
+            home,
+            &["claim", "compute"],
+            &json!({"employee_id": "ghost", "trips": [trip("2026-03-10", "customer")]})
+        ),
+        "EMPLOYEE_NOT_FOUND"
+    );
 }

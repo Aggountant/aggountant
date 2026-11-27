@@ -454,8 +454,6 @@ impl CorrectionInput {
 pub enum RefusalCode {
     /// No regular-workplace entry is in force on the trip's date.
     RegularWorkplaceUnknown,
-    /// A trip's destination is the person's regular workplace.
-    TripToRegularWorkplace,
     /// No relationship to the company is in force on the date.
     ClaimantRelationshipUnknown,
     /// A contractor or consultant cannot be a claimant.
@@ -484,7 +482,6 @@ impl RefusalCode {
     pub fn as_str(self) -> &'static str {
         match self {
             RefusalCode::RegularWorkplaceUnknown => "REGULAR_WORKPLACE_UNKNOWN",
-            RefusalCode::TripToRegularWorkplace => "TRIP_TO_REGULAR_WORKPLACE",
             RefusalCode::ClaimantRelationshipUnknown => "CLAIMANT_RELATIONSHIP_UNKNOWN",
             RefusalCode::ContractorNotClaimant => "CONTRACTOR_NOT_CLAIMANT",
             RefusalCode::ClaimantFactConflict => "CLAIMANT_FACT_CONFLICT",
@@ -1073,18 +1070,19 @@ fn digest(facts: &[&ClaimantFact], places: &[&Place]) -> Hash {
     Hash::from_bytes(Sha256::digest(&bytes).into())
 }
 
-/// How a trip destination is classified for tax-free travel allowances.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// What a place of work is for the claimant on a date, as the register
+/// classifies it; the travel computation decides the allowances from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Classification {
-    /// Varsinainen työpaikka: no tax-free allowance for the trip (TVL 72 b §).
-    RegularWorkplace,
-    /// Toissijainen työpaikka: travel and lodging costs only (TVL 71 § 1 mom).
+pub enum Workplace {
+    /// Erityinen työntekemispaikka (TVL 72 § 1 mom): all scheduled allowances
+    /// can be due. A destination the register does not name is one too, since
+    /// every regular and secondary workplace must be recorded.
+    SpecialWorkPlace,
+    /// Toissijainen työpaikka (TVL 71 § 1 mom): travel and lodging costs only.
     SecondaryWorkplace,
-    /// Erityinen työntekemispaikka (TVL 72 § 1 mom). A destination the
-    /// register does not name is one too, since every regular and secondary
-    /// workplace must be recorded.
-    SpecialWorkSite,
+    /// Varsinainen työpaikka (TVL 72 b §): no tax-free travel allowance.
+    RegularWorkplace,
 }
 
 /// `claimant snapshot` input: a trip's person, start date and places.
@@ -1114,7 +1112,7 @@ pub struct TripPlace {
     pub kind: PlaceKind,
     /// The role in force for the place, if the register gives it one.
     pub role: Option<WorkplaceRole>,
-    pub classification: Classification,
+    pub classification: Workplace,
     pub basis: Option<BasisCode>,
 }
 
@@ -1124,6 +1122,24 @@ pub struct TripSnapshot {
     pub register: RegisterView,
     pub start: Option<TripPlace>,
     pub destinations: Vec<TripPlace>,
+}
+
+impl TripSnapshot {
+    /// The trip's workplace: a regular workplace if any destination is one (the
+    /// computation refuses it), a secondary workplace if one is, and otherwise a
+    /// special work site. `None` when a secondary workplace and a registered
+    /// special work site are both destinations: their allowances differ, so the
+    /// trip has to be split.
+    pub fn workplace(&self) -> Option<Workplace> {
+        let has = |w: Workplace| self.destinations.iter().any(|d| d.classification == w);
+        if has(Workplace::RegularWorkplace) {
+            Some(Workplace::RegularWorkplace)
+        } else if has(Workplace::SecondaryWorkplace) {
+            (!has(Workplace::SpecialWorkPlace)).then_some(Workplace::SecondaryWorkplace)
+        } else {
+            Some(Workplace::SpecialWorkPlace)
+        }
+    }
 }
 
 fn trip_place(
@@ -1151,11 +1167,11 @@ fn trip_place(
     let role = entry.map(|w| w.role);
     let classification = match role {
         Some(WorkplaceRole::RegularPrimary | WorkplaceRole::RegularOther) => {
-            Classification::RegularWorkplace
+            Workplace::RegularWorkplace
         }
-        Some(WorkplaceRole::Secondary) => Classification::SecondaryWorkplace,
+        Some(WorkplaceRole::Secondary) => Workplace::SecondaryWorkplace,
         Some(WorkplaceRole::TrackedSite | WorkplaceRole::None) | None => {
-            Classification::SpecialWorkSite
+            Workplace::SpecialWorkPlace
         }
     };
     Ok(TripPlace {
@@ -1218,11 +1234,11 @@ pub fn trip_snapshot(
         .map(|id| trip_place(&view, places, id))
         .collect::<Result<Vec<_>, _>>()?;
     // The home is where a trip starts and ends, never what it is made to: a
-    // journey home is the return leg, and home as a regular workplace is
-    // refused in `trip_scope` as a trip to a regular workplace.
+    // journey home is the return leg, and a home that is the regular workplace
+    // is classified as one, which the travel computation refuses.
     if let Some(home) = destinations
         .iter()
-        .find(|d| d.kind == PlaceKind::Home && d.classification != Classification::RegularWorkplace)
+        .find(|d| d.kind == PlaceKind::Home && d.classification != Workplace::RegularWorkplace)
     {
         return Err(refuse(
             RefusalCode::TripToHome,
@@ -1240,7 +1256,7 @@ pub fn trip_snapshot(
     if !has_primary
         && destinations
             .iter()
-            .any(|d| d.classification == Classification::SecondaryWorkplace)
+            .any(|d| d.classification == Workplace::SecondaryWorkplace)
     {
         return Err(refuse(
             RefusalCode::SecondaryWorkplaceInvalid,
@@ -1256,47 +1272,6 @@ pub fn trip_snapshot(
         start,
         destinations,
     })
-}
-
-/// What a trip may be reimbursed for, given its snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TripScope {
-    /// Every scheduled allowance and travel cost the trip earns.
-    Full,
-    /// A trip to a secondary workplace: travel and reasonable lodging costs
-    /// only, no per diem, meal or night allowance, and not the journey between
-    /// the lodging and the workplace (TVL 71 § 1 mom; ohje 4.3; decision
-    /// 970/2025 4 § 2 mom).
-    TravelAndLodgingOnly,
-}
-
-/// Decide the trip's scope from its snapshot. Refuses a trip to a regular
-/// workplace, which earns no tax-free allowance at all (TVL 72 b §; ohje 3.8.1).
-pub fn trip_scope(snapshot: &TripSnapshot) -> Result<TripScope, ClaimantRefusal> {
-    if let Some(dest) = snapshot
-        .destinations
-        .iter()
-        .find(|d| d.classification == Classification::RegularWorkplace)
-    {
-        return Err(refuse(
-            RefusalCode::TripToRegularWorkplace,
-            format!(
-                "{:?} is a regular workplace (varsinainen työpaikka) of {} on {}: trips between \
-                 home and a regular workplace, or between two regular workplaces, earn no \
-                 tax-free travel allowance (VH/630/00.01.00/2026 3.8.1, 3.9)",
-                dest.place_id, snapshot.register.employee_id, snapshot.register.date
-            ),
-        ));
-    }
-    if snapshot
-        .destinations
-        .iter()
-        .any(|d| d.classification == Classification::SecondaryWorkplace)
-    {
-        return Ok(TripScope::TravelAndLodgingOnly);
-    }
-    Ok(TripScope::Full)
 }
 
 #[cfg(test)]
@@ -1499,18 +1474,17 @@ mod tests {
             .unwrap();
         assert_eq!(
             snap_now.destinations[0].classification,
-            Classification::SpecialWorkSite
+            Workplace::SpecialWorkPlace
         );
-        assert_eq!(trip_scope(&snap_now).unwrap(), TripScope::Full);
+        assert_eq!(snap_now.workplace(), Some(Workplace::SpecialWorkPlace));
         let snap_then = reg
             .snapshot("2025-06-01", Some("home"), &["office"], Some(t(15)))
             .unwrap();
         assert_eq!(
             snap_then.destinations[0].classification,
-            Classification::RegularWorkplace
+            Workplace::RegularWorkplace
         );
-        let refusal = trip_scope(&snap_then).unwrap_err();
-        assert_eq!(refusal.error_code(), "TRIP_TO_REGULAR_WORKPLACE");
+        assert_eq!(snap_then.workplace(), Some(Workplace::RegularWorkplace));
     }
 
     #[test]
@@ -1573,9 +1547,9 @@ mod tests {
         assert!(snap.register.regular_workplace_known);
         assert_eq!(
             snap.destinations[0].classification,
-            Classification::SpecialWorkSite
+            Workplace::SpecialWorkPlace
         );
-        assert_eq!(trip_scope(&snap).unwrap(), TripScope::Full);
+        assert_eq!(snap.workplace(), Some(Workplace::SpecialWorkPlace));
     }
 
     #[test]
@@ -1608,7 +1582,7 @@ mod tests {
     }
 
     #[test]
-    fn a_secondary_workplace_limits_the_trip_to_travel_and_lodging() {
+    fn a_secondary_workplace_classifies_the_trip_as_secondary() {
         let mut reg = Reg::new();
         reg.employee();
         reg.add(
@@ -1642,17 +1616,14 @@ mod tests {
             .unwrap();
         assert_eq!(
             snap.destinations[0].classification,
-            Classification::SecondaryWorkplace
+            Workplace::SecondaryWorkplace
         );
-        assert_eq!(trip_scope(&snap).unwrap(), TripScope::TravelAndLodgingOnly);
+        assert_eq!(snap.workplace(), Some(Workplace::SecondaryWorkplace));
         // A trip to the regular workplace is refused outright.
         let snap = reg
             .snapshot("2025-03-01", Some("home"), &["office"], None)
             .unwrap();
-        assert_eq!(
-            trip_scope(&snap).unwrap_err().error_code(),
-            "TRIP_TO_REGULAR_WORKPLACE"
-        );
+        assert_eq!(snap.workplace(), Some(Workplace::RegularWorkplace));
         // A customer site is a special work site.
         let snap = reg
             .snapshot("2025-03-01", Some("office"), &["customer"], None)
@@ -1661,7 +1632,50 @@ mod tests {
             snap.start.as_ref().unwrap().role,
             Some(WorkplaceRole::RegularPrimary)
         );
-        assert_eq!(trip_scope(&snap).unwrap(), TripScope::Full);
+        assert_eq!(snap.workplace(), Some(Workplace::SpecialWorkPlace));
+    }
+
+    #[test]
+    fn a_trip_mixing_a_secondary_workplace_and_a_special_site_has_no_workplace() {
+        let mut reg = Reg::new();
+        reg.employee();
+        reg.add(regular("office", BasisCode::WorksThereRegularly), t(10))
+            .unwrap();
+        reg.add(
+            entry(
+                workplace(
+                    Some("branch"),
+                    WorkplaceRole::Secondary,
+                    BasisCode::PremisesInAnotherMunicipality,
+                ),
+                "2024-01-01",
+                None,
+            ),
+            t(11),
+        )
+        .unwrap();
+        reg.add(
+            entry(
+                workplace(
+                    Some("customer"),
+                    WorkplaceRole::TrackedSite,
+                    BasisCode::OccasionalVisits,
+                ),
+                "2024-01-01",
+                None,
+            ),
+            t(12),
+        )
+        .unwrap();
+        let snap = reg
+            .snapshot("2025-03-04", Some("home"), &["branch", "customer"], None)
+            .unwrap();
+        assert_eq!(snap.workplace(), None);
+        // With the regular workplace among the destinations, it decides.
+        let snap = reg
+            .snapshot("2025-03-04", Some("home"), &["branch", "office"], None)
+            .unwrap();
+        assert_eq!(snap.workplace(), Some(Workplace::RegularWorkplace));
     }
 
     #[test]
@@ -2004,10 +2018,7 @@ mod tests {
         let snap = reg
             .snapshot("2025-03-04", Some("customer"), &["home"], None)
             .unwrap();
-        assert_eq!(
-            trip_scope(&snap).unwrap_err().error_code(),
-            "TRIP_TO_REGULAR_WORKPLACE"
-        );
+        assert_eq!(snap.workplace(), Some(Workplace::RegularWorkplace));
     }
 
     #[test]
@@ -2051,7 +2062,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             before.destinations[0].classification,
-            Classification::RegularWorkplace
+            Workplace::RegularWorkplace
         );
         // A new entry cannot name the old place; the correction names the new one.
         let err = reg
@@ -2078,10 +2089,7 @@ mod tests {
         let snap = reg
             .snapshot("2025-03-04", Some("home"), &["office-2"], None)
             .unwrap();
-        assert_eq!(
-            trip_scope(&snap).unwrap_err().error_code(),
-            "TRIP_TO_REGULAR_WORKPLACE"
-        );
+        assert_eq!(snap.workplace(), Some(Workplace::RegularWorkplace));
         // A place is replaced once, and only a recorded place can be replaced.
         let again = NewPlace {
             place_id: "office-3".into(),

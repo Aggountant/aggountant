@@ -113,9 +113,13 @@ struct PlannedDay {
     country: Option<(String, Option<String>)>,
 }
 
+/// Compute one trip. `workplace` is the register's classification, or `None`
+/// when the register refused the trip: the refusal is already recorded, and
+/// the trip computes no allowance and no travel cost.
 pub(super) fn compute(
     n: usize,
     trip: &TripInput,
+    workplace: Option<Workplace>,
     ctx: &mut Context,
 ) -> Result<Computed, DomainError> {
     let duration = secs(trip.end.duration_since(trip.start));
@@ -131,11 +135,6 @@ pub(super) fn compute(
     let first_date = finnish_local_time(trip.start).date();
     let last_date = finnish_local_time(trip.end).date();
 
-    ctx.note(
-        "workplace_from_trip_input",
-        "The workplace classification (varsinainen, toissijainen työpaikka or erityinen työntekemispaikka) is taken from the trip input; the regular-workplace register is not in use yet.",
-        None,
-    );
     for situation in &trip.situations {
         let (code, text) = match situation {
             Situation::StartsFromHolidayHome => (
@@ -174,23 +173,23 @@ pub(super) fn compute(
     let mut km = Decimal::ZERO;
 
     let distance_test_passed = distance_test(trip);
-    if trip.workplace == Workplace::RegularWorkplace {
+    if workplace == Some(Workplace::RegularWorkplace) {
         ctx.refuse(
             refusal::TRAVEL_TO_REGULAR_WORKPLACE,
             format!("Trip {n} goes to the claimant's regular workplace (varsinainen työpaikka): a trip between home and the regular workplace is not a work trip, so no tax-free travel allowance is due."),
             n,
             None,
         );
-    } else {
+    } else if let Some(workplace) = workplace {
         let m = mileage::compute(n, &trip.drives, first_date, last_date, ctx)?;
         maximum.mileage = m.amount;
         km = m.km;
         drives_out = m.drives;
 
-        if trip.workplace == Workplace::SecondaryWorkplace {
+        if workplace == Workplace::SecondaryWorkplace {
             ctx.note(
                 "secondary_workplace",
-                format!("Trip {n} goes to a secondary workplace (toissijainen työpaikka): only travel and lodging costs are tax-free (decision 4 §), so no per diem, meal or night travel allowance is computed."),
+                format!("Trip {n} goes to a secondary workplace (toissijainen työpaikka): only travel and lodging costs are tax-free (decision 4 §), so no per diem, meal or night travel allowance is computed, and the journeys between the lodging and the secondary workplace are not tax-free travel (guidance 4.3): leave those drives out."),
                 Some(n),
             );
         } else if !distance_test_passed {
@@ -200,7 +199,7 @@ pub(super) fn compute(
                 Some(n),
             );
         }
-        let plan = if trip.workplace == Workplace::SpecialWorkPlace && distance_test_passed {
+        let plan = if workplace == Workplace::SpecialWorkPlace && distance_test_passed {
             plan(n, trip, timeline_start, counted, ctx)
         } else {
             Some(Vec::new())
@@ -247,7 +246,7 @@ pub(super) fn compute(
             maximum.night = night_allowances(n, trip, &plan, &mut days_out, ctx);
         }
         if let Some(meal) = &trip.meal_allowance {
-            let (amount, out) = meal_allowance(n, trip, meal, !plan.is_empty(), ctx);
+            let (amount, out) = meal_allowance(n, trip, workplace, meal, !plan.is_empty(), ctx);
             maximum.meal = amount;
             meal_out = Some(out);
         }
@@ -271,7 +270,7 @@ pub(super) fn compute(
             trip: n,
             id: trip.id.clone(),
             kind: trip.kind,
-            workplace: trip.workplace,
+            workplace,
             start: trip.start.to_string(),
             end: trip.end.to_string(),
             start_finnish_time: finnish_local_time(trip.start).to_string(),
@@ -841,6 +840,7 @@ fn night_allowances(
 fn meal_allowance(
     n: usize,
     trip: &TripInput,
+    workplace: Workplace,
     meal: &super::MealAllowanceInput,
     per_diem_due: bool,
     ctx: &mut Context,
@@ -874,7 +874,7 @@ fn meal_allowance(
         );
         return refused();
     }
-    if trip.workplace == Workplace::SecondaryWorkplace {
+    if workplace == Workplace::SecondaryWorkplace {
         return zero("a trip to a secondary workplace earns travel costs only");
     }
     let (Some(usual_place), Some(lunch_benefit), Some(arranged)) = (

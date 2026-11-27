@@ -87,9 +87,8 @@ instructions are in
   same way:
   [Record a travel advance and its settlement](../tasks/record-travel-advance.md).
   The expense claim model has been decided and is waiting to be built
-  (`expense-claim-model`). Its first part, the
-  [regular-workplace register](../tasks/record-regular-workplace.md), is in
-  use, but for now only the classification of a trip's places uses it.
+  (`expense-claim-model`). The computation classifies trips from the
+  [regular-workplace register](../tasks/record-regular-workplace.md).
 - A single voucher's postings are visible only to the agent, because without
   `--json`, `voucher show` shows only the number and the hash. Ask the agent
   to show the voucher's postings.

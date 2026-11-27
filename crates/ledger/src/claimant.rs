@@ -262,8 +262,10 @@ mod tests {
                 t(100),
             )
             .unwrap();
-        let err = aggountant_domain::workplace::trip_scope(&snapshot).unwrap_err();
-        assert_eq!(err.error_code(), "TRIP_TO_REGULAR_WORKPLACE");
+        assert_eq!(
+            snapshot.workplace(),
+            Some(aggountant_domain::workplace::Workplace::RegularWorkplace)
+        );
     }
 
     #[test]

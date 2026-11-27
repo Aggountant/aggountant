@@ -20,8 +20,10 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   Administration decision used (2026: 970/2025; 2027: 929/2026), with the
   bundled table's hash. Situations the decision and guidance do not settle,
   missing answers and amounts above the maximum are refused with a code
-  instead of guessed. Nothing is written and no company home is needed; the
-  rate table is read only by this command. New guide page "Laske matkan
+  instead of guessed. Nothing is written; the rate table is read only by this
+  command. Each trip's workplace comes from the claimant's regular-workplace
+  register (below), so the input names the claimant (`employee_id`) and the
+  trip's registered `places`, and the command reads the company home. New guide page "Laske matkan
   verovapaat korvaukset" (Compute the tax-free allowances of a trip).
 
 - **Expense claims: the regular-workplace register.** The new `claimant`
@@ -32,11 +34,13 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   basis code tied to the Tax Administration's guidance
   (VH/630/00.01.00/2026). A fact is never edited: `claimant correct`
   supersedes it, and `claimant show --as-known-at` answers what was known at
-  an earlier moment. `claimant snapshot` classifies a trip's places and
-  refuses a trip without a regular-workplace entry
-  (`REGULAR_WORKPLACE_UNKNOWN`) or to a regular workplace
-  (`TRIP_TO_REGULAR_WORKPLACE`); a secondary workplace is limited to travel
-  and lodging costs. A contractor cannot be a claimant. The guide has a new
+  an earlier moment. `claim compute` classifies each trip from the register
+  for its start date (`claimant snapshot` shows the same classification): a
+  trip with no relationship or regular-workplace entry on that date is
+  refused and computes nothing (`CLAIMANT_RELATIONSHIP_UNKNOWN`,
+  `REGULAR_WORKPLACE_UNKNOWN`), a trip to a regular workplace is refused, a
+  secondary workplace earns travel costs only, and the home is never a
+  destination (`TRIP_TO_HOME`). A contractor cannot be a claimant. The guide has a new
   task page, "Kirjaa varsinainen työpaikka" (Record your regular workplace),
   and the glossary gained the legal terms. Every command opening a home
   migrates `masterdata/pii.sqlite` from schema v1 to v2. The migration is

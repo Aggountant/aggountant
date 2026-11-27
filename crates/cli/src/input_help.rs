@@ -920,10 +920,13 @@ pub(crate) const CLAIMANT_SNAPSHOT: &str = r#"INPUT (JSON on stdin)
                          work site (erityinen työntekemispaikka).
   as_known_at            optional RFC 3339 instant; default now.
   Output: the register in force with its facts_digest, each place's role and
-  classification, and scope: full, or travel_and_lodging_only for a secondary
-  workplace. Refused: CLAIMANT_RELATIONSHIP_UNKNOWN, REGULAR_WORKPLACE_UNKNOWN,
-  TRIP_TO_REGULAR_WORKPLACE, TRIP_TO_HOME (the home listed as a destination;
-  list the places the trip went to for work), PLACE_REPLACED.
+  classification, and the trip's workplace as `claim compute` uses it:
+  special_work_place, secondary_workplace (travel and lodging only),
+  regular_workplace (no tax-free allowance), or null when a secondary
+  workplace and a registered special site are both destinations (split the
+  trip). Refused: CLAIMANT_RELATIONSHIP_UNKNOWN, REGULAR_WORKPLACE_UNKNOWN,
+  TRIP_TO_HOME (the home listed as a destination; list the places the trip
+  went to for work), PLACE_REPLACED.
 
 Example JSON (input-shape demonstration only):
 ```json
