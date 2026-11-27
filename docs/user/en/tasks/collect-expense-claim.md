@@ -57,11 +57,13 @@ asks you about it.
 |---|---|---|
 | `TRIP_STATUTORY_FIELD_MISSING` | the trip lacks its purpose, destination, mode of travel or (for drives) route | give the missing detail |
 | `TRIP_START_PLACE_UNANSWERED` | it is not known whether the trip started from home, the workplace or elsewhere | say where you left from |
+| `TRIP_DESTINATION_PLACES_UNANSWERED` | it is not known whether the trip went to a place in the register, such as a secondary workplace | say where the trip went; the register classifies the trip from it |
 | `TRAVEL_FREE_MEALS_UNANSWERED`, `TRAVEL_COMPANY_PAID_MEALS_UNANSWERED` | a travel day lacks its free meals or company-paid meals | give the number or the amounts, zero too |
 | `DRIVE_VEHICLE_OWNERSHIP_UNANSWERED` | it is not known whether the vehicle was yours or under your control | say so; mileage is tax-free only then |
 | `LINE_RECEIPT_MISSING` | a receipt line has no receipt | give the receipt or say why there is none |
 | `TRIP_OVERLAP` | the trip overlaps another trip of the same person | correct the times or remove one trip |
 | `RECEIPT_ALREADY_BOOKED`, `RECEIPT_DUPLICATE` | the same receipt is already booked as a voucher or on another line | remove the line; a receipt is booked once |
+| `ARTIFACT_MISSING` | a receipt or evidence file is not in the company home's attachment store, for example after restoring a backup | attach the file again and revise the line |
 | `LINE_TRIP_COSTS_NOT_TAX_FREE` | the receipt belongs to a trip the register does not make a work trip | see the trip's own refusal |
 | `TRIP_RECORDED_AFTERWARDS` | the trip was recorded only after the month following the trip | blocks nothing; the claim shows the marker |
 | `DRIVE_KM_BELOW_DISTANCE`, `DRIVE_KM_ABOVE_ROUTE` | the kilometres driven differ a lot from the trip's distance | check the kilometres or give the route |

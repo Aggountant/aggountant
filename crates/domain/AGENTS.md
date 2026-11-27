@@ -70,8 +70,9 @@ sealed voucher and can only be undone by a correction voucher.
   Do not give the draft a second trip schema: two would drift, and a field the
   draft knew but the computation did not would be shown but never computed.
 - **An answer left out is a question, never "none".** Where the computation's
-  input types default an absent field (`company_paid_meals` to `[]`,
-  `start_place_id` to none), the draft looks for the key in the stored JSON
+  input types default an absent field (`company_paid_meals` and
+  `destination_place_ids` to `[]`, `start_place_id` to none), the draft looks
+  for the key in the stored JSON
   and asks when it is missing. Keep that check when the computation's input
   changes, because a silent default makes an allowance too large.
 - **Questions and refusals block approval, never the write.** A write is

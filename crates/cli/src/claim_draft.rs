@@ -561,7 +561,8 @@ pub(crate) const TRIP_INPUT: &str = r#"INPUT (JSON on stdin)
   is an open question, not an error.
   Answers the draft asks for and never takes as "none" when left out:
   trip.places.start_place_id (null when the trip started from a place not in
-  the register), trip.days[].free_meals and trip.days[].company_paid_meals
+  the register), trip.places.destination_place_ids ([] when the trip went
+  only to places the register does not name), trip.days[].free_meals and trip.days[].company_paid_meals
   ([] when none) for each computed per diem day, and each drive's
   own_or_controlled_vehicle.
   drives: [{drive: {date, km, vehicle, ...} as in `claim compute --help`,

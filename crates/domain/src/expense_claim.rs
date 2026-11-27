@@ -32,7 +32,8 @@ use aggountant_model::{Date, Hash, Instant};
 
 use crate::bank_days::finnish_local_time;
 use crate::travel::fi::{
-    compute_claim, refusal, ClaimComputation, ClaimInput, TripInput, TripKind, Workplace,
+    check_trip, compute_claim, refusal, ClaimComputation, ClaimInput, TripInput, TripKind,
+    Workplace,
 };
 use crate::workplace::{ClaimantFact, Place};
 
@@ -66,6 +67,7 @@ pub mod finding {
     // Open questions.
     pub const TRIP_STATUTORY_FIELD_MISSING: &str = "TRIP_STATUTORY_FIELD_MISSING";
     pub const TRIP_START_PLACE_UNANSWERED: &str = "TRIP_START_PLACE_UNANSWERED";
+    pub const TRIP_DESTINATION_PLACES_UNANSWERED: &str = "TRIP_DESTINATION_PLACES_UNANSWERED";
     pub const TRAVEL_COMPANY_PAID_MEALS_UNANSWERED: &str = "TRAVEL_COMPANY_PAID_MEALS_UNANSWERED";
     pub const DRIVE_VEHICLE_OWNERSHIP_UNANSWERED: &str = "DRIVE_VEHICLE_OWNERSHIP_UNANSWERED";
     pub const LINE_RECEIPT_MISSING: &str = "LINE_RECEIPT_MISSING";
@@ -77,6 +79,7 @@ pub mod finding {
     pub const RECEIPT_DUPLICATE: &str = "RECEIPT_DUPLICATE";
     pub const LINE_TRIP_COSTS_NOT_TAX_FREE: &str = "LINE_TRIP_COSTS_NOT_TAX_FREE";
     pub const LINE_COST_NOT_TRAVEL_OR_LODGING: &str = "LINE_COST_NOT_TRAVEL_OR_LODGING";
+    pub const ARTIFACT_MISSING: &str = "ARTIFACT_MISSING";
     // Checks.
     pub const TRIP_RECORDED_AFTERWARDS: &str = "TRIP_RECORDED_AFTERWARDS";
     pub const DRIVE_KM_BELOW_DISTANCE: &str = "DRIVE_KM_BELOW_DISTANCE";
@@ -676,10 +679,16 @@ fn trip_input(trip_id: &str, record: &TripRecord) -> Result<TripInput, DraftRefu
         "drives".into(),
         Value::Array(record.drives.iter().map(|d| d.drive.clone()).collect()),
     );
-    serde_json::from_value(Value::Object(object)).map_err(|e| DraftRefusal {
+    let input: TripInput =
+        serde_json::from_value(Value::Object(object)).map_err(|e| DraftRefusal {
+            code: code::TRAVEL_INPUT_INVALID,
+            message: format!("trip {trip_id}: {e}"),
+        })?;
+    check_trip(&input).map_err(|e| DraftRefusal {
         code: code::TRAVEL_INPUT_INVALID,
-        message: format!("trip {trip_id}: {e}"),
-    })
+        message: format!("Trip {trip_id}: {}", without_trip_number(&e.to_string())),
+    })?;
+    Ok(input)
 }
 
 fn finnish_date(at: Instant) -> Date {
@@ -776,6 +785,9 @@ pub struct Others {
     pub unreadable: Vec<String>,
     /// Sealed vouchers attaching a receipt of this draft.
     pub booked: BTreeMap<Hash, Vec<u64>>,
+    /// Receipts and evidence the draft names that the artifact store does
+    /// not hold (a home restored without them, or a hand edit).
+    pub missing_artifacts: BTreeSet<Hash>,
 }
 
 /// The claimant's register rows, from the personal-data store.
@@ -883,12 +895,18 @@ pub fn review(
                 .field("route"),
             );
         }
-        let start_place_given = record
-            .trip
-            .get("places")
-            .and_then(Value::as_object)
-            .is_some_and(|p| p.contains_key("start_place_id"));
-        if !start_place_given {
+        let places = record.trip.get("places").and_then(Value::as_object);
+        if !places.is_some_and(|p| p.contains_key("destination_place_ids")) {
+            f.questions.push(
+                Finding::new(
+                    finding::TRIP_DESTINATION_PLACES_UNANSWERED,
+                    format!("Trip {id}: did the trip go to a place in the claimant register (a workplace or a tracked site)? Give trip.places.destination_place_ids: those places, or [] when it went only to places the register does not name. The register classifies the trip from them."),
+                )
+                .trip(id)
+                .field("trip.places.destination_place_ids"),
+            );
+        }
+        if !places.is_some_and(|p| p.contains_key("start_place_id")) {
             f.questions.push(
                 Finding::new(
                     finding::TRIP_START_PLACE_UNANSWERED,
@@ -957,6 +975,37 @@ pub fn review(
         });
     }
 
+    for trip in &draft.trips {
+        let evidence = trip
+            .record
+            .evidence
+            .iter()
+            .chain(trip.record.drives.iter().flat_map(|d| &d.evidence));
+        for hash in evidence.filter(|h| others.missing_artifacts.contains(h)) {
+            f.refusals.push(
+                Finding::new(
+                    finding::ARTIFACT_MISSING,
+                    format!("Trip {}: evidence {hash} is not in the artifact store; attach the file again or remove it from the trip.", trip.trip_id),
+                )
+                .trip(&trip.trip_id),
+            );
+        }
+    }
+    for line in &draft.lines {
+        if let Some(hash) = line
+            .record
+            .receipt_hash
+            .filter(|h| others.missing_artifacts.contains(h))
+        {
+            f.refusals.push(
+                Finding::new(
+                    finding::ARTIFACT_MISSING,
+                    format!("Line {}: receipt {hash} is not in the artifact store; attach the receipt again and revise the line.", line.line_id),
+                )
+                .line(&line.line_id),
+            );
+        }
+    }
     check_overlaps(&inputs, others, &mut f);
     check_lines(draft, &inputs, &trips, others, &mut f);
     for claim_id in &others.unreadable {
@@ -1069,18 +1118,22 @@ fn compute(
     Some(computed)
 }
 
-/// The computation's input errors name the trip by its position; the draft
-/// names it by id.
+/// The computation's input errors name the trip by its position ("trip 2:"
+/// or "trip 2, drive 1:"); the draft names the trip by id, so the position is
+/// dropped and the drive kept.
 fn without_trip_number(message: &str) -> String {
     let message = message
         .strip_prefix("TRAVEL_INPUT_INVALID: ")
         .unwrap_or(message);
-    match message.strip_prefix("trip ") {
-        Some(rest) => rest
-            .split_once(": ")
-            .map(|(_, tail)| tail.to_string())
-            .unwrap_or_else(|| message.to_string()),
-        None => message.to_string(),
+    let Some((head, tail)) = message
+        .strip_prefix("trip ")
+        .and_then(|rest| rest.split_once(": "))
+    else {
+        return message.to_string();
+    };
+    match head.split_once(", ") {
+        Some((_, drive)) => format!("{drive}: {tail}"),
+        None => tail.to_string(),
     }
 }
 

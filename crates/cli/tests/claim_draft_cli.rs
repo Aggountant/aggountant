@@ -464,6 +464,7 @@ fn a_hand_edited_draft_that_fails_validation_is_refused_on_read() {
             "\"source\": \"user_statement\", \"paid_total\": \"999\"",
         ),
         original.replace("\"revision\": 1", "\"revision\": 0"),
+        original.replace("2026-03-10T19:15:00+02:00", "2026-03-10T06:15:00+02:00"),
         "{".to_string(),
     ] {
         assert_ne!(edited, original);
@@ -619,4 +620,38 @@ fn no_draft_content_reaches_git_even_when_the_root_gitignore_predates_the_direct
     )
     .status
     .success());
+}
+
+#[test]
+fn a_receipt_missing_from_the_artifact_store_is_refused_without_blocking_other_writes() {
+    let dir = claimant_home();
+    let home = dir.path();
+    ok(
+        home,
+        &["claim", "trip", "add", "--new-for", "maija"],
+        &trip("2026-03-10"),
+    );
+    let receipt = attach(home, "Pysäköintikuitti");
+    ok(
+        home,
+        &["claim", "line", "add", "--claim", "maija-2026-03-10"],
+        &line(&receipt, "2026-03-10", "12.40", Some("t1")),
+    );
+    // A home restored without its attachment files.
+    std::fs::remove_dir_all(home.join("artifacts")).unwrap();
+    std::fs::create_dir(home.join("artifacts")).unwrap();
+    let shown = ok(
+        home,
+        &["claim", "show", "--claim", "maija-2026-03-10"],
+        &json!(null),
+    );
+    assert_eq!(codes(&shown["refusals"]), ["ARTIFACT_MISSING"]);
+    assert_eq!(shown["refusals"][0]["line_id"], "l1");
+    assert_eq!(shown["ready_for_approval"], false);
+    let other = ok(
+        home,
+        &["claim", "trip", "add", "--claim", "maija-2026-03-10"],
+        &trip("2026-03-11"),
+    );
+    assert_eq!(codes(&other["refusals"]), ["ARTIFACT_MISSING"]);
 }

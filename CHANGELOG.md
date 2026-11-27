@@ -116,7 +116,11 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   guide page "Kokoa kululasku" (Collect an expense claim) and a new
   `expense-claim` skill. No store migration; a company that does not use
   expense claims gets no directory, no question and no change in any other
-  command's output.
+  command's output. `claim compute` now checks every drive (its date within
+  the trip, positive kilometres, car-only surcharges) also on a trip the
+  register refuses or classifies as a trip to the regular workplace, so a
+  malformed drive is `TRAVEL_INPUT_INVALID` there too instead of passing
+  unchecked.
 
 - **Travel advances booked by hand.** The user guide has a new task page,
   "Kirjaa matkaennakko ja sen tilitys" (Record a travel advance and its

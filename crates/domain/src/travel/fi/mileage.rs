@@ -17,22 +17,15 @@ pub(super) struct Mileage {
     pub drives: Vec<DriveComputation>,
 }
 
-/// Validate the drives of trip `trip` against its Finnish start and end dates
-/// and compute them.
-pub(super) fn compute(
-    trip: usize,
-    drives: &[Drive],
-    first_date: jiff::civil::Date,
-    last_date: jiff::civil::Date,
-    ctx: &mut Context,
-) -> Result<Mileage, DomainError> {
+/// Compute the drives of trip `trip`, which [`validate`] has checked against
+/// the trip's Finnish start and end dates (`trip::check`).
+pub(super) fn compute(trip: usize, drives: &[Drive], ctx: &mut Context) -> Mileage {
     let mut out = Mileage {
         amount: Decimal::ZERO,
         km: Decimal::ZERO,
         drives: Vec::with_capacity(drives.len()),
     };
-    for (n, drive) in drives.iter().enumerate() {
-        validate(trip, n + 1, drive, first_date, last_date)?;
+    for drive in drives {
         let year = drive.date.inner().year();
         let rate = ctx.edition(year, trip, None).map(|edition| {
             if drive.car_benefit {
@@ -80,10 +73,10 @@ pub(super) fn compute(
             amount_exact: amount.map(money),
         });
     }
-    Ok(out)
+    out
 }
 
-fn validate(
+pub(super) fn validate(
     trip: usize,
     n: usize,
     drive: &Drive,

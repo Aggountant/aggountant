@@ -150,7 +150,7 @@ fn every_missing_answer_is_an_open_question_with_a_code() {
             "kind": "domestic",
             "start": "2026-03-10T07:30:00+02:00",
             "end": "2026-03-10T19:15:00+02:00",
-            "places": {"destination_place_ids": ["customer"]},
+            "places": {},
             "distances_km": {"from_departure": "160", "from_home": "160", "from_regular_workplace": "158"}
         },
         "drives": [{"drive": {"date": "2026-03-10", "km": "330", "vehicle": "car"}}]
@@ -164,6 +164,7 @@ fn every_missing_answer_is_an_open_question_with_a_code() {
     for expected in [
         finding::TRIP_STATUTORY_FIELD_MISSING,
         finding::TRIP_START_PLACE_UNANSWERED,
+        finding::TRIP_DESTINATION_PLACES_UNANSWERED,
         finding::DRIVE_VEHICLE_OWNERSHIP_UNANSWERED,
         refusal::TRAVEL_FREE_MEALS_UNANSWERED,
         finding::TRAVEL_COMPANY_PAID_MEALS_UNANSWERED,
@@ -403,8 +404,10 @@ fn without_a_register_entry_the_trip_and_its_costs_wait_for_the_answer() {
 #[test]
 fn a_trip_the_computation_rejects_is_a_refusal_of_that_trip_only() {
     let mut d = draft();
+    // Valid on its own, but the register records a regular workplace, so the
+    // distance from it cannot be left out.
     let mut bad = trip_record();
-    bad.trip["end"] = json!("2026-03-10T06:00:00+02:00");
+    bad.trip["distances_km"]["from_regular_workplace"] = Value::Null;
     d.add_trip(Some("broken"), bad, now()).unwrap();
     let mut good = trip_record();
     good.trip["start"] = json!("2026-03-11T07:30:00+02:00");
@@ -414,9 +417,12 @@ fn a_trip_the_computation_rejects_is_a_refusal_of_that_trip_only() {
     let r = reviewed(&d, &Others::default());
     assert_eq!(codes(&r.refusals), [code::TRAVEL_INPUT_INVALID]);
     assert_eq!(r.refusals[0].trip_id.as_deref(), Some("broken"));
-    assert_eq!(
-        r.refusals[0].message,
-        "Trip broken: end must be after start"
+    assert!(
+        r.refusals[0]
+            .message
+            .starts_with("Trip broken: distances_km.from_regular_workplace is null"),
+        "{}",
+        r.refusals[0].message
     );
     assert_eq!(r.allowances.unwrap().trips.len(), 1);
 }
@@ -454,6 +460,22 @@ fn writes_validate_typed_fields() {
     assert_eq!(
         d.add_trip(None, record, now()).unwrap_err().code,
         code::TRAVEL_INPUT_INVALID
+    );
+    let mut record = trip_record();
+    record.trip["end"] = json!("2026-03-10T06:00:00+02:00");
+    let refused = d.add_trip(None, record, now()).unwrap_err();
+    assert_eq!(refused.code, code::TRAVEL_INPUT_INVALID);
+    assert_eq!(refused.message, "Trip t1: end must be after start");
+    let mut record = trip_record();
+    record.drives[0].drive["date"] = json!("2026-03-12");
+    let refused = d.add_trip(None, record, now()).unwrap_err();
+    assert_eq!(refused.code, code::TRAVEL_INPUT_INVALID);
+    assert!(
+        refused
+            .message
+            .starts_with("Trip t1: drive 1: date 2026-03-12 is outside the trip"),
+        "{}",
+        refused.message
     );
     let mut record = trip_record();
     record.purpose = Some("  ".into());
@@ -531,6 +553,12 @@ fn a_stored_draft_that_does_not_validate_is_refused() {
         code::TRAVEL_INPUT_INVALID
     );
     let mut edited = d.clone();
+    edited.trips[0].record.trip["end"] = json!("2026-03-09T19:00:00+02:00");
+    assert_eq!(
+        edited.validate().unwrap_err().code,
+        code::TRAVEL_INPUT_INVALID
+    );
+    let mut edited = d.clone();
     edited.trips.push(edited.trips[0].clone());
     assert_eq!(edited.validate().unwrap_err().code, code::CLAIM_ITEM_EXISTS);
     let mut edited = d.clone();
@@ -568,4 +596,30 @@ fn generated_claim_ids_come_from_the_claimant_and_the_first_date() {
         .unwrap();
     d.add_trip(None, trip_record(), now()).unwrap();
     assert_eq!(d.first_content_date(), Some(date));
+}
+
+#[test]
+fn a_receipt_or_evidence_missing_from_the_artifact_store_is_refused() {
+    let mut d = draft();
+    let mut record = trip_record();
+    record.evidence = vec![hash(8)];
+    d.add_trip(None, record, now()).unwrap();
+    d.add_line(
+        None,
+        line_record("2026-03-10", "12.40", Some(hash(9)), Some("t1")),
+        now(),
+    )
+    .unwrap();
+    let others = Others {
+        missing_artifacts: [hash(8), hash(9)].into_iter().collect(),
+        ..Others::default()
+    };
+    let r = reviewed(&d, &others);
+    assert_eq!(
+        codes(&r.refusals),
+        [finding::ARTIFACT_MISSING, finding::ARTIFACT_MISSING]
+    );
+    assert_eq!(r.refusals[0].trip_id.as_deref(), Some("t1"));
+    assert_eq!(r.refusals[1].line_id.as_deref(), Some("l1"));
+    assert!(!r.ready_for_approval);
 }

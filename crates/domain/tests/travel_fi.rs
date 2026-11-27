@@ -810,6 +810,23 @@ fn secondary_workplace_earns_mileage_only() {
     assert_eq!(c.totals.mileage, "55.00");
 }
 
+/// A drive is checked even on a trip that computes no allowance, so a
+/// malformed drive is an input error whatever the register says.
+#[test]
+fn a_drive_outside_the_trip_is_an_input_error_on_a_trip_to_the_regular_workplace() {
+    let mut trip = with(
+        domestic("2026-03-10T08:00:00+02:00", "2026-03-10T19:00:00+02:00"),
+        "drives",
+        json!([{"date": "2026-03-12", "km": "100", "vehicle": "car"}]),
+    );
+    trip["places"]["destination_place_ids"] = json!(["office"]);
+    let error = run(&claim(json!([trip]))).unwrap_err();
+    assert!(
+        matches!(&error, DomainError::TravelInput(m) if m.contains("outside the trip")),
+        "{error}"
+    );
+}
+
 #[test]
 fn a_lower_paid_amount_is_used() {
     let trip = with(

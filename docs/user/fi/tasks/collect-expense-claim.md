@@ -56,11 +56,13 @@ ja agentti kysyy siitä.
 |---|---|---|
 | `TRIP_STATUTORY_FIELD_MISSING` | matkalta puuttuu tarkoitus, kohde, matkustustapa tai (ajoista) reitti | kerro puuttuva tieto |
 | `TRIP_START_PLACE_UNANSWERED` | ei tiedetä, alkoiko matka kotoa, työpaikalta vai muualta | kerro, mistä lähdit |
+| `TRIP_DESTINATION_PLACES_UNANSWERED` | ei tiedetä, menikö matka rekisteriin kirjattuun paikkaan, kuten toissijaiselle työpaikalle | kerro, minne matka meni; rekisteri luokittelee matkan siitä |
 | `TRAVEL_FREE_MEALS_UNANSWERED`, `TRAVEL_COMPANY_PAID_MEALS_UNANSWERED` | matkavuorokaudelta puuttuu ilmaisten tai yrityksen maksamien aterioiden tieto | kerro määrä tai summat, myös nolla |
 | `DRIVE_VEHICLE_OWNERSHIP_UNANSWERED` | ei tiedetä, oliko ajoneuvo omasi tai hallinnassasi | kerro; kilometrikorvaus on verovapaa vain silloin |
 | `LINE_RECEIPT_MISSING` | kuittiriviltä puuttuu kuitti | anna kuitti tai kerro, miksi sitä ei ole |
 | `TRIP_OVERLAP` | matka on päällekkäin toisen saman henkilön matkan kanssa | korjaa ajat tai poista toinen matka |
 | `RECEIPT_ALREADY_BOOKED`, `RECEIPT_DUPLICATE` | sama kuitti on jo kirjattu tositteeksi tai toiselle riville | poista rivi; kuitti kirjataan kerran |
+| `ARTIFACT_MISSING` | kuitti- tai liitetiedostoa ei löydy yrityskodin liitevarastosta, esimerkiksi palautetusta varmuuskopiosta | tallenna tiedosto uudelleen ja korjaa rivi |
 | `LINE_TRIP_COSTS_NOT_TAX_FREE` | kuitti kuuluu matkaan, joka ei rekisterin mukaan ole työmatka | katso matkan oma kieltäytyminen |
 | `TRIP_RECORDED_AFTERWARDS` | matka kirjattiin vasta matkaa seuraavan kuukauden jälkeen | ei estä mitään; kululasku näyttää merkinnän |
 | `DRIVE_KM_BELOW_DISTANCE`, `DRIVE_KM_ABOVE_ROUTE` | ajetut kilometrit poikkeavat paljon matkan etäisyydestä | tarkista kilometrit tai kerro reitti |

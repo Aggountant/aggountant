@@ -122,8 +122,8 @@ pub(super) fn compute(
     workplace: Option<Workplace>,
     ctx: &mut Context,
 ) -> Result<Computed, DomainError> {
+    check(n, trip)?;
     let duration = secs(trip.end.duration_since(trip.start));
-    validate(n, trip, duration)?;
     let (timeline_start, counted) = match &trip.leisure {
         None => (trip.start, duration),
         Some(l) => (
@@ -132,7 +132,6 @@ pub(super) fn compute(
                 + (i64::from(l.outbound_travel_minutes) + i64::from(l.return_travel_minutes)) * 60,
         ),
     };
-    let first_date = finnish_local_time(trip.start).date();
     let last_date = finnish_local_time(trip.end).date();
 
     for situation in &trip.situations {
@@ -181,7 +180,7 @@ pub(super) fn compute(
             None,
         );
     } else if let Some(workplace) = workplace {
-        let m = mileage::compute(n, &trip.drives, first_date, last_date, ctx)?;
+        let m = mileage::compute(n, &trip.drives, ctx);
         maximum.mileage = m.amount;
         km = m.km;
         drives_out = m.drives;
@@ -298,6 +297,19 @@ pub(super) fn compute(
         allowance_codes: codes,
         end_month: format!("{:04}-{:02}", last_date.year(), last_date.month()),
     })
+}
+
+/// Check trip `n`'s input on its own, before and independently of the
+/// register's classification: a malformed drive is an input error even on a
+/// trip the register refuses.
+pub(super) fn check(n: usize, trip: &TripInput) -> Result<(), DomainError> {
+    validate(n, trip, secs(trip.end.duration_since(trip.start)))?;
+    let first_date = finnish_local_time(trip.start).date();
+    let last_date = finnish_local_time(trip.end).date();
+    for (i, drive) in trip.drives.iter().enumerate() {
+        mileage::validate(n, i + 1, drive, first_date, last_date)?;
+    }
+    Ok(())
 }
 
 fn validate(n: usize, trip: &TripInput, duration: i64) -> Result<(), DomainError> {

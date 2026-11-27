@@ -501,6 +501,7 @@ fn write(
             )
         }
     };
+    let before = draft.artifacts();
     let written = op(&mut draft)?;
     if generate_id {
         let first = draft
@@ -508,8 +509,11 @@ fn write(
             .expect("a new draft has the content just added");
         draft.claim_id = generated_claim_id(&draft.employee_id, first, |id| store.exists(id));
     }
-    for hash in draft.artifacts() {
-        if !ledger.artifact_exists(&hash)? {
+    // A file the write names must be stored first. One named earlier that
+    // has since gone missing is a refusal in the review instead, so that it
+    // does not block unrelated writes.
+    for hash in draft.artifacts().difference(&before) {
+        if !ledger.artifact_exists(hash)? {
             return Err(ClaimError::Refused {
                 code: "ARTIFACT_NOT_FOUND",
                 message: format!(
@@ -589,6 +593,11 @@ fn review_draft(
         .filter_map(|l| l.record.receipt_hash)
         .collect();
     others.booked = ledger.vouchers_attaching(&receipts)?;
+    for hash in draft.artifacts() {
+        if !ledger.artifact_exists(&hash)? {
+            others.missing_artifacts.insert(hash);
+        }
+    }
     Ok(review(
         draft,
         &Register {

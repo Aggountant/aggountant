@@ -633,6 +633,14 @@ const ACCOUNT_PAYABLE: (&str, &str) = ("2740", "Muut lyhytaikaiset velat");
 
 const MAX_TRIPS: usize = 100;
 
+/// Check one trip's input without the register: what [`compute_claim`]
+/// rejects as `TRAVEL_INPUT_INVALID` for the trip itself (end before start, a
+/// drive outside the trip, a surcharge on a boat). The message names the trip
+/// as "trip 1".
+pub fn check_trip(trip: &TripInput) -> Result<(), DomainError> {
+    trip::check(1, trip)
+}
+
 /// Compute the scheduled tax-free travel allowances of a claim, with each
 /// trip's workplace classified by the claimant's register rows (`places`,
 /// `facts`) as known `now`. Input that is malformed or contradictory is an
