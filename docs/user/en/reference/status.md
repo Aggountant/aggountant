@@ -87,7 +87,9 @@ instructions are in
   same way:
   [Record a travel advance and its settlement](../tasks/record-travel-advance.md).
   The expense claim model has been decided and is waiting to be built
-  (`expense-claim-model`).
+  (`expense-claim-model`). Its first part, the
+  [regular-workplace register](../tasks/record-regular-workplace.md), is in
+  use, but for now only the classification of a trip's places uses it.
 - A single voucher's postings are visible only to the agent, because without
   `--json`, `voucher show` shows only the number and the hash. Ask the agent
   to show the voucher's postings.
@@ -174,6 +176,8 @@ e-service, and record the payroll voucher in aggountant:
   although a report due on a Saturday or a holiday may be filed on the next
   banking day.
 - The employee register is not encrypted; the data is stored in plain text.
+  The same goes for the regular-workplace register, which may hold a home
+  address.
   The only protection is that the file is kept out of git. Keep the home
   directory and its backups for your own use only.
 - There is no safe way to enter personal data. `employee show` shows the

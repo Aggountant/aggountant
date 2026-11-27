@@ -47,6 +47,8 @@ Jos haluat mukaan ensimmäisten joukossa tai kehittämään, lue
 - [Laske matkan verovapaat korvaukset](tasks/compute-travel-allowances.md)
 - [Ilmoita matkakorvaukset Tulorekisteriin](tasks/report-travel-allowances.md)
 - [Kirjaa matkaennakko ja sen tilitys](tasks/record-travel-advance.md)
+- [Kirjaa varsinainen työpaikka](tasks/record-regular-workplace.md) ennen
+  ensimmäistä kululaskua
 - [Korjaa virheellinen tosite](tasks/correct-voucher.md)
 - [Varmuuskopioi ja palauta kirjanpito](tasks/back-up-and-restore.md)
 - [Päivitä aggountant](tasks/upgrade.md)

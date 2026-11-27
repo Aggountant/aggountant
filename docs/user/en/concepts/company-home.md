@@ -111,7 +111,7 @@ home.
 | `TODO.md` | pending items, open months and deadlines | yes |
 | `fiscal.sqlite` | sealed vouchers, period state and the voucher chain | **no** |
 | `artifacts/` | archived receipts, invoices and bank statements | **no** |
-| `masterdata/pii.sqlite` | employees' personal data | **no** |
+| `masterdata/pii.sqlite` | employees' personal data and expense claimants' regular workplaces | **no** |
 
 Some directories are created only when they are needed.
 

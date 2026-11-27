@@ -51,6 +51,8 @@ If you want to join early or help build it, read
 - [Compute the tax-free allowances of a trip](tasks/compute-travel-allowances.md)
 - [Report travel allowances to Tulorekisteri](tasks/report-travel-allowances.md)
 - [Record a travel advance and its settlement](tasks/record-travel-advance.md)
+- [Record your regular workplace](tasks/record-regular-workplace.md) before
+  the first expense claim
 - [Correct a wrong voucher](tasks/correct-voucher.md)
 - [Back up and restore your books](tasks/back-up-and-restore.md)
 - [Upgrade aggountant](tasks/upgrade.md)

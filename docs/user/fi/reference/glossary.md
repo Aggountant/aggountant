@@ -47,6 +47,11 @@ sen tilan viranomaiselta.
 tiliotteen tuonti tai kuittireitti ei sovi siihen. Tällaisia ovat esimerkiksi
 myyntilasku, palkkatosite, avaavat saldot ja korjaus.
 
+**Erityinen työntekemispaikka.** Tilapäinen paikka, kuten asiakkaan luona.
+Matka sinne on työmatka, josta voi maksaa verovapaita matkakorvauksia. Paikka,
+jota varsinaisen työpaikan rekisterissä ei ole, on erityinen
+työntekemispaikka.
+
 **Esikatselu.** Komennon ajo niin, että se näyttää lopputuloksen mutta ei
 tallenna mitään. Hyväksyt esikatselun ennen varsinaista tallennusta.
 
@@ -60,6 +65,9 @@ enää, jos sisältö muuttuu.
 **Hyväksyntätestit.** Verohallinnon API-portaalin testit, jotka ohjelmiston
 pitää läpäistä ennen tuotantokäyttöä. aggountant ajaa ne komennolla
 `vero-fi verify-portal`.
+
+**Ilmainen ateria.** Työnantajan tai esimerkiksi asiakkaan tarjoama ateria, ei
+hotellin aamiainen. Ilmaiset ateriat pienentävät verovapaata päivärahaa.
 
 **Ilmoitin.fi.** Verohallinnon palvelu ilmoitustiedostojen lähettämiseen.
 aggountant ei laadi Ilmoitin.fi-tiedostoja.
@@ -102,6 +110,9 @@ kertaan.
 **Matkaennakko.** Raha, jonka yritys maksaa henkilölle ennen matkaa. Se on
 yrityksen saaminen tilillä 1730, kunnes matkan kululasku kuitataan sitä
 vastaan. Ennakkoa ei ilmoiteta Tulorekisteriin.
+
+**Matkavuorokausi.** 24 tunnin jakso matkan alkamisesta, ei kalenteripäivä.
+Päivärahat lasketaan matkavuorokausista.
 
 **Ohjelmistoavain.** Verohallinnon API-portaalin antama avain, joka yksilöi
 rekisteröidyn ohjelmiston. Jokainen aggountantin käyttäjä rekisteröi oman
@@ -160,6 +171,10 @@ se päättyy.
 **Tilinpäätös.** Tilikauden päätteeksi laadittava tuloslaskelma, tase ja
 liitetiedot.
 
+**Toissijainen työpaikka.** Oman yhtiön toinen vakituinen toimipaikka
+toisessa kunnassa. Matkasta sinne voi korvata verovapaasti vain matka- ja
+majoituskulut.
+
 **Tosite.** Kirjanpidon perusyksikkö: yksi tapahtuma vienteineen, päivineen ja
 kuvauksineen sekä tarvittaessa liite. aggountantissa tositteet numeroidaan
 aukottomasti.
@@ -193,6 +208,11 @@ Suora ilmoitus on mahdollinen vain, kun valmius on kunnossa (`ready`).
 **Varmenne.** Verohallinnon myöntämä sähköinen todistus, jolla yrityksesi
 tunnistautuu rajapintaan. Varmenne on voimassa kaksi vuotta. Sen yksityinen
 avain on salainen.
+
+**Varsinainen työpaikka.** Paikka, jossa teet työtä vakituisesti, esimerkiksi
+oma toimisto tai kotitoimisto. Matka kodin ja varsinaisen työpaikan välillä ei
+oikeuta verovapaisiin matkakorvauksiin:
+[Kirjaa varsinainen työpaikka](../tasks/record-regular-workplace.md).
 
 **Velvoite.** Avoin asia määräpäivineen, esimerkiksi puuttuva ajopäiväkirja.
 Avoin velvoite estää kautensa sulun. Tavallisessa käytössä velvoitteita ei

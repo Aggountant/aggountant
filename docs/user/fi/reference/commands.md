@@ -30,6 +30,7 @@ valitsimet `--home` (mikä koti) ja `--json` (koneluettava tuloste agentille).
 | `vero-fi` | tallentaa suoran ilmoittamisen asetukset, tarkistaa valmiuden ja ajaa hyväksyntätestit | [Ota suora ALV-ilmoittaminen käyttöön](../tasks/set-up-vero-api.md) |
 | `employee` | lisää työntekijän työntekijärekisteriin ja näyttää rekisterin tiedot | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `claim compute` | laskee matkan verovapaat korvaukset esikatseluna kirjaamatta mitään | [Laske matkan verovapaat korvaukset](../tasks/compute-travel-allowances.md) |
+| `claimant` | kirjaa kululaskun tekijän paikat, varsinaisen työpaikan, suhteen yhtiöön ja pääomaosakkuuden päivättyinä tietoina, korjaa niitä ja luokittelee matkan paikat | [Kirjaa varsinainen työpaikka](../tasks/record-regular-workplace.md) |
 | `file-wage` | lähettää matkakorvausilmoituksen Tulorekisteriin, ja `file-wage correction` korvaa tai mitätöi hyväksytyn ilmoituksen | [Ilmoita matkakorvaukset Tulorekisteriin](../tasks/report-travel-allowances.md) |
 | `file-wage employer-report` | antaa työnantajan erillisilmoituksen, listaa puuttuvat kuukaudet, tarkistaa rekisteröinnin YTJ:stä ja tuo raportin 630 | [Anna työnantajan erillisilmoitus](../tasks/file-employer-report.md) |
 | `close-year` | tilinpäätösajo: kirjaa poistot, jaksotukset ja oikaisut ja sinetöi tilikauden | [Valmistele tilinpäätös](../tasks/year-end.md) |

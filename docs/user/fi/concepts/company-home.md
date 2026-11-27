@@ -108,7 +108,7 @@ sisällä.
 | `TODO.md` | odottavat asiat, avoimet kuukaudet ja määräajat | kyllä |
 | `fiscal.sqlite` | sinetöidyt tositteet, kausien tila ja tositeketju | **ei** |
 | `artifacts/` | arkistoidut kuitit, laskut ja tiliotteet | **ei** |
-| `masterdata/pii.sqlite` | työntekijöiden henkilötiedot | **ei** |
+| `masterdata/pii.sqlite` | työntekijöiden henkilötiedot ja kululaskun tekijöiden varsinaiset työpaikat | **ei** |
 
 Osa hakemistoista syntyy vasta, kun niitä tarvitaan.
 

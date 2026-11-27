@@ -105,6 +105,10 @@ calendar year it ends in.
 **Ilmoitin.fi.** The Tax Administration's service for sending return files.
 aggountant does not prepare Ilmoitin.fi files.
 
+**Free meal (ilmainen ateria).** A meal offered by the employer or, for
+example, a customer, not a hotel breakfast. Free meals reduce the tax-free per
+diem.
+
 **Income statement (tuloslaskelma).** A statement of a period's income,
 expenses and result.
 
@@ -169,6 +173,11 @@ to use the interface for real returns after the acceptance tests.
 `aggountant vero-fi status` calculates. A direct return is possible only when
 readiness is in order (`ready`).
 
+**Regular workplace (varsinainen työpaikka).** The place where you work
+permanently, for example your own office or a home office. A trip between home
+and the regular workplace earns no tax-free travel allowance:
+[Record your regular workplace](../tasks/record-regular-workplace.md).
+
 **Replacement return (korvaava ilmoitus).** A new return that replaces one
 already filed, in full. You approve sending it separately, and aggountant
 keeps the earlier acknowledgement next to the new one.
@@ -186,6 +195,10 @@ A run has an identifier such as `cp-…` (close), `fv-…` (VAT return), `wr-…
 gets a number and is added to the voucher chain, and it can no longer be
 changed.
 
+**Secondary workplace (toissijainen työpaikka).** Your company's other
+permanent premises in another municipality. For a trip there only travel and
+lodging costs can be reimbursed tax-free.
+
 **Shareholding (pääomaosakkuus).** Whether the income earner owns part of the
 company. Tulorekisteri's e-service calls it "Osakasasemassa maksajaan" (joint
 owner with the payer). In a Tulorekisteri report it is always stated
@@ -198,6 +211,11 @@ example `capture-receipt` for handling receipts.
 portal that identifies registered software. Every aggountant user registers
 their own software and gets their own key. The key is secret.
 
+**Special work site (erityinen työntekemispaikka).** A temporary place, such
+as at a customer's. A trip there is a work trip that can earn tax-free travel
+allowances. A place the regular-workplace register does not name is a special
+work site.
+
 **Trade payables (ostovelat).** Purchases not yet paid, on account 2700
 Ostovelat. A receipt paid from the company's account is recorded as a trade
 payable, and the statement's payment row clears it.
@@ -205,6 +223,9 @@ payable, and the statement's payment row clears it.
 **Travel advance (matkaennakko).** Money the company pays a person before a
 trip. It is the company's receivable on account 1730 until the trip's expense
 claim is offset against it. The advance is not reported to Tulorekisteri.
+
+**Travel day (matkavuorokausi).** A 24-hour span counted from the start of
+the trip, not a calendar day. Per diems are counted in travel days.
 
 **Tulorekisteri.** The Finnish Incomes Register, a national register to which
 wages, fees and allowances are reported.

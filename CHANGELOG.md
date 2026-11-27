@@ -24,6 +24,27 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   rate table is read only by this command. New guide page "Laske matkan
   verovapaat korvaukset" (Compute the tax-free allowances of a trip).
 
+- **Expense claims: the regular-workplace register.** The new `claimant`
+  commands record, for each person who files expense claims, their places,
+  their regular workplace (varsinainen työpaikka), secondary workplace and
+  tracked customer sites, their relationship to the company and their
+  shareholding as dated facts the user confirms, each workplace entry with a
+  basis code tied to the Tax Administration's guidance
+  (VH/630/00.01.00/2026). A fact is never edited: `claimant correct`
+  supersedes it, and `claimant show --as-known-at` answers what was known at
+  an earlier moment. `claimant snapshot` classifies a trip's places and
+  refuses a trip without a regular-workplace entry
+  (`REGULAR_WORKPLACE_UNKNOWN`) or to a regular workplace
+  (`TRIP_TO_REGULAR_WORKPLACE`); a secondary workplace is limited to travel
+  and lodging costs. A contractor cannot be a claimant. The guide has a new
+  task page, "Kirjaa varsinainen työpaikka" (Record your regular workplace),
+  and the glossary gained the legal terms. Every command opening a home
+  migrates `masterdata/pii.sqlite` from schema v1 to v2. The migration is
+  additive (two empty tables) and one-way: an older binary refuses the
+  migrated store, so back the store up before installing. A company that does
+  not use expense claims sees no question and no change in any other
+  command's output.
+
 - **Travel advances booked by hand.** The user guide has a new task page,
   "Kirjaa matkaennakko ja sen tilitys" (Record a travel advance and its
   settlement), and the `capture-receipt` skill bundles `matkaennakot.md`: the

@@ -84,7 +84,9 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   erikoiskirjauksena. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
   [Kirjaa matkaennakko ja sen tilitys](../tasks/record-travel-advance.md).
   Kululaskun malli on päätetty, ja se odottaa toteutusta
-  (`expense-claim-model`).
+  (`expense-claim-model`). Sen ensimmäinen osa,
+  [varsinaisen työpaikan rekisteri](../tasks/record-regular-workplace.md), on
+  käytössä, mutta toistaiseksi sitä käyttää vain matkan paikkojen luokittelu.
 - Yksittäisen tositteen viennit näkyvät vain agentille, koska `voucher show`
   näyttää ilman `--json`-valitsinta vain numeron ja tunnisteen. Pyydä
   agenttia näyttämään tositteen viennit.
@@ -170,7 +172,8 @@ asiointipalvelussa ja kirjaa palkkatosite aggountantiin:
 - Erillisilmoituksen määräpäivänä näytetään aina kuukauden 5. päivä, vaikka
   lauantaina tai pyhänä ilmoituksen saa antaa seuraavana pankkipäivänä.
 - Työntekijärekisteriä ei ole salattu, vaan tiedot tallentuvat
-  selväkielisinä. Suojana on vain se, että tiedosto pidetään erillään
+  selväkielisinä. Sama koskee varsinaisen työpaikan rekisteriä, jossa voi olla
+  kotiosoite. Suojana on vain se, että tiedosto pidetään erillään
   gitistä. Pidä kotihakemisto ja sen varmuuskopiot vain omassa käytössäsi.
 - Henkilötiedoille ei ole turvallista syöttötapaa. `employee show` näyttää
   henkilötunnuksen ja tilinumeron selväkielisinä, eikä tietoja voi syöttää
