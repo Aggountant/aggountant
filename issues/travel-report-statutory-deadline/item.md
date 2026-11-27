@@ -1,13 +1,15 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: bug
 reporter: jari
-status: open
+status: fixed
 priority: high
 lane: wage-reporting
 lane_seq: 15
 collision: [crates/domain/src/wage_report.rs, skills/tulorekisteri/SKILL.md]
+closed: 2026-11-27
+closed_by: worker
 ---
 
 # file-wage: show the statutory deadline for tax-exempt travel reports
@@ -61,3 +63,9 @@ ADR-11 (`docs/site/adr-11-expense-claim.md`, Proposed, section 9) confirms this 
 ### 2026-11-26T02:54:02Z · @worker
 
 ADR-11 was rewritten on 2026-11-26 to the product owner's decisions and now states principles only. The earlier comment's section number refers to the first text; the details it lists stand as this issue's own (now ADR-11 section 6). Nothing changes for this issue.
+
+## Resolution
+
+### 2026-11-27T13:17:47Z · @worker
+
+file-wage preview shows the statutory deadline for 311/331 reports (5th of the following month, next business day per 150/1930 5 §); see result.md.
