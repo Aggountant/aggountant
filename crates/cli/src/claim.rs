@@ -1,7 +1,8 @@
-//! `claim`: expense claims. Only the read-only preview exists so far:
-//! `claim compute` computes the scheduled travel allowances of a claimant's
-//! trips on stdin, with each trip's workplace classified by the claimant's
-//! regular-workplace register, and writes nothing.
+//! `claim`: expense claims. `claim compute` computes the scheduled travel
+//! allowances of a claimant's trips on stdin, with each trip's workplace
+//! classified by the claimant's regular-workplace register, and writes
+//! nothing. The draft commands (`claim trip`, `claim line`, `claim show`,
+//! `claim list`, `claim discard`) are in `claim_draft`.
 
 use std::path::Path;
 
@@ -12,7 +13,7 @@ use aggountant_domain::travel::fi::{compute_claim, ClaimInput};
 use aggountant_ledger::Ledger;
 use aggountant_model::Instant;
 
-use crate::{parse_stdin_json, read_stdin_text, CliError};
+use crate::{claim_draft, parse_stdin_json, read_stdin_text, CliError};
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum ClaimCmd {
@@ -22,11 +23,45 @@ pub(crate) enum ClaimCmd {
     /// edition used. Refusals are part of the result (exit 0).
     #[command(after_help = CLAIM_COMPUTE)]
     Compute,
+    /// The trips of a claim draft: add, revise or remove.
+    Trip {
+        #[command(subcommand)]
+        cmd: claim_draft::TripCmd,
+    },
+    /// The receipt lines of a claim draft: add, revise or remove.
+    Line {
+        #[command(subcommand)]
+        cmd: claim_draft::LineCmd,
+    },
+    /// Show a claim draft with its open questions, refusals, checks and
+    /// computed allowances, as JSON or as the readable Markdown claim.
+    /// Writes nothing.
+    Show {
+        #[arg(long)]
+        claim: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: claim_draft::Format,
+    },
+    /// List the open claim drafts.
+    List,
+    /// Discard a claim draft. Its id, last revision hash and the reason are
+    /// kept in the discard log; its content is removed.
+    Discard {
+        #[arg(long)]
+        claim: String,
+        #[arg(long)]
+        reason: String,
+    },
 }
 
 pub(crate) fn run(cmd: &ClaimCmd, home: &Path) -> Result<Value, CliError> {
     match cmd {
         ClaimCmd::Compute => compute(&read_stdin_text()?, home),
+        ClaimCmd::Trip { cmd } => claim_draft::trip(cmd, home),
+        ClaimCmd::Line { cmd } => claim_draft::line(cmd, home),
+        ClaimCmd::Show { claim, format } => claim_draft::show(claim, *format, home),
+        ClaimCmd::List => claim_draft::list(home),
+        ClaimCmd::Discard { claim, reason } => claim_draft::discard(claim, reason, home),
     }
 }
 
@@ -45,6 +80,11 @@ pub(crate) fn compute(input: &str, home: &Path) -> Result<Value, CliError> {
 
 pub(crate) fn human_line(cmd: &ClaimCmd, value: &Value) -> String {
     match cmd {
+        ClaimCmd::Trip { .. }
+        | ClaimCmd::Line { .. }
+        | ClaimCmd::Show { .. }
+        | ClaimCmd::List
+        | ClaimCmd::Discard { .. } => claim_draft::human_line(value),
         ClaimCmd::Compute => {
             let totals = &value["totals"];
             let amounts = format!(
@@ -278,6 +318,14 @@ mod tests {
             tree(dir.path()),
             "the preview wrote into the home"
         );
+
+        // Listing the drafts of a company without claims finds none and
+        // creates nothing: no draft directory, no .gitignore, no question.
+        assert_eq!(run(&["claim", "list"])["count"], 0);
+        assert_eq!(files_before, tree(dir.path()), "claim list wrote");
+        assert!(!std::path::Path::new(home)
+            .join(aggountant_process::expense_claim::CLAIM_DRAFT_DIR)
+            .exists());
     }
 
     /// Every file under `root` with its content.

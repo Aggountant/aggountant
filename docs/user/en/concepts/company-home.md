@@ -113,6 +113,7 @@ home.
 | `fiscal.sqlite` | sealed vouchers, period state and the voucher chain | **no** |
 | `artifacts/` | archived receipts, invoices and bank statements | **no** |
 | `masterdata/pii.sqlite` | employees' personal data and expense claimants' regular workplaces | **no** |
+| `intake/expense-claims/` | expense claim drafts; the folder has its own `.gitignore`, so git does not see them even in an older home | **no** |
 
 Some directories are created only when they are needed.
 

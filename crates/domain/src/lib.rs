@@ -22,6 +22,7 @@ pub mod bank_days;
 pub mod closeyear;
 pub mod consult;
 pub mod eligibility;
+pub mod expense_claim;
 pub mod payroll;
 pub mod statements;
 pub mod travel;

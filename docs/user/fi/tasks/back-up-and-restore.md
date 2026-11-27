@@ -24,8 +24,9 @@ Ota kopio ainakin jokaisen kuukauden sulun jälkeen ja
 
    Kopioon kuuluvat myös gitistä rajatut tiedostot: tositetietokanta
    (`fiscal.sqlite` ja sen rinnalla olevat `fiscal.sqlite-`-alkuiset
-   tiedostot), liitteet (`artifacts/`) ja henkilötiedot
-   (`masterdata/pii.sqlite`).
+   tiedostot), liitteet (`artifacts/`), henkilötiedot
+   (`masterdata/pii.sqlite`) ja kululaskujen luonnokset
+   (`intake/expense-claims/`).
 
 2. **Säilytä kopiot** kirjanpitolain
    [säilytysajan](../start/move-from-another-program.md#mitä-kerätään):

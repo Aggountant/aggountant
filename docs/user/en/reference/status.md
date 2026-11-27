@@ -78,16 +78,15 @@ instructions are in
   bookkeeper.
 - There is no separate correction command. A correction is recorded as an
   ordinary manual entry: [Correct a wrong voucher](../tasks/correct-voucher.md).
-- There is no expense claim or travel advance as a feature of its own.
-  aggountant computes a trip's tax-free allowances as a preview
-  ([Compute the tax-free allowances of a trip](../tasks/compute-travel-allowances.md)),
-  but it does not store the trip or approve the claim. The agent records a
-  claim's receipts through the receipt route and its mileage and per diems as
-  a manual entry. A travel advance and its offset are recorded by hand in the
-  same way:
+- An expense claim can be collected as a draft of trips and receipts
+  ([Collect an expense claim](../tasks/collect-expense-claim.md)), and
+  aggountant computes the trips' tax-free allowances, but the claim cannot be
+  approved or booked yet. The agent records a claim's receipts through the
+  receipt route and its mileage and per diems as a manual entry. Approval
+  and booking wait to be built (`expense-claim-approve-seal`). A travel
+  advance and its offset are recorded by hand:
   [Record a travel advance and its settlement](../tasks/record-travel-advance.md).
-  The expense claim model has been decided and is waiting to be built
-  (`expense-claim-model`). The computation classifies trips from the
+  The computation classifies trips from the
   [regular-workplace register](../tasks/record-regular-workplace.md).
 - A single voucher's postings are visible only to the agent, because without
   `--json`, `voucher show` shows only the number and the hash. Ask the agent

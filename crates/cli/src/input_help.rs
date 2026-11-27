@@ -1050,6 +1050,22 @@ mod tests {
                 "claimant snapshot",
                 parses::<aggountant_domain::workplace::SnapshotRequest>,
             ),
+            (
+                "claim trip add",
+                parses::<aggountant_domain::expense_claim::TripRecord>,
+            ),
+            (
+                "claim trip revise",
+                parses::<aggountant_domain::expense_claim::TripRecord>,
+            ),
+            (
+                "claim line add",
+                parses::<aggountant_domain::expense_claim::LineRecord>,
+            ),
+            (
+                "claim line revise",
+                parses::<aggountant_domain::expense_claim::LineRecord>,
+            ),
         ]
     }
 

@@ -91,6 +91,33 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   not use expense claims sees no question and no change in any other
   command's output.
 
+- **Expense claims: collecting a claim draft.** The new commands `claim trip
+  add|revise|remove` and `claim line add|revise|remove` build an expense claim
+  of trips and receipt lines over days or weeks, one trip or a whole month,
+  in a program-owned draft at `intake/expense-claims/<claim_id>/draft.json`;
+  `claim show [--format markdown]` renders it on request, `claim list` lists
+  the open drafts and `claim discard --reason` removes one, keeping only its
+  id, last revision hash and the reason. Every write validates the typed
+  fields, computes the trips with `claim compute`'s calculation and the
+  claimant register, and answers with machine-readable open questions (the
+  travel claim's statutory content under ennakkoperintäasetus 17 §, where the
+  trip started, free and company-paid meals per travel day, vehicle
+  ownership, missing receipts, the register's workplace questions),
+  refusals that block approval (overlapping trips, a receipt already booked
+  or repeated, a vehicle not the claimant's, a trip cost on a trip the
+  register does not make a work trip) and plausibility checks (kilometres
+  against the distance, a receipt outside every trip, a possible duplicate).
+  A trip recorded after the end of the month following the one it ended in
+  is marked as recorded afterwards. Receipts are attached to the artifact
+  store first and the draft keeps their hash. The draft directory gets its
+  own `.gitignore`, so no draft reaches git even in a home whose root
+  `.gitignore` predates it; a draft edited by hand that no longer validates
+  is refused (`CLAIM_DRAFT_INVALID`). A claim cannot be approved yet. New
+  guide page "Kokoa kululasku" (Collect an expense claim) and a new
+  `expense-claim` skill. No store migration; a company that does not use
+  expense claims gets no directory, no question and no change in any other
+  command's output.
+
 - **Travel advances booked by hand.** The user guide has a new task page,
   "Kirjaa matkaennakko ja sen tilitys" (Record a travel advance and its
   settlement), and the `capture-receipt` skill bundles `matkaennakot.md`: the

@@ -112,8 +112,10 @@ nothing. The input fields are shown by
 
 ## Limitations
 
-- The trip is not stored yet, and an expense claim cannot be approved in
-  aggountant: the allowances are recorded and reported by hand.
+- The computation does not store the trip. Trips are stored in an expense
+  claim draft ([Collect an expense claim](collect-expense-claim.md)), but a
+  claim cannot be approved in aggountant yet: the allowances are recorded and
+  reported by hand.
 - If no relationship to the company or regular workplace is recorded for the
   traveller on the trip date, the computation refuses
   (`CLAIMANT_RELATIONSHIP_UNKNOWN`, `REGULAR_WORKPLACE_UNKNOWN`) and computes

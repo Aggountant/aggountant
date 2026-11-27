@@ -109,8 +109,9 @@ yrityskodin rekisteristä ja tulostaa laskelman. Se ei kirjoita mitään. Syött
 
 ## Rajoitukset
 
-- Matkaa ei vielä tallenneta, eikä kululaskua voi hyväksyä aggountantissa:
-  korvaukset kirjataan ja ilmoitetaan käsin.
+- Laskenta ei tallenna matkaa. Matkat tallennetaan kululaskun luonnokseen
+  ([Kokoa kululasku](collect-expense-claim.md)), mutta kululaskua ei vielä
+  voi hyväksyä aggountantissa: korvaukset kirjataan ja ilmoitetaan käsin.
 - Jos matkustajalle ei ole kirjattu suhdetta yhtiöön tai varsinaista
   työpaikkaa matkan päivälle, laskenta kieltäytyy
   (`CLAIMANT_RELATIONSHIP_UNKNOWN`, `REGULAR_WORKPLACE_UNKNOWN`) eikä laske

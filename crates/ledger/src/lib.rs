@@ -598,6 +598,32 @@ impl Ledger {
         self.artifact.put(plaintext)
     }
 
+    /// Whether an artifact with this content address is stored.
+    pub fn artifact_exists(&self, addr: &Hash) -> Result<bool, LedgerError> {
+        self.artifact.exists(addr)
+    }
+
+    /// The sealed vouchers whose attachment is one of `wanted`, by attachment,
+    /// in one pass over the fiscal store: an expense-claim draft asks it for
+    /// every receipt it holds, to find a receipt that is already booked.
+    pub fn vouchers_attaching(
+        &self,
+        wanted: &std::collections::BTreeSet<Hash>,
+    ) -> Result<std::collections::BTreeMap<Hash, Vec<u64>>, LedgerError> {
+        let mut found: std::collections::BTreeMap<Hash, Vec<u64>> = Default::default();
+        if wanted.is_empty() {
+            return Ok(found);
+        }
+        let snapshot = self.fiscal.verification_snapshot()?;
+        for stored in &snapshot.vouchers {
+            let view = voucher_read::decode_view(stored)?;
+            if let Some(hash) = view.body.attachment_ref().filter(|h| wanted.contains(h)) {
+                found.entry(hash).or_default().push(view.number);
+            }
+        }
+        Ok(found)
+    }
+
     /// The content address [`Self::attach_artifact`] would return for these bytes,
     /// computed without storing them, so a preview can show and bind the exact
     /// draft a later seal attaches.

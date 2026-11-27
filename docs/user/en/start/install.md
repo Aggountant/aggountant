@@ -44,6 +44,7 @@ program.
    | `migrate` | moving from another program one area at a time (the books, VAT, the Incomes Register, expense claims): exporting, checking and archiving the old material |
    | `capture-receipt` | the month's books: receipts, the bank statement, manual entries, reconciliation and the month close |
    | `vero-fi` | the VAT return to the Tax Administration and setting up direct VAT filing |
+   | `expense-claim` | collecting an expense claim from trips, drives and receipts |
    | `tulorekisteri` | the Incomes Register travel allowance report and the employer's separate report |
    | `close-year` | closing a fiscal year: the year-end entries, the approvals and sealing the year |
    | `e-services` | working OmaVero and the Incomes Register e-service in your browser: how their pages behave, as dated observations |

@@ -51,6 +51,7 @@ macro_rules! vero_transport_help {
 
 mod bank_import;
 mod claim;
+mod claim_draft;
 mod claimant;
 mod explain;
 mod home;
@@ -97,9 +98,9 @@ enum Command {
         #[command(subcommand)]
         cmd: wage::WageCmd,
     },
-    /// Expense claims: `claim compute` previews the scheduled tax-free travel
-    /// allowances of a claimant's trips from stdin JSON, classified by the
-    /// regular-workplace register (read-only).
+    /// Expense claims: collect a claim draft of trips and receipt lines
+    /// (`claim trip`, `claim line`, `claim show`), or preview the scheduled
+    /// tax-free travel allowances of trips (`claim compute`, read-only).
     Claim {
         #[command(subcommand)]
         cmd: claim::ClaimCmd,

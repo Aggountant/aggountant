@@ -76,15 +76,15 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   Agentti kertoo, jos osto on sellainen, ja silloin kysyt kirjanpitäjältäsi.
 - Omaa korjauskomentoa ei ole. Korjaus kirjataan tavallisena
   erikoiskirjauksena: [Korjaa virheellinen tosite](../tasks/correct-voucher.md).
-- Kululaskua ja matkaennakkoa ei ole omana toimintonaan. aggountant laskee
-  matkan verovapaat korvaukset esikatseluna
-  ([Laske matkan verovapaat korvaukset](../tasks/compute-travel-allowances.md)),
-  mutta ei tallenna matkaa eikä hyväksy kululaskua. Agentti kirjaa kululaskun
-  kuitit kuittireitillä ja kilometrikorvaukset ja päivärahat
-  erikoiskirjauksena. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
+- Kululaskun voi koota luonnokseksi matkoista ja kuiteista
+  ([Kokoa kululasku](../tasks/collect-expense-claim.md)), ja aggountant laskee
+  matkojen verovapaat korvaukset, mutta kululaskua ei vielä voi hyväksyä eikä
+  kirjata. Agentti kirjaa kululaskun kuitit kuittireitillä ja
+  kilometrikorvaukset ja päivärahat erikoiskirjauksena. Hyväksyntä ja
+  kirjaus odottavat toteutusta (`expense-claim-approve-seal`). Matkaennakko
+  ja sen kuittaus kirjataan käsin:
   [Kirjaa matkaennakko ja sen tilitys](../tasks/record-travel-advance.md).
-  Kululaskun malli on päätetty, ja se odottaa toteutusta
-  (`expense-claim-model`). Laskenta luokittelee matkat
+  Laskenta luokittelee matkat
   [varsinaisen työpaikan rekisteristä](../tasks/record-regular-workplace.md).
 - Yksittäisen tositteen viennit näkyvät vain agentille, koska `voucher show`
   näyttää ilman `--json`-valitsinta vain numeron ja tunnisteen. Pyydä

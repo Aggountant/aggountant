@@ -60,3 +60,20 @@ sealed voucher and can only be undone by a correction voucher.
   one needs a source or a product-owner decision recorded in the issue.
 - The trip's workplace classification is an input; the Domain does not judge
   what a regular workplace is.
+
+## Expense-claim drafts (`expense_claim`)
+
+- **A draft trip is stored in the travel computation's own input shape.**
+  `TripRecord.trip` and `DraftDrive.drive` are the JSON `claim compute` takes,
+  checked by deserializing into `travel::fi::TripInput`; the draft adds only
+  claim metadata (source, recording time, statutory text fields, evidence).
+  Do not give the draft a second trip schema: two would drift, and a field the
+  draft knew but the computation did not would be shown but never computed.
+- **An answer left out is a question, never "none".** Where the computation's
+  input types default an absent field (`company_paid_meals` to `[]`,
+  `start_place_id` to none), the draft looks for the key in the stored JSON
+  and asks when it is missing. Keep that check when the computation's input
+  changes, because a silent default makes an allowance too large.
+- **Questions and refusals block approval, never the write.** A write is
+  refused only for input that cannot be stored or computed at all; everything
+  the user still has to answer or settle is a finding in the review.

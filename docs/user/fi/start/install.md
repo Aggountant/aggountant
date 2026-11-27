@@ -43,6 +43,7 @@ ohjelman.
    | `migrate` | siirto toisesta ohjelmasta alue kerrallaan: kirjanpito, ALV, Tulorekisteri ja kululaskut, vanhan aineiston vienti, tarkistus ja arkistointi |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | ALV-ilmoitus Verohallinnolle ja suoran ALV-ilmoittamisen käyttöönotto |
+   | `expense-claim` | kululaskun kokoaminen matkoista, ajoista ja kuiteista |
    | `tulorekisteri` | Tulorekisterin matkakorvausilmoitus ja työnantajan erillisilmoitus |
    | `close-year` | tilikauden päättäminen: tilinpäätöksen kirjaukset, hyväksynnät ja tilikauden sinetöinti |
    | `e-services` | OmaVeron ja Tulorekisterin asiointipalvelun käyttö selaimessasi: miten sivut toimivat, päivättyinä havaintoina |

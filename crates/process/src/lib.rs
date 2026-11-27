@@ -28,6 +28,7 @@ mod close_period;
 mod close_year;
 mod company_knowledge;
 mod error;
+pub mod expense_claim;
 mod file_vat;
 mod hunt_receipts;
 mod intake;

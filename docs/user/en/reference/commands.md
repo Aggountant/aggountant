@@ -32,6 +32,7 @@ the agent).
 | `vero-fi` | saves the direct filing settings, checks readiness and runs the acceptance tests | [Set up direct VAT filing](../tasks/set-up-vero-api.md) |
 | `employee` | adds an employee to the employee register and shows the register's data | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `claim compute` | computes a trip's tax-free allowances as a preview, recording nothing | [Compute the tax-free allowances of a trip](../tasks/compute-travel-allowances.md) |
+| `claim trip`, `claim line`, `claim show`, `claim list`, `claim discard` | collect an expense claim draft of trips and receipt lines, list its open questions and show it | [Collect an expense claim](../tasks/collect-expense-claim.md) |
 | `claimant` | records an expense claimant's places, regular workplace, relationship to the company and shareholding as dated facts, corrects them and classifies a trip's places | [Record your regular workplace](../tasks/record-regular-workplace.md) |
 | `file-wage` | sends the travel allowance report to Tulorekisteri, and `file-wage correction` replaces or cancels an accepted report | [Report travel allowances to Tulorekisteri](../tasks/report-travel-allowances.md) |
 | `file-wage employer-report` | files the employer's separate report, lists missing months, checks the registration in YTJ and imports transcript 630 | [File the employer's separate report](../tasks/file-employer-report.md) |

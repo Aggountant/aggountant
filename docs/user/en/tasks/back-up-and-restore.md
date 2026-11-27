@@ -24,8 +24,9 @@ Take a copy at least after every month close and
 
    The copy includes the files excluded from git: the voucher database
    (`fiscal.sqlite` and the files next to it whose names start with
-   `fiscal.sqlite-`), the attachments (`artifacts/`) and the personal data
-   (`masterdata/pii.sqlite`).
+   `fiscal.sqlite-`), the attachments (`artifacts/`), the personal data
+   (`masterdata/pii.sqlite`) and the expense claim drafts
+   (`intake/expense-claims/`).
 
 2. **Keep the copies** for the Accounting Act's
    [retention period](../start/move-from-another-program.md#what-to-collect):
