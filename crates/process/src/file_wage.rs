@@ -486,5 +486,18 @@ mod tests {
             hash("2026-10-25T12:00:00.120Z"),
             "a58223837d6f39ae630eaacc8bad68e6524ecc4d994c486d0f8800a0a0d2cecc"
         );
+        // A 331 line in the single-code shape every stored run has, given in
+        // either input shape, keeps the hash the earlier build computed.
+        for line in [
+            serde_json::json!({"income_type":"331","amount":"54.00","allowance_code":3}),
+            serde_json::json!({"income_type":"331","amount":"54.00","allowance_codes":[3]}),
+        ] {
+            let mut with_daily = report.clone();
+            with_daily.lines.push(serde_json::from_value(line).unwrap());
+            assert_eq!(
+                proposal_hash(&with_daily, "2026-10-25T12:00:00Z".parse().unwrap()).unwrap(),
+                "ed9edb7d8411bf1155b04f0ee05cade484942840abd58c19c6f0fb08ba58a76d"
+            );
+        }
     }
 }
