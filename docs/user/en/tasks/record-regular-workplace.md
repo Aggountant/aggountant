@@ -69,6 +69,11 @@ the reason. A correction can reach back in time. The old fact stays in the
 history, so later you can see what the register said when an earlier claim was
 approved.
 
+A place is not edited either. If a place's address was wrong, the agent
+records the place again under a new id, marks it as replacing the old one and
+corrects the facts that named the old place to name the new one. The old place
+can no longer be referred to after that.
+
 Two contradicting facts for the same days cannot be recorded, for example two
 primary regular workplaces. The agent then corrects the old fact instead.
 

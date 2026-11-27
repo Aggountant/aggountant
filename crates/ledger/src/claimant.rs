@@ -12,8 +12,8 @@
 use serde::Serialize;
 
 use aggountant_domain::workplace::{
-    register_view, trip_snapshot, validate_fact, validate_place, ClaimantFact, NewFact, NewPlace,
-    Place, RegisterView, SnapshotRequest, TripSnapshot,
+    register_view, resolve_as_known_at, trip_snapshot, validate_fact, validate_place, ClaimantFact,
+    NewFact, NewPlace, Place, RegisterView, SnapshotRequest, TripSnapshot,
 };
 use aggountant_model::{Date, Instant};
 
@@ -39,6 +39,7 @@ impl Ledger {
             label: new.label.clone(),
             location: new.location.clone(),
             municipality: new.municipality.clone(),
+            replaces: new.replaces.clone(),
             recorded_at: now,
             confirmed_by: new.confirmed_by.clone(),
         };
@@ -71,7 +72,7 @@ impl Ledger {
     }
 
     /// What was in force for a person on `date`, as known at `as_known_at`
-    /// (now when `None`).
+    /// (now when `None`; refused if the clock is behind the register).
     pub fn claimant_view(
         &self,
         employee_id: &str,
@@ -80,12 +81,13 @@ impl Ledger {
         now: Instant,
     ) -> Result<RegisterView, LedgerError> {
         let rows = self.pii.claimant_rows(employee_id)?;
+        let at = resolve_as_known_at(as_known_at, &rows.places, &rows.facts, now)?;
         Ok(register_view(
             employee_id,
             &rows.places,
             &rows.facts,
             date,
-            as_known_at.unwrap_or(now),
+            at,
         ))
     }
 
@@ -146,6 +148,7 @@ mod tests {
                     label: id.into(),
                     location: "Esimerkkikatu 1, Tampere".into(),
                     municipality: "Tampere".into(),
+                    replaces: None,
                     confirmed_by: "Maija Meikäläinen".into(),
                 },
                 at,

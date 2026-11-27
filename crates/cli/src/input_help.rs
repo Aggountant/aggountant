@@ -827,6 +827,9 @@ pub(crate) const CLAIMANT_PLACE_ADD: &str = r#"INPUT (JSON on stdin)
   location      the address distances are measured from.
   municipality  the municipality (kunta); a secondary workplace must be in
                 another municipality than the primary regular workplace.
+  replaces      optional, the id of a place this one corrects (same place,
+                corrected details). The old place can then no longer be named:
+                correct the entries that name it to name the new place.
   confirmed_by  who confirmed the place.
 
 Example JSON (input-shape demonstration only):
@@ -919,7 +922,8 @@ pub(crate) const CLAIMANT_SNAPSHOT: &str = r#"INPUT (JSON on stdin)
   Output: the register in force with its facts_digest, each place's role and
   classification, and scope: full, or travel_and_lodging_only for a secondary
   workplace. Refused: CLAIMANT_RELATIONSHIP_UNKNOWN, REGULAR_WORKPLACE_UNKNOWN,
-  TRIP_TO_REGULAR_WORKPLACE.
+  TRIP_TO_REGULAR_WORKPLACE, TRIP_TO_HOME (the home listed as a destination;
+  list the places the trip went to for work), PLACE_REPLACED.
 
 Example JSON (input-shape demonstration only):
 ```json

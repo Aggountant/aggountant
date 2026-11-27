@@ -88,9 +88,14 @@ const MIGRATIONS: &[Migration] = &[
              label        TEXT NOT NULL,
              location     TEXT NOT NULL,
              municipality TEXT NOT NULL,
+             -- the place this row corrects; a place is replaced at most once
+             replaces     TEXT,
              recorded_at  TEXT NOT NULL,
              confirmed_by TEXT NOT NULL,
-             PRIMARY KEY (employee_id, place_id)
+             PRIMARY KEY (employee_id, place_id),
+             UNIQUE (employee_id, replaces),
+             FOREIGN KEY (employee_id, replaces)
+                 REFERENCES claimant_place(employee_id, place_id)
           );
           -- One row per assertion or retraction; a correction supersedes exactly
           -- one earlier row (UNIQUE), so the history never forks.
@@ -336,7 +341,8 @@ fn read_claimant_rows(conn: &Connection, employee_id: &str) -> Result<ClaimantRo
         )));
     }
     let mut stmt = conn.prepare(
-        "SELECT place_id, kind, label, location, municipality, recorded_at, confirmed_by
+        "SELECT place_id, kind, label, location, municipality, replaces, recorded_at,
+                confirmed_by
          FROM claimant_place WHERE employee_id = ?1 ORDER BY rowid",
     )?;
     let places = stmt
@@ -347,12 +353,22 @@ fn read_claimant_rows(conn: &Connection, employee_id: &str) -> Result<ClaimantRo
                 r.get::<_, String>(2)?,
                 r.get::<_, String>(3)?,
                 r.get::<_, String>(4)?,
-                r.get::<_, String>(5)?,
+                r.get::<_, Option<String>>(5)?,
                 r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
             ))
         })?
         .map(|row| {
-            let (place_id, kind, label, location, municipality, recorded_at, confirmed_by) = row?;
+            let (
+                place_id,
+                kind,
+                label,
+                location,
+                municipality,
+                replaces,
+                recorded_at,
+                confirmed_by,
+            ) = row?;
             Ok(Place {
                 employee_id: employee_id.to_string(),
                 kind: serde_json::from_value(serde_json::Value::String(kind))
@@ -361,6 +377,7 @@ fn read_claimant_rows(conn: &Connection, employee_id: &str) -> Result<ClaimantRo
                 label,
                 location,
                 municipality,
+                replaces,
                 recorded_at: Instant::parse(&recorded_at).map_err(|e| corrupt("recorded_at", e))?,
                 confirmed_by,
             })
@@ -430,9 +447,9 @@ impl ClaimantStore for SqlitePiiStore {
         let kind = serde_json::to_value(place.kind).map_err(|e| corrupt("place kind", e))?;
         tx.execute(
             "INSERT INTO claimant_place
-                 (employee_id, place_id, kind, label, location, municipality,
+                 (employee_id, place_id, kind, label, location, municipality, replaces,
                   recorded_at, confirmed_by)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 place.employee_id,
                 place.place_id,
@@ -440,6 +457,7 @@ impl ClaimantStore for SqlitePiiStore {
                 place.label,
                 place.location,
                 place.municipality,
+                place.replaces,
                 place.recorded_at.to_string(),
                 place.confirmed_by
             ],
@@ -879,6 +897,7 @@ mod tests {
             label: "Koti".into(),
             location: "Esimerkkikatu 1, Tampere".into(),
             municipality: "Tampere".into(),
+            replaces: None,
             recorded_at: Instant::from_unix(1_800_000_000, 0).unwrap(),
             confirmed_by: "Maija Meikäläinen".into(),
         }

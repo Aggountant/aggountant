@@ -324,7 +324,9 @@ pub struct ClaimantFact {
 }
 
 /// One stored, never-edited place. A place whose details were wrong is
-/// replaced by a new place and a correction of the entries that named it.
+/// replaced: a new place names it in `replaces`, and the entries that named the
+/// old place are corrected to name the new one. A replaced place can no longer
+/// be named by an entry or a trip, so a stale id cannot pass for another place.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Place {
     pub employee_id: String,
@@ -334,6 +336,8 @@ pub struct Place {
     /// Address or other location distances are measured from.
     pub location: String,
     pub municipality: String,
+    /// The place this one replaces (the same place with corrected details).
+    pub replaces: Option<String>,
     pub recorded_at: Instant,
     pub confirmed_by: String,
 }
@@ -365,6 +369,10 @@ pub struct NewPlace {
     pub label: String,
     pub location: String,
     pub municipality: String,
+    /// The place this one replaces, when it records the same place with
+    /// corrected details.
+    #[serde(default)]
+    pub replaces: Option<String>,
     pub confirmed_by: String,
 }
 
@@ -458,8 +466,12 @@ pub enum RefusalCode {
     SecondaryWorkplaceInvalid,
     /// The basis code does not fit the role or the place.
     WorkplaceBasisMismatch,
+    /// A trip names the person's home as a destination.
+    TripToHome,
     PlaceNotFound,
     PlaceAlreadyRecorded,
+    /// The place was replaced by a corrected one.
+    PlaceReplaced,
     ClaimantFactNotFound,
     ClaimantFactSuperseded,
     /// The clock is behind the last recorded row, which would break the
@@ -479,7 +491,9 @@ impl RefusalCode {
             RefusalCode::SecondaryWorkplaceInvalid => "SECONDARY_WORKPLACE_INVALID",
             RefusalCode::WorkplaceBasisMismatch => "WORKPLACE_BASIS_MISMATCH",
             RefusalCode::PlaceNotFound => "PLACE_NOT_FOUND",
+            RefusalCode::TripToHome => "TRIP_TO_HOME",
             RefusalCode::PlaceAlreadyRecorded => "PLACE_ALREADY_RECORDED",
+            RefusalCode::PlaceReplaced => "PLACE_REPLACED",
             RefusalCode::ClaimantFactNotFound => "CLAIMANT_FACT_NOT_FOUND",
             RefusalCode::ClaimantFactSuperseded => "CLAIMANT_FACT_SUPERSEDED",
             RefusalCode::ClaimantClockBehind => "CLAIMANT_CLOCK_BEHIND",
@@ -560,12 +574,51 @@ fn check_clock(
                 RefusalCode::ClaimantClockBehind,
                 format!(
                     "the system clock ({now}) is behind the last register entry ({last}); \
-                     fix the clock before recording, so that \"as known at\" stays in order"
+                     fix the clock first, so that \"as known at\" stays in order"
                 ),
             ));
         }
     }
     Ok(())
+}
+
+/// Refuse a place that was replaced, as known at `at` (`None`: now).
+fn replaced_check(
+    places: &[Place],
+    place_id: &str,
+    at: Option<Instant>,
+) -> Result<(), ClaimantRefusal> {
+    if let Some(by) = places
+        .iter()
+        .find(|p| p.replaces.as_deref() == Some(place_id) && at.is_none_or(|t| p.recorded_at <= t))
+    {
+        return Err(refuse(
+            RefusalCode::PlaceReplaced,
+            format!(
+                "place {place_id:?} was replaced by {:?}; name the new place instead",
+                by.place_id
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// The instant a query reads the register at: the one asked for, or now. A
+/// query "as known now" refuses when the clock is behind the last recorded row,
+/// because the rows recorded after the clock's time would silently drop out.
+pub fn resolve_as_known_at(
+    as_known_at: Option<Instant>,
+    places: &[Place],
+    facts: &[ClaimantFact],
+    now: Instant,
+) -> Result<Instant, ClaimantRefusal> {
+    match as_known_at {
+        Some(at) => Ok(at),
+        None => {
+            check_clock(now, places, facts)?;
+            Ok(now)
+        }
+    }
 }
 
 /// Validate a new place against the person's existing places.
@@ -585,10 +638,23 @@ pub fn validate_place(
             RefusalCode::PlaceAlreadyRecorded,
             format!(
                 "place {:?} is already recorded for {}; places are never edited, so record \
-                 the corrected place under a new id and correct the entries that name it",
-                new.place_id, new.employee_id
+                 the corrected place under a new id with \"replaces\": {:?} and correct the \
+                 entries that name it",
+                new.place_id, new.employee_id, new.place_id
             ),
         ));
+    }
+    if let Some(old) = &new.replaces {
+        if !places.iter().any(|p| &p.place_id == old) {
+            return Err(refuse(
+                RefusalCode::PlaceNotFound,
+                format!(
+                    "place {old:?} to be replaced is not recorded for {}",
+                    new.employee_id
+                ),
+            ));
+        }
+        replaced_check(places, old, None)?;
     }
     check_clock(now, places, facts)
 }
@@ -757,12 +823,16 @@ fn validate_workplace(
                 format!("role {:?} needs a place_id", role.as_str()),
             ))
         }
-        (_, Some(id)) => Some(places.iter().find(|p| &p.place_id == id).ok_or_else(|| {
-            refuse(
-                RefusalCode::PlaceNotFound,
-                format!("place {id:?} is not recorded for this person; add it first"),
-            )
-        })?),
+        (_, Some(id)) => {
+            let place = places.iter().find(|p| &p.place_id == id).ok_or_else(|| {
+                refuse(
+                    RefusalCode::PlaceNotFound,
+                    format!("place {id:?} is not recorded for this person; add it first"),
+                )
+            })?;
+            replaced_check(places, id, None)?;
+            Some(place)
+        }
     };
 
     if *basis == BasisCode::Other
@@ -1041,6 +1111,7 @@ pub struct SnapshotRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TripPlace {
     pub place_id: String,
+    pub kind: PlaceKind,
     /// The role in force for the place, if the register gives it one.
     pub role: Option<WorkplaceRole>,
     pub classification: Classification,
@@ -1060,18 +1131,19 @@ fn trip_place(
     places: &[Place],
     place_id: &str,
 ) -> Result<TripPlace, ClaimantRefusal> {
-    if !places
+    let place = places
         .iter()
-        .any(|p| p.place_id == place_id && p.recorded_at <= view.as_known_at)
-    {
-        return Err(refuse(
-            RefusalCode::PlaceNotFound,
-            format!(
-                "place {place_id:?} is not recorded for {}",
-                view.employee_id
-            ),
-        ));
-    }
+        .find(|p| p.place_id == place_id && p.recorded_at <= view.as_known_at)
+        .ok_or_else(|| {
+            refuse(
+                RefusalCode::PlaceNotFound,
+                format!(
+                    "place {place_id:?} is not recorded for {}",
+                    view.employee_id
+                ),
+            )
+        })?;
+    replaced_check(places, place_id, Some(view.as_known_at))?;
     let entry = view
         .workplaces
         .iter()
@@ -1088,6 +1160,7 @@ fn trip_place(
     };
     Ok(TripPlace {
         place_id: place_id.to_string(),
+        kind: place.kind,
         role,
         classification,
         basis: entry.map(|w| w.basis),
@@ -1104,7 +1177,7 @@ pub fn trip_snapshot(
     facts: &[ClaimantFact],
     now: Instant,
 ) -> Result<TripSnapshot, ClaimantRefusal> {
-    let as_known_at = request.as_known_at.unwrap_or(now);
+    let as_known_at = resolve_as_known_at(request.as_known_at, places, facts, now)?;
     let view = register_view(
         &request.employee_id,
         places,
@@ -1144,6 +1217,22 @@ pub fn trip_snapshot(
         .iter()
         .map(|id| trip_place(&view, places, id))
         .collect::<Result<Vec<_>, _>>()?;
+    // The home is where a trip starts and ends, never what it is made to: a
+    // journey home is the return leg, and home as a regular workplace is
+    // refused in `trip_scope` as a trip to a regular workplace.
+    if let Some(home) = destinations
+        .iter()
+        .find(|d| d.kind == PlaceKind::Home && d.classification != Classification::RegularWorkplace)
+    {
+        return Err(refuse(
+            RefusalCode::TripToHome,
+            format!(
+                "{:?} is the home of {}: a journey home is part of the trip, not a place it \
+                 is made to; list the places the trip went to for work",
+                home.place_id, request.employee_id
+            ),
+        ));
+    }
     let has_primary = view
         .workplaces
         .iter()
@@ -1230,6 +1319,7 @@ mod tests {
             label: format!("{id} label"),
             location: format!("Esimerkkikatu 1, {municipality}"),
             municipality: municipality.into(),
+            replaces: None,
             recorded_at: t(0),
             confirmed_by: "Maija Meikäläinen".into(),
         }
@@ -1886,6 +1976,151 @@ mod tests {
         assert_eq!(err.error_code(), "CLAIMANT_CLOCK_BEHIND");
     }
 
+    fn regular(place: &str, basis: BasisCode) -> FactEntry {
+        entry(
+            workplace(Some(place), WorkplaceRole::RegularPrimary, basis),
+            "2024-01-01",
+            None,
+        )
+    }
+
+    #[test]
+    fn the_home_is_never_a_trip_destination() {
+        let mut reg = Reg::new();
+        reg.employee();
+        reg.add(regular("office", BasisCode::WorksThereRegularly), t(10))
+            .unwrap();
+        // Office to home is the commute, not a trip to a special work site.
+        let err = reg
+            .snapshot("2025-03-04", Some("office"), &["home"], None)
+            .unwrap_err();
+        assert_eq!(err.error_code(), "TRIP_TO_HOME");
+
+        // When the home is the regular workplace, it is refused as such.
+        let mut reg = Reg::new();
+        reg.employee();
+        reg.add(regular("home", BasisCode::CompanyPremisesInHome), t(10))
+            .unwrap();
+        let snap = reg
+            .snapshot("2025-03-04", Some("customer"), &["home"], None)
+            .unwrap();
+        assert_eq!(
+            trip_scope(&snap).unwrap_err().error_code(),
+            "TRIP_TO_REGULAR_WORKPLACE"
+        );
+    }
+
+    #[test]
+    fn a_replaced_place_can_no_longer_be_named() {
+        let mut reg = Reg::new();
+        reg.employee();
+        let office = reg
+            .add(regular("office", BasisCode::WorksThereRegularly), t(10))
+            .unwrap();
+        // The office's address was mistyped: record it again as office-2.
+        let new = NewPlace {
+            employee_id: "maija".into(),
+            place_id: "office-2".into(),
+            kind: PlaceKind::CompanyPremises,
+            label: "office".into(),
+            location: "Toimistotie 2, Tampere".into(),
+            municipality: "Tampere".into(),
+            replaces: Some("office".into()),
+            confirmed_by: "Maija Meikäläinen".into(),
+        };
+        validate_place(&new, &reg.places, &reg.facts, t(20)).unwrap();
+        reg.places.push(Place {
+            employee_id: new.employee_id.clone(),
+            place_id: new.place_id.clone(),
+            kind: new.kind,
+            label: new.label.clone(),
+            location: new.location.clone(),
+            municipality: new.municipality.clone(),
+            replaces: new.replaces.clone(),
+            recorded_at: t(20),
+            confirmed_by: new.confirmed_by.clone(),
+        });
+        // A trip naming the old id is refused instead of passing for a special
+        // work site; as known before the replacement it was the regular workplace.
+        let err = reg
+            .snapshot("2025-03-04", Some("home"), &["office"], None)
+            .unwrap_err();
+        assert_eq!(err.error_code(), "PLACE_REPLACED");
+        let before = reg
+            .snapshot("2025-03-04", Some("home"), &["office"], Some(t(15)))
+            .unwrap();
+        assert_eq!(
+            before.destinations[0].classification,
+            Classification::RegularWorkplace
+        );
+        // A new entry cannot name the old place; the correction names the new one.
+        let err = reg
+            .add(
+                entry(
+                    workplace(
+                        Some("office"),
+                        WorkplaceRole::TrackedSite,
+                        BasisCode::OccasionalVisits,
+                    ),
+                    "2026-01-01",
+                    None,
+                ),
+                t(21),
+            )
+            .unwrap_err();
+        assert_eq!(err.error_code(), "PLACE_REPLACED");
+        reg.record(
+            FactChange::Assert(regular("office-2", BasisCode::WorksThereRegularly)),
+            Some(office),
+            t(22),
+        )
+        .unwrap();
+        let snap = reg
+            .snapshot("2025-03-04", Some("home"), &["office-2"], None)
+            .unwrap();
+        assert_eq!(
+            trip_scope(&snap).unwrap_err().error_code(),
+            "TRIP_TO_REGULAR_WORKPLACE"
+        );
+        // A place is replaced once, and only a recorded place can be replaced.
+        let again = NewPlace {
+            place_id: "office-3".into(),
+            ..new.clone()
+        };
+        let err = validate_place(&again, &reg.places, &reg.facts, t(30)).unwrap_err();
+        assert_eq!(err.error_code(), "PLACE_REPLACED");
+        let ghost = NewPlace {
+            place_id: "office-4".into(),
+            replaces: Some("nowhere".into()),
+            ..new
+        };
+        let err = validate_place(&ghost, &reg.places, &reg.facts, t(30)).unwrap_err();
+        assert_eq!(err.error_code(), "PLACE_NOT_FOUND");
+    }
+
+    #[test]
+    fn a_query_as_known_now_refuses_a_clock_behind_the_register() {
+        let mut reg = Reg::new();
+        reg.employee();
+        reg.add(regular("office", BasisCode::WorksThereRegularly), t(10))
+            .unwrap();
+        let request = SnapshotRequest {
+            employee_id: "maija".into(),
+            date: d("2025-03-04"),
+            start_place_id: None,
+            destination_place_ids: vec![],
+            as_known_at: None,
+        };
+        // Now is t(5), before the entry recorded at t(10): the entry would
+        // silently drop out of "as known now", so the query refuses.
+        let err = trip_snapshot(&request, &reg.places, &reg.facts, t(5)).unwrap_err();
+        assert_eq!(err.error_code(), "CLAIMANT_CLOCK_BEHIND");
+        assert!(trip_snapshot(&request, &reg.places, &reg.facts, t(10)).is_ok());
+        // An explicit instant is a historical question and is answered.
+        let at = resolve_as_known_at(Some(t(5)), &reg.places, &reg.facts, t(5)).unwrap();
+        assert_eq!(at, t(5));
+    }
+
     #[test]
     fn correction_input_needs_exactly_one_of_replacement_and_retract() {
         let base = CorrectionInput {
@@ -1917,7 +2152,7 @@ mod tests {
     }
 
     #[test]
-    fn fact_input_parses_the_flat_json_shape() {
+    fn fact_input_is_parsed_strictly() {
         let input: FactInput = serde_json::from_str(
             r#"{"employee_id":"maija","valid_from":"2024-01-01",
                 "fact":{"kind":"workplace","place_id":"home","role":"regular_primary",

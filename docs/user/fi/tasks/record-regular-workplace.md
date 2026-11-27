@@ -65,6 +65,11 @@ agentti kirjaa korjauksen, joka korvaa vanhan tiedon, ja syyn sille. Korjaus
 voi koskea myös mennyttä aikaa. Vanha tieto jää historiaan, joten myöhemmin
 näkee, mitä rekisterissä luki silloin, kun aiempi kululasku hyväksyttiin.
 
+Myöskään paikkaa ei muokata. Jos paikan osoite oli väärin, agentti kirjaa
+paikan uudelleen uudella tunnisteella, merkitsee sen korvaavan vanhan ja
+korjaa vanhaa paikkaa koskevat tiedot nimeämään uuden. Vanhaan paikkaan ei
+sen jälkeen voi viitata.
+
 Kahta ristiriitaista tietoa samoille päiville ei voi kirjata, esimerkiksi kahta
 ensisijaista varsinaista työpaikkaa. Silloin agentti korjaa vanhan tiedon.
 

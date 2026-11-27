@@ -301,12 +301,36 @@ fn the_register_records_corrects_and_refuses() {
     );
     assert_eq!(snapshot["scope"], "full");
 
+    // The home is never a destination.
+    assert_eq!(
+        refused(
+            home,
+            &["claimant", "snapshot"],
+            &trip("2024-06-04", "office", &["home"])
+        ),
+        "TRIP_TO_HOME"
+    );
+    // A customer site recorded with a wrong address is replaced, and the old
+    // id can no longer be named.
+    let mut fixed = place(
+        "customer-2",
+        "customer_site",
+        "Asiakaskuja 5, 20100 Turku",
+        "Turku",
+    );
+    fixed["replaces"] = json!("customer");
+    ok(home, &["claimant", "place", "add"], &fixed);
+    assert_eq!(
+        refused(home, &["claimant", "snapshot"], &to_customer),
+        "PLACE_REPLACED"
+    );
+
     let history = ok(
         home,
         &["claimant", "history", "--employee", "maija"],
         &json!({}),
     );
-    assert_eq!(history["places"].as_array().unwrap().len(), 4);
+    assert_eq!(history["places"].as_array().unwrap().len(), 5);
     assert_eq!(history["facts"].as_array().unwrap().len(), 6);
 
     // Strict input and unknown people.
