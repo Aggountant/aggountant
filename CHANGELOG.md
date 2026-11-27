@@ -11,6 +11,17 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Onboarding readiness checklist and one source request.** The
+  `aggountant-init` skill now shows a seven-item readiness checklist (identity,
+  fiscal year, cutover, source coverage, account mapping and opening balances,
+  reconciliations, first close), read from what the home already holds, so a
+  half-finished onboarding continues where it stopped without re-asking
+  recorded facts. From the missing items the agent writes one source request
+  tailored to the company and notes it in the home's `TODO.md`; an Esimerkki Oy
+  example ships as `aineistopyynto.md`. The opening-balance dating and account
+  mapping guidance, which applies only to companies moving from another
+  system, moved unchanged into the skill's new `avaavat-saldot.md`. Run
+  `aggountant skill install` to get both files.
 - **Travel allowances computed from a trip (`claim compute`).** A new
   read-only command takes trips as JSON on stdin and computes the scheduled
   tax-free allowances: travel days, domestic and foreign per diems with the

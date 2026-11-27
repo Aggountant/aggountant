@@ -5,7 +5,8 @@ kanssasi yrityskodin, tallentaa yrityksen perustiedot ja kirjaa avaavat
 saldot. Lisäksi kirjoitatte muistiin, mistä kuitit ja tiliotteet tulevat ja
 mikä jäi odottamaan. Agentti käyttää tähän `aggountant-init`-skilliä.
 Käyttöönotto tehdään kerran, ja keskeneräistä käyttöönottoa voi jatkaa
-myöhemmin.
+myöhemmin: agentti katsoo kodista, mikä on jo tehty, eikä kysy samaa
+uudelleen.
 
 ## Ennen kuin aloitat
 
@@ -36,7 +37,21 @@ myöhemmin.
    [Yrityskoti: mitä tallentuu minne](../concepts/company-home.md) kertoo,
    mitä kotiin tallentuu ja miksi git ei ole varmuuskopio.
 
-3. **Kerro perustiedot.** Agentti kysyy yrityksen virallisen nimen,
+3. **Agentti näyttää valmiuslistan ja pyytää aineiston kerralla.** Lista
+   kertoo seitsemästä kohdasta, mikä on valmis, mikä puuttuu ja mikä ei koske
+   yritystäsi: tunnistetiedot, tilikausi, siirtymäpäivä, aineiston
+   kattavuus (pankkitilit, kuittien reitti, avoimet erät, omalta tililtä
+   maksetut kulut ja yksityisen omaisuuden käyttö yrityksen työhön),
+   tilimuunnos ja avaavat saldot (vain toisesta ohjelmasta siirtyvälle),
+   täsmäytykset ja ensimmäisen kuukauden sulku. Puuttuvasta agentti kokoaa
+   yhden aineistopyynnön, joka on räätälöity yrityksellesi: se nimeää
+   pankkitilisi ja kaudet ja pyytää vain sitä, mikä koskee yritystäsi,
+   kunkin kohdan perusteluineen. Esimerkiksi verotilin otteita se pyytää
+   vain, jos taseessa on verotiliä. Pyyntö kirjataan kodin
+   `TODO.md`-tiedostoon, ja kun jatkatte myöhemmin, agentti näyttää listan
+   uudelleen ja pyytää vain sen, mikä yhä puuttuu.
+
+4. **Kerro perustiedot.** Agentti kysyy yrityksen virallisen nimen,
    Y-tunnuksen, tilikauden ja päivän, josta aggountant-kirjanpito alkaa. Se
    tallentaa vastaukset lähteineen yrityksen tietovarastoon ja nojaa niihin
    myöhemmässä työssään. Katso vastaukset siksi kaupparekisteriotteesta tai
@@ -45,7 +60,7 @@ myöhemmin.
    kirjanpitoon tilikauden, johon ensimmäinen tosite osuu. Seuraavat
    tilikaudet jatkuvat itsestään.
 
-4. **Tarkista ja hyväksy avaavat saldot.** Uudella yrityksellä ei ole avaavia
+5. **Tarkista ja hyväksy avaavat saldot.** Uudella yrityksellä ei ole avaavia
    saldoja, ja sen ensimmäinen tapahtuma on yleensä osakepääoman maksu, kuten
    harjoituskuukaudessa. Toisesta järjestelmästä tulevan yrityksen saldot
    agentti kirjaa yhtenä tavallisena tositteena ja liittää saldoluettelon
@@ -74,13 +89,13 @@ myöhemmin.
      kirjanpidossa ei ole sitä edeltävää tilikautta. Tilikauden alussa
      saldoissa on vain tasetilejä, joten tämä ei siirrä tulosta.
 
-5. **Kerro avoimet asiat**, jotka eivät näy saldoluettelosta. Agentti kysyy,
+6. **Kerro avoimet asiat**, jotka eivät näy saldoluettelosta. Agentti kysyy,
    onko yrityksen laskuja maksettu omalta tililtäsi, onko verotilillä velkaa
    tai maksujärjestely ja onko avoimia myynti- tai ostolaskuja. Jos
    verotilillä on saldoa tai maksujärjestely, agentti pyytää siirtovuoden
    kaikki OmaVeron tapahtumaotteet.
 
-6. **Kuvaa, mistä aineisto tulee.** Agentti kirjoittaa kanssasi kodin juureen
+7. **Kuvaa, mistä aineisto tulee.** Agentti kirjoittaa kanssasi kodin juureen
    tiedoston `AGENTS.md`, jossa kerrot omin sanoin:
    - minne kuitit ja laskut saapuvat (sähköposti, pilvikansio, paikallinen
      kansio, vastuuhenkilö)
@@ -93,7 +108,7 @@ myöhemmin.
    Ilman tätä tiedostoa agentti joutuu kysymään joka kerta tai arvaamaan.
    **Älä kirjoita tiedostoon salasanoja, tunnuksia tai avaimia.**
 
-7. **Agentti kirjoittaa kodin juureen `TODO.md`-tiedoston**, johon se kokoaa,
+8. **Agentti kirjoittaa kodin juureen `TODO.md`-tiedoston**, johon se kokoaa,
    mikä jäi odottamaan: mitä odotetaan muilta (esimerkiksi perustajan omalta
    tililtään maksaman rekisteröintimaksun kuitti), mitkä kuukaudet ovat auki
    ja mitä niiden sulku vielä vaatii, sekä määräajat (esimerkiksi
@@ -102,7 +117,7 @@ myöhemmin.
    ja päivittää sen, kun kohta ratkeaa, kuten kohta
    [Kodin TODO.md](../concepts/company-home.md#kodin-todomd) kertoo.
 
-8. **Agentti tekee ensimmäisestä kuukaudesta raportin.** Tarkista siitä
+9. **Agentti tekee ensimmäisestä kuukaudesta raportin.** Tarkista siitä
    kohdan [Valmis, kun](#valmis-kun) luvut, ennen kuin kirjaat kuukauden
    tapahtumia.
 
@@ -113,6 +128,10 @@ myöhemmin.
 aggountant --home ~/kirjanpito/esimerkki-oy init
 aggountant config path
 aggountant config show
+aggountant knowledge company list
+aggountant fiscal-year list
+aggountant voucher list --posting-from 2026-02-28 --posting-to 2026-03-31
+aggountant period show --period 2026-03
 aggountant chart list
 aggountant knowledge company add < tieto.json
 aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
@@ -128,6 +147,10 @@ Oletuskoti asetetaan asetustiedostoon, jonka paikan `config path` kertoo.
 Tiedosto on JSON-muotoinen: `{"home": "/polku/kotiin"}`.
 
 `fiscal-year define` ajetaan vain, jos tilikausi ei ole kalenterivuosi.
+
+`knowledge company list`, `fiscal-year list`, `voucher list` ja
+`period show` vain lukevat. Niistä ja kodin tiedostoista agentti kokoaa
+valmiuslistan jokaisen istunnon alussa.
 </details>
 
 ## Valmis, kun
@@ -138,6 +161,7 @@ Tiedosto on JSON-muotoinen: `{"home": "/polku/kotiin"}`.
   järjestelmän raporttia ja pankkitilin saldo tiliotetta.
 - Kodin juuressa on `AGENTS.md`, joka kertoo aineiston lähteet, ja
   `TODO.md`, joka kertoo, mikä odottaa.
+- Agentin valmiuslistan jokainen kohta on valmis tai ei koske yritystäsi.
 
 ## Rajoitukset
 

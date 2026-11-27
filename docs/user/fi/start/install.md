@@ -39,7 +39,7 @@ ohjelman.
 
    | Skilli | Mihin agentti käyttää sitä |
    |---|---|
-   | `aggountant-init` | yrityskodin käyttöönotto tai keskeneräisen käyttöönoton jatkaminen |
+   | `aggountant-init` | yrityskodin käyttöönotto valmiuslistan ja yhden aineistopyynnön avulla tai keskeneräisen käyttöönoton jatkaminen |
    | `migrate-books` | kirjanpidon siirto toisesta ohjelmasta: vanhan aineiston vienti, tarkistus ja arkistointi |
    | `capture-receipt` | kuukauden kirjanpito: kuitit, tiliote, erikoiskirjaukset, täsmäytys ja kuukauden sulku |
    | `vero-fi` | ALV-ilmoitus Verohallinnolle ja suoran ALV-ilmoittamisen käyttöönotto |

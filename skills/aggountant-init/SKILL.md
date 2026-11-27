@@ -23,6 +23,51 @@ versionhallinnasta. Yrityksestä se ei kysy mitään, eikä se alusta git-reposi
 kodin sijainti ja versionhallinta sovitaan käyttäjän kanssa. Kaikki muu kerätään
 lähdeaineistosta ja käyttäjältä.
 
+## Valmiuslista
+
+Käytännössä valmis tarkoittaa, että alla olevat seitsemän kohtaa ovat valmiita tai eivät
+koske yritystä. Lista on näkymä siihen, mitä kodissa jo on, ei erillinen tila: älä
+perusta sille omaa tiedostoa. Katso jokaisen istunnon alussa kodin `AGENTS.md` ja
+`TODO.md` sekä ohjelmalta `aggountant config show`, `knowledge company list`,
+`fiscal-year list`, `voucher list` katkaisun ympäriltä ja `period show` ensimmäiselle
+kuukaudelle, ja näytä käyttäjälle kohta kohdalta, mikä on valmis, mikä puuttuu ja mikä
+ei koske tätä yritystä. Valmista kohtaa ei aloiteta alusta, eikä tallennettua tietoa
+kysytä uudelleen; jos se näyttää väärältä, kerro miksi ja päivitä se SOULin mukaan.
+
+1. **Tunnistetiedot**: virallinen nimi ja Y-tunnus `knowledge company`-tietueina
+   lähteineen.
+2. **Tilikausi**: tallennettu tietueena, ja jos se ei ole kalenterivuosi, myös
+   määritelty ohjelmaan.
+3. **Katkaisu**: aggountant-kirjanpidon ensimmäinen päivä ja toisesta järjestelmästä
+   siirtyvällä yrityksellä aiemman järjestelmän viimeinen päivä.
+4. **Aineiston kattavuus**: jokaisen pankkitilin tiliotteet katkaisusta alkaen, kuittien
+   ja laskujen reitti kodin `AGENTS.md`-tiedostossa ja vastaukset kohtaan
+   [Mitä saldoluettelo ei kerro](#mitä-saldoluettelo-ei-kerro).
+5. **Tilimuunnos ja avaus**: vain toisesta järjestelmästä siirtyvälle yritykselle.
+   Muunnostiedosto on kodissa ja avaava tosite sinetöity.
+6. **Täsmäytykset**: ensimmäisen kuukauden `aggountant report statements` vastaa
+   lähderaporttia ja pankkitilin saldo tiliotetta. Siirtyvän yrityksen ehdot ovat
+   [avaavan tositteen ohjeessa](avaavat-saldot.md#onnistuiko-avaus).
+7. **Ensimmäinen sulku**: ensimmäinen kuukausi on suljettu `capture-receipt`-skillin
+   mukaan, eli `period show` näyttää sen sinetöidyksi.
+
+## Yksi aineistopyyntö
+
+Kun lista on käyty läpi ensimmäisen kerran, kokoa kaikki, mitä käyttäjän pitää
+toimittaa, yhdeksi pyynnöksi. Kerralla saatu aineisto säästää käyttäjän kymmeneltä
+erilliseltä kierrokselta, joista jokainen pysäyttää työn. Räätälöi pyyntö yritykselle:
+nimeä sen omat pankkitilit ja kaudet, pyydä vain sitä, mikä koskee sitä (OmaVeron
+otteita vain, jos taseessa on verotiliä tai maksujärjestely; palkka-aineistoa vain,
+jos sillä on palkansaajia), ja kerro kunkin kohdan kohdalla, miksi sitä tarvitaan ja
+missä muodossa se on paras. Esimerkki on tiedostossa
+[aineistopyynto.md](aineistopyynto.md).
+
+Kirjaa pyyntö kodin `TODO.md`-tiedostoon muilta odotettavaksi. Jos käyttöönotto oli jo
+kesken, kun lista otettiin käyttöön, pyyntö kattaa vain sen, mitä ei ole toimitettu, ja
+täydentää `TODO.md`:n jo odottavia kohtia toistamatta niitä. Jatkoistunnossa pyydä vain
+sitä, mikä pyynnöstä yhä puuttuu. Jos myöhemmin paljastuu jotain, mitä pyyntö ei
+kattanut, kerro käyttäjälle, miksi sitä ei voinut nähdä ennalta.
+
 ## Perustiedot ja tilikausi
 
 Tallenna `knowledge company`-tietueiksi virallinen nimi ja Y-tunnus, tilikausi, aiemman
@@ -39,52 +84,22 @@ kirjata. Määrittely ratkaisee siis myös sen, mille päivälle avaava tosite v
 
 ## Avaavat saldot
 
-Toisesta järjestelmästä siirtyvän yrityksen saldot kirjataan tavallisena sinetöitynä
-tositteena, lähdesaldoluettelo liitteenä. Vanhan järjestelmän aineiston kerääminen
-arkistoksi on `migrate-books`-skillissä; tee se ennen kuin käyttäjä luopuu vanhasta
-ohjelmasta. Sinetöinti on pysyvä, ja virheellinen avaus
-jättää ketjuun kolme tositetta yhden sijaan. Kysy siksi ensin se, mitä saldoluettelo ei
-kerro (alla), koska vastaukset voivat muuttaa saldoja, ja näytä käyttäjälle tilit ja
-päivä ennen sinetöintiä.
-
-Päivä on päättyvän järjestelmän viimeinen päivä, ei uuden kirjanpidon ensimmäinen.
-Ensimmäiselle uudelle päivälle päivätty avaus toisi mukanaan tuodut tulostilit
-ensimmäisen kuukauden tulokseen. Kesken kuukauden siirryttäessä niin käy joka
-tapauksessa, joten ehdota siirtymää kuun vaihteeseen. Se, mitä tositteeseen kuuluu,
-riippuu siirtymän hetkestä:
-
-- **Kesken tilikauden.** Tosite osuu samalle tilikaudelle kuin uudet tapahtumat, ja
-  siinä on tasetilien lisäksi tilikauden alusta kertyneet tulostilit.
-- **Vuodenvaihteessa**, kun tilikausi on kalenterivuosi ja aiempi järjestelmä kattaa
-  edellisen vuoden loppuun. Tosite päivätään edellisen tilikauden viimeiselle päivälle,
-  ja siinä on vain tasetilejä: edellisen tilikauden tulos on omassa pääomassa. Ohjelma avaa uuden
-  tilikauden näistä saldoista vaatimatta vanhaa tilikautta suljetuksi, mutta vain jos
-  edellisellä tilikaudella ei ole mitään muuta: ei tulostilejä, ei muita päiviä, ei
-  aggountantissa suljettua kautta eikä vanhempia tilikausia. Muuten uuden tilikauden
-  raportit kieltäytyvät koodilla `PERIOD_NOT_SEALED`.
-- **Tilikauden vaihteessa, kun tilikausi ei ala 1.1.** Määrittele ensimmäiseksi uusi
-  tilikausi. Edellistä päivää ei silloin ole ohjelmalle olemassa, ja tosite päivätään
-  uuden tilikauden ensimmäiselle päivälle. Siinä on vain tasetilejä, joten kuukauden
-  tulos ei vääristy, eikä edellisen kohdan ehtoa tarvita.
-
-Kirjanpito käyttää aina oletustilikarttaa, ja aiemman järjestelmän tilit muunnetaan sille
-avaavassa tositteessa. Kirjaa muunnos omaksi tiedostokseen kotiin niin, että jokainen
-lähdetili on siinä kerran summineen ja summat täsmäävät sekä lähderaporttiin että
-avaavaan tositteeseen; muuten erittely katoaa. Kerro käyttäjälle, mitkä erottelut
-yhdistyvät. Jos verotili ja osakasvelat osuisivat samalle tilille, sovi niiden erottelu:
-yhdistettyinä niitä ei saa myöhemmin täsmäytettyä.
-ALV-tilien avaava saldo on aiempien kausien veroa ja näkyy ensimmäisen ALV-ilmoituksen täsmäytyksessä
-merkitsemättömänä vientinä; `vero-fi`-skilli kertoo, miten se kuitataan.
-
-Avauksen jälkeen `aggountant report statements` ensimmäiselle uudelle kuukaudelle
-näyttää, onnistuiko se: kuukauden tulos on nolla ennen uusia tapahtumia, tilikauden
-alusta kertynyt tulos on lähderaportin mukainen (tilikauden vaihteessa nolla), tase
-vastaa lähderaporttia ja pankkitilin saldo tiliotetta.
+Koskee vain toisesta järjestelmästä siirtyvää yritystä; uudella yrityksellä ei ole
+avaavia saldoja. Saldot kirjataan tavallisena sinetöitynä tositteena,
+lähdesaldoluettelo liitteenä. Vanhan järjestelmän aineiston kerääminen arkistoksi on
+`migrate-books`-skillissä; tee se ennen kuin käyttäjä luopuu vanhasta ohjelmasta.
+Sinetöinti on pysyvä, ja virheellinen avaus jättää ketjuun kolme tositetta yhden
+sijaan. Kysy siksi ensin se, mitä saldoluettelo ei kerro (alla), koska vastaukset
+voivat muuttaa saldoja, ja näytä käyttäjälle tilit ja päivä ennen sinetöintiä.
+Tositteen päivä ja sisältö riippuvat siirtymän hetkestä, ja aiemman järjestelmän tilit
+muunnetaan oletustilikartalle; molemmat ovat tiedostossa
+[avaavat-saldot.md](avaavat-saldot.md).
 
 ## Mitä saldoluettelo ei kerro
 
 Nämä selviävät vain kysymällä, ja kysymättä ne paljastuvat kuukausia myöhemmin
-täsmäytysvirheinä:
+täsmäytysvirheinä. Kysy ne myös uudelta yritykseltä, jolla saldoluetteloa ei ole:
+perustamisvaiheen kulut maksetaan usein omalta tililtä.
 
 - Onko yhtiön laskuja maksettu osakkaan omalta tililtä tai kortilta? Pankista puuttuva
   maksu ei silloin tarkoita maksamatonta laskua, ja vastatili on velka osakkaalle.
@@ -93,6 +108,8 @@ täsmäytysvirheinä:
   yhden pääkirjatilin saldo, ja korot on aiemmassa järjestelmässä usein kirjattu kahteen
   kertaan tai jaksottamatta; se näkyy vain katkeamattomasta oteketjusta.
 - Onko avoimia myyntilaskuja tai ostovelkoja, joita saldoluettelo ei erittele?
+- Käytetäänkö yrityksen toimintaan omaa autoa, kotia tai muuta yksityistä omaisuutta?
+  Käyttöosuus ja sen peruste ovat pysyviä tietoja, joita jokainen kuukausi tarvitsee.
 
 Tulkinnat ovat käyttäjän päätettäviä. Kokoa ne yhdeksi kokonaiskuvaksi ehdotuksineen,
 ja tallenna vahvistetut `knowledge company`-tietueiksi, jotta samaa ei kysytä joka

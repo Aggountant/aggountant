@@ -324,12 +324,28 @@ fn init_can_be_printed_and_installed_without_capture() {
     assert_eq!(payload["count"], 1);
     assert_eq!(
         payload["installed"][0]["files"].as_array().unwrap().len(),
-        2
+        4
     );
-    assert_eq!(
-        std::fs::read(target.path().join("aggountant-init/SOUL.md")).unwrap(),
-        include_bytes!("../../../skills/aggountant-init/SOUL.md")
-    );
+    for (file, expected) in [
+        (
+            "SOUL.md",
+            include_bytes!("../../../skills/aggountant-init/SOUL.md").as_slice(),
+        ),
+        (
+            "avaavat-saldot.md",
+            include_bytes!("../../../skills/aggountant-init/avaavat-saldot.md").as_slice(),
+        ),
+        (
+            "aineistopyynto.md",
+            include_bytes!("../../../skills/aggountant-init/aineistopyynto.md").as_slice(),
+        ),
+    ] {
+        assert_eq!(
+            std::fs::read(target.path().join("aggountant-init").join(file)).unwrap(),
+            expected,
+            "{file}"
+        );
+    }
     assert!(!target.path().join("capture-receipt").exists());
 }
 
@@ -395,7 +411,15 @@ fn list_json_names_each_skill_file_and_requirement() {
     let payload: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let init = &payload["skills"][1];
     assert_eq!(init["name"], "aggountant-init");
-    assert_eq!(init["files"], serde_json::json!(["SKILL.md", "SOUL.md"]));
+    assert_eq!(
+        init["files"],
+        serde_json::json!([
+            "SKILL.md",
+            "SOUL.md",
+            "avaavat-saldot.md",
+            "aineistopyynto.md"
+        ])
+    );
     assert_eq!(init["requires"], serde_json::json!([]));
     let vero = &payload["skills"][2];
     assert_eq!(

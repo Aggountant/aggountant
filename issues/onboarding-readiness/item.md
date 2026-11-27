@@ -1,14 +1,15 @@
 ---
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-27
 type: feature
 reporter: jari
-status: open
+status: done
 priority: normal
 preparation: ready
 lane: onboarding
 lane_seq: 1
 collision: [skills/aggountant-init]
+closed: 2026-11-27
 ---
 
 # Onboarding readiness checklist and one tailored source request
@@ -29,6 +30,12 @@ workflow engine.
 
 ## Acceptance Criteria
 
-- [ ] The init skill shows what is ready and what is missing.
-- [ ] It produces one tailored source request; an example uses the fictional Esimerkki Oy.
-- [ ] The user guide chapter on installation reflects it.
+- [x] The init skill shows what is ready and what is missing.
+- [x] It produces one tailored source request; an example uses the fictional Esimerkki Oy.
+- [x] The user guide chapter on installation reflects it.
+
+## Resolution
+
+### 2026-11-27T18:03:17Z · @issuectl
+
+Readiness checklist and one tailored source request in aggountant-init; see result.md.

@@ -5,7 +5,8 @@ the company home with you, saves the company's basic details and records the
 opening balances. Together you also write down where your receipts and bank
 statements come from and what is left waiting. The agent uses the
 `aggountant-init` skill for this. You do the setup once, and an unfinished
-setup can be continued later.
+setup can be continued later: the agent looks in the home for what is
+already done and does not ask for it again.
 
 ## Before you start
 
@@ -36,7 +37,22 @@ setup can be continued later.
    path. [The company home: what is stored where](../concepts/company-home.md)
    explains what is stored in the home and why git is not a backup.
 
-3. **Give the basic details.** The agent asks for the company's official
+3. **The agent shows a readiness checklist and asks for the material in one
+   go.** The checklist has seven items and shows which are ready, which are
+   missing and which do not apply to your company: identity details, fiscal
+   year, cutover date, source coverage (bank accounts, where receipts come
+   from, open items, company costs you paid personally and private property
+   used for the business), account mapping and opening balances (only when
+   moving from another program), reconciliations and the first month's
+   close. From what is missing, the agent puts together one source request
+   tailored to your company: it names your bank accounts and periods, asks
+   only for what applies to your company, and says why it needs each item.
+   For example, it asks for the tax account statements only if the balance
+   sheet has a tax account balance. The request is noted in the home's
+   `TODO.md`, and when you continue later the agent shows the checklist again
+   and asks only for what is still missing.
+
+4. **Give the basic details.** The agent asks for the company's official
    name, Business ID, fiscal year and the date the aggountant books start
    from. It saves your answers with their sources in the company knowledge
    store and relies on them in its later work, so take the answers from the
@@ -45,7 +61,7 @@ setup can be continued later.
    records in the books, before the first voucher, the fiscal year that the
    first voucher falls in. Later fiscal years follow on their own.
 
-4. **Check and approve the opening balances.** A new company has no opening
+5. **Check and approve the opening balances.** A new company has no opening
    balances, and its first transaction is usually the share capital payment,
    as in the practice month. For a company that comes from another system,
    the agent records the old system's balances as one ordinary voucher and
@@ -77,14 +93,14 @@ setup can be continued later.
      fiscal year the balances contain only balance-sheet accounts, so this
      does not move any result.
 
-5. **Tell the agent about open matters** that the balance list does not show.
+6. **Tell the agent about open matters** that the balance list does not show.
    The agent asks whether company bills have been paid from your own account,
    whether the company owes anything on its tax account or has a payment
    arrangement, and whether there are open sales or purchase invoices. If the
    tax account has a balance or a payment arrangement, the agent asks for all
    of OmaVero's transaction statements for the year of the move.
 
-6. **Describe where the material comes from.** Together with you, the agent
+7. **Describe where the material comes from.** Together with you, the agent
    writes an `AGENTS.md` file at the root of the home, where you say in your
    own words:
    - where receipts and invoices arrive (email, cloud folder, local folder,
@@ -98,7 +114,7 @@ setup can be continued later.
    Without this file the agent has to ask every time or guess. **Do not put
    passwords, credentials or keys in the file.**
 
-7. **The agent writes a `TODO.md` file at the root of the home**, where it
+8. **The agent writes a `TODO.md` file at the root of the home**, where it
    gathers what is left waiting: what is expected from others (for example
    the receipt for a registration fee the founder paid from their own
    account), which months are open and what closing them still needs, and
@@ -109,7 +125,7 @@ setup can be continued later.
    [The home's TODO.md](../concepts/company-home.md#the-homes-todomd)
    describes.
 
-8. **The agent makes a report for the first month.** Check the figures
+9. **The agent makes a report for the first month.** Check the figures
    listed under [Done when](#done-when) in it before you record the month's
    transactions.
 
@@ -120,6 +136,10 @@ setup can be continued later.
 aggountant --home ~/books/esimerkki-oy init
 aggountant config path
 aggountant config show
+aggountant knowledge company list
+aggountant fiscal-year list
+aggountant voucher list --posting-from 2026-02-28 --posting-to 2026-03-31
+aggountant period show --period 2026-03
 aggountant chart list
 aggountant knowledge company add < fact.json
 aggountant fiscal-year define --start 2026-07-01 --end 2027-06-30
@@ -136,6 +156,10 @@ The default home is set in the configuration file whose location
 
 `fiscal-year define` is run only if the fiscal year is not the calendar
 year.
+
+`knowledge company list`, `fiscal-year list`, `voucher list` and
+`period show` only read. From them and the files in the home, the agent
+builds the readiness checklist at the start of every session.
 </details>
 
 ## Done when
@@ -147,6 +171,8 @@ year.
   the bank statement.
 - There is an `AGENTS.md` at the root of the home that names the sources of
   your material, and a `TODO.md` that says what is waiting.
+- Every item on the agent's readiness checklist is ready or does not apply
+  to your company.
 
 ## Limitations
 

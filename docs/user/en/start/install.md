@@ -40,7 +40,7 @@ program.
 
    | Skill | What the agent uses it for |
    |---|---|
-   | `aggountant-init` | setting up a company home, or continuing an unfinished setup |
+   | `aggountant-init` | setting up a company home with a readiness checklist and one source request, or continuing an unfinished setup |
    | `migrate-books` | moving the books from another program: exporting, checking and archiving the old material |
    | `capture-receipt` | the month's books: receipts, the bank statement, manual entries, reconciliation and the month close |
    | `vero-fi` | the VAT return to the Tax Administration and setting up direct VAT filing |

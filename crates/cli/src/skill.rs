@@ -58,7 +58,12 @@ const SKILLS: &[BundledSkill] = &[
     BundledSkill {
         name: "aggountant-init",
         description: "Prepare a company accounting home and its bookkeeping starting point.",
-        files: skill_files!("aggountant-init": "SKILL.md", "SOUL.md"),
+        files: skill_files!(
+            "aggountant-init": "SKILL.md",
+            "SOUL.md",
+            "avaavat-saldot.md",
+            "aineistopyynto.md"
+        ),
         requires: &[],
         schema_version: 1,
     },
