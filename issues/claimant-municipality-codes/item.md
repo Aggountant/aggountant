@@ -2,7 +2,7 @@
 created: 2026-11-27
 updated: 2026-11-27
 type: improvement
-status: untriaged
+status: open
 priority: normal
 provenance: ai-review
 source_ref: taskfleet:01m8ehz1eezcc03sc8dzm8xy55/review-finding:municipality-free-text
@@ -17,6 +17,10 @@ review_confidence: high
 labels:
 - ai-review-model:gpt-6-astra
 - ai-review-model:claude-fable-5-2
+lane: expense-claim
+lane_seq: 15
+blocked_by: ['@expense-claim-draft']
+collision: [crates/domain/src/workplace.rs]
 ---
 
 # Claimant register compares municipality names as free text; the secondary-workplace check can pass for one municipality
@@ -59,3 +63,9 @@ verified by claude-fable-5-2): finding F3 of the first round, confirmed
 against the code and deferred because it needs bundled reference data.
 Synthetic example: Esimerkki Oy's managing director with a primary office
 recorded in "Helsinki" and a second office recorded in "Helsingfors".
+
+## Decisions
+
+### 2026-11-27T17:52:58Z · @conductor
+
+Product owner 2026-11-27: accepted; scheduled right after expense-claim-draft in the expense-claim lane. Places abroad and the yearly classification update are settled in this slice's design (ask the conductor if no safe default exists).

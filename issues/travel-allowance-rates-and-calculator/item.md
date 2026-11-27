@@ -135,6 +135,10 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 
 Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
 
+### 2026-11-27T17:52:58Z · @conductor
+
+Product owner 2026-11-27: keep the refusals the calculator chose where no source settles the case (night travel allowance abroad, company-paid meal on the half per diem of the return day, foreign days ending in Finland, Macao) until a real case needs a computation.
+
 ## Resolution
 
 ### 2026-11-27T13:52:11Z · @spinoff-01m8ehz12nsg309tcjd5yjhp71

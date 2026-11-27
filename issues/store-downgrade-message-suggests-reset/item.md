@@ -2,13 +2,16 @@
 created: 2026-11-27
 updated: 2026-11-27
 type: bug
-status: untriaged
+status: open
 priority: high
 provenance: other
 provenance_detail: observed during the pii migration copy comparison of claimant-workplace-register
 source_ref: taskfleet:01m8ehz1eezcc03sc8dzm8xy55/observation:downgrade-reset-message
 originating_run: 01m8ehz1eezcc03sc8dzm8xy55
 originating_run_kind: spinoff
+lane: store-safety
+lane_seq: 10
+collision: [crates/ledger/src/store]
 ---
 
 # Store version refusals tell the operator to reset a home that holds live books
@@ -46,3 +49,9 @@ aggountant, install that version (or newer) again, and do not modify or reset
 the home. The pre-framework refusal likewise stops suggesting a reset for
 homes that may hold real books; a reset, if it ever applies, belongs in the
 user guide's troubleshooting page with the conditions under which it is safe.
+
+## Decisions
+
+### 2026-11-27T17:52:58Z · @conductor
+
+Product owner 2026-11-27: accepted for immediate execution; both production homes now hold a pii v2 store that the previous build refuses with this message.
