@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-27
 type: improvement
-status: open
+status: done
 priority: normal
 lane: bank-import
 lane_seq: 40
 collision: [crates/import]
+closed: 2026-11-27
 ---
 
 # camt import: expose transaction codes, reversals, charges and original amounts
@@ -36,6 +37,12 @@ files.
 
 ## Acceptance criteria
 
-- [ ] Each element above is parsed into a typed optional field when present.
-- [ ] Golden tests cover a card entry, a reversal with return reason, an entry with charges and a foreign-currency entry.
-- [ ] Files without these elements parse exactly as before.
+- [x] Each element above is parsed into a typed optional field when present.
+- [x] Golden tests cover a card entry, a reversal with return reason, an entry with charges and a foreign-currency entry.
+- [x] Files without these elements parse exactly as before.
+
+## Resolution
+
+### 2026-11-27T18:12:19Z · @issuectl
+
+Implemented: typed passthrough fields for BkTxCd, RvslInd/RtrInf, Chrgs and InstdAmt; reversals book in their own direction. See result.md.

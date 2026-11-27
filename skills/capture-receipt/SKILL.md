@@ -95,6 +95,15 @@ puuttuva hylkää koko tiliotteen. Maksu, jonka kuitti puuttuu, kirjataan siksi
 suoritus tilille), kysytään käyttäjältä ennen tuontia, ja tuonti odottaa
 vastausta: arvattu tili olisi sinetöity arvaus.
 
+`parse` kertoo rivistä myös sen, mitä pankki siitä tietää, kun tiedosto
+kertoo: tapahtumatyypin (`transaction_code`), sisältyvät kulut (`charges`),
+alkuperäisen valuutan summan (`instructed_amount`) ja palautuksen tai
+peruutuksen syineen (`reversal`). Ne ovat näyttöä, eivät kirjausta. Palautunut
+tai peruutettu maksu kohdistetaan alkuperäisen maksun tileille, jolloin
+tuonti kirjaa sen vastakkaisille puolille; etsi alkuperäinen tosite
+`end_to_end_id`:n, summan ja vastapuolen perusteella. Rivin summaan sisältyvä
+pankkikulu jaetaan omaksi vastaviennikseen pankkikulujen tilille.
+
 Katso `parse`n tuloksesta ennen sinetöintiä, että tili ja jakso
 (`statements[].period`) ovat sen tiliotteen, jota olit tuomassa. Ohjelma tuo
 väärän kuukauden tiliotteen yhtä lailla onnistuneesti. Tiliotteesta, jolla ei ole

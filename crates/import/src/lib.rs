@@ -22,8 +22,9 @@ pub mod camt;
 mod error;
 
 pub use camt::{
-    parse_camt, BankTransaction, Direction, EmptyReport, ParsedStatement, StatementBalance,
-    StatementPeriod, StatementSummary, UnbookedEntry, EVENT_KEY_PREFIX,
+    parse_camt, BankTransaction, BankTransactionCode, ChargeRecord, Charges, Direction, DomainCode,
+    EmptyReport, ParsedStatement, ProprietaryCode, ReasonCode, Reversal, ReversalKind,
+    StatementBalance, StatementPeriod, StatementSummary, UnbookedEntry, EVENT_KEY_PREFIX,
 };
 pub use error::ImportError;
 

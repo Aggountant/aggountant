@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic interim report for Esimerkki Oy (Business ID 1234567-1): an
+     outgoing payment and the bank's reversal of it, with the return reason.
+     The reversal has its own reference, carries the original payment's
+     end-to-end id and keeps the original's party roles (the account owner as
+     debtor, the payee as creditor). -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02">
+  <BkToCstmrAcctRpt>
+    <GrpHdr>
+      <MsgId>ESIM-RPT-2026-05</MsgId>
+      <CreDtTm>2026-05-08T06:00:00</CreDtTm>
+    </GrpHdr>
+    <Rpt>
+      <Id>2026-05-07</Id>
+      <FrToDt>
+        <FrDtTm>2026-05-01T00:00:00</FrDtTm>
+        <ToDtTm>2026-05-07T23:59:59</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id>
+          <IBAN>FI2112345600000785</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">608.10</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-05-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">608.10</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-05-07</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <Amt Ccy="EUR">120.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-05-04</Dt></BookgDt>
+        <ValDt><Dt>2026-05-04</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0504-001</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly><Cd>ICDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>OSTO-2026-0021</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Konepaja Esimerkki</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-21</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">120.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <RvslInd>true</RvslInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-05-06</Dt></BookgDt>
+        <ValDt><Dt>2026-05-04</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0506-002</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly><Cd>ICDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>OSTO-2026-0021</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Esimerkki Oy</Nm>
+              </Dbtr>
+              <Cdtr>
+                <Nm>Konepaja Esimerkki</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-21</Ustrd>
+            </RmtInf>
+            <RtrInf>
+              <Rsn>
+                <Cd>AC01</Cd>
+              </Rsn>
+              <AddtlInf>Virheellinen tilinumero</AddtlInf>
+            </RtrInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>

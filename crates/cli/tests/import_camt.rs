@@ -1402,3 +1402,132 @@ fn a_malformed_camt052_reports_invalid_camt() {
     );
     assert!(!stderr.contains("053"), "{stderr}");
 }
+
+// ---------------------------------------------------------------------------
+// Passthrough fields and reversals (issue `camt-rich-fields`).
+// ---------------------------------------------------------------------------
+
+const REVERSAL_SAMPLE: &str =
+    include_str!("../../import/tests/fixtures/reversal-camt052-sample.xml");
+const RICH_SAMPLE: &str = include_str!("../../import/tests/fixtures/rich-camt053-sample.xml");
+
+#[test]
+fn a_payment_and_its_reversal_import_as_two_vouchers_that_cancel_out() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_export(home, "reversal.xml", REVERSAL_SAMPLE);
+    let (code, stdout, _) = run(home, &["import", "camt", "parse", "--file", &file], "");
+    assert_eq!(code, 0);
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["transactions"][1]["reversal"]["kind"], "reversal");
+    assert_eq!(
+        parsed["transactions"][1]["reversal"]["reason"]["code"],
+        "AC01"
+    );
+
+    let input = r#"{"actor":"importer","assignments":[
+      {"bank_ref":"ESIM-2026-0504-001","bank_account":"1910","contra_postings":[
+        {"account":"2700","amount":{"amount":"120.00","currency":"EUR"}}]},
+      {"bank_ref":"ESIM-2026-0506-002","bank_account":"1910","contra_postings":[
+        {"account":"2700","amount":{"amount":"120.00","currency":"EUR"}}]}
+    ]}"#;
+    let (status, sealed, err) = seal(home, &file, input);
+    assert_eq!(status, 0, "{err}");
+    assert_eq!(sealed["new_voucher_count"], 2, "{sealed}");
+    let postings = |v: &Value| -> Vec<(String, String)> {
+        v["draft"]["postings"]
+            .as_array()
+            .map(|ps| {
+                ps.iter()
+                    .map(|p| {
+                        (
+                            p["account"].as_str().unwrap().to_string(),
+                            p["side"].as_str().unwrap().to_string(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let (_, preview, _) = run(
+        home,
+        &["import", "camt", "seal", "--file", &file, "--dry-run"],
+        input,
+    );
+    let preview: Value = serde_json::from_str(&preview).unwrap();
+    assert_eq!(preview["duplicate_observation_count"], 2, "{preview}");
+    let vouchers = preview["vouchers"].as_array().unwrap();
+    let original = postings(&vouchers[0]);
+    let reversal = postings(&vouchers[1]);
+    assert!(
+        original.contains(&("1910".into(), "credit".into())),
+        "{original:?}"
+    );
+    assert!(
+        reversal.contains(&("1910".into(), "debit".into())),
+        "{reversal:?}"
+    );
+    assert!(
+        reversal.contains(&("2700".into(), "credit".into())),
+        "{reversal:?}"
+    );
+}
+
+#[test]
+fn a_reversal_reusing_a_booked_reference_stops_as_changed_source_facts() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let original = [entry("REF-0504-A", "2026-05-04", "120.00")];
+    let file_a = write_export(home, "a.xml", &export("MAY-1", &original));
+    let (status, _, err) = seal(home, &file_a, &assignments(&original, None));
+    assert_eq!(status, 0, "{err}");
+
+    // The bank reverses the payment under the same reference in a later file.
+    let reversed = export(
+        "MAY-2",
+        &[Entry {
+            direction: "CRDT",
+            date: "2026-05-06",
+            ..original[0].clone()
+        }],
+    )
+    .replace("<Sts>", "<RvslInd>true</RvslInd><Sts>");
+    let file_b = write_export(home, "b.xml", &reversed);
+    let (status, _, error) = seal(home, &file_b, &assignments(&original, None));
+    assert_eq!(status, 1);
+    assert_eq!(error["error_code"], "SOURCE_FACTS_CHANGED", "{error}");
+    assert_eq!(voucher_count(home), 1);
+}
+
+/// Re-importing a statement whose entries carry transaction codes, charges,
+/// instructed amounts and return information books nothing new: the
+/// passthrough fields are outside the entry's identity. The fingerprints the
+/// build before them computed are pinned in the import crate's
+/// `rich_fields.rs`.
+#[test]
+fn a_re_export_of_a_rich_statement_is_a_duplicate_observation() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let input = r#"{"actor":"importer","assignments":[
+      {"bank_ref":"ESIM-2026-0403-001","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"45.90","currency":"EUR"}}]},
+      {"bank_ref":"ESIM-2026-0410-002","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"500.00","currency":"EUR"}},{"account":"7690","amount":{"amount":"3.50","currency":"EUR"}}]},
+      {"bank_ref":"ESIM-2026-0415-003","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"92.50","currency":"EUR"}}]},
+      {"bank_ref":"ESIM-2026-0422-004","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"250.00","currency":"EUR"}}]}
+    ]}"#;
+    let file_a = write_export(home, "a.xml", RICH_SAMPLE);
+    let (status, sealed, err) = seal(home, &file_a, input);
+    assert_eq!(status, 0, "{err}");
+    assert_eq!(sealed["new_voucher_count"], 4, "{sealed}");
+    let file_b = write_export(
+        home,
+        "b.xml",
+        &RICH_SAMPLE.replace("ESIM-STMT-2026-04", "ESIM-STMT-2026-04-B"),
+    );
+    let (status, again, err) = seal(home, &file_b, input);
+    assert_eq!(status, 0, "{err}");
+    assert_eq!(again["duplicate_observation_count"], 4, "{again}");
+    assert_eq!(voucher_count(home), 4);
+}

@@ -1,0 +1,90 @@
+{
+  "account_iban": "FI2112345600000785",
+  "currency": "EUR",
+  "statements": [
+    {
+      "balances": [
+        {
+          "amount": {
+            "amount": "1000.00",
+            "currency": "EUR"
+          },
+          "date": "2026-03-01",
+          "type": "OPBD"
+        },
+        {
+          "amount": {
+            "amount": "3356.00",
+            "currency": "EUR"
+          },
+          "date": "2026-03-31",
+          "type": "CLBD"
+        }
+      ],
+      "balances_reconcile": true,
+      "closing_balance": {
+        "amount": {
+          "amount": "3356.00",
+          "currency": "EUR"
+        },
+        "date": "2026-03-31",
+        "type": "CLBD"
+      },
+      "entries_net": {
+        "amount": "2356.00",
+        "currency": "EUR"
+      },
+      "entry_count": 2,
+      "id": "2026-03",
+      "opening_balance": {
+        "amount": {
+          "amount": "1000.00",
+          "currency": "EUR"
+        },
+        "date": "2026-03-01",
+        "type": "OPBD"
+      },
+      "period": {
+        "from": "2026-03-01",
+        "to": "2026-03-31"
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "accounting_date": "2026-03-14",
+      "amount": {
+        "amount": "124.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "HLV-2026-0314-001",
+      "booking_date": "2026-03-14",
+      "counterparty": "Hetzner Online GmbH",
+      "description": "Palvelinvuokra maaliskuu 2026",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:HLV-2026-0314-001",
+      "value_date": "2026-03-15"
+    },
+    {
+      "accounting_date": "2026-03-20",
+      "amount": {
+        "amount": "2480.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "HLV-2026-0320-002",
+      "booking_date": "2026-03-20",
+      "counterparty": "Asiakas Oy",
+      "description": "Lasku 2026-0042 Konsultointi",
+      "direction": "credit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:HLV-2026-0320-002",
+      "value_date": "2026-03-20"
+    }
+  ],
+  "unbooked": [
+    {
+      "bank_ref": "HLV-2026-0331-PENDING",
+      "natural_key": "bank-import:holvi:FI2112345600000785:HLV-2026-0331-PENDING",
+      "status": "PDNG"
+    }
+  ]
+}

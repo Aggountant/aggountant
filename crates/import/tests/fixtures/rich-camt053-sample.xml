@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic statement for Esimerkki Oy (Business ID 1234567-1). Every entry
+     carries an element the parser exposes beyond the basic fields: a card
+     entry with its bank transaction code, an outgoing transfer with charges, a
+     foreign-currency card purchase with its instructed amount, and a returned
+     payment with its return reason. None is a reversal, so the build before
+     these fields imports this file too. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>ESIM-STMT-2026-04</MsgId>
+      <CreDtTm>2026-05-01T06:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>2026-04</Id>
+      <CreDtTm>2026-05-01T06:00:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-04-01T00:00:00</FrDtTm>
+        <ToDtTm>2026-04-30T23:59:59</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id>
+          <IBAN>FI2112345600000785</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr>
+          <Nm>Esimerkki Oy</Nm>
+        </Ownr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">1000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-04-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">608.10</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-04-30</Dt></Dt>
+      </Bal>
+      <!-- A card purchase: the ISO code PMNT/CCRD/POSD and the bank's own code. -->
+      <Ntry>
+        <Amt Ccy="EUR">45.90</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-04-03</Dt></BookgDt>
+        <ValDt><Dt>2026-04-02</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0403-001</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>CCRD</Cd>
+              <SubFmlyCd>POSD</SubFmlyCd>
+            </Fmly>
+          </Domn>
+          <Prtry>
+            <Cd>705</Cd>
+            <Issr>FFFS</Issr>
+          </Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Paperikauppa Esimerkki</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Korttiosto 4321</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- An outgoing transfer whose entry amount includes the bank's charge. -->
+      <Ntry>
+        <Amt Ccy="EUR">503.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-04-10</Dt></BookgDt>
+        <ValDt><Dt>2026-04-10</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0410-002</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>ICDT</Cd>
+              <SubFmlyCd>XBCT</SubFmlyCd>
+            </Fmly>
+          </Domn>
+        </BkTxCd>
+        <Chrgs>
+          <TtlChrgsAndTaxAmt Ccy="EUR">3.50</TtlChrgsAndTaxAmt>
+          <Amt Ccy="EUR">3.50</Amt>
+          <CdtDbtInd>DBIT</CdtDbtInd>
+          <Tp><Cd>COMM</Cd></Tp>
+          <Br>DEBT</Br>
+        </Chrgs>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>OSTO-2026-0017</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Toimittaja AB</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-17</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A card purchase in US dollars, booked in euros. -->
+      <Ntry>
+        <Amt Ccy="EUR">92.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-04-15</Dt></BookgDt>
+        <ValDt><Dt>2026-04-14</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0415-003</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>CCRD</Cd>
+              <SubFmlyCd>POSD</SubFmlyCd>
+            </Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <AmtDtls>
+              <InstdAmt>
+                <Amt Ccy="USD">100.00</Amt>
+              </InstdAmt>
+              <TxAmt>
+                <Amt Ccy="EUR">92.50</Amt>
+                <CcyXchg>
+                  <SrcCcy>USD</SrcCcy>
+                  <TrgtCcy>EUR</TrgtCcy>
+                  <XchgRate>0.925</XchgRate>
+                </CcyXchg>
+              </TxAmt>
+            </AmtDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Example Cloud Inc</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Pilvipalvelu huhtikuu</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A payment that came back as a new money-in entry, with the reason. -->
+      <Ntry>
+        <Amt Ccy="EUR">250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-04-22</Dt></BookgDt>
+        <ValDt><Dt>2026-04-22</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0422-004</AcctSvcrRef>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>ICDT</Cd>
+              <SubFmlyCd>RRTN</SubFmlyCd>
+            </Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>OSTO-2026-0012</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Alihankkija Oy</Nm>
+              </Dbtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-12</Ustrd>
+            </RmtInf>
+            <RtrInf>
+              <OrgnlBkTxCd>
+                <Domn>
+                  <Cd>PMNT</Cd>
+                  <Fmly>
+                    <Cd>ICDT</Cd>
+                    <SubFmlyCd>ESCT</SubFmlyCd>
+                  </Fmly>
+                </Domn>
+              </OrgnlBkTxCd>
+              <Rsn>
+                <Cd>AC04</Cd>
+              </Rsn>
+              <AddtlInf>Tili suljettu</AddtlInf>
+            </RtrInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

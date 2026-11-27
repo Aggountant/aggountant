@@ -1,0 +1,107 @@
+{
+  "account_iban": "FI2112345600000785",
+  "currency": "EUR",
+  "statements": [
+    {
+      "balances": [
+        {
+          "amount": {
+            "amount": "608.10",
+            "currency": "EUR"
+          },
+          "date": "2026-05-01",
+          "type": "OPBD"
+        },
+        {
+          "amount": {
+            "amount": "608.10",
+            "currency": "EUR"
+          },
+          "date": "2026-05-07",
+          "type": "CLBD"
+        }
+      ],
+      "balances_reconcile": true,
+      "closing_balance": {
+        "amount": {
+          "amount": "608.10",
+          "currency": "EUR"
+        },
+        "date": "2026-05-07",
+        "type": "CLBD"
+      },
+      "entries_net": {
+        "amount": "0.00",
+        "currency": "EUR"
+      },
+      "entry_count": 2,
+      "id": "2026-05-07",
+      "opening_balance": {
+        "amount": {
+          "amount": "608.10",
+          "currency": "EUR"
+        },
+        "date": "2026-05-01",
+        "type": "OPBD"
+      },
+      "period": {
+        "from": "2026-05-01",
+        "to": "2026-05-07"
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "accounting_date": "2026-05-04",
+      "amount": {
+        "amount": "120.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0504-001",
+      "booking_date": "2026-05-04",
+      "counterparty": "Konepaja Esimerkki",
+      "description": "Lasku 2026-21",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0504-001",
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "ICDT",
+          "sub_family": "ESCT"
+        }
+      },
+      "value_date": "2026-05-04"
+    },
+    {
+      "accounting_date": "2026-05-06",
+      "amount": {
+        "amount": "120.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0506-002",
+      "booking_date": "2026-05-06",
+      "counterparty": "Konepaja Esimerkki",
+      "description": "Lasku 2026-21",
+      "direction": "credit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0506-002",
+      "reversal": {
+        "additional_info": [
+          "Virheellinen tilinumero"
+        ],
+        "end_to_end_id": "OSTO-2026-0021",
+        "kind": "reversal",
+        "reason": {
+          "code": "AC01"
+        }
+      },
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "ICDT",
+          "sub_family": "ESCT"
+        }
+      },
+      "value_date": "2026-05-04"
+    }
+  ]
+}

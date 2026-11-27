@@ -1,0 +1,181 @@
+{
+  "account_iban": "FI2112345600000785",
+  "currency": "EUR",
+  "statements": [
+    {
+      "balances": [
+        {
+          "amount": {
+            "amount": "1000.00",
+            "currency": "EUR"
+          },
+          "date": "2026-04-01",
+          "type": "OPBD"
+        },
+        {
+          "amount": {
+            "amount": "608.10",
+            "currency": "EUR"
+          },
+          "date": "2026-04-30",
+          "type": "CLBD"
+        }
+      ],
+      "balances_reconcile": true,
+      "closing_balance": {
+        "amount": {
+          "amount": "608.10",
+          "currency": "EUR"
+        },
+        "date": "2026-04-30",
+        "type": "CLBD"
+      },
+      "entries_net": {
+        "amount": "-391.90",
+        "currency": "EUR"
+      },
+      "entry_count": 4,
+      "id": "2026-04",
+      "opening_balance": {
+        "amount": {
+          "amount": "1000.00",
+          "currency": "EUR"
+        },
+        "date": "2026-04-01",
+        "type": "OPBD"
+      },
+      "period": {
+        "from": "2026-04-01",
+        "to": "2026-04-30"
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "accounting_date": "2026-04-03",
+      "amount": {
+        "amount": "45.90",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0403-001",
+      "booking_date": "2026-04-03",
+      "counterparty": "Paperikauppa Esimerkki",
+      "description": "Korttiosto 4321",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0403-001",
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "CCRD",
+          "sub_family": "POSD"
+        },
+        "proprietary": {
+          "code": "705",
+          "issuer": "FFFS"
+        }
+      },
+      "value_date": "2026-04-02"
+    },
+    {
+      "accounting_date": "2026-04-10",
+      "amount": {
+        "amount": "503.50",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0410-002",
+      "booking_date": "2026-04-10",
+      "charges": {
+        "records": [
+          {
+            "amount": {
+              "amount": "3.50",
+              "currency": "EUR"
+            },
+            "bearer": "DEBT",
+            "direction": "debit",
+            "type": "COMM"
+          }
+        ],
+        "total": {
+          "amount": "3.50",
+          "currency": "EUR"
+        }
+      },
+      "counterparty": "Toimittaja AB",
+      "description": "Lasku 2026-17",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0410-002",
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "ICDT",
+          "sub_family": "XBCT"
+        }
+      },
+      "value_date": "2026-04-10"
+    },
+    {
+      "accounting_date": "2026-04-15",
+      "amount": {
+        "amount": "92.50",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0415-003",
+      "booking_date": "2026-04-15",
+      "counterparty": "Example Cloud Inc",
+      "description": "Pilvipalvelu huhtikuu",
+      "direction": "debit",
+      "instructed_amount": {
+        "amount": "100.00",
+        "currency": "USD"
+      },
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0415-003",
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "CCRD",
+          "sub_family": "POSD"
+        }
+      },
+      "value_date": "2026-04-14"
+    },
+    {
+      "accounting_date": "2026-04-22",
+      "amount": {
+        "amount": "250.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0422-004",
+      "booking_date": "2026-04-22",
+      "counterparty": "Alihankkija Oy",
+      "description": "Lasku 2026-12",
+      "direction": "credit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0422-004",
+      "reversal": {
+        "additional_info": [
+          "Tili suljettu"
+        ],
+        "end_to_end_id": "OSTO-2026-0012",
+        "kind": "return",
+        "original_transaction_code": {
+          "domain": {
+            "domain": "PMNT",
+            "family": "ICDT",
+            "sub_family": "ESCT"
+          }
+        },
+        "reason": {
+          "code": "AC04"
+        }
+      },
+      "transaction_code": {
+        "domain": {
+          "domain": "PMNT",
+          "family": "ICDT",
+          "sub_family": "RRTN"
+        }
+      },
+      "value_date": "2026-04-22"
+    }
+  ]
+}

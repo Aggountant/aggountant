@@ -373,6 +373,12 @@ enum CamtCmd {
     /// (`balances_reconcile`). A report with no booked entries is not an
     /// error: the output then carries `empty_report` with the account, the
     /// period and a message to check before treating the month as quiet.
+    /// When the file gives them, a transaction also carries the bank's
+    /// `transaction_code`, `charges`, the `instructed_amount` of a
+    /// foreign-currency payment and `reversal` (a bank reversal or a returned
+    /// payment, with the reason). They are evidence for the assignment and
+    /// never change the entry's identity. A reversal is booked in its own
+    /// direction like any entry; assign it the original payment's accounts.
     Parse {
         #[arg(long)]
         file: PathBuf,

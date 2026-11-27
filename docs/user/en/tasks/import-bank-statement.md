@@ -26,7 +26,11 @@ approve the proposal, the whole statement is sealed into vouchers at once.
    gone through. The program also shows the statement's period, its opening
    and closing balance, and whether the transactions it read take the opening
    balance to the closing balance. If they do not, the file was not read
-   correctly and the agent does not import it.
+   correctly and the agent does not import it. When the bank's file says
+   so, each transaction also carries the bank's transaction type (for
+   example a card purchase), the bank charges included in it, the amount in
+   the original currency of a foreign payment, and whether it returns or
+   reverses an earlier payment, with the reason.
 
 3. **The agent prepares a proposal.** The agent proposes the accounts and the
    VAT treatment, because the program does not decide them. For every
@@ -37,8 +41,10 @@ approve the proposal, the whole statement is sealed into vouchers at once.
    VAT, as
    [When the purchase is also on the bank statement](record-receipts.md#when-the-purchase-is-also-on-the-bank-statement)
    describes. For other rows, such as bank service charges, the agent proposes
-   the counter-account and, for purchases, the VAT treatment. Whatever it
-   cannot work out, it asks you in one go.
+   the counter-account and, for purchases, the VAT treatment. A payment that
+   came back or that the bank reversed is recorded against the same accounts
+   as the original payment, so the two cancel out. Whatever it cannot work
+   out, it asks you in one go.
 
 4. **Check and approve.** The agent previews the import. The program checks
    the proposal the way sealing does (accounts, amounts, VAT split, period

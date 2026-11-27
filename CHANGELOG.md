@@ -78,6 +78,19 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   prints it. A wrong account, a wrong month or a truncated export no longer
   looks like a plain success with zero transactions.
 
+- **Bank import: transaction codes, charges, original amounts and
+  reversals.** `import camt parse` now shows, when the bank's file gives
+  them, each transaction's bank transaction code (`transaction_code`,
+  `BkTxCd`), its charges (`charges`, `Chrgs`), the instructed amount of a
+  foreign-currency payment (`instructed_amount`, `AmtDtls/InstdAmt`) and
+  reversal or return information with the reason (`reversal`, `RvslInd` /
+  `RtrInf`). A statement with a reversal (`RvslInd` true) no longer stops
+  with `INVALID_CAMT`: the reversal is booked in its own direction under its
+  own reference, normally to the original payment's accounts. The new fields
+  are outside an entry's identity, so already imported statements re-import
+  as duplicate observations, and files without these elements parse as
+  before. No store migration.
+
 ### Changed
 
 - **Skills: `migrate-books` is now `migrate`, phased by domain.** The skill

@@ -159,7 +159,29 @@ fn camt052_and_camt053_yield_equivalent_transactions() {
     assert_eq!(s052.currency, s053.currency);
     // The PDNG entry is skipped in both — only the two BOOK entries remain.
     assert_eq!(s052.transactions.len(), 2);
-    assert_eq!(s052.transactions, s053.transactions);
+    // The camt.052 fixture also carries bank transaction codes, which the
+    // camt.053 one lacks; they are passthrough data outside the entry's
+    // identity, so every other field and the fingerprint are equal.
+    let without_codes = |txns: &[aggountant_import::BankTransaction]| {
+        txns.iter()
+            .cloned()
+            .map(|mut t| {
+                t.transaction_code = None;
+                t
+            })
+            .collect::<Vec<_>>()
+    };
+    assert!(s052
+        .transactions
+        .iter()
+        .all(|t| t.transaction_code.is_some()));
+    assert_eq!(
+        without_codes(&s052.transactions),
+        without_codes(&s053.transactions)
+    );
+    for (a, b) in s052.transactions.iter().zip(&s053.transactions) {
+        assert_eq!(a.source_fingerprint(), b.source_fingerprint());
+    }
 }
 
 #[test]
@@ -194,27 +216,29 @@ fn rpt_xml(body: &str) -> String {
 }
 
 #[test]
-fn camt052_reversal_entry_is_refused() {
-    // camt.052 (interim) can carry reversals; a reversal is not an independent
-    // booking, so it is refused rather than mis-posted / silently deduped.
+fn camt052_reversal_entry_is_booked_with_its_reversal_flag() {
+    // camt.052 (interim) can carry reversals. A reversal is booked in its own
+    // direction under its own reference and says it is a reversal.
     let body = r#"<Ntry>
-      <Amt Ccy="EUR">1.00</Amt><CdtDbtInd>DBIT</CdtDbtInd>
+      <Amt Ccy="EUR">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>
       <RvslInd>true</RvslInd><Sts>BOOK</Sts>
       <BookgDt><Dt>2026-03-14</Dt></BookgDt>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-RVSL</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    let err = parse_camt(&rpt_xml(body)).unwrap_err();
-    assert_eq!(err.error_code(), "INVALID_CAMT");
-    assert!(err.to_string().contains("RvslInd"), "{err}");
+    let stmt = parse_camt(&rpt_xml(body)).unwrap();
+    assert_eq!(stmt.transactions[0].direction, Direction::Credit);
+    assert!(stmt.transactions[0].reversal.is_some());
 
-    // RvslInd=false is the normal case and parses fine.
+    // RvslInd=false is the normal case and carries no reversal.
     let ok_body = r#"<Ntry>
       <Amt Ccy="EUR">1.00</Amt><CdtDbtInd>DBIT</CdtDbtInd>
       <RvslInd>false</RvslInd><Sts>BOOK</Sts>
       <BookgDt><Dt>2026-03-14</Dt></BookgDt>
       <NtryDtls><TxDtls><Refs><AcctSvcrRef>REF-OK</AcctSvcrRef></Refs></TxDtls></NtryDtls>
     </Ntry>"#;
-    assert_eq!(parse_camt(&rpt_xml(ok_body)).unwrap().transactions.len(), 1);
+    let stmt = parse_camt(&rpt_xml(ok_body)).unwrap();
+    assert_eq!(stmt.transactions.len(), 1);
+    assert!(stmt.transactions[0].reversal.is_none());
 }
 
 #[test]

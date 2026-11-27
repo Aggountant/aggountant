@@ -24,7 +24,11 @@ ehdotuksen, koko tiliote sinetöidään kerralla tositteiksi.
    kirjataan siltä tiliotteelta, jolla ne ovat toteutuneet. Ohjelma näyttää
    myös tiliotteen jakson, alku- ja loppusaldon sekä sen, vievätkö luetut
    tapahtumat alkusaldon loppusaldoon. Jos eivät vie, tiedostoa ei ole luettu
-   oikein, eikä agentti tuo sitä.
+   oikein, eikä agentti tuo sitä. Kun pankin tiedosto kertoo ne, tapahtumassa
+   näkyy myös pankin tapahtumatyyppi (esimerkiksi korttiosto), siihen
+   sisältyvät pankin kulut, ulkomaisen maksun summa alkuperäisessä
+   valuutassa sekä se, palauttaako tai peruuttaako tapahtuma aiemman maksun,
+   ja millä syyllä.
 
 3. **Agentti valmistelee ehdotuksen.** Tilit ja ALV-käsittelyn ehdottaa
    agentti, sillä ohjelma ei päätä niitä. Agentti etsii jokaiselle
@@ -34,8 +38,10 @@ ehdotuksen, koko tiliote sinetöidään kerralla tositteiksi.
    ostovelkaa 2700 vastaan ilman ALV:tä, kuten kohta
    [Kun osto näkyy myös tiliotteella](record-receipts.md#kun-osto-näkyy-myös-tiliotteella)
    kuvaa. Muille riveille, kuten pankin palvelumaksuille, agentti ehdottaa
-   vastatilin ja ostoissa ALV-käsittelyn. Sen, mitä se ei voi päätellä, se
-   kysyy sinulta yhdellä kertaa.
+   vastatilin ja ostoissa ALV-käsittelyn. Palautunut tai pankin peruuttama
+   maksu kirjataan samoille tileille kuin alkuperäinen maksu, jolloin ne
+   kumoavat toisensa. Sen, mitä se ei voi päätellä, se kysyy sinulta yhdellä
+   kertaa.
 
 4. **Tarkista ja hyväksy.** Agentti esikatselee tuonnin. Ohjelma tarkistaa
    ehdotuksen samoin kuin sinetöinnissä (tilit, summat, ALV-purku, kauden

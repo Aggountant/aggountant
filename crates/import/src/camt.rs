@@ -21,8 +21,19 @@
 //! `BkToCstmrStmt → Stmt`; camt.052 `BkToCstmrAcctRpt → Rpt`), so the same
 //! per-`Ntry` reduction runs for both. This is a structural claim about the read
 //! subset, not full message equivalence: camt.052 is an interim/intraday report
-//! and can carry semantics .053 does not (e.g. reversals — see `parse_entry`,
-//! which refuses `<RvslInd>true</RvslInd>`).
+//! and can carry semantics .053 does not.
+//!
+//! Beyond those fields it passes through, as typed optional fields, the source
+//! data that helps the skill judge an entry: the bank transaction code
+//! (`BkTxCd`), reversal and return information (`RvslInd`, `RtrInf`), charges
+//! (`Chrgs`) and the instructed amount of a foreign-currency payment
+//! (`AmtDtls/InstdAmt`). These fields never refuse a file and never enter the
+//! entry's event key, source fingerprint or default description: a statement
+//! the parser read before they existed reads to the same identity now, so an
+//! overlapping re-import of it is still a duplicate observation. An element
+//! that cannot be read into its typed form is left out rather than refused,
+//! because the build before these fields accepted the file and its retained
+//! copy must still read back.
 
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
@@ -79,6 +90,135 @@ pub struct BankTransaction {
     /// Unstructured remittance information (`RmtInf/Ustrd`), joined with spaces.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The bank transaction code (`BkTxCd`) of the entry, else of its
+    /// transaction details: what kind of transaction the bank says it is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_code: Option<BankTransactionCode>,
+    /// Present when the entry reverses an earlier one (`RvslInd` true) or
+    /// returns a payment (`RtrInf`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reversal: Option<Reversal>,
+    /// The charges the bank reports for the entry (`Chrgs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub charges: Option<Charges>,
+    /// The amount the payment was instructed in (`AmtDtls/InstdAmt`), for
+    /// example the original currency of a foreign-currency card purchase. The
+    /// entry `amount` is what moved on the account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instructed_amount: Option<Money>,
+}
+
+/// An ISO 20022 bank transaction code (`BkTxCd`): the structured domain code,
+/// the bank's proprietary code, or both, verbatim.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BankTransactionCode {
+    /// `Domn`: domain, family and sub-family, e.g. `PMNT` / `CCRD` / `POSD`
+    /// for a card purchase.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<DomainCode>,
+    /// `Prtry`: the bank's or a national scheme's own code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proprietary: Option<ProprietaryCode>,
+}
+
+/// The structured part of a bank transaction code (`BkTxCd/Domn`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DomainCode {
+    /// `Domn/Cd`, e.g. `PMNT`.
+    pub domain: String,
+    /// `Domn/Fmly/Cd`, e.g. `CCRD`, `ICDT`, `RCDT`.
+    pub family: String,
+    /// `Domn/Fmly/SubFmlyCd`, e.g. `POSD`, `ESCT`, `RRTN`.
+    pub sub_family: String,
+}
+
+/// A proprietary code (`Prtry/Cd`) and who issued it (`Prtry/Issr`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProprietaryCode {
+    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+}
+
+/// Whether a bank entry undoes an earlier one: a bank correction (`RvslInd`)
+/// or a returned payment (`RtrInf`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReversalKind {
+    /// `RvslInd` true: the bank reverses an earlier entry of the account.
+    Reversal,
+    /// `RtrInf` without `RvslInd`: a payment came back as a new entry.
+    Return,
+}
+
+/// Reversal and return information of an entry.
+///
+/// A reversal or return is booked like any entry: money moves in the entry's
+/// own `direction` (`CdtDbtInd`; ISO 20022 reports a reversed debit as a
+/// credit), its event key is its own reference, and the skill assigns its
+/// accounts, normally those the original was booked to, so the projection's
+/// sides undo it. A reversal that reuses the original's reference is refused
+/// in the same file as a duplicate key and, against an original already in the
+/// books, stops the import as changed source facts; it is never dropped.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Reversal {
+    pub kind: ReversalKind,
+    /// `RtrInf/Rsn`: why the payment was returned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<ReasonCode>,
+    /// `RtrInf/AddtlInf`, every element in document order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub additional_info: Vec<String>,
+    /// `RtrInf/OrgnlBkTxCd`: the transaction code of the original payment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_transaction_code: Option<BankTransactionCode>,
+    /// The end-to-end id of the transaction details (`Refs/EndToEndId`). A
+    /// return or reversal normally carries the original payment's id, which
+    /// links it to the original.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_to_end_id: Option<String>,
+}
+
+/// A reason given as an ISO external code (`Cd`, e.g. `AC04` closed account)
+/// or as proprietary text (`Prtry`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReasonCode {
+    Code(String),
+    Proprietary(String),
+}
+
+/// The charges of an entry (`Chrgs`). camt.053.001.02 lists each charge as its
+/// own `Chrgs`; later versions put one `Chrgs` with records (`Rcrd`). Both read
+/// into the same shape.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Charges {
+    /// `TtlChrgsAndTaxAmt`: the total of charges and their taxes, when given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<Money>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub records: Vec<ChargeRecord>,
+}
+
+/// One charge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ChargeRecord {
+    /// The charge amount, positive.
+    pub amount: Money,
+    /// Whether the charge was taken from (`debit`) or credited to the account
+    /// (`CdtDbtInd`), when given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<Direction>,
+    /// `ChrgInclInd`: whether the charge is included in the entry amount, when
+    /// the bank says.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub included_in_amount: Option<bool>,
+    /// `Tp/Cd`, or `Tp/Prtry/Id`, verbatim (e.g. `COMM`).
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub charge_type: Option<String>,
+    /// `Br`: who bears the charge (e.g. `DEBT`, `CRED`, `SHAR`, `SLEV`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bearer: Option<String>,
 }
 
 impl BankTransaction {
@@ -89,7 +229,10 @@ impl BankTransaction {
     /// direction, scale-sensitive amount, currency, counterparty, and remittance.
     /// Fields are name- and length-framed; dates, money, and currency use Model's
     /// documented canonical text forms. Derived `accounting_date` is deliberately
-    /// excluded. Changing what it covers changes the fingerprint of every booked
+    /// excluded, and so are the passthrough fields (`transaction_code`,
+    /// `reversal`, `charges`, `instructed_amount`): they were added after
+    /// statements were imported, and covering them would change the
+    /// fingerprint of every such entry that carries them. Changing what it covers changes the fingerprint of every booked
     /// transaction, and every overlapping re-import would then stop with
     /// `SOURCE_FACTS_CHANGED`: a new version needs a decision about stored ones.
     pub fn source_fingerprint(&self) -> String {
@@ -433,7 +576,7 @@ pub fn parse_camt(xml: &str) -> Result<ParsedStatement, ImportError> {
         let first_entry = transactions.len();
         for ntry in children(*report, "Ntry") {
             match parse_entry(ntry, &account_iban, currency.as_deref())? {
-                ParsedEntry::Booked(txn) => transactions.push(txn),
+                ParsedEntry::Booked(txn) => transactions.push(*txn),
                 ParsedEntry::Unbooked(Some(entry)) => {
                     unbooked_count += 1;
                     unbooked.push(entry);
@@ -605,7 +748,7 @@ fn parse_balance(bal: Node) -> Result<StatementBalance, ImportError> {
 }
 
 enum ParsedEntry {
-    Booked(BankTransaction),
+    Booked(Box<BankTransaction>),
     /// A non-booked entry; `None` when it has no usable reference to match by.
     Unbooked(Option<UnbookedEntry>),
 }
@@ -647,27 +790,18 @@ fn parse_entry(
         }
     }
 
-    // A reversal (`<RvslInd>true</RvslInd>`, common in camt.052 interim reports)
-    // is not a plain booking: posting it as an independent entry mis-books, and if
-    // it reuses the original entry's reference the `natural_key` collides and the
-    // reversal is silently dropped by `Ledger::seal`. Refuse it rather than
-    // mis-handle it (reversal-aware projection is a later slice — see the import
-    // spin-offs). `false`/absent are the normal case.
-    match child(ntry, "RvslInd").and_then(text).as_deref() {
-        None | Some("false") => {}
-        Some("true") => {
-            return Err(ImportError::Camt(
-                "<Ntry> has <RvslInd>true</RvslInd> — reversal entries are not supported (a \
-                 reversal is not an independent booking)"
-                    .into(),
-            ));
-        }
+    // `RvslInd` true marks a reversal, which is booked in its own direction
+    // like any entry (see `Reversal`). A value that is neither true nor false
+    // was refused before and still is.
+    let is_reversal = match child(ntry, "RvslInd").and_then(text).as_deref() {
+        None | Some("false") => false,
+        Some("true") => true,
         Some(other) => {
             return Err(ImportError::Camt(format!(
                 "<RvslInd> must be true or false, got {other:?}"
             )));
         }
-    }
+    };
 
     // A batched entry (several `TxDtls`, whether under one `NtryDtls` or spread
     // across several `NtryDtls` blocks) aggregates many transactions under one
@@ -735,15 +869,25 @@ fn parse_entry(
     })?;
 
     // The counterparty is the *other* party: creditor for money out, debtor for
-    // money in. Read from the entry-details related-parties block.
+    // money in. Read from the entry-details related-parties block. A reversal
+    // keeps the original transaction's roles (the ISO 20022 camt.05x usage), so
+    // its other party is in the role opposite to its own direction; the
+    // direction's role is the fallback for a bank that swaps them. Ordinary
+    // entries read exactly as they always have.
     let counterparty = tx_dtls
         .and_then(|t| descendant(t, "RltdPties"))
         .and_then(|rp| {
-            let party = match direction {
-                Direction::Debit => "Cdtr",
-                Direction::Credit => "Dbtr",
+            let (party, original_party) = match direction {
+                Direction::Debit => ("Cdtr", "Dbtr"),
+                Direction::Credit => ("Dbtr", "Cdtr"),
             };
-            child(rp, party).and_then(|p| descendant(p, "Nm").and_then(text))
+            let name =
+                |role: &str| child(rp, role).and_then(|p| descendant(p, "Nm").and_then(text));
+            if is_reversal {
+                name(original_party).or_else(|| name(party))
+            } else {
+                name(party)
+            }
         });
 
     // Unstructured remittance info, joined (an entry may carry several <Ustrd>).
@@ -757,7 +901,7 @@ fn parse_entry(
         })
         .filter(|s| !s.is_empty());
 
-    Ok(ParsedEntry::Booked(BankTransaction {
+    Ok(ParsedEntry::Booked(Box::new(BankTransaction {
         natural_key: natural_key(account_iban, &bank_ref),
         bank_ref,
         booking_date,
@@ -768,7 +912,139 @@ fn parse_entry(
         amount,
         counterparty,
         description,
-    }))
+        transaction_code: child(ntry, "BkTxCd")
+            .and_then(read_transaction_code)
+            .or_else(|| {
+                tx_dtls
+                    .and_then(|t| child(t, "BkTxCd"))
+                    .and_then(read_transaction_code)
+            }),
+        reversal: read_reversal(is_reversal, tx_dtls),
+        // Charges and the instructed amount are read from the entry, else from
+        // its one transaction details block.
+        charges: [Some(ntry), tx_dtls]
+            .into_iter()
+            .flatten()
+            .find(|n| child(*n, "Chrgs").is_some())
+            .and_then(read_charges),
+        instructed_amount: [Some(ntry), tx_dtls].into_iter().flatten().find_map(|n| {
+            let amt = child(child(child(n, "AmtDtls")?, "InstdAmt")?, "Amt")?;
+            read_money(amt)
+        }),
+    })))
+}
+
+/// Read an `Amt`-like element (text amount, `Ccy` attribute) into money, or
+/// `None` when either is missing or malformed.
+fn read_money(amt: Node) -> Option<Money> {
+    let currency = Currency::new(amt.attribute("Ccy")?).ok()?;
+    Money::parse(&text(amt)?, currency).ok()
+}
+
+/// Read a `BkTxCd` (or `OrgnlBkTxCd`). A `Domn` lacking any of its three codes
+/// is left out; `None` when neither part is readable.
+fn read_transaction_code(code: Node) -> Option<BankTransactionCode> {
+    let domain = child(code, "Domn").and_then(|domn| {
+        let family = child(domn, "Fmly")?;
+        Some(DomainCode {
+            domain: child(domn, "Cd").and_then(text)?,
+            family: child(family, "Cd").and_then(text)?,
+            sub_family: child(family, "SubFmlyCd").and_then(text)?,
+        })
+    });
+    let proprietary = child(code, "Prtry").and_then(|prtry| {
+        Some(ProprietaryCode {
+            code: child(prtry, "Cd").and_then(text)?,
+            issuer: child(prtry, "Issr").and_then(text),
+        })
+    });
+    (domain.is_some() || proprietary.is_some()).then_some(BankTransactionCode {
+        domain,
+        proprietary,
+    })
+}
+
+/// Read reversal and return information: present when the entry is a reversal
+/// or its transaction details carry `RtrInf`.
+fn read_reversal(is_reversal: bool, tx_dtls: Option<Node>) -> Option<Reversal> {
+    let rtr_inf = tx_dtls.and_then(|t| child(t, "RtrInf"));
+    let kind = match (is_reversal, rtr_inf) {
+        (true, _) => ReversalKind::Reversal,
+        (false, Some(_)) => ReversalKind::Return,
+        (false, None) => return None,
+    };
+    let reason = rtr_inf.and_then(|r| child(r, "Rsn")).and_then(|rsn| {
+        child(rsn, "Cd")
+            .and_then(text)
+            .map(ReasonCode::Code)
+            .or_else(|| {
+                child(rsn, "Prtry")
+                    .and_then(text)
+                    .map(ReasonCode::Proprietary)
+            })
+    });
+    Some(Reversal {
+        kind,
+        reason,
+        additional_info: rtr_inf
+            .map(|r| children(r, "AddtlInf").filter_map(text).collect())
+            .unwrap_or_default(),
+        original_transaction_code: rtr_inf
+            .and_then(|r| child(r, "OrgnlBkTxCd"))
+            .and_then(read_transaction_code),
+        end_to_end_id: tx_dtls
+            .and_then(|t| child(t, "Refs"))
+            .and_then(|r| child(r, "EndToEndId"))
+            .and_then(text),
+    })
+}
+
+/// Read the `Chrgs` children of `parent` (the entry or its transaction
+/// details). A `Chrgs` with `Rcrd` children (camt.053.001.03 and later) gives
+/// one record per `Rcrd`; one without (camt.053.001.02) is itself a record. A
+/// record whose amount cannot be read is left out. `None` when nothing is
+/// readable.
+fn read_charges(parent: Node) -> Option<Charges> {
+    let mut total = None;
+    let mut records = Vec::new();
+    for chrgs in children(parent, "Chrgs") {
+        if total.is_none() {
+            total = child(chrgs, "TtlChrgsAndTaxAmt").and_then(read_money);
+        }
+        let rcrds: Vec<Node> = children(chrgs, "Rcrd").collect();
+        if rcrds.is_empty() {
+            records.extend(read_charge_record(chrgs));
+        } else {
+            records.extend(rcrds.into_iter().filter_map(read_charge_record));
+        }
+    }
+    (total.is_some() || !records.is_empty()).then_some(Charges { total, records })
+}
+
+fn read_charge_record(record: Node) -> Option<ChargeRecord> {
+    let amount = child(record, "Amt").and_then(read_money)?;
+    let charge_type = child(record, "Tp").and_then(|tp| {
+        child(tp, "Cd").and_then(text).or_else(|| {
+            child(tp, "Prtry")
+                .and_then(|p| child(p, "Id"))
+                .and_then(text)
+        })
+    });
+    Some(ChargeRecord {
+        amount,
+        direction: match child(record, "CdtDbtInd").and_then(text).as_deref() {
+            Some("CRDT") => Some(Direction::Credit),
+            Some("DBIT") => Some(Direction::Debit),
+            _ => None,
+        },
+        included_in_amount: match child(record, "ChrgInclInd").and_then(text).as_deref() {
+            Some("true") => Some(true),
+            Some("false") => Some(false),
+            _ => None,
+        },
+        charge_type,
+        bearer: child(record, "Br").and_then(text),
+    })
 }
 
 /// The prefix of every bank-transaction event key.
