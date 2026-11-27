@@ -1,8 +1,8 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
@@ -12,6 +12,13 @@ originating_run_kind: technical-decision
 lane: workplace
 lane_seq: 10
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-27
+closed_by: spinoff-01m8ehz1eezcc03sc8dzm8xy55
+commits:
+- hash: 9808ba7
+  summary: claimant register in the personal-data store
+- hash: d6c4c2f
+  summary: claim compute takes the workplace from the register
 ---
 
 # Dated regular-workplace register and claimant facts in the personal-data store
@@ -68,12 +75,12 @@ this issue owns the register's shape, its basis codes and the refusals.
 
 ## Acceptance criteria
 
-- [ ] A home without claims opens and upgrades unchanged; the migration is additive.
-- [ ] Bitemporal query tested: a backward correction changes "as known now" but not "as known at T".
-- [ ] Refusal codes covered by tests with synthetic people (Esimerkki Oy).
-- [ ] No personal data goes to git or the fiscal store.
-- [ ] User guide uses the legal terms with a plain explanation in parentheses (ADR-11 section 9; product owner 2026-11-24) and adds them to the glossary. Proposed wording, settled in the guide: varsinainen työpaikka (paikka, jossa teet työtä vakituisesti, esimerkiksi oma toimisto tai kotitoimisto); toissijainen työpaikka (oman yhtiön toinen vakituinen toimipaikka toisessa kunnassa); erityinen työntekemispaikka (tilapäinen paikka, kuten asiakkaan luona); matkavuorokausi (24 tunnin jakso matkan alkamisesta, ei kalenteripäivä); ilmainen ateria (työnantajan tai esimerkiksi asiakkaan tarjoama ateria, ei hotellin aamiainen).
-- [ ] Copy-comparison test: a synthetic home without claims is copied, migrated, and existing commands produce the same outputs on both copies. The regular-workplace question is asked only for a claimant.
+- [x] A home without claims opens and upgrades unchanged; the migration is additive.
+- [x] Bitemporal query tested: a backward correction changes "as known now" but not "as known at T".
+- [x] Refusal codes covered by tests with synthetic people (Esimerkki Oy).
+- [x] No personal data goes to git or the fiscal store.
+- [x] User guide uses the legal terms with a plain explanation in parentheses (ADR-11 section 9; product owner 2026-11-24) and adds them to the glossary. Proposed wording, settled in the guide: varsinainen työpaikka (paikka, jossa teet työtä vakituisesti, esimerkiksi oma toimisto tai kotitoimisto); toissijainen työpaikka (oman yhtiön toinen vakituinen toimipaikka toisessa kunnassa); erityinen työntekemispaikka (tilapäinen paikka, kuten asiakkaan luona); matkavuorokausi (24 tunnin jakso matkan alkamisesta, ei kalenteripäivä); ilmainen ateria (työnantajan tai esimerkiksi asiakkaan tarjoama ateria, ei hotellin aamiainen).
+- [x] Copy-comparison test: a synthetic home without claims is copied, migrated, and existing commands produce the same outputs on both copies. The regular-workplace question is asked only for a claimant.
 
 ## Likely files
 
@@ -96,3 +103,9 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 ### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
 
 Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
+
+## Resolution
+
+### 2026-11-27T14:16:07Z · @spinoff-01m8ehz1eezcc03sc8dzm8xy55
+
+Register, query, snapshot, CLI and the travel-computation integration landed (pii schema v1 -> v2, additive). Copy comparison and review in result.md, review.md, assessment.md. Follow-ups: claimant-municipality-codes, store-downgrade-message-suggests-reset; reconfirmation triggers and receipt-line refusal proposed for expense-claim-draft.
