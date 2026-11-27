@@ -1,14 +1,15 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: task
-status: untriaged
+status: done
 priority: normal
 provenance: other
 provenance_detail: taskfleet technical-decision brief
 source_ref: taskfleet:01m87gzzt5thzm0qb8xrqabanq/decision:expense-claim-model
 originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
+closed: 2026-11-27
 ---
 
 # Decide the expense claim (kululasku) model: storage, computation, approval and processing
@@ -34,7 +35,7 @@ review record (`review.md`, `assessment.md`) beside this issue.
 ## Acceptance Criteria
 
 - [x] Jari accepts, amends or rejects ADR-11 and answers its open questions.
-- [ ] If accepted, its implementation slices (listed in the ADR's last section) are triaged and laned.
+- [x] If accepted, its implementation slices (listed in the ADR's last section) are triaged and laned.
 
 ## Comments
 
