@@ -76,10 +76,12 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   Agentti kertoo, jos osto on sellainen, ja silloin kysyt kirjanpitäjältäsi.
 - Omaa korjauskomentoa ei ole. Korjaus kirjataan tavallisena
   erikoiskirjauksena: [Korjaa virheellinen tosite](../tasks/correct-voucher.md).
-- Kululaskua ja matkaennakkoa ei ole omana toimintonaan. Agentti kirjaa
-  kululaskun kuitit kuittireitillä ja kilometrikorvaukset ja päivärahat
-  erikoiskirjauksena, ja sinä tarkistat summat, koska ohjelma ei laske
-  korvauksia matkasta. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
+- Kululaskua ja matkaennakkoa ei ole omana toimintonaan. aggountant laskee
+  matkan verovapaat korvaukset esikatseluna
+  ([Laske matkan verovapaat korvaukset](../tasks/compute-travel-allowances.md)),
+  mutta ei tallenna matkaa eikä hyväksy kululaskua. Agentti kirjaa kululaskun
+  kuitit kuittireitillä ja kilometrikorvaukset ja päivärahat
+  erikoiskirjauksena. Matkaennakko ja sen kuittaus kirjataan samoin käsin:
   [Kirjaa matkaennakko ja sen tilitys](../tasks/record-travel-advance.md).
   Kululaskun malli on päätetty, ja se odottaa toteutusta
   (`expense-claim-model`).

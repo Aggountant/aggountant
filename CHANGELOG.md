@@ -11,6 +11,19 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Travel allowances computed from a trip (`claim compute`).** A new
+  read-only command takes trips as JSON on stdin and computes the scheduled
+  tax-free allowances: travel days, domestic and foreign per diems with the
+  halving by free meals and the deduction of company-paid meals, meal and
+  night travel allowances, and mileage with its surcharges. The result shows
+  the Tulorekisteri lines (311, 331), proposed postings per month and the Tax
+  Administration decision used (2026: 970/2025; 2027: 929/2026), with the
+  bundled table's hash. Situations the decision and guidance do not settle,
+  missing answers and amounts above the maximum are refused with a code
+  instead of guessed. Nothing is written and no company home is needed; the
+  rate table is read only by this command. New guide page "Laske matkan
+  verovapaat korvaukset" (Compute the tax-free allowances of a trip).
+
 - **Travel advances booked by hand.** The user guide has a new task page,
   "Kirjaa matkaennakko ja sen tilitys" (Record a travel advance and its
   settlement), and the `capture-receipt` skill bundles `matkaennakot.md`: the

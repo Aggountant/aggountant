@@ -1,0 +1,1871 @@
+{
+ "table": "fi-travel-allowances",
+ "territories": {
+  "source": "Verohallinto, Ulkomaanpäivärahat/alueiden määrittelyjä, liite päätökseen verovapaista matkakustannusten korvauksista",
+  "source_url": "https://vero.fi/download/Ulkomaanpaivarahatalueiden_maarittelyja_2016/%7BBA0DB333-DA8E-4E8E-9CE4-6B512EF44AC7%7D/11356",
+  "aliases": {
+   "GG": {
+    "country": "GB",
+    "region": null,
+    "basis": "Kanaalisaaret kuuluvat Britanniaan"
+   },
+   "JE": {
+    "country": "GB",
+    "region": null,
+    "basis": "Kanaalisaaret kuuluvat Britanniaan"
+   },
+   "IM": {
+    "country": "GB",
+    "region": null,
+    "basis": "Man-saari kuuluu Britanniaan"
+   },
+   "VA": {
+    "country": "IT",
+    "region": null,
+    "basis": "Vatikaanivaltio luetaan Italiaan"
+   },
+   "HK": {
+    "country": "CN",
+    "region": "hong-kong",
+    "basis": "Hongkong on Kiinan kohdalla mainittu kaupunki"
+   }
+  },
+  "unsettled": {
+   "MO": "Macao ei ole päätöksen luettelossa eikä aluemäärittelyissä"
+  },
+  "domestic": [
+   "FI",
+   "AX"
+  ]
+ },
+ "editions": [
+  {
+   "year": 2026,
+   "valid_from": "2026-01-01",
+   "valid_to": "2026-12-31",
+   "decision": {
+    "title": "Verohallinnon päätös verovapaista matkakustannusten korvauksista vuonna 2026",
+    "statute": "970/2025",
+    "diary_number": "VH/6575/00.01.00/2025",
+    "issued": "2025-11-07",
+    "published": "2025-11-11",
+    "url": "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2025/970",
+    "vero_fi_url": "https://www.vero.fi/syventavat-vero-ohjeet/paatokset/47405/verohallinnon-paatos-verovapaista-matkakustannusten-korvauksista-vuonna-2026/",
+    "foreign_rows": 211
+   },
+   "mileage_eur_per_km": {
+    "car": "0.55",
+    "motorboat_up_to_50hp": "0.97",
+    "motorboat_over_50hp": "1.41",
+    "snowmobile": "1.34",
+    "atv": "1.26",
+    "motorcycle": "0.42",
+    "moped": "0.23",
+    "other": "0.13"
+   },
+   "car_surcharges_eur_per_km": {
+    "trailer": "0.09",
+    "caravan": "0.15",
+    "heavy_load": "0.28",
+    "heavy_equipment": "0.04",
+    "dog": "0.04",
+    "forest_road": "0.12"
+   },
+   "passenger_surcharge_eur_per_km": "0.04",
+   "car_benefit_fuel_eur_per_km": "0.11",
+   "domestic": {
+    "partial_day": "25",
+    "full_day": "54",
+    "meal_allowance": "13.50",
+    "meal_allowance_two_meals": "27.00",
+    "night_travel_allowance": "16",
+    "border_crossing_allowance": "18"
+   },
+   "foreign": {
+    "not_listed": "52",
+    "countries": {
+     "AD": {
+      "row": "Andorra",
+      "amount": "66"
+     },
+     "AE": {
+      "row": "Arabiemiirikunnat",
+      "amount": "69"
+     },
+     "AF": {
+      "row": "Afganistan",
+      "amount": "58"
+     },
+     "AG": {
+      "row": "Antigua ja Barbuda",
+      "amount": "92"
+     },
+     "AL": {
+      "row": "Albania",
+      "amount": "93"
+     },
+     "AM": {
+      "row": "Armenia",
+      "amount": "59"
+     },
+     "AO": {
+      "row": "Angola",
+      "amount": "80"
+     },
+     "AR": {
+      "row": "Argentiina",
+      "amount": "43"
+     },
+     "AT": {
+      "row": "Itävalta",
+      "amount": "85"
+     },
+     "AU": {
+      "row": "Australia",
+      "amount": "72"
+     },
+     "AW": {
+      "row": "Aruba",
+      "amount": "66"
+     },
+     "AZ": {
+      "row": "Azerbaidžan",
+      "amount": "69"
+     },
+     "BA": {
+      "row": "Bosnia ja Hertsegovina",
+      "amount": "64"
+     },
+     "BB": {
+      "row": "Barbados",
+      "amount": "75"
+     },
+     "BD": {
+      "row": "Bangladesh",
+      "amount": "57"
+     },
+     "BE": {
+      "row": "Belgia",
+      "amount": "81"
+     },
+     "BF": {
+      "row": "Burkina Faso",
+      "amount": "32"
+     },
+     "BG": {
+      "row": "Bulgaria",
+      "amount": "69"
+     },
+     "BH": {
+      "row": "Bahrain",
+      "amount": "73"
+     },
+     "BI": {
+      "row": "Burundi",
+      "amount": "62"
+     },
+     "BJ": {
+      "row": "Benin",
+      "amount": "48"
+     },
+     "BM": {
+      "row": "Bermuda",
+      "amount": "86"
+     },
+     "BN": {
+      "row": "Brunei",
+      "amount": "43"
+     },
+     "BO": {
+      "row": "Bolivia",
+      "amount": "57"
+     },
+     "BR": {
+      "row": "Brasilia",
+      "amount": "72"
+     },
+     "BS": {
+      "row": "Bahama",
+      "amount": "85"
+     },
+     "BT": {
+      "row": "Bhutan",
+      "amount": "35"
+     },
+     "BW": {
+      "row": "Botswana",
+      "amount": "44"
+     },
+     "BY": {
+      "row": "Valko-Venäjä",
+      "amount": "49"
+     },
+     "BZ": {
+      "row": "Belize",
+      "amount": "50"
+     },
+     "CA": {
+      "row": "Kanada",
+      "amount": "76"
+     },
+     "CD": {
+      "row": "Kongon demokraattinen tasavalta (Kongo-Kinshasa)",
+      "amount": "58"
+     },
+     "CF": {
+      "row": "Keski-Afrikan tasavalta",
+      "amount": "104"
+     },
+     "CG": {
+      "row": "Kongo (Kongo-Brazzaville)",
+      "amount": "70"
+     },
+     "CH": {
+      "row": "Sveitsi",
+      "amount": "95"
+     },
+     "CI": {
+      "row": "Norsunluurannikko",
+      "amount": "86"
+     },
+     "CK": {
+      "row": "Cookinsaaret",
+      "amount": "67"
+     },
+     "CL": {
+      "row": "Chile",
+      "amount": "52"
+     },
+     "CM": {
+      "row": "Kamerun",
+      "amount": "65"
+     },
+     "CN": {
+      "row": "Kiina",
+      "amount": "69",
+      "regions": {
+       "hong-kong": {
+        "row": "Hongkong",
+        "amount": "79"
+       }
+      }
+     },
+     "CO": {
+      "row": "Kolumbia",
+      "amount": "63"
+     },
+     "CR": {
+      "row": "Costa Rica",
+      "amount": "62"
+     },
+     "CU": {
+      "row": "Kuuba",
+      "amount": "70"
+     },
+     "CV": {
+      "row": "Kap Verde",
+      "amount": "46"
+     },
+     "CW": {
+      "row": "Curaçao",
+      "amount": "55"
+     },
+     "CY": {
+      "row": "Kypros",
+      "amount": "65"
+     },
+     "CZ": {
+      "row": "Tšekki",
+      "amount": "94"
+     },
+     "DE": {
+      "row": "Saksa",
+      "amount": "78"
+     },
+     "DJ": {
+      "row": "Djibouti",
+      "amount": "79"
+     },
+     "DK": {
+      "row": "Tanska",
+      "amount": "82"
+     },
+     "DM": {
+      "row": "Dominica",
+      "amount": "59"
+     },
+     "DO": {
+      "row": "Dominikaaninen tasavalta",
+      "amount": "48"
+     },
+     "DZ": {
+      "row": "Algeria",
+      "amount": "79"
+     },
+     "EC": {
+      "row": "Ecuador",
+      "amount": "59"
+     },
+     "EE": {
+      "row": "Viro",
+      "amount": "82"
+     },
+     "EG": {
+      "row": "Egypti",
+      "amount": "55"
+     },
+     "ER": {
+      "row": "Eritrea",
+      "amount": "100"
+     },
+     "ES": {
+      "row": "Espanja",
+      "amount": "78",
+      "regions": {
+       "canary-islands": {
+        "row": "Kanarian saaret",
+        "amount": "75"
+       }
+      }
+     },
+     "ET": {
+      "row": "Etiopia",
+      "amount": "39"
+     },
+     "FJ": {
+      "row": "Fidži",
+      "amount": "50"
+     },
+     "FM": {
+      "row": "Mikronesia",
+      "amount": "60"
+     },
+     "FO": {
+      "row": "Färsaaret",
+      "amount": "64"
+     },
+     "FR": {
+      "row": "Ranska",
+      "amount": "80"
+     },
+     "GA": {
+      "row": "Gabon",
+      "amount": "97"
+     },
+     "GB": {
+      "row": "Britannia",
+      "amount": "84",
+      "regions": {
+       "london": {
+        "row": "Lontoo ja Edinburgh",
+        "amount": "89"
+       },
+       "edinburgh": {
+        "row": "Lontoo ja Edinburgh",
+        "amount": "89"
+       }
+      }
+     },
+     "GD": {
+      "row": "Grenada",
+      "amount": "70"
+     },
+     "GE": {
+      "row": "Georgia",
+      "amount": "46"
+     },
+     "GH": {
+      "row": "Ghana",
+      "amount": "49"
+     },
+     "GL": {
+      "row": "Grönlanti",
+      "amount": "65"
+     },
+     "GM": {
+      "row": "Gambia",
+      "amount": "43"
+     },
+     "GN": {
+      "row": "Guinea",
+      "amount": "83"
+     },
+     "GP": {
+      "row": "Guadeloupe",
+      "amount": "55"
+     },
+     "GR": {
+      "row": "Kreikka",
+      "amount": "72"
+     },
+     "GT": {
+      "row": "Guatemala",
+      "amount": "75"
+     },
+     "GW": {
+      "row": "Guinea-Bissau",
+      "amount": "46"
+     },
+     "GY": {
+      "row": "Guyana",
+      "amount": "50"
+     },
+     "HN": {
+      "row": "Honduras",
+      "amount": "55"
+     },
+     "HR": {
+      "row": "Kroatia",
+      "amount": "74"
+     },
+     "HT": {
+      "row": "Haiti",
+      "amount": "98"
+     },
+     "HU": {
+      "row": "Unkari",
+      "amount": "72"
+     },
+     "ID": {
+      "row": "Indonesia",
+      "amount": "52"
+     },
+     "IE": {
+      "row": "Irlanti",
+      "amount": "81"
+     },
+     "IL": {
+      "row": "Israel",
+      "amount": "97"
+     },
+     "IN": {
+      "row": "Intia",
+      "amount": "57"
+     },
+     "IQ": {
+      "row": "Irak",
+      "amount": "67"
+     },
+     "IR": {
+      "row": "Iran",
+      "amount": "134"
+     },
+     "IS": {
+      "row": "Islanti",
+      "amount": "102"
+     },
+     "IT": {
+      "row": "Italia",
+      "amount": "78"
+     },
+     "JM": {
+      "row": "Jamaika",
+      "amount": "59"
+     },
+     "JO": {
+      "row": "Jordania",
+      "amount": "85"
+     },
+     "JP": {
+      "row": "Japani",
+      "amount": "64"
+     },
+     "KE": {
+      "row": "Kenia",
+      "amount": "79"
+     },
+     "KG": {
+      "row": "Kirgisia",
+      "amount": "43"
+     },
+     "KH": {
+      "row": "Kambodža",
+      "amount": "65"
+     },
+     "KM": {
+      "row": "Komorit",
+      "amount": "48"
+     },
+     "KN": {
+      "row": "Saint Kitts ja Nevis",
+      "amount": "62"
+     },
+     "KP": {
+      "row": "Korean demokraattinen kansantasavalta (Pohjois-Korea)",
+      "amount": "64"
+     },
+     "KR": {
+      "row": "Korean tasavalta (Etelä-Korea)",
+      "amount": "78"
+     },
+     "KW": {
+      "row": "Kuwait",
+      "amount": "82"
+     },
+     "KZ": {
+      "row": "Kazakstan",
+      "amount": "57"
+     },
+     "LA": {
+      "row": "Laos",
+      "amount": "35"
+     },
+     "LB": {
+      "row": "Libanon",
+      "amount": "103"
+     },
+     "LC": {
+      "row": "Saint Lucia",
+      "amount": "80"
+     },
+     "LI": {
+      "row": "Liechtenstein",
+      "amount": "81"
+     },
+     "LK": {
+      "row": "Sri Lanka",
+      "amount": "29"
+     },
+     "LR": {
+      "row": "Liberia",
+      "amount": "61"
+     },
+     "LS": {
+      "row": "Lesotho",
+      "amount": "37"
+     },
+     "LT": {
+      "row": "Liettua",
+      "amount": "75"
+     },
+     "LU": {
+      "row": "Luxemburg",
+      "amount": "81"
+     },
+     "LV": {
+      "row": "Latvia",
+      "amount": "76"
+     },
+     "LY": {
+      "row": "Libya",
+      "amount": "44"
+     },
+     "MA": {
+      "row": "Marokko",
+      "amount": "75"
+     },
+     "MC": {
+      "row": "Monaco",
+      "amount": "92"
+     },
+     "MD": {
+      "row": "Moldova",
+      "amount": "81"
+     },
+     "ME": {
+      "row": "Montenegro",
+      "amount": "71"
+     },
+     "MG": {
+      "row": "Madagaskar",
+      "amount": "48"
+     },
+     "MH": {
+      "row": "Marshallinsaaret",
+      "amount": "67"
+     },
+     "MK": {
+      "row": "Pohjois-Makedonia",
+      "amount": "69"
+     },
+     "ML": {
+      "row": "Mali",
+      "amount": "53"
+     },
+     "MM": {
+      "row": "Myanmar (Burma)",
+      "amount": "85"
+     },
+     "MN": {
+      "row": "Mongolia",
+      "amount": "31"
+     },
+     "MQ": {
+      "row": "Martinique",
+      "amount": "57"
+     },
+     "MR": {
+      "row": "Mauritania",
+      "amount": "46"
+     },
+     "MT": {
+      "row": "Malta",
+      "amount": "74"
+     },
+     "MU": {
+      "row": "Mauritius",
+      "amount": "49"
+     },
+     "MV": {
+      "row": "Malediivit",
+      "amount": "66"
+     },
+     "MW": {
+      "row": "Malawi",
+      "amount": "75"
+     },
+     "MX": {
+      "row": "Meksiko",
+      "amount": "74"
+     },
+     "MY": {
+      "row": "Malesia",
+      "amount": "53"
+     },
+     "MZ": {
+      "row": "Mosambik",
+      "amount": "52"
+     },
+     "NA": {
+      "row": "Namibia",
+      "amount": "38"
+     },
+     "NE": {
+      "row": "Niger",
+      "amount": "43"
+     },
+     "NG": {
+      "row": "Nigeria",
+      "amount": "32"
+     },
+     "NI": {
+      "row": "Nicaragua",
+      "amount": "48"
+     },
+     "NL": {
+      "row": "Alankomaat",
+      "amount": "88"
+     },
+     "NO": {
+      "row": "Norja",
+      "amount": "72"
+     },
+     "NP": {
+      "row": "Nepal",
+      "amount": "47"
+     },
+     "NZ": {
+      "row": "Uusi-Seelanti",
+      "amount": "72"
+     },
+     "OM": {
+      "row": "Oman",
+      "amount": "69"
+     },
+     "PA": {
+      "row": "Panama",
+      "amount": "57"
+     },
+     "PE": {
+      "row": "Peru",
+      "amount": "51"
+     },
+     "PG": {
+      "row": "Papua-Uusi-Guinea",
+      "amount": "62"
+     },
+     "PH": {
+      "row": "Filippiinit",
+      "amount": "66"
+     },
+     "PK": {
+      "row": "Pakistan",
+      "amount": "32"
+     },
+     "PL": {
+      "row": "Puola",
+      "amount": "84"
+     },
+     "PR": {
+      "row": "Puerto Rico",
+      "amount": "69"
+     },
+     "PS": {
+      "row": "Palestiinalaisalue",
+      "amount": "120"
+     },
+     "PT": {
+      "row": "Portugali",
+      "amount": "74",
+      "regions": {
+       "azores": {
+        "row": "Azorit",
+        "amount": "72"
+       },
+       "madeira": {
+        "row": "Madeira",
+        "amount": "71"
+       }
+      }
+     },
+     "PW": {
+      "row": "Palau",
+      "amount": "104"
+     },
+     "PY": {
+      "row": "Paraguay",
+      "amount": "36"
+     },
+     "QA": {
+      "row": "Qatar",
+      "amount": "71"
+     },
+     "RO": {
+      "row": "Romania",
+      "amount": "74"
+     },
+     "RS": {
+      "row": "Serbia",
+      "amount": "82"
+     },
+     "RU": {
+      "row": "Venäjä",
+      "amount": "87",
+      "regions": {
+       "moscow": {
+        "row": "Moskova",
+        "amount": "108"
+       },
+       "st-petersburg": {
+        "row": "Pietari",
+        "amount": "100"
+       }
+      }
+     },
+     "RW": {
+      "row": "Ruanda",
+      "amount": "31"
+     },
+     "SA": {
+      "row": "Saudi-Arabia",
+      "amount": "75"
+     },
+     "SB": {
+      "row": "Salomonsaaret",
+      "amount": "64"
+     },
+     "SC": {
+      "row": "Seychellit",
+      "amount": "71"
+     },
+     "SD": {
+      "row": "Sudan",
+      "amount": "134"
+     },
+     "SE": {
+      "row": "Ruotsi",
+      "amount": "70"
+     },
+     "SG": {
+      "row": "Singapore",
+      "amount": "79"
+     },
+     "SI": {
+      "row": "Slovenia",
+      "amount": "75"
+     },
+     "SK": {
+      "row": "Slovakia",
+      "amount": "85"
+     },
+     "SL": {
+      "row": "Sierra Leone",
+      "amount": "58"
+     },
+     "SM": {
+      "row": "San Marino",
+      "amount": "61"
+     },
+     "SN": {
+      "row": "Senegal",
+      "amount": "58"
+     },
+     "SO": {
+      "row": "Somalia",
+      "amount": "87"
+     },
+     "SR": {
+      "row": "Suriname",
+      "amount": "85"
+     },
+     "SS": {
+      "row": "Etelä-Sudan",
+      "amount": "134"
+     },
+     "ST": {
+      "row": "São Tomé ja Príncipe",
+      "amount": "132"
+     },
+     "SV": {
+      "row": "El Salvador",
+      "amount": "55"
+     },
+     "SY": {
+      "row": "Syyria",
+      "amount": "86"
+     },
+     "SZ": {
+      "row": "Eswatini",
+      "amount": "39"
+     },
+     "TD": {
+      "row": "Tšad",
+      "amount": "50"
+     },
+     "TG": {
+      "row": "Togo",
+      "amount": "63"
+     },
+     "TH": {
+      "row": "Thaimaa",
+      "amount": "63"
+     },
+     "TJ": {
+      "row": "Tadžikistan",
+      "amount": "40"
+     },
+     "TL": {
+      "row": "Itä-Timor",
+      "amount": "43"
+     },
+     "TM": {
+      "row": "Turkmenistan",
+      "amount": "86"
+     },
+     "TN": {
+      "row": "Tunisia",
+      "amount": "69"
+     },
+     "TO": {
+      "row": "Tonga",
+      "amount": "62"
+     },
+     "TR": {
+      "row": "Turkki",
+      "amount": "43",
+      "regions": {
+       "istanbul": {
+        "row": "Istanbul",
+        "amount": "44"
+       }
+      }
+     },
+     "TT": {
+      "row": "Trinidad ja Tobago",
+      "amount": "78"
+     },
+     "TW": {
+      "row": "Taiwan",
+      "amount": "69"
+     },
+     "TZ": {
+      "row": "Tansania",
+      "amount": "51"
+     },
+     "UA": {
+      "row": "Ukraina",
+      "amount": "62"
+     },
+     "UG": {
+      "row": "Uganda",
+      "amount": "51"
+     },
+     "US": {
+      "row": "Yhdysvallat",
+      "amount": "86",
+      "regions": {
+       "new-york": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "93"
+       },
+       "los-angeles": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "93"
+       },
+       "washington": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "93"
+       }
+      }
+     },
+     "UY": {
+      "row": "Uruguay",
+      "amount": "56"
+     },
+     "UZ": {
+      "row": "Uzbekistan",
+      "amount": "34"
+     },
+     "VC": {
+      "row": "Saint Vincent ja Grenadiinit",
+      "amount": "84"
+     },
+     "VE": {
+      "row": "Venezuela",
+      "amount": "107"
+     },
+     "VI": {
+      "row": "Neitsytsaaret (USA)",
+      "amount": "61"
+     },
+     "VN": {
+      "row": "Vietnam",
+      "amount": "63"
+     },
+     "VU": {
+      "row": "Vanuatu",
+      "amount": "69"
+     },
+     "WS": {
+      "row": "Samoa",
+      "amount": "58"
+     },
+     "XK": {
+      "row": "Kosovo",
+      "amount": "62"
+     },
+     "YE": {
+      "row": "Jemen",
+      "amount": "109"
+     },
+     "ZA": {
+      "row": "Etelä-Afrikka",
+      "amount": "53"
+     },
+     "ZM": {
+      "row": "Sambia",
+      "amount": "58"
+     },
+     "ZW": {
+      "row": "Zimbabwe",
+      "amount": "122"
+     }
+    }
+   }
+  },
+  {
+   "year": 2027,
+   "valid_from": "2027-01-01",
+   "valid_to": "2027-12-31",
+   "decision": {
+    "title": "Verohallinnon päätös verovapaista matkakustannusten korvauksista vuonna 2027",
+    "statute": "929/2026",
+    "diary_number": "VH/5639/00.01.00/2026",
+    "issued": "2026-10-23",
+    "published": "2026-10-27",
+    "url": "https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/929",
+    "vero_fi_url": "https://www.vero.fi/syventavat-vero-ohjeet/paatokset/47405/verohallinnon-paatos-verovapaista-matkakustannusten-korvauksista-vuonna-2027/",
+    "foreign_rows": 211
+   },
+   "mileage_eur_per_km": {
+    "car": "0.58",
+    "motorboat_up_to_50hp": "1.01",
+    "motorboat_over_50hp": "1.47",
+    "snowmobile": "1.40",
+    "atv": "1.31",
+    "motorcycle": "0.44",
+    "moped": "0.24",
+    "other": "0.14"
+   },
+   "car_surcharges_eur_per_km": {
+    "trailer": "0.10",
+    "caravan": "0.15",
+    "heavy_load": "0.29",
+    "heavy_equipment": "0.04",
+    "dog": "0.04",
+    "forest_road": "0.12"
+   },
+   "passenger_surcharge_eur_per_km": "0.04",
+   "car_benefit_fuel_eur_per_km": "0.12",
+   "domestic": {
+    "partial_day": "25",
+    "full_day": "55",
+    "meal_allowance": "13.75",
+    "meal_allowance_two_meals": "27.50",
+    "night_travel_allowance": "15",
+    "border_crossing_allowance": "18"
+   },
+   "foreign": {
+    "not_listed": "54",
+    "countries": {
+     "AD": {
+      "row": "Andorra",
+      "amount": "69"
+     },
+     "AE": {
+      "row": "Arabiemiirikunnat",
+      "amount": "70"
+     },
+     "AF": {
+      "row": "Afganistan",
+      "amount": "57"
+     },
+     "AG": {
+      "row": "Antigua ja Barbuda",
+      "amount": "94"
+     },
+     "AL": {
+      "row": "Albania",
+      "amount": "99"
+     },
+     "AM": {
+      "row": "Armenia",
+      "amount": "64"
+     },
+     "AO": {
+      "row": "Angola",
+      "amount": "97"
+     },
+     "AR": {
+      "row": "Argentiina",
+      "amount": "51"
+     },
+     "AT": {
+      "row": "Itävalta",
+      "amount": "88"
+     },
+     "AU": {
+      "row": "Australia",
+      "amount": "82"
+     },
+     "AW": {
+      "row": "Aruba",
+      "amount": "68"
+     },
+     "AZ": {
+      "row": "Azerbaidžan",
+      "amount": "74"
+     },
+     "BA": {
+      "row": "Bosnia ja Hertsegovina",
+      "amount": "68"
+     },
+     "BB": {
+      "row": "Barbados",
+      "amount": "77"
+     },
+     "BD": {
+      "row": "Bangladesh",
+      "amount": "62"
+     },
+     "BE": {
+      "row": "Belgia",
+      "amount": "83"
+     },
+     "BF": {
+      "row": "Burkina Faso",
+      "amount": "32"
+     },
+     "BG": {
+      "row": "Bulgaria",
+      "amount": "74"
+     },
+     "BH": {
+      "row": "Bahrain",
+      "amount": "74"
+     },
+     "BI": {
+      "row": "Burundi",
+      "amount": "69"
+     },
+     "BJ": {
+      "row": "Benin",
+      "amount": "47"
+     },
+     "BM": {
+      "row": "Bermuda",
+      "amount": "88"
+     },
+     "BN": {
+      "row": "Brunei",
+      "amount": "43"
+     },
+     "BO": {
+      "row": "Bolivia",
+      "amount": "41"
+     },
+     "BR": {
+      "row": "Brasilia",
+      "amount": "80"
+     },
+     "BS": {
+      "row": "Bahama",
+      "amount": "86"
+     },
+     "BT": {
+      "row": "Bhutan",
+      "amount": "34"
+     },
+     "BW": {
+      "row": "Botswana",
+      "amount": "44"
+     },
+     "BY": {
+      "row": "Valko-Venäjä",
+      "amount": "58"
+     },
+     "BZ": {
+      "row": "Belize",
+      "amount": "51"
+     },
+     "CA": {
+      "row": "Kanada",
+      "amount": "78"
+     },
+     "CD": {
+      "row": "Kongon demokraattinen tasavalta (Kongo-Kinshasa)",
+      "amount": "68"
+     },
+     "CF": {
+      "row": "Keski-Afrikan tasavalta",
+      "amount": "105"
+     },
+     "CG": {
+      "row": "Kongo (Kongo-Brazzaville)",
+      "amount": "72"
+     },
+     "CH": {
+      "row": "Sveitsi",
+      "amount": "96"
+     },
+     "CI": {
+      "row": "Norsunluurannikko",
+      "amount": "87"
+     },
+     "CK": {
+      "row": "Cookinsaaret",
+      "amount": "68"
+     },
+     "CL": {
+      "row": "Chile",
+      "amount": "58"
+     },
+     "CM": {
+      "row": "Kamerun",
+      "amount": "66"
+     },
+     "CN": {
+      "row": "Kiina",
+      "amount": "75",
+      "regions": {
+       "hong-kong": {
+        "row": "Hongkong",
+        "amount": "81"
+       }
+      }
+     },
+     "CO": {
+      "row": "Kolumbia",
+      "amount": "71"
+     },
+     "CR": {
+      "row": "Costa Rica",
+      "amount": "71"
+     },
+     "CU": {
+      "row": "Kuuba",
+      "amount": "81"
+     },
+     "CV": {
+      "row": "Kap Verde",
+      "amount": "47"
+     },
+     "CW": {
+      "row": "Curaçao",
+      "amount": "57"
+     },
+     "CY": {
+      "row": "Kypros",
+      "amount": "67"
+     },
+     "CZ": {
+      "row": "Tšekki",
+      "amount": "96"
+     },
+     "DE": {
+      "row": "Saksa",
+      "amount": "80"
+     },
+     "DJ": {
+      "row": "Djibouti",
+      "amount": "82"
+     },
+     "DK": {
+      "row": "Tanska",
+      "amount": "83"
+     },
+     "DM": {
+      "row": "Dominica",
+      "amount": "61"
+     },
+     "DO": {
+      "row": "Dominikaaninen tasavalta",
+      "amount": "54"
+     },
+     "DZ": {
+      "row": "Algeria",
+      "amount": "79"
+     },
+     "EC": {
+      "row": "Ecuador",
+      "amount": "61"
+     },
+     "EE": {
+      "row": "Viro",
+      "amount": "85"
+     },
+     "EG": {
+      "row": "Egypti",
+      "amount": "62"
+     },
+     "ER": {
+      "row": "Eritrea",
+      "amount": "110"
+     },
+     "ES": {
+      "row": "Espanja",
+      "amount": "80",
+      "regions": {
+       "canary-islands": {
+        "row": "Kanarian saaret",
+        "amount": "77"
+       }
+      }
+     },
+     "ET": {
+      "row": "Etiopia",
+      "amount": "38"
+     },
+     "FJ": {
+      "row": "Fidži",
+      "amount": "56"
+     },
+     "FM": {
+      "row": "Mikronesia",
+      "amount": "64"
+     },
+     "FO": {
+      "row": "Färsaaret",
+      "amount": "65"
+     },
+     "FR": {
+      "row": "Ranska",
+      "amount": "82"
+     },
+     "GA": {
+      "row": "Gabon",
+      "amount": "99"
+     },
+     "GB": {
+      "row": "Britannia",
+      "amount": "87",
+      "regions": {
+       "london": {
+        "row": "Lontoo ja Edinburgh",
+        "amount": "92"
+       },
+       "edinburgh": {
+        "row": "Lontoo ja Edinburgh",
+        "amount": "92"
+       }
+      }
+     },
+     "GD": {
+      "row": "Grenada",
+      "amount": "71"
+     },
+     "GE": {
+      "row": "Georgia",
+      "amount": "51"
+     },
+     "GH": {
+      "row": "Ghana",
+      "amount": "52"
+     },
+     "GL": {
+      "row": "Grönlanti",
+      "amount": "66"
+     },
+     "GM": {
+      "row": "Gambia",
+      "amount": "48"
+     },
+     "GN": {
+      "row": "Guinea",
+      "amount": "87"
+     },
+     "GP": {
+      "row": "Guadeloupe",
+      "amount": "56"
+     },
+     "GR": {
+      "row": "Kreikka",
+      "amount": "75"
+     },
+     "GT": {
+      "row": "Guatemala",
+      "amount": "78"
+     },
+     "GW": {
+      "row": "Guinea-Bissau",
+      "amount": "44"
+     },
+     "GY": {
+      "row": "Guyana",
+      "amount": "53"
+     },
+     "HN": {
+      "row": "Honduras",
+      "amount": "57"
+     },
+     "HR": {
+      "row": "Kroatia",
+      "amount": "77"
+     },
+     "HT": {
+      "row": "Haiti",
+      "amount": "119"
+     },
+     "HU": {
+      "row": "Unkari",
+      "amount": "80"
+     },
+     "ID": {
+      "row": "Indonesia",
+      "amount": "49"
+     },
+     "IE": {
+      "row": "Irlanti",
+      "amount": "83"
+     },
+     "IL": {
+      "row": "Israel",
+      "amount": "114"
+     },
+     "IN": {
+      "row": "Intia",
+      "amount": "55"
+     },
+     "IQ": {
+      "row": "Irak",
+      "amount": "69"
+     },
+     "IR": {
+      "row": "Iran",
+      "amount": "118"
+     },
+     "IS": {
+      "row": "Islanti",
+      "amount": "109"
+     },
+     "IT": {
+      "row": "Italia",
+      "amount": "80"
+     },
+     "JM": {
+      "row": "Jamaika",
+      "amount": "65"
+     },
+     "JO": {
+      "row": "Jordania",
+      "amount": "89"
+     },
+     "JP": {
+      "row": "Japani",
+      "amount": "61"
+     },
+     "KE": {
+      "row": "Kenia",
+      "amount": "85"
+     },
+     "KG": {
+      "row": "Kirgisia",
+      "amount": "48"
+     },
+     "KH": {
+      "row": "Kambodža",
+      "amount": "69"
+     },
+     "KM": {
+      "row": "Komorit",
+      "amount": "48"
+     },
+     "KN": {
+      "row": "Saint Kitts ja Nevis",
+      "amount": "64"
+     },
+     "KP": {
+      "row": "Korean demokraattinen kansantasavalta (Pohjois-Korea)",
+      "amount": "64"
+     },
+     "KR": {
+      "row": "Korean tasavalta (Etelä-Korea)",
+      "amount": "80"
+     },
+     "KW": {
+      "row": "Kuwait",
+      "amount": "84"
+     },
+     "KZ": {
+      "row": "Kazakstan",
+      "amount": "62"
+     },
+     "LA": {
+      "row": "Laos",
+      "amount": "36"
+     },
+     "LB": {
+      "row": "Libanon",
+      "amount": "124"
+     },
+     "LC": {
+      "row": "Saint Lucia",
+      "amount": "83"
+     },
+     "LI": {
+      "row": "Liechtenstein",
+      "amount": "81"
+     },
+     "LK": {
+      "row": "Sri Lanka",
+      "amount": "28"
+     },
+     "LR": {
+      "row": "Liberia",
+      "amount": "72"
+     },
+     "LS": {
+      "row": "Lesotho",
+      "amount": "42"
+     },
+     "LT": {
+      "row": "Liettua",
+      "amount": "79"
+     },
+     "LU": {
+      "row": "Luxemburg",
+      "amount": "82"
+     },
+     "LV": {
+      "row": "Latvia",
+      "amount": "79"
+     },
+     "LY": {
+      "row": "Libya",
+      "amount": "43"
+     },
+     "MA": {
+      "row": "Marokko",
+      "amount": "74"
+     },
+     "MC": {
+      "row": "Monaco",
+      "amount": "92"
+     },
+     "MD": {
+      "row": "Moldova",
+      "amount": "84"
+     },
+     "ME": {
+      "row": "Montenegro",
+      "amount": "74"
+     },
+     "MG": {
+      "row": "Madagaskar",
+      "amount": "54"
+     },
+     "MH": {
+      "row": "Marshallinsaaret",
+      "amount": "71"
+     },
+     "MK": {
+      "row": "Pohjois-Makedonia",
+      "amount": "72"
+     },
+     "ML": {
+      "row": "Mali",
+      "amount": "54"
+     },
+     "MM": {
+      "row": "Myanmar (Burma)",
+      "amount": "109"
+     },
+     "MN": {
+      "row": "Mongolia",
+      "amount": "35"
+     },
+     "MQ": {
+      "row": "Martinique",
+      "amount": "59"
+     },
+     "MR": {
+      "row": "Mauritania",
+      "amount": "51"
+     },
+     "MT": {
+      "row": "Malta",
+      "amount": "76"
+     },
+     "MU": {
+      "row": "Mauritius",
+      "amount": "50"
+     },
+     "MV": {
+      "row": "Malediivit",
+      "amount": "68"
+     },
+     "MW": {
+      "row": "Malawi",
+      "amount": "94"
+     },
+     "MX": {
+      "row": "Meksiko",
+      "amount": "85"
+     },
+     "MY": {
+      "row": "Malesia",
+      "amount": "56"
+     },
+     "MZ": {
+      "row": "Mosambik",
+      "amount": "56"
+     },
+     "NA": {
+      "row": "Namibia",
+      "amount": "44"
+     },
+     "NE": {
+      "row": "Niger",
+      "amount": "42"
+     },
+     "NG": {
+      "row": "Nigeria",
+      "amount": "90"
+     },
+     "NI": {
+      "row": "Nicaragua",
+      "amount": "51"
+     },
+     "NL": {
+      "row": "Alankomaat",
+      "amount": "91"
+     },
+     "NO": {
+      "row": "Norja",
+      "amount": "80"
+     },
+     "NP": {
+      "row": "Nepal",
+      "amount": "46"
+     },
+     "NZ": {
+      "row": "Uusi-Seelanti",
+      "amount": "74"
+     },
+     "OM": {
+      "row": "Oman",
+      "amount": "72"
+     },
+     "PA": {
+      "row": "Panama",
+      "amount": "59"
+     },
+     "PE": {
+      "row": "Peru",
+      "amount": "57"
+     },
+     "PG": {
+      "row": "Papua-Uusi-Guinea",
+      "amount": "60"
+     },
+     "PH": {
+      "row": "Filippiinit",
+      "amount": "66"
+     },
+     "PK": {
+      "row": "Pakistan",
+      "amount": "37"
+     },
+     "PL": {
+      "row": "Puola",
+      "amount": "86"
+     },
+     "PR": {
+      "row": "Puerto Rico",
+      "amount": "73"
+     },
+     "PS": {
+      "row": "Palestiinalaisalue",
+      "amount": "103"
+     },
+     "PT": {
+      "row": "Portugali",
+      "amount": "76",
+      "regions": {
+       "azores": {
+        "row": "Azorit",
+        "amount": "75"
+       },
+       "madeira": {
+        "row": "Madeira",
+        "amount": "73"
+       }
+      }
+     },
+     "PW": {
+      "row": "Palau",
+      "amount": "104"
+     },
+     "PY": {
+      "row": "Paraguay",
+      "amount": "45"
+     },
+     "QA": {
+      "row": "Qatar",
+      "amount": "74"
+     },
+     "RO": {
+      "row": "Romania",
+      "amount": "79"
+     },
+     "RS": {
+      "row": "Serbia",
+      "amount": "84"
+     },
+     "RU": {
+      "row": "Venäjä",
+      "amount": "89",
+      "regions": {
+       "moscow": {
+        "row": "Moskova",
+        "amount": "110"
+       },
+       "st-petersburg": {
+        "row": "Pietari",
+        "amount": "101"
+       }
+      }
+     },
+     "RW": {
+      "row": "Ruanda",
+      "amount": "35"
+     },
+     "SA": {
+      "row": "Saudi-Arabia",
+      "amount": "77"
+     },
+     "SB": {
+      "row": "Salomonsaaret",
+      "amount": "68"
+     },
+     "SC": {
+      "row": "Seychellit",
+      "amount": "76"
+     },
+     "SD": {
+      "row": "Sudan",
+      "amount": "129"
+     },
+     "SE": {
+      "row": "Ruotsi",
+      "amount": "71"
+     },
+     "SG": {
+      "row": "Singapore",
+      "amount": "82"
+     },
+     "SI": {
+      "row": "Slovenia",
+      "amount": "77"
+     },
+     "SK": {
+      "row": "Slovakia",
+      "amount": "88"
+     },
+     "SL": {
+      "row": "Sierra Leone",
+      "amount": "62"
+     },
+     "SM": {
+      "row": "San Marino",
+      "amount": "63"
+     },
+     "SN": {
+      "row": "Senegal",
+      "amount": "59"
+     },
+     "SO": {
+      "row": "Somalia",
+      "amount": "92"
+     },
+     "SR": {
+      "row": "Suriname",
+      "amount": "95"
+     },
+     "SS": {
+      "row": "Etelä-Sudan",
+      "amount": "129"
+     },
+     "ST": {
+      "row": "São Tomé ja Príncipe",
+      "amount": "129"
+     },
+     "SV": {
+      "row": "El Salvador",
+      "amount": "57"
+     },
+     "SY": {
+      "row": "Syyria",
+      "amount": "108"
+     },
+     "SZ": {
+      "row": "Eswatini",
+      "amount": "44"
+     },
+     "TD": {
+      "row": "Tšad",
+      "amount": "49"
+     },
+     "TG": {
+      "row": "Togo",
+      "amount": "63"
+     },
+     "TH": {
+      "row": "Thaimaa",
+      "amount": "64"
+     },
+     "TJ": {
+      "row": "Tadžikistan",
+      "amount": "42"
+     },
+     "TL": {
+      "row": "Itä-Timor",
+      "amount": "48"
+     },
+     "TM": {
+      "row": "Turkmenistan",
+      "amount": "91"
+     },
+     "TN": {
+      "row": "Tunisia",
+      "amount": "72"
+     },
+     "TO": {
+      "row": "Tonga",
+      "amount": "66"
+     },
+     "TR": {
+      "row": "Turkki",
+      "amount": "49",
+      "regions": {
+       "istanbul": {
+        "row": "Istanbul",
+        "amount": "51"
+       }
+      }
+     },
+     "TT": {
+      "row": "Trinidad ja Tobago",
+      "amount": "79"
+     },
+     "TW": {
+      "row": "Taiwan",
+      "amount": "67"
+     },
+     "TZ": {
+      "row": "Tansania",
+      "amount": "52"
+     },
+     "UA": {
+      "row": "Ukraina",
+      "amount": "63"
+     },
+     "UG": {
+      "row": "Uganda",
+      "amount": "51"
+     },
+     "US": {
+      "row": "Yhdysvallat",
+      "amount": "89",
+      "regions": {
+       "new-york": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "97"
+       },
+       "los-angeles": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "97"
+       },
+       "washington": {
+        "row": "New York, Los Angeles, Washington",
+        "amount": "97"
+       }
+      }
+     },
+     "UY": {
+      "row": "Uruguay",
+      "amount": "59"
+     },
+     "UZ": {
+      "row": "Uzbekistan",
+      "amount": "38"
+     },
+     "VC": {
+      "row": "Saint Vincent ja Grenadiinit",
+      "amount": "87"
+     },
+     "VE": {
+      "row": "Venezuela",
+      "amount": "78"
+     },
+     "VI": {
+      "row": "Neitsytsaaret (USA)",
+      "amount": "64"
+     },
+     "VN": {
+      "row": "Vietnam",
+      "amount": "67"
+     },
+     "VU": {
+      "row": "Vanuatu",
+      "amount": "70"
+     },
+     "WS": {
+      "row": "Samoa",
+      "amount": "60"
+     },
+     "XK": {
+      "row": "Kosovo",
+      "amount": "65"
+     },
+     "YE": {
+      "row": "Jemen",
+      "amount": "129"
+     },
+     "ZA": {
+      "row": "Etelä-Afrikka",
+      "amount": "61"
+     },
+     "ZM": {
+      "row": "Sambia",
+      "amount": "67"
+     },
+     "ZW": {
+      "row": "Zimbabwe",
+      "amount": "125"
+     }
+    }
+   }
+  }
+ ]
+}

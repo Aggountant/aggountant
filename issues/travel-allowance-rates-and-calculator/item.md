@@ -1,8 +1,8 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
@@ -11,6 +11,8 @@ originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
 lane: travel-calc
 lane_seq: 10
+closed: 2026-11-27
+closed_by: spinoff-01m8ehz12nsg309tcjd5yjhp71
 ---
 
 # Compute Finnish travel allowances from a trip (rate table and calculator preview)
@@ -93,7 +95,7 @@ defaults below.
 
 ## Acceptance criteria
 
-- [ ] Golden vectors for synthetic trips covering: a partial and a full
+- [x] Golden vectors for synthetic trips covering: a partial and a full
       domestic day, exactly 6 h (no per diem), a two-day trip with a tied
       2 h last day, halving by free meals, a foreign trip with return-day
       rule, an under-10-hour foreign trip, a year-boundary trip, a
@@ -102,14 +104,14 @@ defaults below.
       different prices (halving by count), a trip combined with leisure
       (per diems from the stated work and travel times), mileage rounding
       (125.6 km reported as 126).
-- [ ] The Tax Administration guidance examples 56, 57, 59, 61 and 63 reproduce.
-- [ ] The foreign table is checked against the decision (row count and spot checks); an invalid country code refuses instead of falling to "not listed".
-- [ ] A missing year edition refuses; nothing is extrapolated.
-- [ ] Output stamps the table hash and decision identifiers.
-- [ ] Every refusal above has a code and a test with a synthetic trip.
-- [ ] `crates/AGENTS.md` carries the Run rule (unless an earlier claim slice already added it).
-- [ ] User guide (fi/en) describes the preview.
-- [ ] The rate table is loaded only when a claim is computed; commands unrelated to claims do not read it (test).
+- [x] The Tax Administration guidance examples 56, 57, 59, 61 and 63 reproduce.
+- [x] The foreign table is checked against the decision (row count and spot checks); an invalid country code refuses instead of falling to "not listed".
+- [x] A missing year edition refuses; nothing is extrapolated.
+- [x] Output stamps the table hash and decision identifiers.
+- [x] Every refusal above has a code and a test with a synthetic trip.
+- [x] `crates/AGENTS.md` carries the Run rule (unless an earlier claim slice already added it).
+- [x] User guide (fi/en) describes the preview.
+- [x] The rate table is loaded only when a claim is computed; commands unrelated to claims do not read it (test).
 
 ## Likely files
 
@@ -132,3 +134,9 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 ### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
 
 Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
+
+## Resolution
+
+### 2026-11-27T13:52:11Z · @spinoff-01m8ehz12nsg309tcjd5yjhp71
+
+Landed: claim compute preview, 2026 and 2027 rate editions from decisions 970/2025 and 929/2026, refusals with codes, Run rule in crates/AGENTS.md, guide pages. Review and assessment in this directory; see result.md.

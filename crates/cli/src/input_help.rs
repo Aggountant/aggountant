@@ -858,6 +858,10 @@ mod tests {
                 parses::<aggountant_domain::PayrollIntent>,
             ),
             ("import camt seal", parses::<crate::ImportSealInput>),
+            (
+                "claim compute",
+                parses::<aggountant_domain::travel::fi::ClaimInput>,
+            ),
             ("vero-fi configure", |json| {
                 crate::vero_fi::apply_configure_input(None, json, false)
                     .map(drop)

@@ -50,6 +50,7 @@ macro_rules! vero_transport_help {
 }
 
 mod bank_import;
+mod claim;
 mod explain;
 mod home;
 mod input_help;
@@ -93,6 +94,12 @@ enum Command {
     FileWage {
         #[command(subcommand)]
         cmd: wage::WageCmd,
+    },
+    /// Expense claims: `claim compute` previews the scheduled tax-free travel
+    /// allowances of trips from stdin JSON (read-only; no company home needed).
+    Claim {
+        #[command(subcommand)]
+        cmd: claim::ClaimCmd,
     },
     /// Inspect effective configuration and data-root resolution.
     Config {
@@ -1571,6 +1578,7 @@ fn draft_to_json(draft: &VoucherDraft) -> Value {
 fn run(cli: &Cli) -> Result<Value, CliError> {
     match &cli.command {
         Command::FileWage { cmd } => wage::execute(cmd, &existing_home(cli)?),
+        Command::Claim { cmd } => claim::run(cmd),
         Command::Tulorekisteri { cmd } => tulorekisteri::execute(cmd, &existing_home(cli)?),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => Ok(json!({
@@ -2984,6 +2992,7 @@ open obligation {}: {}",
 /// A short human line for non-`--json` mode (best-effort; JSON is the contract).
 fn human_line(command: &Command, value: &Value) -> String {
     match command {
+        Command::Claim { cmd } => claim::human_line(cmd, value),
         Command::Config { cmd } => match cmd {
             ConfigCmd::Path => value["config_path"].as_str().unwrap_or("?").to_string(),
             ConfigCmd::Show => format!(

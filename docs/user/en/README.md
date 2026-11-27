@@ -48,6 +48,7 @@ If you want to join early or help build it, read
 
 - [Set up direct VAT filing](tasks/set-up-vero-api.md), including certificate
   renewal
+- [Compute the tax-free allowances of a trip](tasks/compute-travel-allowances.md)
 - [Report travel allowances to Tulorekisteri](tasks/report-travel-allowances.md)
 - [Record a travel advance and its settlement](tasks/record-travel-advance.md)
 - [Correct a wrong voucher](tasks/correct-voucher.md)

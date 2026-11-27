@@ -24,6 +24,7 @@ pub mod consult;
 pub mod eligibility;
 pub mod payroll;
 pub mod statements;
+pub mod travel;
 pub mod vat;
 
 pub use closeyear::{
@@ -126,6 +127,12 @@ pub enum DomainError {
     /// KPA row / is not in the chart, a foreign currency, or an invalid policy).
     #[error("STATEMENTS: {0}")]
     Statements(String),
+    /// A travel allowance computation received malformed or contradictory
+    /// trip input (end before start, a drive outside the trip, a surcharge on
+    /// a boat). A situation the rules do not settle is not this error but a
+    /// refusal in the computed result.
+    #[error("TRAVEL_INPUT_INVALID: {0}")]
+    TravelInput(String),
 }
 
 impl DomainError {
@@ -143,6 +150,7 @@ impl DomainError {
             DomainError::Payroll(_) => "PAYROLL",
             DomainError::Depreciation(_) => "DEPRECIATION",
             DomainError::Statements(_) => "STATEMENTS",
+            DomainError::TravelInput(_) => "TRAVEL_INPUT_INVALID",
         }
     }
 }

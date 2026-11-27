@@ -38,3 +38,25 @@ sealed voucher and can only be undone by a correction voucher.
 - Every rate change ships policy test vectors, including one that crosses the
   change date, because expansion is a pure function and the easiest place in
   the system to pin with golden vectors.
+
+## Travel allowances (`travel::fi`)
+
+- **The travel rate table is copied from the primary decision, never from a
+  secondary site or memory.** Each year's edition in
+  `data/fi-travel-allowances.json` comes from the Tax Administration's decision
+  on tax-free travel allowances as published in Finlex, cross-checked against
+  the vero.fi rendering of the same decision; the edition records the statute
+  and diary number. A wrong amount is frozen into sealed claims and Incomes
+  Register reports.
+- **Add the next year's edition every autumn,** when the decision is
+  published (October or November), before the first January trip is
+  computed: a year without an edition refuses with `TRAVEL_RATES_MISSING`, and
+  amounts are never carried over from another year. A new edition ships test
+  vectors, including a trip across the year boundary (that day gets the lower
+  of the two years' amounts) and spot checks and the row count of its foreign
+  table.
+- **Situations the decision and the guidance do not settle are refused,** with
+  their own code, not computed by the nearest rule. Adding a computation for
+  one needs a source or a product-owner decision recorded in the issue.
+- The trip's workplace classification is an input; the Domain does not judge
+  what a regular workplace is.

@@ -43,6 +43,14 @@ and local-development double, never a production path.
 
 ## Runs (process)
 
+- **A Run exists only for the program's own irreversible outside act,** such as
+  a filing to an authority or a payment. A step someone else decides (the user
+  paying from the bank, the Incomes Register answering, a customer paying a
+  rebilled invoice) is recorded as a fact, and the state is derived from the
+  facts each time it is asked. A Run that waited for another party's act would
+  sit open for weeks and show unfinished work after the matter was settled
+  elsewhere, which is how VAT runs were left hanging. An expense claim
+  therefore has no Run; its Incomes Register filing stays the `file-wage` Run.
 - **aggountant owns the Run, the agent drives it.** The Run's durable state, its
   journal and every ledger mutation are written by the program; the agent
   proposes, answers gates and triggers, but never mutates state itself. A Run's
