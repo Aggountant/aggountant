@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 mod bank_event;
+mod claimant;
 mod employee;
 mod error;
 mod period;
@@ -45,6 +46,7 @@ pub use bank_event::{
     BankSourceObservation, CandidateEvidence, LegacyBankIdentity, LegacyBankVoucher,
     UnbookedBankEvent, DATE_TOLERANCE_DAYS,
 };
+pub use claimant::ClaimantHistory;
 pub use employee::EmployeeState;
 pub use error::LedgerError;
 pub use period::{

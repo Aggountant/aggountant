@@ -814,6 +814,120 @@ Example JSON (input-shape demonstration only):
 Run it:
   aggountant --home ./accounting --json knowledge company retire bank-fees-practice < retire.json"#;
 
+pub(crate) const CLAIMANT_PLACE_ADD: &str = r#"INPUT (JSON on stdin)
+  Every field is required; unknown fields are refused. The person must be in
+  the personal-data register (`employee add`). A place is never edited: record
+  a corrected place under a new id and correct the entries that name it.
+  employee_id   the person the place belongs to.
+  place_id      1-64 characters of a-z, 0-9 and '-'; unique for the person.
+  kind          company_premises, group_company_premises (a company in the
+                same interest group), home, self_arranged_space, customer_site,
+                venue (fair, training or meeting venue) or other.
+  label         a name the user recognises.
+  location      the address distances are measured from.
+  municipality  the municipality (kunta); a secondary workplace must be in
+                another municipality than the primary regular workplace.
+  confirmed_by  who confirmed the place.
+
+Example JSON (input-shape demonstration only):
+```json
+{"employee_id":"maija","place_id":"home","kind":"home","label":"Koti ja yhtiön toimitila","location":"Esimerkkikatu 1, 33100 Tampere","municipality":"Tampere","confirmed_by":"Maija Meikäläinen"}
+```
+Run it:
+  aggountant --home ./accounting --json claimant place add < place.json"#;
+
+pub(crate) const CLAIMANT_ADD: &str = r#"INPUT (JSON on stdin)
+  One dated fact the user confirmed; unknown fields are refused. Record only
+  what the user confirms: the program never infers these facts.
+  employee_id    required, a person in the personal-data register.
+  valid_from     required, the first day the fact holds (YYYY-MM-DD).
+  valid_to       optional, the last day it holds; absent means open-ended.
+  confirmed_by   required, who confirmed the fact.
+  evidence_hash  optional, sha256 of an evidence artifact (`artifact attach`).
+  fact           required, one of:
+    {"kind":"workplace","role":ROLE,"place_id":"...","basis":BASIS,
+     "basis_explanation":"..."}
+       ROLE: regular_primary (varsinainen työpaikka), regular_other (another
+       regular workplace), secondary (toissijainen työpaikka), tracked_site
+       (erityinen työntekemispaikka the register follows) or none (no regular
+       workplace, for example an outside board member; no place_id).
+       BASIS, with the roles it can justify and the guidance it rests on
+       (VH/630/00.01.00/2026):
+         works_there_regularly             regular_*   3.1
+         company_premises_in_home          regular_*   3.4 (place kind home)
+         agreed_home_work_occasional_visits regular_*  3.4, 10.7 (home or
+                                                       self-arranged space)
+         mobile_work_base                  regular_*   3.5
+         remote_work_by_choice             regular_*   10.7 (employer premises)
+         employer_premises_weekly          regular_*   5.2.2, 10.7, KHO 2017:178
+                                                       (employer premises)
+         premises_in_another_municipality  secondary   4.1, 5.2.2
+         occasional_visits                 tracked_site 5.2.1
+         fixed_term_assignment             tracked_site 5.2.2, 5.3
+         board_member_only                 none        10.1
+         mobile_work_no_base               none        3.5
+         other                             any role; basis_explanation required
+    {"kind":"relationship","relationship":R}
+       R: employee, managing_director, board_member, unpaid_owner or
+       other_fee_recipient (EPL 13 §). contractor is refused: a contractor's
+       travel costs belong on their own invoice.
+    {"kind":"part_owner","part_owner":true|false}
+       Whether the person is a part-owner of the company (the Incomes
+       Register's "osakasasemassa maksajaan").
+  An entry that contradicts another one in force on overlapping dates is
+  refused (CLAIMANT_FACT_CONFLICT): correct the existing entry instead.
+
+Example JSON (input-shape demonstration only):
+```json
+{"employee_id":"maija","valid_from":"2024-01-01","fact":{"kind":"workplace","role":"regular_primary","place_id":"home","basis":"company_premises_in_home"},"confirmed_by":"Maija Meikäläinen"}
+```
+Run it:
+  aggountant --home ./accounting --json claimant add < fact.json"#;
+
+pub(crate) const CLAIMANT_CORRECT: &str = r#"INPUT (JSON on stdin)
+  Unknown fields are refused. The corrected row is never edited: the new row
+  supersedes it, so what was known before the correction stays answerable
+  (`claimant show --as-known-at`). A row is corrected once; to correct again,
+  correct the newest row.
+  employee_id    required.
+  fact_id        required, the row to correct (`claimant history`).
+  reason         required, why the earlier entry was wrong.
+  confirmed_by   required.
+  evidence_hash  optional.
+  replacement    the corrected fact, same shape and kind as in `claimant add`:
+                 {"valid_from":"...","valid_to":"...","fact":{...}}
+  retract        true to remove the fact without a replacement.
+  Give exactly one of replacement and retract.
+
+Example JSON (input-shape demonstration only):
+```json
+{"employee_id":"maija","fact_id":3,"reason":"The office lease ended at the turn of the year.","confirmed_by":"Maija Meikäläinen","replacement":{"valid_from":"2024-01-01","valid_to":"2024-12-31","fact":{"kind":"workplace","role":"regular_primary","place_id":"office","basis":"works_there_regularly"}}}
+```
+Run it:
+  aggountant --home ./accounting --json claimant correct < correction.json"#;
+
+pub(crate) const CLAIMANT_SNAPSHOT: &str = r#"INPUT (JSON on stdin)
+  Unknown fields are refused.
+  employee_id            required.
+  date                   required, the trip's start date (YYYY-MM-DD): a place
+                         is judged by the circumstances when the trip is made.
+  start_place_id         optional, the registered place the trip starts from.
+  destination_place_ids  optional, the registered places the trip goes to. A
+                         destination the register does not name is a special
+                         work site (erityinen työntekemispaikka).
+  as_known_at            optional RFC 3339 instant; default now.
+  Output: the register in force with its facts_digest, each place's role and
+  classification, and scope: full, or travel_and_lodging_only for a secondary
+  workplace. Refused: CLAIMANT_RELATIONSHIP_UNKNOWN, REGULAR_WORKPLACE_UNKNOWN,
+  TRIP_TO_REGULAR_WORKPLACE.
+
+Example JSON (input-shape demonstration only):
+```json
+{"employee_id":"maija","date":"2026-03-04","start_place_id":"home","destination_place_ids":["customer-turku"]}
+```
+Run it:
+  aggountant --home ./accounting --json claimant snapshot < trip.json"#;
+
 #[cfg(test)]
 mod tests {
     use clap::CommandFactory;
@@ -893,6 +1007,23 @@ mod tests {
             (
                 "knowledge company retire",
                 parses::<crate::knowledge::RetireInput>,
+            ),
+            (
+                "claimant place add",
+                parses::<aggountant_domain::workplace::NewPlace>,
+            ),
+            (
+                "claimant add",
+                parses::<aggountant_domain::workplace::FactInput>,
+            ),
+            ("claimant correct", |json| {
+                let input: aggountant_domain::workplace::CorrectionInput =
+                    serde_json::from_str(json).map_err(|e| e.to_string())?;
+                input.into_new_fact().map(|_| ()).map_err(|e| e.to_string())
+            }),
+            (
+                "claimant snapshot",
+                parses::<aggountant_domain::workplace::SnapshotRequest>,
             ),
         ]
     }
@@ -982,6 +1113,18 @@ mod tests {
             assert!(
                 help.contains(&format!("aggountant --home ./accounting --json {path}")),
                 "{path}: the help shows how to run the example"
+            );
+        }
+    }
+
+    #[test]
+    fn the_claimant_add_help_lists_every_basis_code() {
+        for code in aggountant_domain::workplace::BasisCode::ALL {
+            let name = serde_json::to_value(code).unwrap();
+            let name = name.as_str().unwrap();
+            assert!(
+                super::CLAIMANT_ADD.contains(&format!("  {name} ")),
+                "basis {name} is missing from the claimant add help"
             );
         }
     }

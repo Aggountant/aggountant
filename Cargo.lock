@@ -14,6 +14,7 @@ dependencies = [
  "aggountant-process",
  "aggountant-vero-vat-api-mock",
  "clap",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

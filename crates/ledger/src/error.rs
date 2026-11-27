@@ -86,6 +86,10 @@ pub enum LedgerError {
     FiscalYearConflict(String),
     #[error("EMPLOYEE_NOT_FOUND: {0}")]
     EmployeeNotFound(String),
+    /// The claimant register refused a write or a snapshot (ADR-11 sections 1
+    /// and 3); the Domain's own code (`REGULAR_WORKPLACE_UNKNOWN`, …) is kept.
+    #[error("{0}")]
+    Claimant(#[from] aggountant_domain::workplace::ClaimantRefusal),
     /// A statement/erittelyt projection folded for a close-package hash failed in the
     /// Domain layer (an unmapped account, a non-EUR posting, a kind/nature mismatch).
     /// Wraps the [`aggountant_domain::DomainError`] so its own stable code (`STATEMENTS`,
@@ -130,6 +134,7 @@ impl LedgerError {
             LedgerError::ChartVersionChanged(_) => "CHART_VERSION_CHANGED",
             LedgerError::FiscalYearConflict(_) => "FISCAL_YEAR_CONFLICT",
             LedgerError::EmployeeNotFound(_) => "EMPLOYEE_NOT_FOUND",
+            LedgerError::Claimant(e) => e.error_code(),
             LedgerError::Statements(e) => e.error_code(),
             LedgerError::InvalidHash(_) => "INVALID_HASH",
             LedgerError::Wire(_) => "NON_CANONICAL_WIRE",

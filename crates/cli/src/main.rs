@@ -51,6 +51,7 @@ macro_rules! vero_transport_help {
 
 mod bank_import;
 mod claim;
+mod claimant;
 mod explain;
 mod home;
 mod input_help;
@@ -183,6 +184,13 @@ enum Command {
     Employee {
         #[command(subcommand)]
         cmd: EmployeeCmd,
+    },
+    /// The claimant register for expense claims (separate gitignored PII store):
+    /// places, dated regular-workplace entries, relationship and part-owner
+    /// facts, and a trip's workplace snapshot.
+    Claimant {
+        #[command(subcommand)]
+        cmd: claimant::ClaimantCmd,
     },
     /// The `run-payroll` Run (RF4/S4): compute the batch, approve it, and drive each
     /// employee's payment + Tulorekisteri reports over the Broker edge. The authority
@@ -1041,6 +1049,7 @@ fn classify_ledger_error(error: &aggountant_ledger::LedgerError) -> ErrorClass {
         | MasterDataCorrupt(_)
         | ChartVersionChanged(_)
         | EmployeeNotFound(_)
+        | Claimant(_)
         | FiscalYearConflict(_)
         | Statements(_)
         | InvalidHash(_)
@@ -2234,6 +2243,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
             }
         }
         Command::Knowledge { cmd } => knowledge::run(cmd, &existing_home(cli)?),
+        Command::Claimant { cmd } => claimant::run(cmd, &existing_home(cli)?),
         Command::Home { cmd } => home::run(cmd, &existing_home(cli)?),
         Command::Intake { cmd } => {
             let home = existing_home(cli)?;
@@ -3275,6 +3285,7 @@ fn human_line(command: &Command, value: &Value) -> String {
             }
         },
         Command::Knowledge { cmd } => knowledge::human_line(cmd, value),
+        Command::Claimant { cmd } => claimant::human_line(cmd, value),
         Command::Home { cmd } => home::human_line(cmd, value),
         Command::Intake { .. } => format!(
             "intake candidates: {}",

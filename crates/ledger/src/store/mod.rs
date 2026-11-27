@@ -15,8 +15,10 @@ pub(crate) mod migrations;
 pub(crate) mod sqlite_fiscal;
 pub(crate) mod sqlite_pii;
 
+use aggountant_domain::workplace::{ClaimantFact, NewFact, Place};
 use aggountant_model::{
-    Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Money, PeriodId, VoucherBody,
+    Account, AccountId, Date, FiscalCalendar, FiscalYear, Hash, Instant, Money, PeriodId,
+    VoucherBody,
 };
 
 use crate::bank_event::BankEventConflictCode;
@@ -592,6 +594,36 @@ pub(crate) trait EmployeeStore {
     /// ledger (zero if nothing was recorded that year). `EMPLOYEE_NOT_FOUND` if the
     /// employee is unknown.
     fn ytd_gross(&self, employee_id: &str, tax_year: i32) -> Result<Money, LedgerError>;
+}
+
+/// The claimant register in the PII store (ADR-11 sections 1 and 3): places and
+/// bitemporal facts, append-only. The register's rules are the Domain's
+/// (`aggountant_domain::workplace`); the store runs the given validation inside
+/// its writer lock, against the person's rows as they are at that moment, and
+/// appends only if it passes.
+pub(crate) trait ClaimantStore {
+    /// Every place and fact row of one person, in recording order.
+    /// `EMPLOYEE_NOT_FOUND` if the person is not in the register.
+    fn claimant_rows(&self, employee_id: &str) -> Result<ClaimantRows, LedgerError>;
+    /// Validate and append one place.
+    fn append_claimant_place(
+        &self,
+        place: &Place,
+        validate: &dyn Fn(&ClaimantRows) -> Result<(), LedgerError>,
+    ) -> Result<(), LedgerError>;
+    /// Validate and append one fact row, returning it with its `fact_id`.
+    fn append_claimant_fact(
+        &self,
+        fact: &NewFact,
+        recorded_at: Instant,
+        validate: &dyn Fn(&ClaimantRows) -> Result<(), LedgerError>,
+    ) -> Result<ClaimantFact, LedgerError>;
+}
+
+/// One person's register rows.
+pub(crate) struct ClaimantRows {
+    pub places: Vec<Place>,
+    pub facts: Vec<ClaimantFact>,
 }
 
 /// Reference / non-PII masterdata namespace port (ADR-1 §Masterdata, revised

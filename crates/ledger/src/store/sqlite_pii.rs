@@ -31,20 +31,24 @@ use rust_decimal::Decimal;
 
 use aggountant_model::{Currency, Money};
 
+use aggountant_domain::workplace::{ClaimantFact, FactChange, FactEntry, NewFact, Place};
+use aggountant_model::{Hash, Instant};
+
 use crate::employee::EmployeeState;
 use crate::error::LedgerError;
 use crate::store::cipher::{Cipher, IdentityCipher};
 use crate::store::migrations::{self, Migration};
-use crate::store::EmployeeStore;
+use crate::store::{ClaimantRows, ClaimantStore, EmployeeStore};
 
 /// The `pii` masterdata DB schema, as an ordered `PRAGMA user_version` migration
 /// list (see [`super::migrations`]). v1 is the baseline; a fresh home initializes
 /// to it, while a home predating the framework is refused (not adopted) by
 /// [`migrations::apply`]. Append later changes as new `Migration`s — never edit a
 /// landed one.
-const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    sql: "CREATE TABLE IF NOT EXISTS employee(
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        sql: "CREATE TABLE IF NOT EXISTS employee(
              employee_id TEXT PRIMARY KEY,
              -- at-rest-encrypted serialized EmployeeState (identity + PII)
              sealed BLOB NOT NULL
@@ -68,11 +72,58 @@ const MIGRATIONS: &[Migration] = &[Migration {
              FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
                  ON DELETE CASCADE
           );",
-}];
+    },
+    // v2: the claimant register (ADR-11 sections 1 and 3). Additive: two empty
+    // tables, nothing existing changes. Both are append-only (an UPDATE aborts);
+    // DELETE stays possible only through the employee's erasure cascade.
+    // Codes (place kind, role, basis, relationship) are validated by the program,
+    // not by CHECK, so that adding a code later needs no table rebuild.
+    Migration {
+        version: 2,
+        sql: "CREATE TABLE claimant_place(
+             employee_id  TEXT NOT NULL
+                          REFERENCES employee(employee_id) ON DELETE CASCADE,
+             place_id     TEXT NOT NULL,
+             kind         TEXT NOT NULL,
+             label        TEXT NOT NULL,
+             location     TEXT NOT NULL,
+             municipality TEXT NOT NULL,
+             recorded_at  TEXT NOT NULL,
+             confirmed_by TEXT NOT NULL,
+             PRIMARY KEY (employee_id, place_id)
+          );
+          -- One row per assertion or retraction; a correction supersedes exactly
+          -- one earlier row (UNIQUE), so the history never forks.
+          CREATE TABLE claimant_fact(
+             fact_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+             employee_id  TEXT NOT NULL
+                          REFERENCES employee(employee_id) ON DELETE CASCADE,
+             kind         TEXT NOT NULL
+                          CHECK (kind IN ('workplace', 'relationship', 'part_owner')),
+             action       TEXT NOT NULL CHECK (action IN ('assert', 'retract')),
+             -- the asserted fact as JSON ({valid_from, valid_to, fact}); NULL
+             -- for a retraction
+             entry        TEXT,
+             recorded_at  TEXT NOT NULL,
+             confirmed_by TEXT NOT NULL,
+             evidence_hash TEXT,
+             supersedes   INTEGER UNIQUE REFERENCES claimant_fact(fact_id),
+             reason       TEXT,
+             CHECK ((action = 'assert') = (entry IS NOT NULL)),
+             CHECK (action = 'assert' OR supersedes IS NOT NULL),
+             CHECK ((supersedes IS NULL) = (reason IS NULL))
+          );
+          CREATE INDEX claimant_fact_by_employee ON claimant_fact(employee_id);
+          CREATE TRIGGER claimant_place_append_only BEFORE UPDATE ON claimant_place
+          BEGIN SELECT RAISE(ABORT, 'claimant_place is append-only'); END;
+          CREATE TRIGGER claimant_fact_append_only BEFORE UPDATE ON claimant_fact
+          BEGIN SELECT RAISE(ABORT, 'claimant_fact is append-only'); END;",
+    },
+];
 
 pub(crate) struct SqlitePiiStore {
     // `Mutex` so a single `Ledger` stays `Send + Sync` (mirrors the fiscal store).
-    conn: Mutex<Connection>,
+    pub(crate) conn: Mutex<Connection>,
     cipher: IdentityCipher,
 }
 
@@ -256,6 +307,205 @@ impl EmployeeStore for SqlitePiiStore {
             )));
         }
         sum_year(&conn, employee_id, tax_year)
+    }
+}
+
+fn employee_exists(conn: &Connection, employee_id: &str) -> Result<bool, LedgerError> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM employee WHERE employee_id = ?1",
+            params![employee_id],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some())
+}
+
+fn corrupt(what: &str, detail: impl std::fmt::Display) -> LedgerError {
+    LedgerError::Store(format!("claimant register row corrupt ({what}): {detail}"))
+}
+
+/// Read one person's register rows. Every stored code and date is parsed back
+/// through the Domain's strict types, so a hand-edited or damaged row fails
+/// loudly instead of being read as something else.
+fn read_claimant_rows(conn: &Connection, employee_id: &str) -> Result<ClaimantRows, LedgerError> {
+    if !employee_exists(conn, employee_id)? {
+        return Err(LedgerError::EmployeeNotFound(format!(
+            "no person {employee_id} in the personal-data register; add them with \
+             `employee add` first"
+        )));
+    }
+    let mut stmt = conn.prepare(
+        "SELECT place_id, kind, label, location, municipality, recorded_at, confirmed_by
+         FROM claimant_place WHERE employee_id = ?1 ORDER BY rowid",
+    )?;
+    let places = stmt
+        .query_map(params![employee_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, String>(6)?,
+            ))
+        })?
+        .map(|row| {
+            let (place_id, kind, label, location, municipality, recorded_at, confirmed_by) = row?;
+            Ok(Place {
+                employee_id: employee_id.to_string(),
+                kind: serde_json::from_value(serde_json::Value::String(kind))
+                    .map_err(|e| corrupt("place kind", e))?,
+                place_id,
+                label,
+                location,
+                municipality,
+                recorded_at: Instant::parse(&recorded_at).map_err(|e| corrupt("recorded_at", e))?,
+                confirmed_by,
+            })
+        })
+        .collect::<Result<Vec<_>, LedgerError>>()?;
+
+    let mut stmt = conn.prepare(
+        "SELECT fact_id, action, entry, recorded_at, confirmed_by, evidence_hash,
+                supersedes, reason
+         FROM claimant_fact WHERE employee_id = ?1 ORDER BY fact_id",
+    )?;
+    let facts = stmt
+        .query_map(params![employee_id], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<String>>(5)?,
+                r.get::<_, Option<i64>>(6)?,
+                r.get::<_, Option<String>>(7)?,
+            ))
+        })?
+        .map(|row| {
+            let (fact_id, action, entry, recorded_at, confirmed_by, evidence, supersedes, reason) =
+                row?;
+            let change = match (action.as_str(), entry) {
+                ("assert", Some(json)) => FactChange::Assert(
+                    serde_json::from_str::<FactEntry>(&json).map_err(|e| corrupt("entry", e))?,
+                ),
+                ("retract", None) => FactChange::Retract,
+                (other, _) => return Err(corrupt("action", other)),
+            };
+            Ok(ClaimantFact {
+                fact_id,
+                employee_id: employee_id.to_string(),
+                change,
+                recorded_at: Instant::parse(&recorded_at).map_err(|e| corrupt("recorded_at", e))?,
+                confirmed_by,
+                evidence_hash: evidence
+                    .map(|h| Hash::parse_hex(&h))
+                    .transpose()
+                    .map_err(|e| corrupt("evidence_hash", e))?,
+                supersedes,
+                reason,
+            })
+        })
+        .collect::<Result<Vec<_>, LedgerError>>()?;
+    Ok(ClaimantRows { places, facts })
+}
+
+impl ClaimantStore for SqlitePiiStore {
+    fn claimant_rows(&self, employee_id: &str) -> Result<ClaimantRows, LedgerError> {
+        let conn = self.conn.lock().expect("pii store mutex");
+        read_claimant_rows(&conn, employee_id)
+    }
+
+    fn append_claimant_place(
+        &self,
+        place: &Place,
+        validate: &dyn Fn(&ClaimantRows) -> Result<(), LedgerError>,
+    ) -> Result<(), LedgerError> {
+        let mut conn = self.conn.lock().expect("pii store mutex");
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        validate(&read_claimant_rows(&tx, &place.employee_id)?)?;
+        let kind = serde_json::to_value(place.kind).map_err(|e| corrupt("place kind", e))?;
+        tx.execute(
+            "INSERT INTO claimant_place
+                 (employee_id, place_id, kind, label, location, municipality,
+                  recorded_at, confirmed_by)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                place.employee_id,
+                place.place_id,
+                kind.as_str(),
+                place.label,
+                place.location,
+                place.municipality,
+                place.recorded_at.to_string(),
+                place.confirmed_by
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn append_claimant_fact(
+        &self,
+        fact: &NewFact,
+        recorded_at: Instant,
+        validate: &dyn Fn(&ClaimantRows) -> Result<(), LedgerError>,
+    ) -> Result<ClaimantFact, LedgerError> {
+        let mut conn = self.conn.lock().expect("pii store mutex");
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let rows = read_claimant_rows(&tx, &fact.employee_id)?;
+        validate(&rows)?;
+        let (action, entry, kind) = match &fact.change {
+            FactChange::Assert(entry) => (
+                "assert",
+                Some(serde_json::to_string(entry).map_err(|e| corrupt("entry", e))?),
+                entry.body.kind(),
+            ),
+            // A retraction has its target's kind; validation found the target.
+            FactChange::Retract => {
+                let target = fact.supersedes.as_ref().map(|s| s.fact_id);
+                let kind = rows
+                    .facts
+                    .iter()
+                    .find(|f| Some(f.fact_id) == target)
+                    .and_then(|f| f.change.entry())
+                    .map(|e| e.body.kind())
+                    .ok_or_else(|| corrupt("retraction target", "not an assertion"))?;
+                ("retract", None, kind)
+            }
+        };
+        tx.execute(
+            "INSERT INTO claimant_fact
+                 (employee_id, kind, action, entry, recorded_at, confirmed_by,
+                  evidence_hash, supersedes, reason)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                fact.employee_id,
+                kind.as_str(),
+                action,
+                entry,
+                recorded_at.to_string(),
+                fact.confirmed_by,
+                fact.evidence_hash.map(|h| h.to_hex()),
+                fact.supersedes.as_ref().map(|s| s.fact_id),
+                fact.supersedes.as_ref().map(|s| s.reason.as_str()),
+            ],
+        )?;
+        let fact_id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(ClaimantFact {
+            fact_id,
+            employee_id: fact.employee_id.clone(),
+            change: fact.change.clone(),
+            recorded_at,
+            confirmed_by: fact.confirmed_by.clone(),
+            evidence_hash: fact.evidence_hash,
+            supersedes: fact.supersedes.as_ref().map(|s| s.fact_id),
+            reason: fact.supersedes.as_ref().map(|s| s.reason.clone()),
+        })
     }
 }
 
@@ -528,7 +778,7 @@ mod tests {
     fn fresh_pii_store_is_stamped() {
         let dir = tempfile::tempdir().unwrap();
         let store = SqlitePiiStore::open(&dir.path().join("pii.sqlite")).unwrap();
-        assert_eq!(user_version(&store.conn.lock().unwrap()), 1);
+        assert_eq!(user_version(&store.conn.lock().unwrap()), 2);
     }
 
     /// Re-opening an already-migrated PII store is a no-op and preserves data.
@@ -541,7 +791,7 @@ mod tests {
             store.upsert(&sample("emp-1")).unwrap();
         }
         let store = SqlitePiiStore::open(&path).unwrap();
-        assert_eq!(user_version(&store.conn.lock().unwrap()), 1);
+        assert_eq!(user_version(&store.conn.lock().unwrap()), 2);
         assert!(store.get("emp-1").unwrap().is_some());
     }
 
@@ -562,6 +812,163 @@ mod tests {
         };
         assert_eq!(err.error_code(), "STORE_ERROR");
         assert!(err.to_string().contains("predates"), "{err}");
+    }
+
+    /// Every row of the v1 tables, as text, in key order.
+    fn v1_rows(conn: &rusqlite::Connection) -> Vec<String> {
+        let mut out = Vec::new();
+        for sql in [
+            "SELECT employee_id || '|' || hex(sealed) FROM employee ORDER BY employee_id",
+            "SELECT employee_id || '|' || tax_year || '|' || natural_key || '|' || \
+             gross_amount || '|' || gross_currency FROM ytd_earnings \
+             ORDER BY employee_id, tax_year, natural_key",
+            "SELECT type || '|' || name || '|' || sql FROM sqlite_master \
+             WHERE name IN ('employee', 'ytd_earnings') ORDER BY name",
+        ] {
+            let mut stmt = conn.prepare(sql).unwrap();
+            out.extend(
+                stmt.query_map([], |r| r.get::<_, String>(0))
+                    .unwrap()
+                    .map(Result::unwrap),
+            );
+        }
+        out
+    }
+
+    /// The v2 migration is additive: a v1 store (a home from before the claimant
+    /// register) keeps every row and table definition byte for byte, and gains
+    /// two empty tables.
+    #[test]
+    fn the_claimant_migration_is_additive() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pii.sqlite");
+        {
+            // A v1 store with data, as a binary from before this migration leaves it.
+            let mut conn = rusqlite::Connection::open(&path).unwrap();
+            migrations::apply(&mut conn, "pii", &MIGRATIONS[..1]).unwrap();
+            assert_eq!(user_version(&conn), 1);
+            conn.execute(
+                "INSERT INTO employee(employee_id, sealed) VALUES('emp-1', x'7b7d')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO ytd_earnings VALUES('emp-1', 2026, 'run:1', '3000.00', 'EUR')",
+                [],
+            )
+            .unwrap();
+        }
+        let before = v1_rows(&rusqlite::Connection::open(&path).unwrap());
+        let store = SqlitePiiStore::open(&path).unwrap();
+        let conn = store.conn.lock().unwrap();
+        assert_eq!(user_version(&conn), 2);
+        assert_eq!(v1_rows(&conn), before);
+        for table in ["claimant_place", "claimant_fact"] {
+            let n: i64 = conn
+                .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table} starts empty");
+        }
+    }
+
+    fn claimant_place(employee_id: &str) -> Place {
+        Place {
+            employee_id: employee_id.into(),
+            place_id: "home".into(),
+            kind: aggountant_domain::workplace::PlaceKind::Home,
+            label: "Koti".into(),
+            location: "Esimerkkikatu 1, Tampere".into(),
+            municipality: "Tampere".into(),
+            recorded_at: Instant::from_unix(1_800_000_000, 0).unwrap(),
+            confirmed_by: "Maija Meikäläinen".into(),
+        }
+    }
+
+    fn claimant_fact(employee_id: &str) -> NewFact {
+        use aggountant_domain::workplace::{BasisCode, FactBody, WorkplaceRole};
+        NewFact {
+            employee_id: employee_id.into(),
+            change: FactChange::Assert(FactEntry {
+                valid_from: aggountant_model::Date::parse("2025-01-01").unwrap(),
+                valid_to: None,
+                body: FactBody::Workplace {
+                    place_id: Some("home".into()),
+                    role: WorkplaceRole::RegularPrimary,
+                    basis: BasisCode::CompanyPremisesInHome,
+                    basis_explanation: None,
+                },
+            }),
+            confirmed_by: "Maija Meikäläinen".into(),
+            evidence_hash: None,
+            supersedes: None,
+        }
+    }
+
+    /// Register rows are never edited in place, and the person's erasure takes
+    /// them with it (places, facts and the corrections that reference them).
+    #[test]
+    fn claimant_rows_are_append_only_and_erased_with_the_person() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SqlitePiiStore::open(&dir.path().join("pii.sqlite")).unwrap();
+        store.upsert(&sample("emp-1")).unwrap();
+        let at = Instant::from_unix(1_800_000_001, 0).unwrap();
+        store
+            .append_claimant_place(&claimant_place("emp-1"), &|_| Ok(()))
+            .unwrap();
+        let first = store
+            .append_claimant_fact(&claimant_fact("emp-1"), at, &|_| Ok(()))
+            .unwrap();
+        let mut correction = claimant_fact("emp-1");
+        correction.supersedes = Some(aggountant_domain::workplace::Supersede {
+            fact_id: first.fact_id,
+            reason: "typo".into(),
+        });
+        store
+            .append_claimant_fact(&correction, at, &|_| Ok(()))
+            .unwrap();
+        // A second correction of the same row is refused by the schema too.
+        assert!(store
+            .append_claimant_fact(&correction, at, &|_| Ok(()))
+            .is_err());
+        let rows = store.claimant_rows("emp-1").unwrap();
+        assert_eq!(rows.places, vec![claimant_place("emp-1")]);
+        assert_eq!(rows.facts.len(), 2);
+        assert_eq!(rows.facts[0], first);
+
+        let conn = store.conn.lock().unwrap();
+        for sql in [
+            "UPDATE claimant_place SET label = 'x'",
+            "UPDATE claimant_fact SET confirmed_by = 'x'",
+        ] {
+            let err = conn.execute(sql, []).unwrap_err();
+            assert!(err.to_string().contains("append-only"), "{err}");
+        }
+        conn.execute("DELETE FROM employee WHERE employee_id = 'emp-1'", [])
+            .unwrap();
+        for table in ["claimant_place", "claimant_fact"] {
+            let n: i64 = conn
+                .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table} must cascade-delete with the employee");
+        }
+    }
+
+    /// A failed validation leaves no row behind.
+    #[test]
+    fn a_refused_claimant_write_appends_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SqlitePiiStore::open(&dir.path().join("pii.sqlite")).unwrap();
+        store.upsert(&sample("emp-1")).unwrap();
+        let refuse = |_: &ClaimantRows| Err(LedgerError::Store("refused".into()));
+        assert!(store
+            .append_claimant_place(&claimant_place("emp-1"), &refuse)
+            .is_err());
+        let at = Instant::from_unix(1_800_000_001, 0).unwrap();
+        assert!(store
+            .append_claimant_fact(&claimant_fact("emp-1"), at, &refuse)
+            .is_err());
+        let rows = store.claimant_rows("emp-1").unwrap();
+        assert!(rows.places.is_empty() && rows.facts.is_empty());
     }
 
     /// Foreign keys are enforced at runtime (set after migrations), so the

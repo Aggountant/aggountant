@@ -26,6 +26,7 @@ pub mod payroll;
 pub mod statements;
 pub mod travel;
 pub mod vat;
+pub mod workplace;
 
 pub use closeyear::{
     accrual_voucher, compute_depreciation, depreciation_policy_version, depreciation_rate_table,
