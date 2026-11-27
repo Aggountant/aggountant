@@ -42,7 +42,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use aggountant_model::{Date, Instant};
 
 use crate::bank_days::finnish_local_time;
-use crate::workplace::{trip_snapshot, ClaimantFact, Place, SnapshotRequest};
+use crate::workplace::{trip_snapshot, ClaimantFact, Place, SnapshotRequest, WorkplaceRole};
 use crate::DomainError;
 
 pub use crate::workplace::Workplace;
@@ -596,6 +596,22 @@ fn workplace_from_register(
             return Ok(None);
         }
     };
+    // `from_regular_workplace` may be null only for a claimant with no regular
+    // workplace; the register says whether there is one, so a null distance
+    // cannot skip the 5 km test (decision 11 §) for a claimant who has one.
+    let has_regular = snapshot.register.workplaces.iter().any(|w| {
+        matches!(
+            w.role,
+            WorkplaceRole::RegularPrimary | WorkplaceRole::RegularOther
+        )
+    });
+    if has_regular && trip.distances_km.from_regular_workplace.is_none() {
+        return Err(DomainError::TravelInput(format!(
+            "trip {n}: distances_km.from_regular_workplace is null, but the register records a \
+             regular workplace for {} on {date}; give the distance from it",
+            input.employee_id
+        )));
+    }
     let workplace = snapshot.workplace();
     if workplace.is_none() {
         ctx.refuse(

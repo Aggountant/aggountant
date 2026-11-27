@@ -1358,7 +1358,24 @@ fn an_omitted_regular_workplace_distance_is_an_error() {
     .is_err());
     trip["distances_km"]["from_regular_workplace"] = Value::Null;
     trip["days"] = no_free_meals(1);
-    assert_eq!(daily(&compute(json!([trip]))), "54.00");
+    // The register records a regular workplace, so the distance is required.
+    assert_eq!(
+        run(&claim(json!([trip.clone()]))).unwrap_err().error_code(),
+        "TRAVEL_INPUT_INVALID"
+    );
+    // A claimant recorded as having no regular workplace has no such distance.
+    let (places, mut facts) = register();
+    facts.truncate(1);
+    facts.push(
+        serde_json::from_value(json!({"fact_id": 9, "employee_id": "maija",
+            "change": {"assert": {"valid_from": "2020-01-01", "valid_to": null,
+                "fact": {"kind": "workplace", "role": "none", "basis": "board_member_only"}}},
+            "recorded_at": "2020-01-01T00:00:00Z", "confirmed_by": "Maija Meikäläinen",
+            "evidence_hash": null, "supersedes": null, "reason": null}))
+        .unwrap(),
+    );
+    let c = compute_claim(&claim(json!([trip])), &places, &facts, now()).unwrap();
+    assert_eq!(daily(&c), "54.00");
 }
 
 fn short_drive(date: &str, km: &str) -> Value {

@@ -87,7 +87,8 @@ pub(crate) const CLAIM_COMPUTE: &str = r#"INPUT (JSON on stdin)
   entry on that date the trip is refused (CLAIMANT_RELATIONSHIP_UNKNOWN,
   REGULAR_WORKPLACE_UNKNOWN) and computes nothing; distances_km {from_departure, from_home,
   from_regular_workplace} as decimal strings along the shortest route
-  (from_regular_workplace is required, null only when the claimant has none;
+  (from_regular_workplace is required, null only when the register records no
+  regular workplace for the claimant, else TRAVEL_INPUT_INVALID;
   a per diem needs over 15 km from where the trip started and over 5 km from
   both).
   Foreign trips: destination_country (ISO 3166 code) and optional
