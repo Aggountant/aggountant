@@ -86,15 +86,9 @@ pub(super) fn check_direction_cancellation(
 // zeroes its output VAT and under-declares the domestic-sales field — exactly the
 // v1.x correctness gap `build_draft` closes below at record time.
 //
-// Two follow-ups this slice deliberately does NOT close (single-crate lane), each
-// spun off as its own issue:
-//   * the buyer VAT-ID is enforced at record time but not *persisted* on the sealed
-//     voucher — the yhteenvetoilmoitus (EC recap statement) needs it stored, which
-//     needs the model layer (`eu-sale-buyer-vat-id-persistence`);
-//   * `DerivedVatFigures` aggregates only VAT euros, so the taxable *bases* of the
-//     intra-Community fields (ALV-ilmoitus 309/310) are not yet derived — a filing-
-//     pipeline concern (`eu-sale-reporting-fields`). A 0 % rate class computes the
-//     right VAT (0) here; the base breakdown is the open part.
+// The validated buyer VAT-ID is stored on the draft for the EC sales list, and
+// the sale's value is reported in return field 310 or 311 (see
+// `zero_rated_sales_field`).
 
 /// The intra-Community treatment a `sales-eu-*` code denotes. Goods and services
 /// share the buyer-VAT-ID requirement but differ on which buyer registrations are
@@ -247,6 +241,42 @@ pub fn check_eu_sale_buyer_vat_id(
         )));
     }
     Ok(Some(normalized))
+}
+
+/// Record-time guard that keeps a zero-rated or EU sale out of a voucher that
+/// also carries a `purchase-` line. The return reports such a sale's value in
+/// field 309, 310 or 311, but [`derive_vat_figures`] leaves the sales fields of a
+/// mixed-direction voucher empty, because legacy self-assessed acquisitions were
+/// booked that way and their `sales-` line is not a sale. A new sale in a mixed
+/// voucher would therefore be left out of the return silently; refuse it here
+/// instead, where re-entering the sale and the purchase as two vouchers is cheap.
+/// Run by [`crate::build_draft`].
+pub fn check_zero_rated_sale_not_mixed(postings: &[Posting]) -> Result<(), DomainError> {
+    let mut zero_rated_sale = None;
+    let mut has_purchase = false;
+    for posting in postings {
+        let Some(code) = &posting.vat_code else {
+            continue;
+        };
+        match parse_vat_code(code.as_str()) {
+            Ok((VatDirection::Sales, rate_class, _, VatScheme::Normal))
+                if zero_rated_sales_field(rate_class).is_some() =>
+            {
+                zero_rated_sale.get_or_insert(code.as_str());
+            }
+            Ok((VatDirection::Purchase, ..)) => has_purchase = true,
+            _ => {}
+        }
+    }
+    match zero_rated_sale {
+        Some(code) if has_purchase => Err(DomainError::VatStructure(format!(
+            "this voucher has a zero-rated sale ({code}) and a purchase- VAT line; the \
+             return reports the sale's value in field 309, 310 or 311 only when the \
+             sale is in a voucher of its own, so record the sale and the purchase as \
+             separate vouchers"
+        ))),
+        _ => Ok(()),
+    }
 }
 
 /// Record-time guard against an EU *acquisition* mis-booked as a zero-rated

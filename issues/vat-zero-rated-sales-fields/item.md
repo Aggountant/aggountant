@@ -1,12 +1,13 @@
 ---
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-27
 type: improvement
-status: open
+status: done
 priority: normal
 lane: vat-roles
 lane_seq: 20
 collision: [crates/domain/src/vat/roles.rs, crates/domain/src/vat/guards.rs, crates/domain/src/vat/code.rs]
+closed: 2026-11-27
 ---
 
 # Derive VAT return fields 309-311 for zero-rated and EU sales
@@ -35,3 +36,9 @@ their taxable base to fields 310, 311 and 309 respectively, through the same
 - [ ] Synthetic EU goods, EU services and export sales in one month produce 310, 311 and 309 with their bases.
 - [ ] Credit notes reduce the same fields.
 - [ ] Primary-source citation for the field definitions.
+
+## Resolution
+
+### 2026-11-27T18:15:14Z · @issuectl
+
+Fields 309-311 derived from sealed zero-rated and EU sales; see result.md.

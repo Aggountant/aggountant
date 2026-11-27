@@ -120,10 +120,13 @@ käännetään lähdekoodista Rust-työkaluilla. Windowsia ei ole testattu. Ohje
   mutta lisää maksettavaa tai palautuvaa erotusta ohjelma ei laske: se näkyy
   OmaVeron verotilillä. Korvaavaa ilmoitusta ei ole vielä lähetetty
   Verohallinnon tuotantoon.
-- EU-myynnin ja verottoman myynnin kentät 309–311 eivät tule kirjanpidosta.
-  Jos yritykselläsi on EU-myyntiä tai vientiä, tee ilmoitus OmaVerossa ja
-  syötä nämä kentät itse. Yhteenvetoilmoitusta aggountant ei tee
-  (`vat-zero-rated-sales-fields`).
+- Yhteenvetoilmoitusta aggountant ei tee. ALV-ilmoitus saa tavaroiden ja
+  palvelujen EU-myynnin (kentät 310 ja 311) sekä viennin ja muun
+  0-verokannan myynnin (309) arvot kirjanpidosta, mutta yhteenvetoilmoitus
+  annetaan OmaVerossa (`vat-ec-sales-list`).
+- EU-myyntiä tai muuta 0-verokannan myyntiä ei voi kirjata samaan
+  tositteeseen oston kanssa (`VAT_STRUCTURE`). Kirjaa myynti ja osto kahtena
+  tositteena, niin myynnin arvo menee kenttään 309, 310 tai 311.
 - Kautta, jonka ALV on korjausten vuoksi negatiivinen, ei voi ilmoittaa
   aggountantilla. Sellainen on esimerkiksi kuukausi, jonka ainoa myynti on
   hyvityslasku. Virhe nimeää harhaanjohtavasti valuutan (`VAT_CURRENCY`). Tee

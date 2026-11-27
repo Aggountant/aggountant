@@ -54,20 +54,21 @@ pub use statements::{
 pub use vat::{
     check_eu_sale_buyer_vat_id, check_no_eu_acquisition_code, check_vat_rate_class_mistag,
     check_vat_rate_class_mistag_with_role_table, check_voucher_vat_structure,
-    classify_vat_account_postings, compute_derived_vat_filing, compute_margin_vat,
-    compute_vat_filing, derive_filing_figures, derive_filing_figures_with_role_table,
-    derive_vat_figures, draft_deductible_vat, draft_deductible_vat_with_role_table,
-    reconcile_vat_accounts, reconcile_verotili, reduces_vat, sum_vat_account_figures,
-    sum_vat_account_figures_with_role_table, validate_eu_buyer_vat_id, vat_code_is_tax_bearing,
-    vat_codes_on, vat_expand, vat_expand_with_role_table, verify_vat_expansion,
-    verify_vat_expansion_for_seal, verify_vat_expansion_for_seal_with_role_table,
-    verify_vat_expansion_with_role_table, ChartSettlementAccounts, ChartVatAccount, ChartVatRoles,
-    DerivedVatFigures, MarginCategory, MarginVat, MistagGuard, Reconciliation, ReverseChargeScope,
-    SettlementAccountRoleTable, SettlementRolesMissing, TaxAccountSnapshot, VatAccountMovement,
-    VatAccountPosting, VatAccountPostingClass, VatAccountReconciliation, VatAccountRole,
-    VatAccountRoleTable, VatCodeOption, VatDirectionReconciliation, VatExpandInput, VatFiling,
-    VatFilingInput, VatRateEdition, VatRateTable, VatRecompute, VatReconciliationStatus,
-    VatReturnField, VatReturnFields, VatReturnFieldsError, VatRoleTag, VatTreatment,
+    check_zero_rated_sale_not_mixed, classify_vat_account_postings, compute_derived_vat_filing,
+    compute_margin_vat, compute_vat_filing, derive_filing_figures,
+    derive_filing_figures_with_role_table, derive_vat_figures, draft_deductible_vat,
+    draft_deductible_vat_with_role_table, reconcile_vat_accounts, reconcile_verotili, reduces_vat,
+    sum_vat_account_figures, sum_vat_account_figures_with_role_table, validate_eu_buyer_vat_id,
+    vat_code_is_tax_bearing, vat_codes_on, vat_expand, vat_expand_with_role_table,
+    verify_vat_expansion, verify_vat_expansion_for_seal,
+    verify_vat_expansion_for_seal_with_role_table, verify_vat_expansion_with_role_table,
+    ChartSettlementAccounts, ChartVatAccount, ChartVatRoles, DerivedVatFigures, MarginCategory,
+    MarginVat, MistagGuard, Reconciliation, ReverseChargeScope, SettlementAccountRoleTable,
+    SettlementRolesMissing, TaxAccountSnapshot, VatAccountMovement, VatAccountPosting,
+    VatAccountPostingClass, VatAccountReconciliation, VatAccountRole, VatAccountRoleTable,
+    VatCodeOption, VatDirectionReconciliation, VatExpandInput, VatFiling, VatFilingInput,
+    VatRateEdition, VatRateTable, VatRecompute, VatReconciliationStatus, VatReturnField,
+    VatReturnFields, VatReturnFieldsError, VatRoleTag, VatTreatment,
 };
 
 #[derive(Debug, Error)]
@@ -198,10 +199,13 @@ pub struct DraftInput {
 /// ([`check_eu_sale_buyer_vat_id`]): a voucher tagged `sales-eu-goods` /
 /// `sales-eu-services` (which zero-rate output VAT) is refused unless a buyer
 /// VAT-ID from another EU member state is supplied, so a domestic sale cannot
-/// silently masquerade as a zero-rated intra-Community supply.
+/// silently masquerade as a zero-rated intra-Community supply, and refuses a
+/// zero-rated or EU sale mixed with a purchase line
+/// ([`check_zero_rated_sale_not_mixed`]), whose value the return would omit.
 pub fn build_draft(input: DraftInput) -> Result<VoucherDraft, DomainError> {
     check_voucher_vat_structure(&input.postings)?;
     check_no_eu_acquisition_code(&input.postings)?;
+    check_zero_rated_sale_not_mixed(&input.postings)?;
     let buyer_vat_id = check_eu_sale_buyer_vat_id(&input.postings, input.buyer_vat_id.as_deref())?;
     let draft = VoucherDraft::new(
         input.document_date,
@@ -440,5 +444,22 @@ mod tests {
             ]}"#;
         let draft = build_draft(serde_json::from_str(json).unwrap()).unwrap();
         assert_eq!(draft.buyer_vat_id(), Some("SE556677889901"));
+    }
+
+    #[test]
+    fn build_draft_refuses_an_eu_sale_mixed_with_a_purchase_line() {
+        // The return would leave the sale out of field 310 (a mixed voucher may be a
+        // legacy self-assessed acquisition), so it is refused before it is sealed.
+        let json = r#"{
+            "document_date":"2026-05-31","posting_date":"2026-05-31",
+            "description":"EU goods sale with a freight purchase",
+            "buyer_vat_id":"SE556677889901",
+            "postings":[
+                {"account":"1910","amount":{"amount":"9960.00","currency":"EUR"},"side":"debit"},
+                {"account":"4000","amount":{"amount":"40.00","currency":"EUR"},"side":"debit","vat_code":"purchase-domestic-standard"},
+                {"account":"3000","amount":{"amount":"10000.00","currency":"EUR"},"side":"credit","vat_code":"sales-eu-goods"}
+            ]}"#;
+        let err = build_draft(serde_json::from_str(json).unwrap()).unwrap_err();
+        assert_eq!(err.error_code(), "VAT_STRUCTURE");
     }
 }

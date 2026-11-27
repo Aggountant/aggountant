@@ -2029,3 +2029,142 @@ fn exempt_eu_goods_acquisition_files_its_value_in_field_312_and_moves_nothing_el
     }
     assert_eq!(with.net_vat, without.net_vat);
 }
+
+/// A period with no zero-rated or EU sales files exactly what it filed before
+/// fields 309–311 were derived. The expected values are pinned from the build
+/// before that change; every tagged and VAT-A shape the return already reads is
+/// in the period.
+#[test]
+fn a_period_without_zero_rated_sales_derives_the_same_return_as_before() {
+    let vouchers = vec![
+        vat_voucher(
+            1,
+            "2026-02-01",
+            "2026-02-01",
+            "3000",
+            "1000.00",
+            "sales-domestic-standard",
+            "1700",
+        ),
+        vat_voucher(
+            2,
+            "2026-02-02",
+            "2026-02-02",
+            "3000",
+            "200.00",
+            "sales-domestic-reduced-1",
+            "1700",
+        ),
+        vat_voucher(
+            3,
+            "2026-02-03",
+            "2026-02-03",
+            "3000",
+            "300.00",
+            "sales-domestic-reduced-2",
+            "1700",
+        ),
+        vat_voucher_sided(
+            4,
+            "2026-02-04",
+            "2026-02-04",
+            "3000",
+            "100.00",
+            "sales-domestic-standard",
+            Side::Debit,
+            "1700",
+        ),
+        vat_voucher(
+            5,
+            "2026-02-05",
+            "2026-02-05",
+            "3000",
+            "124.00",
+            "sales-margin-used-goods",
+            "1700",
+        ),
+        vat_voucher(
+            6,
+            "2026-02-06",
+            "2026-02-06",
+            "4000",
+            "400.00",
+            "purchase-domestic-standard",
+            "1910",
+        ),
+        vat_voucher(
+            7,
+            "2026-02-07",
+            "2026-02-07",
+            "4000",
+            "80.00",
+            "purchase-domestic-standard-deduct50",
+            "1910",
+        ),
+        super::tests_derive::reverse_charge_voucher(
+            8,
+            "50.00",
+            "purchase-domestic-standard",
+            "sales-domestic-standard",
+        ),
+        company_expand_body(
+            9,
+            "200.00",
+            "4000",
+            "1910",
+            reverse_charge(ReverseChargeScope::EuGoods),
+            "2026-02-09",
+            "2026-02-09",
+        ),
+        company_expand_body(
+            10,
+            "100.00",
+            "4020",
+            "1910",
+            reverse_charge(ReverseChargeScope::EuServices),
+            "2026-02-10",
+            "2026-02-10",
+        ),
+        company_expand_body(
+            11,
+            "60.00",
+            "4020",
+            "1910",
+            reverse_charge(ReverseChargeScope::NonEuServices),
+            "2026-02-11",
+            "2026-02-11",
+        ),
+        company_expand_body(
+            12,
+            "125.50",
+            "4000",
+            "1910",
+            domestic_standard(),
+            "2026-02-12",
+            "2026-02-12",
+        ),
+    ];
+    let figures = test_derive(&q1(), &vouchers).unwrap();
+    let filing = compute_derived_vat_filing(&figures).unwrap();
+    assert_eq!(
+        serde_json::to_string(&filing.fields).unwrap(),
+        PINNED_FIELDS_WITHOUT_ZERO_RATED_SALES
+    );
+    assert_eq!(
+        (
+            figures.sales_vat.amount_str().as_str(),
+            figures.purchase_vat.amount_str().as_str(),
+            filing.net_vat.amount_str().as_str(),
+        ),
+        PINNED_TOTALS_WITHOUT_ZERO_RATED_SALES
+    );
+}
+
+const PINNED_FIELDS_WITHOUT_ZERO_RATED_SALES: &str = concat!(
+    r#"{"301":{"amount":"244.80","currency":"EUR"},"302":{"amount":"27.00","currency":"EUR"},"#,
+    r#""303":{"amount":"30.00","currency":"EUR"},"305":{"amount":"51.00","currency":"EUR"},"#,
+    r#""306":{"amount":"25.50","currency":"EUR"},"307":{"amount":"242.25","currency":"EUR"},"#,
+    r#""308":{"amount":"174.00","currency":"EUR"},"312":{"amount":"200.00","currency":"EUR"},"#,
+    r#""313":{"amount":"100.00","currency":"EUR"}}"#,
+);
+const PINNED_TOTALS_WITHOUT_ZERO_RATED_SALES: (&str, &str, &str) = ("416.25", "242.25", "174.00");

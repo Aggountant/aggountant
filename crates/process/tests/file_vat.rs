@@ -3129,3 +3129,139 @@ fn user_pays_on_a_refund_records_no_payment_required_instead() {
     );
     assert!(payment_json(&done).is_null());
 }
+
+/// A Q1 with EU goods, EU services and export sales (and a credit note on the
+/// goods) beside a domestic sale: the return carries their values in 309–311.
+fn sealed_home_with_zero_rated_sales() -> tempfile::TempDir {
+    let home = tempfile::tempdir().unwrap();
+    let ledger = Ledger::init(home.path()).unwrap();
+    let d = Date::parse("2026-02-15").unwrap();
+    let sale =
+        |nk: &str, account: &str, base: &str, side: Side, code: &str, buyer: Option<&str>| {
+            let counter = match side {
+                Side::Credit => Side::Debit,
+                Side::Debit => Side::Credit,
+            };
+            let draft = VoucherDraft::new(
+                d,
+                d,
+                format!("fictional {code} sale"),
+                vec![
+                    Posting {
+                        account: AccountId::new("1700").unwrap(),
+                        amount: eur(base),
+                        side: counter,
+                        vat_code: None,
+                    },
+                    Posting {
+                        account: AccountId::new(account).unwrap(),
+                        amount: eur(base),
+                        side,
+                        vat_code: Some(aggountant_model::VatCode::new(code).unwrap()),
+                    },
+                ],
+                None,
+            )
+            .unwrap();
+            let draft = match buyer {
+                Some(id) => draft.with_buyer_vat_id(id.into()).unwrap(),
+                None => draft,
+            };
+            let req = SealRequest {
+                natural_key: nk.to_string(),
+                actor: "test".to_string(),
+                policy_set: PolicySet::default(),
+            };
+            ledger.seal(&draft, &req).unwrap();
+        };
+    let se = Some("SE556677889901");
+    sale(
+        "eu-goods",
+        "3000",
+        "5000.00",
+        Side::Credit,
+        "sales-eu-goods",
+        se,
+    );
+    sale(
+        "eu-goods-credit",
+        "3000",
+        "1000.00",
+        Side::Debit,
+        "sales-eu-goods",
+        se,
+    );
+    sale(
+        "eu-services",
+        "3000",
+        "2500.00",
+        Side::Credit,
+        "sales-eu-services",
+        se,
+    );
+    sale(
+        "export",
+        "3000",
+        "1500.00",
+        Side::Credit,
+        "sales-zero-rated",
+        None,
+    );
+    sale(
+        "domestic",
+        "3000",
+        "1000.00",
+        Side::Credit,
+        "sales-domestic-standard",
+        None,
+    );
+    let auth = ledger.begin_close(&q1(), "close-run", "closer").unwrap();
+    ledger.seal_period(&q1(), &auth, "closer").unwrap();
+    home
+}
+
+#[test]
+fn zero_rated_and_eu_sales_are_filed_in_309_310_311() {
+    let home = sealed_home_with_zero_rated_sales();
+    let engine = ProcessEngine::open(home.path());
+    let preview = engine
+        .preview_offline_vat(&q1(), &PolicySet::default())
+        .unwrap();
+    use aggountant_domain::VatReturnField::{Field301, Field309, Field310, Field311};
+    let field = |f| preview.filing_fields.get(f).map(|m: &Money| m.amount_str());
+    assert_eq!(field(Field309).as_deref(), Some("1500.00"));
+    assert_eq!(field(Field310).as_deref(), Some("4000.00"));
+    assert_eq!(field(Field311).as_deref(), Some("2500.00"));
+    assert_eq!(field(Field301).as_deref(), Some("255.00"));
+    assert_eq!(preview.sales_vat, "255.00");
+
+    let broker = broker_with(home.path(), verotili_ok(), vec![], vec![]);
+    let claimed: FileVatInput = serde_json::from_value(json!({
+        "period": "2026-Q1",
+        "sales_vat": {"amount": "255.00", "currency": "EUR"},
+        "purchase_vat": {"amount": "0.00", "currency": "EUR"},
+        "business_id": "1234567-1",
+        "contact_name": "Ada Operator",
+        "contact_phone": "+358401234567",
+        "payee_iban": "FI2112345600000785"
+    }))
+    .unwrap();
+    let start = engine
+        .start_file_vat(&claimed, &broker, &PolicySet::default())
+        .unwrap();
+    let state_path = home
+        .path()
+        .join("process/runs")
+        .join(start.run.run_id)
+        .join("file_vat_state.json");
+    let state: Value = serde_json::from_slice(&std::fs::read(state_path).unwrap()).unwrap();
+    let request: Value =
+        serde_json::from_str(state["filing_body"]["request_bytes"].as_str().unwrap()).unwrap();
+    let sales = &request["VATDetails"]["SalesPurchasesImports"];
+    assert_eq!(sales["ZeroVATRateTurnover"].to_string(), "1500.00");
+    assert_eq!(sales["SalesOfGoodsToEUMemberStates"].to_string(), "4000.00");
+    assert_eq!(
+        sales["SalesOfServicesToEUMemberStates"].to_string(),
+        "2500.00"
+    );
+}

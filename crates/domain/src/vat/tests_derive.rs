@@ -1317,3 +1317,185 @@ fn legacy_tagged_self_assessment_keeps_aggregates_without_guessing_sales_categor
         assert_eq!(filing.fields.iter().count(), 2);
     }
 }
+
+// --- Zero-rated and EU sales: fields 309, 310, 311 ----------------------
+
+fn field_str(figures: &DerivedVatFigures, field: VatReturnField) -> Option<String> {
+    figures.fields.get(field).map(Money::amount_str)
+}
+
+#[test]
+fn zero_rated_eu_and_export_sales_report_their_bases_in_309_310_311() {
+    let vouchers = vec![
+        vat_voucher(
+            1,
+            "2026-02-03",
+            "2026-02-03",
+            "3000",
+            "1200.00",
+            "sales-eu-goods",
+            "1700",
+        ),
+        vat_voucher(
+            2,
+            "2026-02-10",
+            "2026-02-10",
+            "3000",
+            "800.00",
+            "sales-eu-goods",
+            "1700",
+        ),
+        vat_voucher(
+            3,
+            "2026-02-12",
+            "2026-02-12",
+            "3010",
+            "450.25",
+            "sales-eu-services",
+            "1700",
+        ),
+        vat_voucher(
+            4,
+            "2026-02-20",
+            "2026-02-20",
+            "3020",
+            "3000.00",
+            "sales-zero-rated",
+            "1700",
+        ),
+        vat_voucher(
+            5,
+            "2026-02-21",
+            "2026-02-21",
+            "3000",
+            "100.00",
+            "sales-domestic-standard",
+            "1700",
+        ),
+        // Another month: never counted in February.
+        vat_voucher(
+            6,
+            "2026-03-01",
+            "2026-03-01",
+            "3000",
+            "999.00",
+            "sales-eu-goods",
+            "1700",
+        ),
+    ];
+    let february = PeriodId::parse("2026-02").unwrap();
+    let figures = derive_vat_figures(&february, &vouchers).unwrap();
+    assert_eq!(
+        field_str(&figures, VatReturnField::Field309).as_deref(),
+        Some("3000.00")
+    );
+    assert_eq!(
+        field_str(&figures, VatReturnField::Field310).as_deref(),
+        Some("2000.00")
+    );
+    assert_eq!(
+        field_str(&figures, VatReturnField::Field311).as_deref(),
+        Some("450.25")
+    );
+    assert_eq!(
+        field_str(&figures, VatReturnField::Field301).as_deref(),
+        Some("25.50")
+    );
+    // Zero-rated sales carry no tax: the output total is the domestic sale alone.
+    assert_eq!(figures.sales_vat.amount_str(), "25.50");
+    assert_eq!(figures.fields.iter().count(), 4);
+    // The filing keeps them beside 307 and 308.
+    let filing = compute_derived_vat_filing(&figures).unwrap();
+    assert_eq!(
+        filing.fields.get(VatReturnField::Field310),
+        figures.fields.get(VatReturnField::Field310)
+    );
+    assert_eq!(filing.net_vat.amount_str(), "25.50");
+}
+
+#[test]
+fn credit_notes_reduce_the_zero_rated_sales_fields() {
+    for (code, field) in [
+        ("sales-zero-rated", VatReturnField::Field309),
+        ("sales-eu-goods", VatReturnField::Field310),
+        ("sales-eu-services", VatReturnField::Field311),
+    ] {
+        let sale = vat_voucher(
+            1,
+            "2026-02-03",
+            "2026-02-03",
+            "3000",
+            "1000.00",
+            code,
+            "1700",
+        );
+        let credit = vat_voucher_sided(
+            2,
+            "2026-02-17",
+            "2026-02-17",
+            "3000",
+            "250.00",
+            code,
+            Side::Debit,
+            "1700",
+        );
+        let net = derive_vat_figures(&q1(), &[sale, credit.clone()]).unwrap();
+        assert_eq!(field_str(&net, field).as_deref(), Some("750.00"), "{code}");
+        assert_eq!(net.sales_vat.amount_str(), "0.00");
+        assert_eq!(net.fields.iter().count(), 1, "{code}");
+        // A credit note on its own reduces the field below zero rather than vanishing.
+        let alone = derive_vat_figures(&q1(), &[credit]).unwrap();
+        assert_eq!(
+            field_str(&alone, field).as_deref(),
+            Some("-250.00"),
+            "{code}"
+        );
+    }
+}
+
+#[test]
+fn a_legacy_mixed_voucher_with_an_eu_sale_tag_reports_no_sales_field() {
+    // Legacy self-assessed acquisitions were tagged sales-eu-* + purchase-eu-*.
+    // Their sales- line is not a sale, so it stays out of 310/311 as before.
+    for (input, output) in [
+        ("purchase-eu-services", "sales-eu-services"),
+        ("purchase-eu-goods", "sales-eu-goods"),
+        ("purchase-domestic-standard", "sales-zero-rated"),
+    ] {
+        let voucher = reverse_charge_voucher(1, "100.00", input, output);
+        let figures = derive_vat_figures(&q1(), &[voucher]).unwrap();
+        assert_eq!(figures.fields.iter().count(), 0, "{output}");
+    }
+}
+
+#[test]
+fn margin_and_domestic_sales_never_reach_the_zero_rated_fields() {
+    let vouchers = vec![
+        vat_voucher(
+            1,
+            "2026-02-03",
+            "2026-02-03",
+            "3000",
+            "124.00",
+            "sales-margin-used-goods",
+            "1700",
+        ),
+        vat_voucher(
+            2,
+            "2026-02-03",
+            "2026-02-03",
+            "3000",
+            "100.00",
+            "sales-domestic-reduced-2",
+            "1700",
+        ),
+    ];
+    let figures = derive_vat_figures(&q1(), &vouchers).unwrap();
+    for field in [
+        VatReturnField::Field309,
+        VatReturnField::Field310,
+        VatReturnField::Field311,
+    ] {
+        assert!(figures.fields.get(field).is_none(), "{field:?}");
+    }
+}

@@ -22,6 +22,17 @@ While the version is 0.x, a minor version bump may contain breaking changes.
   mapping guidance, which applies only to companies moving from another
   system, moved unchanged into the skill's new `avaavat-saldot.md`. Run
   `aggountant skill install` to get both files.
+
+- **VAT return fields 309–311 from the books.** Sales tagged
+  `sales-zero-rated` (exports and other zero-rated sales), `sales-eu-goods`
+  and `sales-eu-services` now report their value without VAT in fields 309,
+  310 and 311 of the return preview and of the direct Vero API filing
+  (`ZeroVATRateTurnover`, `SalesOfGoodsToEUMemberStates`,
+  `SalesOfServicesToEUMemberStates`); a credit note reduces the same field.
+  A period without such sales files exactly what it filed before. A new
+  voucher that puts such a sale together with a `purchase-` line is refused
+  (`VAT_STRUCTURE`): record them as two vouchers. No store migration.
+
 - **Travel allowances computed from a trip (`claim compute`).** A new
   read-only command takes trips as JSON on stdin and computes the scheduled
   tax-free allowances: travel days, domestic and foreign per diems with the

@@ -115,6 +115,17 @@ pub fn derive_vat_figures(
                             )
                             .map_err(|error| DomainError::VatStructure(error.to_string()))?;
                     }
+                    // A zero-rated sale reports its value, not its (zero) tax:
+                    // the signed base goes to the turnover field of its rate
+                    // class, so a credit note reduces the same field.
+                    if let Some(field) = zero_rated_sales_field(rate_class) {
+                        domestic_sales_fields
+                            .add_computed(
+                                field,
+                                Money::new(eur_2dp(round_eur(signed)), eur.clone()),
+                            )
+                            .map_err(|error| DomainError::VatStructure(error.to_string()))?;
+                    }
                 }
                 VatDirection::Purchase => {
                     purchase += vat;
@@ -125,6 +136,10 @@ pub fn derive_vat_figures(
         // A mixed-direction tagged voucher may be legacy self-assessed purchase
         // VAT. Its tags do not identify the acquisition scope, so keep its prior
         // field behavior rather than guessing that its output is domestic sales.
+        // The same holds for a zero-rated or EU sale line: legacy acquisitions
+        // were tagged `sales-eu-*` + `purchase-eu-*` before both were refused at
+        // record time, and such a line is not a sale. A new voucher cannot mix
+        // the two ([`check_zero_rated_sale_not_mixed`]).
         // Aggregates remain unchanged; provenance-owned VAT-A purchases are
         // independently slotted by the existing account-sum projection.
         if !has_tagged_purchase {

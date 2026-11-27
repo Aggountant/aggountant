@@ -111,6 +111,45 @@ pub(super) fn vat_rate_class_field(rate_class: &str) -> Result<VatReturnField, D
     }
 }
 
+/// The turnover field a zero-rated sale's value is reported in, by rate class;
+/// `None` for every class that is not a zero-rated sale. This is the one owner
+/// of the `rate_class → 309/310/311` rule, as [`vat_rate_class_field`] is of
+/// `301/302/303`.
+///
+/// Field definitions, from the Tax Administration's *Näin ilmoitat
+/// arvonlisäveron* / *Instructions for completing the VAT return*
+/// (<https://www.vero.fi/yritykset-ja-yhteisot/verot-ja-maksut/arvonlisaverotus/ilmoitus-ja-maksuohjeet/>,
+/// <https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/when-to-file-and-pay/instructions-for-completing-the-vat-return/>):
+///
+/// - *0-verokannan alainen liikevaihto* (Vero API `ZeroVATRateTurnover`, field
+///   309 here): all zero-rated sales of goods and services, such as exports
+///   outside the EU. The EU supplies below have their own fields, and exempt
+///   sales whose purchases are not deductible (health and social care) are not
+///   reported at all. `zero-rated` is the class of these sales.
+/// - *Tavaroiden myynnit muihin EU-maihin* (`SalesOfGoodsToEUMemberStates`,
+///   310 here): intra-Community supplies of goods to VAT-registered buyers in
+///   other member states, the goods being transported there. `eu-goods`.
+/// - *Palvelujen myynnit muihin EU-maihin* (`SalesOfServicesToEUMemberStates`,
+///   311 here): services taxed in the buyer's member state under the general
+///   rule; a service exempt in the buyer's country, or one under a special
+///   place-of-supply rule, belongs to 309 instead. `eu-services`.
+///
+/// All three report the value of the sale without VAT. The guidance says
+/// nothing separate on credit notes; a credit note reduces the value sold, so
+/// it reduces the same field, as it reduces 301–303.
+///
+/// The field numbers are this crate's [`VatReturnField`] labels. The Vero API
+/// files by element name (the broker's projection maps each label); Ilmoitin's
+/// VSRALVKV data-file codes for the two EU fields are 311 and 312.
+pub(super) fn zero_rated_sales_field(rate_class: &str) -> Option<VatReturnField> {
+    match rate_class {
+        "zero-rated" => Some(VatReturnField::Field309),
+        "eu-goods" => Some(VatReturnField::Field310),
+        "eu-services" => Some(VatReturnField::Field311),
+        _ => None,
+    }
+}
+
 /// Sparse, number-keyed VAT-return fields. Missing means "not derived", which is
 /// distinct from a reported zero. A map avoids baking the form into another flat
 /// struct and lets later derivation slices populate EU and reverse-charge fields

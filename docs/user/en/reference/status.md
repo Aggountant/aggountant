@@ -123,10 +123,13 @@ instructions are in
   but the program does not calculate the difference to pay or to be refunded:
   it shows on the tax account in OmaVero. A replacement return has not yet
   been sent to the Tax Administration's production service.
-- Fields 309–311 for EU sales and zero-rated sales do not come from the
-  books. If your company has EU sales or exports, file the return in OmaVero
-  and enter these fields yourself. aggountant does not make the EC sales list
-  (yhteenvetoilmoitus) (`vat-zero-rated-sales-fields`).
+- aggountant does not make the EC sales list (yhteenvetoilmoitus). The VAT
+  return takes the values of EU sales of goods and services (fields 310 and
+  311) and of exports and other zero-rated sales (309) from the books, but
+  the EC sales list is filed in OmaVero (`vat-ec-sales-list`).
+- An EU sale or another zero-rated sale cannot be recorded in the same
+  voucher as a purchase (`VAT_STRUCTURE`). Record the sale and the purchase
+  as two vouchers, so that the sale's value goes to field 309, 310 or 311.
 - A period whose VAT is negative because of corrections cannot be filed with
   aggountant. One example is a month whose only sale is a credit note. The
   error misleadingly names the currency (`VAT_CURRENCY`). File the return in

@@ -214,3 +214,56 @@ fn vat_codes_on_lists_what_a_seal_accepts_on_that_date() {
     assert_eq!(old_standard.percent, "24");
     assert!(vat_codes_on(date("2012-12-31")).is_empty());
 }
+
+#[test]
+fn a_zero_rated_sale_alone_or_with_other_sales_is_accepted() {
+    for code in ["sales-zero-rated", "sales-eu-goods", "sales-eu-services"] {
+        check_zero_rated_sale_not_mixed(&eu_sale_postings(code)).unwrap();
+        let mut with_domestic = eu_sale_postings(code);
+        with_domestic.push(Posting {
+            account: AccountId::new("3000").unwrap(),
+            amount: eur_money("100.00"),
+            side: Side::Credit,
+            vat_code: Some(VatCode::new("sales-domestic-standard").unwrap()),
+        });
+        with_domestic.push(Posting {
+            account: AccountId::new("1910").unwrap(),
+            amount: eur_money("100.00"),
+            side: Side::Debit,
+            vat_code: None,
+        });
+        check_zero_rated_sale_not_mixed(&with_domestic).unwrap();
+    }
+    // A purchase on its own, or a domestic sale mixed with a purchase (the legacy
+    // self-assessment shape), is not this guard's concern.
+    check_zero_rated_sale_not_mixed(&reverse_charge_postings(
+        "100.00",
+        "purchase-domestic-standard",
+        "sales-domestic-standard",
+    ))
+    .unwrap();
+}
+
+#[test]
+fn a_zero_rated_sale_mixed_with_a_purchase_line_is_refused() {
+    for code in ["sales-zero-rated", "sales-eu-goods", "sales-eu-services"] {
+        let mut postings = eu_sale_postings(code);
+        postings.push(Posting {
+            account: AccountId::new("4000").unwrap(),
+            amount: eur_money("40.00"),
+            side: Side::Debit,
+            vat_code: Some(VatCode::new("purchase-domestic-standard").unwrap()),
+        });
+        postings.push(Posting {
+            account: AccountId::new("1910").unwrap(),
+            amount: eur_money("40.00"),
+            side: Side::Credit,
+            vat_code: None,
+        });
+        let err = check_zero_rated_sale_not_mixed(&postings).unwrap_err();
+        assert_eq!(err.error_code(), "VAT_STRUCTURE", "{code}");
+        let message = err.to_string();
+        assert!(message.contains(code), "{message}");
+        assert!(message.contains("separate vouchers"), "{message}");
+    }
+}
