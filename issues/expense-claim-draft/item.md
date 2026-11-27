@@ -1,8 +1,8 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-27
 type: feature
-status: open
+status: done
 priority: normal
 provenance: other
 provenance_detail: technical-decision slice of ADR-11
@@ -13,6 +13,13 @@ lane: expense-claim
 lane_seq: 10
 blocked_by: ['@travel-allowance-rates-and-calculator', '@claimant-workplace-register']
 collision: [crates/cli/src/main.rs]
+closed: 2026-11-27
+closed_by: spinoff-01m8f29st77pphgskfeam3chpt
+commits:
+- hash: b3f2595
+  summary: claim draft of trips and receipt lines
+- hash: 36f5f1e
+  summary: 'review fixes: destinations, stored-trip validation, lost receipts'
 ---
 
 # Expense claim draft: collect trips and receipt lines through the CLI with open questions
@@ -72,11 +79,11 @@ Markdown is a rendered view); this issue owns the draft's details.
 
 ## Acceptance criteria
 
-- [ ] A synthetic monthly claim and a synthetic single-trip claim can be built, shown and discarded.
-- [ ] No draft content reaches git, also in a home whose root `.gitignore` predates the directory.
-- [ ] Hand-edited draft JSON that fails validation is refused on read, not silently accepted.
-- [ ] Open questions are machine-readable codes the skill can branch on.
-- [ ] User guide (fi/en) and the claims skill describe collecting a claim; the skill keeps no calculation.
+- [x] A synthetic monthly claim and a synthetic single-trip claim can be built, shown and discarded.
+- [x] No draft content reaches git, also in a home whose root `.gitignore` predates the directory.
+- [x] Hand-edited draft JSON that fails validation is refused on read, not silently accepted.
+- [x] Open questions are machine-readable codes the skill can branch on.
+- [x] User guide (fi/en) and the claims skill describe collecting a claim; the skill keeps no calculation.
 
 ## Likely files
 
@@ -91,3 +98,9 @@ Needs `travel-allowance-rates-and-calculator` and `claimant-workplace-register`.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Resolution
+
+### 2026-11-27T18:36:43Z · @spinoff-01m8f29st77pphgskfeam3chpt
+
+Built: claim trip|line|show|list|discard with open questions, refusals and checks; review fixes applied. See result.md.
