@@ -82,6 +82,16 @@ pub struct VatPaymentReference {
     pub kind: VatReferenceKind,
 }
 
+/// Which of the stored references a payment carried.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaxReferenceKind {
+    General,
+    SelfAssessed,
+    Prepayment,
+    PaymentArrangement,
+}
+
 /// A note about stored details that are valid but need the user's attention.
 #[derive(Debug, Clone, Serialize)]
 pub struct TaxPaymentWarning {
@@ -202,6 +212,27 @@ impl TaxPaymentDetails {
             }),
             (None, None) => None,
         }
+    }
+
+    /// Which stored reference `reference` is, if any. A bank payment that
+    /// carries one of them is a payment to the Tax Administration; the
+    /// reference names the tax account it went to, not the period or the
+    /// return it pays.
+    pub fn reference_kind(&self, reference: &PaymentReference) -> Option<TaxReferenceKind> {
+        [
+            (&self.general_reference, TaxReferenceKind::General),
+            (
+                &self.self_assessed_reference,
+                TaxReferenceKind::SelfAssessed,
+            ),
+            (&self.prepayment_reference, TaxReferenceKind::Prepayment),
+            (
+                &self.payment_arrangement_reference,
+                TaxReferenceKind::PaymentArrangement,
+            ),
+        ]
+        .into_iter()
+        .find_map(|(stored, kind)| (stored.as_ref() == Some(reference)).then_some(kind))
     }
 
     pub fn warnings(&self) -> Vec<TaxPaymentWarning> {
@@ -363,6 +394,26 @@ mod tests {
         let vat = d.vat_reference().unwrap();
         assert_eq!(vat.reference.as_str(), "76543216");
         assert_eq!(vat.kind, VatReferenceKind::General);
+    }
+
+    #[test]
+    fn a_stored_reference_is_recognised_by_its_kind() {
+        let d = details();
+        let kind = |raw: &str| d.reference_kind(&PaymentReference::new(raw).unwrap());
+        assert_eq!(kind("12345672"), Some(TaxReferenceKind::SelfAssessed));
+        assert_eq!(kind("11112220"), Some(TaxReferenceKind::Prepayment));
+        assert_eq!(kind("33334442"), Some(TaxReferenceKind::PaymentArrangement));
+        assert_eq!(kind("1234561"), None);
+        let general = TaxPaymentDetails {
+            general_reference: reference("76543216"),
+            self_assessed_reference: None,
+            prepayment_reference: None,
+            ..details()
+        };
+        assert_eq!(
+            general.reference_kind(&PaymentReference::new("76543216").unwrap()),
+            Some(TaxReferenceKind::General)
+        );
     }
 
     #[test]

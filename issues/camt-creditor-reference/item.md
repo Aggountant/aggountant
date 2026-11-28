@@ -2,11 +2,13 @@
 created: 2026-11-28
 updated: 2026-11-28
 type: improvement
-status: open
+status: done
 priority: normal
 lane: bank-import
 lane_seq: 20
 collision: [crates/import]
+closed: 2026-11-28
+closed_by: claude-opus-5-5
 ---
 
 # camt import: read the structured creditor reference (viitenumero)
@@ -42,17 +44,17 @@ cannot tell the agent which reference a payment carried.
 
 ## Acceptance criteria
 
-- [ ] Synthetic fixture with a domestic reference, an RF reference, a
+- [x] Synthetic fixture with a domestic reference, an RF reference, a
       zero-padded reference and one with a wrong check digit; golden output.
-- [ ] Identity test: the same fixture with and without `Strd` gives the same
+- [x] Identity test: the same fixture with and without `Strd` gives the same
       key, fingerprint and description; re-import over a home sealed by the
       previous build is a duplicate observation.
-- [ ] A file without the element parses exactly as before (existing test).
-- [ ] Tax-reference recognition tested with a home that has and has not
+- [x] A file without the element parses exactly as before (existing test).
+- [x] Tax-reference recognition tested with a home that has and has not
       recorded tax payment details; homes without them see no change.
-- [ ] Guide (fi/en) bank-statement page and the capture-receipt skill mention
+- [x] Guide (fi/en) bank-statement page and the capture-receipt skill mention
       the field.
-- [ ] No store migration.
+- [x] No store migration.
 
 ## Source
 
@@ -66,3 +68,9 @@ later.
 ### 2026-11-28T06:09:41Z · @conductor
 
 Product owner 2026-11-28 asked to develop the open-items report; reading the structured reference is the research's independent first step. Accepted for execution.
+
+## Resolution
+
+### 2026-11-28T06:21:55Z · @claude-opus-5-5
+
+Implemented: creditor_reference in parse and preview, tax_reference_match against stored tax references, identity unchanged; see result.md.

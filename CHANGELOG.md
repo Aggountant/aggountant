@@ -11,6 +11,20 @@ While the version is 0.x, a minor version bump may contain breaking changes.
 
 ### Added
 
+- **Bank import: the payment reference (viitenumero).** `import camt parse`
+  and the `import camt seal --dry-run` preview now show each transaction's
+  structured creditor reference (`creditor_reference`, from
+  `RmtInf/Strd/CdtrRefInf/Ref`): the value as the bank gave it, its kind
+  (`domestic`, `rf` or `other`), whether its check digit holds (`valid`) and
+  the canonical form without spaces or leading zeros. A wrong or unknown
+  reference is shown, never refused. An outgoing payment whose reference is
+  one of the company's stored tax references (`tax-payments show`) carries
+  `tax_reference_match` with the reference kind (for example
+  `self_assessed`); the reference does not identify the period. The
+  reference is outside an entry's identity, so already imported statements
+  re-import as duplicate observations, and files without the element parse
+  as before. No store migration.
+
 - **Onboarding readiness checklist and one source request.** The
   `aggountant-init` skill now shows a seven-item readiness checklist (identity,
   fiscal year, cutover, source coverage, account mapping and opening balances,

@@ -16,6 +16,12 @@
 //! to it, not sealed again; a new transaction that such a voucher may already
 //! book stops the batch (`BANK_ENTRY_POSSIBLY_BOOKED`).
 //!
+//! An outgoing payment whose creditor reference is one of the company's stored
+//! tax references (`tax-payments show`) carries `tax_reference_match` in
+//! `import camt parse` and the preview. It is a comparison for the agent's
+//! proposal, read from master data at display time; it enters no hash, no
+//! voucher and no store.
+//!
 //! A statement with no booked entries prepares and seals nothing but its
 //! retained bytes; both outputs carry the parser's `empty_report`, so the
 //! preview the user approves says the report was empty, for which account and
@@ -25,14 +31,15 @@ use std::collections::HashMap;
 
 use super::*;
 use aggountant_import::{
-    bank_side, booking_for, check_bookings, import_preparation_hash, BankTransaction, EntryBooking,
-    ParsedStatement, PreparedEntryBinding, EVENT_KEY_PREFIX,
+    bank_side, booking_for, check_bookings, import_preparation_hash, BankTransaction, Direction,
+    EntryBooking, ParsedStatement, PreparedEntryBinding, EVENT_KEY_PREFIX,
 };
 use aggountant_ledger::{
     BankBatch, BankBatchReport, BankEntryFacts, BankEventBooking, BankEventEntry, BankEventOutcome,
     LegacyBankIdentity, UnbookedBankEvent,
 };
 use aggountant_model::Hash;
+use aggountant_process::{read_tax_payments, TaxPaymentDetails, TaxReferenceKind};
 
 struct PreparedImport<'a> {
     attachment: Hash,
@@ -214,6 +221,78 @@ fn conflict_error(report: &BankBatchReport, entry_count: usize) -> Option<CliErr
     )
 }
 
+/// Run `import camt parse`: the parsed statement, with each outgoing payment
+/// that carries a stored tax reference marked. The home is optional for
+/// parsing; without an initialised one nothing is marked.
+pub(crate) fn parse_camt_file(cli: &Cli, file: &Path) -> Result<Value, CliError> {
+    let statement = parse_camt(&read_camt_file(file)?)?;
+    let (details, warning) = match resolve_home(cli) {
+        Ok(home) if home_is_initialized(&home.value) => tax_details(&home.value),
+        _ => (None, None),
+    };
+    let mut out = serde_json::to_value(&statement).expect("parsed statement serializes");
+    if let Some(details) = &details {
+        for (index, txn) in statement.transactions.iter().enumerate() {
+            if let Some(found) = tax_reference_match(txn, details) {
+                out["transactions"][index]["tax_reference_match"] = found;
+            }
+        }
+    }
+    add_warning(&mut out, warning);
+    Ok(out)
+}
+
+/// The stored tax payment details for the comparison. They are optional
+/// evidence here, so a file that does not read does not block reading the
+/// statement or previewing its import: the output says the comparison was not
+/// made, and `tax-payments set` repairs the file.
+fn tax_details(home: &Path) -> (Option<TaxPaymentDetails>, Option<Value>) {
+    match read_tax_payments(home) {
+        Ok(details) => (details, None),
+        Err(e) => (
+            None,
+            Some(json!({
+                "code": e.error_code(),
+                "message": format!(
+                    "creditor references were not compared with the company's tax references: {e}"
+                ),
+            })),
+        ),
+    }
+}
+
+fn add_warning(out: &mut Value, warning: Option<Value>) {
+    if let Some(warning) = warning {
+        out["warnings"] = json!([warning]);
+    }
+}
+
+/// The `tax_reference_match` of a transaction: present when it is money out
+/// and its valid creditor reference equals one of the stored tax references.
+fn tax_reference_match(txn: &BankTransaction, details: &TaxPaymentDetails) -> Option<Value> {
+    if txn.direction != Direction::Debit {
+        return None;
+    }
+    let reference = txn.creditor_reference.as_ref()?.canonical.as_ref()?;
+    let kind = details.reference_kind(reference)?;
+    let name = match kind {
+        TaxReferenceKind::General => "general tax reference",
+        TaxReferenceKind::SelfAssessed => "self-assessed tax reference",
+        TaxReferenceKind::Prepayment => "prepayment reference",
+        TaxReferenceKind::PaymentArrangement => "payment arrangement reference",
+    };
+    Some(json!({
+        "kind": kind,
+        "period_identified": false,
+        "message": format!(
+            "the payment carries the company's {name} (`tax-payments show`), so it is a \
+             payment to the Tax Administration and is booked against the tax account, not \
+             as an expense. The reference does not say which period or return it pays; \
+             take that from the amount, the due date and the filed returns."
+        ),
+    }))
+}
+
 /// Run `import camt seal [--dry-run | --approved-preparation-hash H]`.
 pub(crate) fn seal_camt(
     cli: &Cli,
@@ -255,6 +334,7 @@ pub(crate) fn seal_camt(
     }
 
     if dry_run {
+        let (tax_details, tax_warning) = tax_details(&existing_home(cli)?);
         let vouchers: Vec<Value> = prepared
             .transactions
             .iter()
@@ -276,6 +356,16 @@ pub(crate) fn seal_camt(
                 if let Some(existing) = &result.voucher {
                     voucher["voucher_number"] = json!(existing.number);
                 }
+                // Evidence for the proposal, outside the preparation hash.
+                if let Some(reference) = &txn.creditor_reference {
+                    voucher["creditor_reference"] = json!(reference);
+                }
+                if let Some(found) = tax_details
+                    .as_ref()
+                    .and_then(|details| tax_reference_match(txn, details))
+                {
+                    voucher["tax_reference_match"] = found;
+                }
                 voucher
             })
             .collect();
@@ -293,6 +383,7 @@ pub(crate) fn seal_camt(
         });
         merge(&mut out, counters(&preview));
         add_empty_report(&mut out, &statement);
+        add_warning(&mut out, tax_warning);
         return Ok(out);
     }
 

@@ -28,7 +28,9 @@ ehdotuksen, koko tiliote sinetöidään kerralla tositteiksi.
    näkyy myös pankin tapahtumatyyppi (esimerkiksi korttiosto), siihen
    sisältyvät pankin kulut, ulkomaisen maksun summa alkuperäisessä
    valuutassa sekä se, palauttaako tai peruuttaako tapahtuma aiemman maksun,
-   ja millä syyllä.
+   ja millä syyllä. Maksun viitenumero (kotimainen tai RF-viite) näkyy
+   sellaisenaan, ja ohjelma kertoo, täsmääkö sen tarkiste. Virheellistäkään
+   viitettä ei hylätä eikä jätetä pois.
 
 3. **Agentti valmistelee ehdotuksen.** Tilit ja ALV-käsittelyn ehdottaa
    agentti, sillä ohjelma ei päätä niitä. Agentti etsii jokaiselle
@@ -40,7 +42,12 @@ ehdotuksen, koko tiliote sinetöidään kerralla tositteiksi.
    kuvaa. Muille riveille, kuten pankin palvelumaksuille, agentti ehdottaa
    vastatilin ja ostoissa ALV-käsittelyn. Palautunut tai pankin peruuttama
    maksu kirjataan samoille tileille kuin alkuperäinen maksu, jolloin ne
-   kumoavat toisensa. Sen, mitä se ei voi päätellä, se kysyy sinulta yhdellä
+   kumoavat toisensa. Jos lähtevän maksun viite on jokin yrityksen
+   [tallennetuista Verohallinnon viitteistä](file-vat-direct.md#tallenna-verohallinnon-maksutiedot-kerran),
+   ohjelma merkitsee sen veronmaksuksi, ja agentti ehdottaa kirjausta
+   verotilille kulun sijaan. Viite ei kerro, minkä kauden veroa maksu
+   koskee; sen agentti päättelee summasta, eräpäivästä ja annetuista
+   ilmoituksista. Sen, mitä se ei voi päätellä, se kysyy sinulta yhdellä
    kertaa.
 
 4. **Tarkista ja hyväksy.** Agentti esikatselee tuonnin. Ohjelma tarkistaa

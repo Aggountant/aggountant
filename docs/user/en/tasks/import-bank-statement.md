@@ -30,7 +30,10 @@ approve the proposal, the whole statement is sealed into vouchers at once.
    so, each transaction also carries the bank's transaction type (for
    example a card purchase), the bank charges included in it, the amount in
    the original currency of a foreign payment, and whether it returns or
-   reverses an earlier payment, with the reason.
+   reverses an earlier payment, with the reason. The payment's reference
+   number (a Finnish domestic or RF reference) is shown as it is, with
+   whether its check digit holds. Even a wrong reference is never refused
+   or left out.
 
 3. **The agent prepares a proposal.** The agent proposes the accounts and the
    VAT treatment, because the program does not decide them. For every
@@ -43,7 +46,13 @@ approve the proposal, the whole statement is sealed into vouchers at once.
    describes. For other rows, such as bank service charges, the agent proposes
    the counter-account and, for purchases, the VAT treatment. A payment that
    came back or that the bank reversed is recorded against the same accounts
-   as the original payment, so the two cancel out. Whatever it cannot work
+   as the original payment, so the two cancel out. When an outgoing payment's
+   reference is one of the company's
+   [stored Tax Administration references](file-vat-direct.md#store-the-tax-administration-payment-details-once),
+   the program marks it as a tax payment, and the agent proposes recording it
+   against the tax account rather than as an expense. The reference does not
+   say which period's tax the payment is for; the agent works that out from
+   the amount, the due date and the returns filed. Whatever it cannot work
    out, it asks you in one go.
 
 4. **Check and approve.** The agent previews the import. The program checks

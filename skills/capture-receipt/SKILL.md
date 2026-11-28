@@ -104,6 +104,20 @@ tuonti kirjaa sen vastakkaisille puolille; etsi alkuperäinen tosite
 `end_to_end_id`:n, summan ja vastapuolen perusteella. Rivin summaan sisältyvä
 pankkikulu jaetaan omaksi vastaviennikseen pankkikulujen tilille.
 
+Rivin viitenumero on `creditor_reference`: `value` sellaisenaan, `kind`
+(`domestic`, `rf`, `other`), `valid` (tarkiste täsmää) ja kelvollisesta
+`canonical` ilman välilyöntejä ja etunollia. Vertaa viitettä laskuihin ja
+avoimiin eriin `canonical`illa. Virheellinen viite on silti pankin kirjaama
+tieto: kohdista rivi muulla näytöllä, älä hylkää sitä. Lähtevä maksu, jonka
+viite on jokin `tax-payments show`n viitteistä, saa `tax_reference_match`in
+(`kind`: `general`, `self_assessed`, `prepayment` tai
+`payment_arrangement`). Se on veronmaksu: ehdota kirjausta verotilille (ALV:n
+maksu ALV-velkaa vastaan, ks. alla), älä kuluksi. Viite kertoo vain, mille
+verolle tai veroryhmälle maksu menee, ei kautta; yleisellä viitteellä
+maksetaan lähes mitä tahansa veroa. Päättele kausi ja vero summasta,
+eräpäivästä ja annetuista ilmoituksista, ja kysy käyttäjältä, jos ne eivät
+riitä. Ilman tallennettuja maksutietoja merkintää ei tule.
+
 Katso `parse`n tuloksesta ennen sinetöintiä, että tili ja jakso
 (`statements[].period`) ovat sen tiliotteen, jota olit tuomassa. Ohjelma tuo
 väärän kuukauden tiliotteen yhtä lailla onnistuneesti. Tiliotteesta, jolla ei ole

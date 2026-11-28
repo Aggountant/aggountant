@@ -389,6 +389,13 @@ enum CamtCmd {
     /// payment, with the reason). They are evidence for the assignment and
     /// never change the entry's identity. A reversal is booked in its own
     /// direction like any entry; assign it the original payment's accounts.
+    /// `creditor_reference` is the structured reference (viitenumero or RF):
+    /// `value` verbatim, `kind` (domestic, rf, other), `valid` (check digit)
+    /// and `canonical` when valid. A money-out entry whose reference is one of
+    /// the stored `tax-payments` references carries `tax_reference_match`
+    /// (`kind`, e.g. self_assessed); the reference does not identify the period.
+    /// When the stored details do not read, nothing is marked and `warnings`
+    /// says so.
     Parse {
         #[arg(long)]
         file: PathBuf,
@@ -406,7 +413,9 @@ enum CamtCmd {
     /// (SOURCE_FACTS_CHANGED, POSTING_PROJECTION_CHANGED). The batch is written
     /// whole or not at all. First run with `--dry-run`: it returns every
     /// voucher it would seal and a `preparation_hash`, writing nothing; after the
-    /// user approves, seal with `--approved-preparation-hash`.
+    /// user approves, seal with `--approved-preparation-hash`. Each previewed
+    /// voucher also shows the entry's `creditor_reference` and
+    /// `tax_reference_match`, as `parse` does; they are not part of the hash.
     #[command(after_help = input_help::IMPORT_CAMT_SEAL)]
     Seal {
         #[arg(long)]
@@ -1501,12 +1510,14 @@ fn home_path(cli: &Cli) -> Result<PathBuf, CliError> {
 /// and the PII store are not required: an empty `artifacts/` does not survive
 /// a git checkout or some copies, and recreating either inside a real home is
 /// what opening has always done.
+fn home_is_initialized(home: &Path) -> bool {
+    home.join("fiscal.sqlite").is_file() && home.join("masterdata").join("reference").is_dir()
+}
+
 fn existing_home(cli: &Cli) -> Result<PathBuf, CliError> {
     let resolved = resolve_home(cli)?;
     let home = &resolved.value;
-    let initialized =
-        home.join("fiscal.sqlite").is_file() && home.join("masterdata").join("reference").is_dir();
-    if initialized {
+    if home_is_initialized(home) {
         return Ok(resolved.value);
     }
     // A relative path is shown as the directory it names, so a wrong working
@@ -2382,11 +2393,7 @@ fn run(cli: &Cli) -> Result<Value, CliError> {
         }
         Command::Import { cmd } => match cmd {
             ImportCmd::Camt { cmd } => match cmd {
-                CamtCmd::Parse { file } => {
-                    let xml = read_camt_file(file)?;
-                    let statement = parse_camt(&xml)?;
-                    Ok(serde_json::to_value(statement).expect("parsed statement serializes"))
-                }
+                CamtCmd::Parse { file } => bank_import::parse_camt_file(cli, file),
                 CamtCmd::Seal {
                     file,
                     dry_run,
@@ -3396,17 +3403,32 @@ fn human_line(command: &Command, value: &Value) -> String {
         },
         Command::Import { cmd } => match cmd {
             ImportCmd::Camt { cmd } => match cmd {
-                CamtCmd::Parse { .. } => with_empty_report(
-                    format!(
-                        "parsed {} — {} transactions",
-                        value["account_iban"],
-                        value["transactions"]
-                            .as_array()
-                            .map(|a| a.len())
-                            .unwrap_or(0)
-                    ),
-                    value,
-                ),
+                CamtCmd::Parse { .. } => {
+                    let transactions = value["transactions"].as_array();
+                    let tax_payments = transactions.map_or(0, |a| {
+                        a.iter()
+                            .filter(|t| t.get("tax_reference_match").is_some())
+                            .count()
+                    });
+                    let mut tax_note = match tax_payments {
+                        0 => String::new(),
+                        n => format!(", {n} carrying a stored tax reference"),
+                    };
+                    for warning in value["warnings"].as_array().into_iter().flatten() {
+                        tax_note.push_str(&format!(
+                            "; warning: {}",
+                            warning["message"].as_str().unwrap_or("?")
+                        ));
+                    }
+                    with_empty_report(
+                        format!(
+                            "parsed {} — {} transactions{tax_note}",
+                            value["account_iban"],
+                            transactions.map_or(0, Vec::len)
+                        ),
+                        value,
+                    )
+                }
                 CamtCmd::Seal { dry_run: true, .. } => with_empty_report(
                     format!(
                         "would seal {} new vouchers from {}, {} transactions already in the \

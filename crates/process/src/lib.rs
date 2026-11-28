@@ -68,8 +68,8 @@ pub use knowledge::Knowledge;
 pub use obligation::{Obligation, ObligationStatus, Obligations};
 pub use tax_payments::{
     read_tax_payments, resolve_vat_payee, tax_payments_path, validate_payee_iban,
-    write_tax_payments, TaxPaymentDetails, TaxPaymentWarning, VatPayee, VatPaymentReference,
-    VatReferenceKind, TAX_PAYMENTS_SCHEMA_VERSION,
+    write_tax_payments, TaxPaymentDetails, TaxPaymentWarning, TaxReferenceKind, VatPayee,
+    VatPaymentReference, VatReferenceKind, TAX_PAYMENTS_SCHEMA_VERSION,
 };
 pub use vat_reconciliation::{VatAttentionItem, VatReconciliationAcknowledgement};
 

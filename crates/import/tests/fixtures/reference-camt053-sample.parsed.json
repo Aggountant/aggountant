@@ -1,0 +1,148 @@
+{
+  "account_iban": "FI2112345600000785",
+  "currency": "EUR",
+  "statements": [
+    {
+      "balances": [
+        {
+          "amount": {
+            "amount": "5000.00",
+            "currency": "EUR"
+          },
+          "date": "2026-06-01",
+          "type": "OPBD"
+        },
+        {
+          "amount": {
+            "amount": "3822.50",
+            "currency": "EUR"
+          },
+          "date": "2026-06-30",
+          "type": "CLBD"
+        }
+      ],
+      "balances_reconcile": true,
+      "closing_balance": {
+        "amount": {
+          "amount": "3822.50",
+          "currency": "EUR"
+        },
+        "date": "2026-06-30",
+        "type": "CLBD"
+      },
+      "entries_net": {
+        "amount": "-1177.50",
+        "currency": "EUR"
+      },
+      "entry_count": 5,
+      "id": "2026-06",
+      "opening_balance": {
+        "amount": {
+          "amount": "5000.00",
+          "currency": "EUR"
+        },
+        "date": "2026-06-01",
+        "type": "OPBD"
+      },
+      "period": {
+        "from": "2026-06-01",
+        "to": "2026-06-30"
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "accounting_date": "2026-06-03",
+      "amount": {
+        "amount": "250.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0603-001",
+      "booking_date": "2026-06-03",
+      "counterparty": "Asiakas Esimerkki Ky",
+      "creditor_reference": {
+        "canonical": "1234561",
+        "kind": "domestic",
+        "valid": true,
+        "value": "1234561"
+      },
+      "direction": "credit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0603-001",
+      "value_date": "2026-06-03"
+    },
+    {
+      "accounting_date": "2026-06-10",
+      "amount": {
+        "amount": "92.50",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0610-002",
+      "booking_date": "2026-06-10",
+      "counterparty": "Toimittaja Esimerkki Oy",
+      "creditor_reference": {
+        "canonical": "RF18539007547034",
+        "kind": "rf",
+        "valid": true,
+        "value": "RF18539007547034"
+      },
+      "description": "Lasku 2026-31",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0610-002",
+      "value_date": "2026-06-10"
+    },
+    {
+      "accounting_date": "2026-06-12",
+      "amount": {
+        "amount": "1240.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0612-003",
+      "booking_date": "2026-06-12",
+      "counterparty": "Verohallinto",
+      "creditor_reference": {
+        "canonical": "12345672",
+        "kind": "domestic",
+        "valid": true,
+        "value": "00000000000012345672"
+      },
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0612-003",
+      "value_date": "2026-06-12"
+    },
+    {
+      "accounting_date": "2026-06-18",
+      "amount": {
+        "amount": "60.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0618-004",
+      "booking_date": "2026-06-18",
+      "counterparty": "Kustantamo Esimerkki",
+      "creditor_reference": {
+        "kind": "domestic",
+        "valid": false,
+        "value": "1234562"
+      },
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0618-004"
+    },
+    {
+      "accounting_date": "2026-06-25",
+      "amount": {
+        "amount": "35.00",
+        "currency": "EUR"
+      },
+      "bank_ref": "ESIM-2026-0625-005",
+      "booking_date": "2026-06-25",
+      "counterparty": "Example Software AB",
+      "creditor_reference": {
+        "kind": "other",
+        "valid": false,
+        "value": "INV-2026-0617"
+      },
+      "description": "Subscription June",
+      "direction": "debit",
+      "natural_key": "bank-import:holvi:FI2112345600000785:ESIM-2026-0625-005"
+    }
+  ]
+}

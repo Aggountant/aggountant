@@ -1531,3 +1531,181 @@ fn a_re_export_of_a_rich_statement_is_a_duplicate_observation() {
     assert_eq!(again["duplicate_observation_count"], 4, "{again}");
     assert_eq!(voucher_count(home), 4);
 }
+
+// ---------------------------------------------------------------------------
+// Structured creditor reference (issue `camt-creditor-reference`).
+// ---------------------------------------------------------------------------
+
+const REFERENCE_SAMPLE: &str =
+    include_str!("../../import/tests/fixtures/reference-camt053-sample.xml");
+
+const REFERENCE_ASSIGNMENTS: &str = r#"{"actor":"importer","assignments":[
+  {"bank_ref":"ESIM-2026-0603-001","bank_account":"1910","contra_postings":[{"account":"1700","amount":{"amount":"250.00","currency":"EUR"}}]},
+  {"bank_ref":"ESIM-2026-0610-002","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"92.50","currency":"EUR"}}]},
+  {"bank_ref":"ESIM-2026-0612-003","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"1240.00","currency":"EUR"}}]},
+  {"bank_ref":"ESIM-2026-0618-004","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"60.00","currency":"EUR"}}]},
+  {"bank_ref":"ESIM-2026-0625-005","bank_account":"1910","contra_postings":[{"account":"2700","amount":{"amount":"35.00","currency":"EUR"}}]}
+]}"#;
+
+/// The statement as a bank that does not report `Strd` exports it, which is
+/// what the build before the reference read from every file.
+fn reference_sample_without_strd() -> String {
+    let mut out = String::new();
+    let mut rest = REFERENCE_SAMPLE;
+    while let Some(start) = rest.find("<Strd>") {
+        out.push_str(&rest[..start]);
+        let end = rest[start..].find("</Strd>").unwrap() + start + "</Strd>".len();
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn dry_run(home: &std::path::Path, file: &str, input: &str) -> Value {
+    let (code, stdout, stderr) = run(
+        home,
+        &["import", "camt", "seal", "--file", file, "--dry-run"],
+        input,
+    );
+    assert_eq!(code, 0, "{stderr}");
+    serde_json::from_str(&stdout).unwrap()
+}
+
+/// Entries sealed without the reference re-import with it as duplicate
+/// observations: the reference is outside the entry's identity. The
+/// fingerprints the build before it computed are pinned in the import crate's
+/// `creditor_reference.rs`.
+#[test]
+fn a_statement_with_references_re_imports_as_duplicate_observations() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let before = write_export(home, "before.xml", &reference_sample_without_strd());
+    let (status, sealed, err) = seal(home, &before, REFERENCE_ASSIGNMENTS);
+    assert_eq!(status, 0, "{err}");
+    assert_eq!(sealed["new_voucher_count"], 5, "{sealed}");
+
+    let file = write_export(home, "with-references.xml", REFERENCE_SAMPLE);
+    let preview = dry_run(home, &file, REFERENCE_ASSIGNMENTS);
+    assert_eq!(preview["duplicate_observation_count"], 5, "{preview}");
+    assert_eq!(
+        preview["vouchers"][1]["creditor_reference"]["kind"], "rf",
+        "{preview}"
+    );
+    let (status, again, err) = seal(home, &file, REFERENCE_ASSIGNMENTS);
+    assert_eq!(status, 0, "{err}");
+    assert_eq!(again["duplicate_observation_count"], 5, "{again}");
+    assert_eq!(voucher_count(home), 5);
+}
+
+#[test]
+fn a_payment_with_the_stored_tax_reference_is_recognised() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    let file = write_export(home, "statement.xml", REFERENCE_SAMPLE);
+    let parse = |home: &std::path::Path| -> Value {
+        let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
+        assert_eq!(code, 0, "{stderr}");
+        serde_json::from_str(&stdout).unwrap()
+    };
+    let matches = |transactions: &Value| -> Vec<Value> {
+        transactions
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["tax_reference_match"].clone())
+            .collect()
+    };
+
+    // Without stored payment details nothing changes.
+    let plain = parse(home);
+    assert!(
+        matches(&plain["transactions"]).iter().all(Value::is_null),
+        "{plain}"
+    );
+    assert_eq!(
+        plain["transactions"][2]["creditor_reference"]["canonical"],
+        "12345672"
+    );
+    let plain_preview = dry_run(home, &file, REFERENCE_ASSIGNMENTS);
+    assert!(matches(&plain_preview["vouchers"])
+        .iter()
+        .all(Value::is_null));
+
+    // The self-assessed reference matches the zero-padded tax payment only;
+    // the customer payment's reference is a stored one too, but it is money in.
+    let details = r#"{"schema_version":1,"payee_iban":"FI2112345600000785","self_assessed_reference":"12345672","prepayment_reference":"1234561"}"#;
+    let (code, _, err) = run(home, &["tax-payments", "set"], details);
+    assert_eq!(code, 0, "{err}");
+    let marked = parse(home);
+    let found = matches(&marked["transactions"]);
+    assert_eq!(found[2]["kind"], "self_assessed", "{marked}");
+    assert_eq!(found[2]["period_identified"], false);
+    assert!(found[2]["message"].as_str().unwrap().contains("period"));
+    for (index, value) in found.iter().enumerate() {
+        if index != 2 {
+            assert!(value.is_null(), "{index}: {value}");
+        }
+    }
+    let preview = dry_run(home, &file, REFERENCE_ASSIGNMENTS);
+    assert_eq!(
+        preview["vouchers"][2]["tax_reference_match"]["kind"],
+        "self_assessed"
+    );
+    // The match is evidence for the proposal, not part of what is approved.
+    assert_eq!(
+        preview["preparation_hash"],
+        plain_preview["preparation_hash"]
+    );
+    // Everything else in the parse output is what it was.
+    let mut unmarked = marked.clone();
+    unmarked["transactions"][2]
+        .as_object_mut()
+        .unwrap()
+        .remove("tax_reference_match");
+    assert_eq!(unmarked, plain);
+}
+
+#[test]
+fn parse_without_an_initialised_home_marks_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = write_export(dir.path(), "statement.xml", REFERENCE_SAMPLE);
+    let missing = dir.path().join("no-home");
+    let (code, stdout, stderr) = run(&missing, &["import", "camt", "parse", "--file", &file], "");
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["transactions"].as_array().unwrap().len(), 5);
+    assert!(!missing.exists());
+}
+
+#[test]
+fn unreadable_tax_payment_details_do_not_block_reading_the_statement() {
+    let home = tempfile::tempdir().unwrap();
+    let home = home.path();
+    assert_eq!(run(home, &["init"], "").0, 0);
+    std::fs::write(
+        home.join("masterdata").join("tax-payments.json"),
+        r#"{"schema_version":1,"self_assessed_reference":"12345673"}"#,
+    )
+    .unwrap();
+    let file = write_export(home, "statement.xml", REFERENCE_SAMPLE);
+    let (code, stdout, stderr) = run(home, &["import", "camt", "parse", "--file", &file], "");
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        parsed["warnings"][0]["code"], "TAX_PAYMENT_DETAILS_CORRUPT",
+        "{parsed}"
+    );
+    assert!(parsed["transactions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|t| t.get("tax_reference_match").is_none()));
+    let preview = dry_run(home, &file, REFERENCE_ASSIGNMENTS);
+    assert_eq!(
+        preview["warnings"][0]["code"], "TAX_PAYMENT_DETAILS_CORRUPT",
+        "{preview}"
+    );
+    assert_eq!(preview["voucher_count"], 5);
+}

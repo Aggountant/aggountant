@@ -26,8 +26,9 @@
 //! Beyond those fields it passes through, as typed optional fields, the source
 //! data that helps the skill judge an entry: the bank transaction code
 //! (`BkTxCd`), reversal and return information (`RvslInd`, `RtrInf`), charges
-//! (`Chrgs`) and the instructed amount of a foreign-currency payment
-//! (`AmtDtls/InstdAmt`). These fields never refuse a file and never enter the
+//! (`Chrgs`), the instructed amount of a foreign-currency payment
+//! (`AmtDtls/InstdAmt`) and the structured creditor reference
+//! (`RmtInf/Strd/CdtrRefInf/Ref`, the viitenumero). These fields never refuse a file and never enter the
 //! entry's event key, source fingerprint or default description: a statement
 //! the parser read before they existed reads to the same identity now, so an
 //! overlapping re-import of it is still a duplicate observation. An element
@@ -39,7 +40,7 @@ use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use aggountant_model::{Currency, Date, Money};
+use aggountant_model::{Currency, Date, Money, PaymentReference};
 
 use crate::error::ImportError;
 
@@ -106,6 +107,72 @@ pub struct BankTransaction {
     /// entry `amount` is what moved on the account.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructed_amount: Option<Money>,
+    /// The structured creditor reference (`RmtInf/Strd/CdtrRefInf/Ref`), the
+    /// viitenumero or RF reference the payer gave, when the bank reports one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creditor_reference: Option<CreditorReference>,
+}
+
+/// A creditor reference as the statement carries it. An invalid or unknown
+/// reference is kept and marked, never refused: the bank booked the payment
+/// with it, and the file must read as the build before this field read it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CreditorReference {
+    /// `Ref`, verbatim (trimmed).
+    pub value: String,
+    /// Which form the value has.
+    pub kind: CreditorReferenceKind,
+    /// The value is a valid reference of its kind: its check digit (and
+    /// length) hold. Always false for `other`, which has no known check.
+    pub valid: bool,
+    /// The reference in [`PaymentReference`]'s canonical form (no spaces, no
+    /// leading zeros, uppercase `RF`), when it is valid. Compare references by
+    /// this, since banks may zero-pad a domestic reference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub canonical: Option<PaymentReference>,
+}
+
+/// The form of a creditor reference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CreditorReferenceKind {
+    /// Only digits: the Finnish domestic reference.
+    Domestic,
+    /// Starts with `RF`: the ISO 11649 international creditor reference.
+    Rf,
+    /// Anything else, for example a foreign creditor's own invoice number.
+    Other,
+}
+
+impl CreditorReference {
+    /// Classify `value` and validate it with [`PaymentReference`]. Spaces are
+    /// presentation and are ignored; so are a domestic reference's leading
+    /// zeros, which some banks pad to 20 digits.
+    pub fn read(value: String) -> Self {
+        let compact: String = value.chars().filter(|c| !c.is_whitespace()).collect();
+        let (kind, canonical) = if compact
+            .get(..2)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("RF"))
+        {
+            (
+                CreditorReferenceKind::Rf,
+                PaymentReference::new(compact.to_ascii_uppercase()).ok(),
+            )
+        } else if !compact.is_empty() && compact.bytes().all(|b| b.is_ascii_digit()) {
+            (
+                CreditorReferenceKind::Domestic,
+                PaymentReference::new(compact.trim_start_matches('0')).ok(),
+            )
+        } else {
+            (CreditorReferenceKind::Other, None)
+        };
+        CreditorReference {
+            value,
+            kind,
+            valid: canonical.is_some(),
+            canonical,
+        }
+    }
 }
 
 /// An ISO 20022 bank transaction code (`BkTxCd`): the structured domain code,
@@ -230,7 +297,7 @@ impl BankTransaction {
     /// Fields are name- and length-framed; dates, money, and currency use Model's
     /// documented canonical text forms. Derived `accounting_date` is deliberately
     /// excluded, and so are the passthrough fields (`transaction_code`,
-    /// `reversal`, `charges`, `instructed_amount`): they were added after
+    /// `reversal`, `charges`, `instructed_amount`, `creditor_reference`): they were added after
     /// statements were imported, and covering them would change the
     /// fingerprint of every such entry that carries them. Changing what it covers changes the fingerprint of every booked
     /// transaction, and every overlapping re-import would then stop with
@@ -891,8 +958,8 @@ fn parse_entry(
         });
 
     // Unstructured remittance info, joined (an entry may carry several <Ustrd>).
-    let description = tx_dtls
-        .and_then(|t| descendant(t, "RmtInf"))
+    let rmt_inf = tx_dtls.and_then(|t| descendant(t, "RmtInf"));
+    let description = rmt_inf
         .map(|rmt| {
             children(rmt, "Ustrd")
                 .filter_map(text)
@@ -931,6 +998,14 @@ fn parse_entry(
             let amt = child(child(child(n, "AmtDtls")?, "InstdAmt")?, "Amt")?;
             read_money(amt)
         }),
+        // The first structured creditor reference; a remittance may list
+        // several `Strd` blocks, and the reference is in one of them.
+        creditor_reference: rmt_inf
+            .and_then(|rmt| {
+                children(rmt, "Strd")
+                    .find_map(|strd| child(child(strd, "CdtrRefInf")?, "Ref").and_then(text))
+            })
+            .map(CreditorReference::read),
     })))
 }
 

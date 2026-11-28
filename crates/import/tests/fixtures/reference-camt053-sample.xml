@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic statement for Esimerkki Oy (Business ID 1234567-1). Every entry
+     carries a structured creditor reference (RmtInf/Strd/CdtrRefInf/Ref): a
+     customer payment with a domestic reference, a supplier payment with an RF
+     reference, a tax payment with a zero-padded domestic reference, a payment
+     whose reference has a wrong check digit and one whose reference is neither
+     form. The build before the reference was read imports this file too. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>ESIM-STMT-2026-06</MsgId>
+      <CreDtTm>2026-07-01T06:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>2026-06</Id>
+      <CreDtTm>2026-07-01T06:00:00</CreDtTm>
+      <FrToDt>
+        <FrDtTm>2026-06-01T00:00:00</FrDtTm>
+        <ToDtTm>2026-06-30T23:59:59</ToDtTm>
+      </FrToDt>
+      <Acct>
+        <Id>
+          <IBAN>FI2112345600000785</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+        <Ownr>
+          <Nm>Esimerkki Oy</Nm>
+        </Ownr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">5000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-06-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">3822.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-06-30</Dt></Dt>
+      </Bal>
+      <!-- A customer pays an invoice with its domestic reference. -->
+      <Ntry>
+        <Amt Ccy="EUR">250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-06-03</Dt></BookgDt>
+        <ValDt><Dt>2026-06-03</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0603-001</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Dbtr>
+                <Nm>Asiakas Esimerkki Ky</Nm>
+              </Dbtr>
+            </RltdPties>
+            <RmtInf>
+              <Strd>
+                <CdtrRefInf>
+                  <Tp><CdOrPrtry><Cd>SCOR</Cd></CdOrPrtry></Tp>
+                  <Ref>1234561</Ref>
+                </CdtrRefInf>
+              </Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A supplier invoice paid with its RF reference and a free-text note. -->
+      <Ntry>
+        <Amt Ccy="EUR">92.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-06-10</Dt></BookgDt>
+        <ValDt><Dt>2026-06-10</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0610-002</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Toimittaja Esimerkki Oy</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Lasku 2026-31</Ustrd>
+              <Strd>
+                <CdtrRefInf>
+                  <Tp><CdOrPrtry><Cd>SCOR</Cd></CdOrPrtry><Issr>ISO</Issr></Tp>
+                  <Ref>RF18539007547034</Ref>
+                </CdtrRefInf>
+              </Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A tax payment; the bank pads the domestic reference to 20 digits. -->
+      <Ntry>
+        <Amt Ccy="EUR">1240.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-06-12</Dt></BookgDt>
+        <ValDt><Dt>2026-06-12</Dt></ValDt>
+        <AcctSvcrRef>ESIM-2026-0612-003</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Verohallinto</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Strd>
+                <CdtrRefInf>
+                  <Ref>00000000000012345672</Ref>
+                </CdtrRefInf>
+              </Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A payment whose domestic reference has a wrong check digit. -->
+      <Ntry>
+        <Amt Ccy="EUR">60.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-06-18</Dt></BookgDt>
+        <AcctSvcrRef>ESIM-2026-0618-004</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Kustantamo Esimerkki</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Strd>
+                <CdtrRefInf>
+                  <Ref>1234562</Ref>
+                </CdtrRefInf>
+              </Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <!-- A foreign creditor's own reference, neither domestic nor RF. -->
+      <Ntry>
+        <Amt Ccy="EUR">35.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-06-25</Dt></BookgDt>
+        <AcctSvcrRef>ESIM-2026-0625-005</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr>
+                <Nm>Example Software AB</Nm>
+              </Cdtr>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Subscription June</Ustrd>
+              <Strd>
+                <CdtrRefInf>
+                  <Ref>INV-2026-0617</Ref>
+                </CdtrRefInf>
+              </Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>
