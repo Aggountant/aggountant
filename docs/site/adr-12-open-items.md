@@ -260,7 +260,7 @@ much is automatic.
   comes from the user or an agent reading the bank. If a connector exposes
   them, the fact's source is that system and its read time.
 - Outgoing payments carry the payer's structured reference often enough to
-  recognise tax payments (`camt-creditor-reference`); matching claim payments
+  recognise tax payments (read since `camt-creditor-reference`); matching claim payments
   relies on amount, date and the counterparty name.
 - The statement gives the counterparty's name, not their account.
 - Importing a partial month and later the full month works with the bank's
@@ -348,7 +348,7 @@ changes in them. Each owns its details and states its dependencies.
 
 | Issue | What this ADR gives it |
 |---|---|
-| `camt-creditor-reference` | (in progress, unchanged) The structured reference as a passthrough field and tax-payment recognition |
+| `camt-creditor-reference` | (done, unchanged) The structured reference as a passthrough field (`creditor_reference`) and tax-payment recognition |
 | `expense-claim-approve-seal` | The four tables in its one migration, the item and origin rows at approval, verify of them, the rule wording in `crates/AGENTS.md` |
 | `expense-claim-status` | "Approved, unpaid" as the only pay-now state; room for the schedule refinements |
 | `expense-claim-payment-matching` | Settlement through the generic link, the in-transaction refusal naming the earlier payment, re-import comparison, the warning of a live schedule; the partial-payment and overpayment receivable items and the claim's amount net of them (questions 5 and 6); question 7 |
