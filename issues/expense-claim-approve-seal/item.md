@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -11,7 +11,7 @@ originating_run: 01m87gzzt5thzm0qb8xrqabanq
 originating_run_kind: technical-decision
 lane: expense-claim
 lane_seq: 20
-blocked_by: ['@expense-claim-draft']
+blocked_by: ['@expense-claim-draft', '@open-items-model']
 ---
 
 # Approve an expense claim and seal its document and vouchers in one step
@@ -129,3 +129,7 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 ### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
 
 Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
+
+### 2026-11-28T06:09:41Z · @conductor
+
+Waits for open-items-model: its migration may need to create generic open-item and settlement-link tables instead of claim-specific ones (follow-up research 2026-11-28).
