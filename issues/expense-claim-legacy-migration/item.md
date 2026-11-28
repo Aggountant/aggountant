@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-27
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -80,3 +80,7 @@ Narrowed on 2026-11-26 to the product owner's answer 15a: attaching an already s
 ### 2026-11-27T18:08:17Z · @spinoff-01m8f29vs6esbc93pqv250b1sj
 
 When this lands, update `skills/migrate/kululaskut.md`: its "Odottaa ohjelmaa" section says attaching an old aggountant voucher to a claim identity is not in the program yet. Replace that with when the migrate skill uses this command.
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28): attaching an earlier sealed claim voucher writes the generic rows: an open-item row (`kind = expense_claim`, `kind_key` = the claim id the home used), origin rows naming the existing voucher's payable postings, and, when the payment is already booked, settlement rows naming the existing payment voucher's posting. Nothing is sealed. Checks: the posting exists and is on the payable role account or an account the user names (older homes keep other payables on `2740`), and it is not already the origin of another live item.

@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -86,3 +86,9 @@ ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issu
 ### 2026-11-26T06:00:21Z · @spinoff-01m8b6z13skk6403cxj7xcj1nh
 
 Product owner 2026-11-26: companies that do not use expense claims must see no questions, changes or slowness from them (ADR-11 Consequences, 'Companies that do not use claims'). The acceptance criteria added today make this slice's share of that property testable.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28): the state "Approved, unpaid" is derived from the generic item tables (origin postings minus settlements), and the pay-now list is exactly the claims in "Approved, unpaid" with no live payment schedule. The scheduled refinements ("payment scheduled for D", "scheduled payment not seen in the bank"), their closing commands and close warnings are owned by the new slice `expense-claim-payment-schedule`, which builds on this one; this slice only leaves room for them. If ADR-12 questions 5 and 6 are accepted, the claim's displayed outstanding amount is net of open `claimant_receivable` items naming it and "overpaid" is a state (built in `expense-claim-payment-matching`).

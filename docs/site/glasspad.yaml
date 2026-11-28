@@ -44,3 +44,9 @@ groups:
         children:
           - { slug: adr-11-expense-claim-kirjanpitajalle, title: · Kirjanpitäjälle }
           - { slug: adr-11-expense-claim-arkkitehdille, title: · Arkkitehdille }
+      - slug: adr-12-open-items
+        title: ADR-12 · Avoimet erät
+        desc: Ehdotus – avoin erä johdetaan sinetöidyistä vienneistä ja lajista riippumattomista selvityslinkeistä, maksun ajastus on päivätty tieto, ja toinen maksu jo maksetulle erälle hylätään.
+        children:
+          - { slug: adr-12-open-items-kirjanpitajalle, title: · Kirjanpitäjälle }
+          - { slug: adr-12-open-items-arkkitehdille, title: · Arkkitehdille }

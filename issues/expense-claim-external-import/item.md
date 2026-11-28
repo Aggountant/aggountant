@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -63,3 +63,9 @@ Needs `expense-claim-approve-seal`.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28): an outside system's "payment sent" or "payment scheduled" step is the same `payment_scheduled` item fact that `expense-claim-payment-schedule` records, with the outside system and its reference as source. It needs no state of its own and never settles the claim.

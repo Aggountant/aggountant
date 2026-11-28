@@ -1,6 +1,6 @@
 ---
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-28
 type: feature
 reporter: jari
 status: open
@@ -29,3 +29,9 @@ deterministically.
 - [ ] One approval seals all items of an unchanged manifest.
 - [ ] A changed item after the manifest stops the whole batch with the item named.
 - [ ] Each sealed voucher keeps its own preparation hash.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28): the monthly manifest carries no payment-schedule facts and no settlement proposals. A schedule is not a voucher, and settlements are approved in the bank import, which is already one approval. If expense-claim approvals ever join a batch, each stays its own approval entry naming its approver.

@@ -1,6 +1,6 @@
 ---
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-28
 type: feature
 reporter: jari
 status: open
@@ -29,3 +29,9 @@ payment-plan model and live synchronisation are left out.
 
 - [ ] Tax-account events can be recorded and listed with their source.
 - [ ] A report shows derived vs authority balance and the difference.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28) reserves the open-item kind `tax` in the generic tables. When this issue models tax-account liabilities and payments, coordinate so a declared tax is an open item settled through the same settlement link, rather than a second list of what is owed. `camt-creditor-reference` already recognises an outgoing payment with the company's self-assessed tax reference.

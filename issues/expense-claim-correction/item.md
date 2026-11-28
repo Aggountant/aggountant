@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -63,3 +63,9 @@ Needs `expense-claim-approve-seal`, `expense-claim-payment-matching` and
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28): a claim stays one open item across versions. A correction version adds its difference voucher's payable posting as an origin row of the same item, and a cancellation's reversing postings likewise, so outstanding follows automatically. A correction that reduces an amount already paid makes outstanding negative; the receivable from the claimant it books can be a `claimant_receivable` item naming the claim. A superseded settlement link that already fed an Incomes Register payment date is corrected on this issue's path, never resent by itself.

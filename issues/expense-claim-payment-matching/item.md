@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 type: feature
 status: open
 priority: normal
@@ -69,3 +69,15 @@ Needs `expense-claim-approve-seal`.
 ## Decision
 
 ADR-11, `docs/site/adr-11-expense-claim.md` (Accepted 2026-11-26); decision issue `expense-claim-model`. The ADR states the principle; the details above are this issue's own. Dependencies above are prose; the conductor sets `blocked_by` after triage.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28) changes this slice as follows:
+- The settlement link is the generic item-settlement row created by `expense-claim-approve-seal` (one row per settling posting and item, with the allocated amount, kind and evidence), not a claim-specific link. `claim settle` writes the same rows; an offset voucher writes two (the claim through its payable posting, a receivable item through its receivable posting).
+- Double payment is refused inside the import's write transaction: outstanding is recomputed under the writer lock before the link is written; a settlement of an item with nothing outstanding or above it refuses the batch (rejection log), naming every live settlement of the item (voucher number, date, amount, bank reference) and the next step (book the transaction as a receivable from the payee).
+- Re-import with the same settlement is an observation; a different settlement stops the batch (link changes go through `open-item-link-correction`).
+- `claim settle` while a payment schedule is live succeeds with a warning that the bank will still pay unless the schedule is cancelled there.
+- ADR-12 open questions 5–7 land here once answered: partial payment refused with guidance (paid part as a `claimant_receivable` item naming the claim, offset later; the claim's status and pay-now amount net of open receivables naming it); a second payment as a `claimant_receivable` item and an "overpaid" claim state; and whether the import stops on an ordinary posting that reduces the claims payable while a matching claim is open.
+- Companies without claims: the import checks one indexed existence query and otherwise behaves byte-identically (regression test).

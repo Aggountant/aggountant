@@ -133,3 +133,25 @@ Product owner 2026-11-26: companies that do not use expense claims must see no q
 ### 2026-11-28T06:09:41Z · @conductor
 
 Waits for open-items-model: its migration may need to create generic open-item and settlement-link tables instead of claim-specific ones (follow-up research 2026-11-28).
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR-12 (`docs/site/adr-12-open-items.md`, Proposed 2026-11-28) decides generic open-item tables, so this slice's one fiscal-store migration creates them. What it must contain, so no other source is needed:
+
+1. Beside the claim's own version table, four new tables, all empty after the migration, append-only (triggers abort UPDATE and DELETE), outside the voucher hash preimage, not hash-chained. Column names are this slice's:
+   - **open item**: program-assigned opaque id (primary key); `kind` (text, checked by the program, not a CHECK constraint: `expense_claim` now, `sales_invoice`, `purchase_invoice`, `tax`, `claimant_receivable` reserved); `kind_key` (the kind's own key, a claim's `claim_id`; unique per kind among live rows); `reference` (payment reference, own column, indexed, NULL for claims); `identifiers` (JSON: invoice number, due date, source system and its reference; empty for claims).
+   - **item origin**: item id, `voucher_number`, `posting_index` (the sealed posting that creates or changes the item).
+   - **item settlement**: item id, `settling_voucher`, `settling_posting_index`, `amount` (allocation decided once, not a balance), `kind` (program-checked: `bank`, `offset`, `other_account`, `credit_note`, `credit_loss`), `evidence` (JSON: bank event key, reference read, evidence hash).
+   - **item fact**: item id, `kind` (program-checked; first `payment_scheduled`), `entry` JSON (NULL for a retraction), `evidence_hash`.
+   - Every table also has: `recorded_at`, recorder, `action` (`assert`/`retract`), `supersedes` (UNIQUE, references the same table), `reason` (required when superseding), mirroring `claimant_fact` in the personal-data store.
+   - Indexes: origin by voucher, settlement by settling voucher and by item, open item by (kind, kind_key), open item by reference.
+2. Approval writes, in the seal transaction: the claim's version row; on the first version only, the open-item row (`kind = expense_claim`, `kind_key = claim_id`); one origin row per sealed payable posting (the posting on the `expense-claim-payable` role account). A correction version adds its difference voucher's payable posting to the same item.
+3. The claim's own tables have no payment, status or balance columns. Outstanding is always derived.
+4. `natural_key` stays the idempotency key (`claim:<id>:v<n>:<part>` is fine); no code parses an item out of a key.
+5. `claim verify` also checks the item rows: every named posting exists and is on the `expense-claim-payable` role account, and no posting is over-allocated by settlements.
+6. Write the reworded rule into `crates/AGENTS.md` ("Vouchers, not ledgers of receivables"; the proposed text is in ADR-12 section 1) in this slice, if the ADR is accepted.
+7. The existing acceptance criterion (a home without claims gets only empty tables and identical command outputs on the migrated and unmigrated copies) covers the new tables too.
+
+Nothing else from ADR-12 belongs here: settlement writes are `expense-claim-payment-matching`, schedule facts `expense-claim-payment-schedule`.

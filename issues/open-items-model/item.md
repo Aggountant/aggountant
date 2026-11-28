@@ -43,3 +43,9 @@ decision must therefore land before that slice starts.
 
 ADR accepted by the product owner; slices filed; `expense-claim-approve-seal`
 updated to create the generic tables if the ADR so decides.
+
+## Comments
+
+### 2026-11-28T06:23:57Z · @worker
+
+ADR written: `docs/site/adr-12-open-items.md` (Proposed), with companions `adr-12-open-items-kirjanpitajalle` and `adr-12-open-items-arkkitehdille`. Review and assessment beside this issue (`review.md`, `assessment.md`). New slices filed unlaned: `expense-claim-payment-schedule`, `open-item-link-correction`, `invoice-open-items`, `open-item-reference-matching`, `close-open-item-balance-check`; notes added to `expense-claim-approve-seal` (exact migration contents), `expense-claim-payment-matching`, `expense-claim-status`, `expense-claim-correction`, `expense-claim-legacy-migration`, `expense-claim-external-import`, `month-batch-approval`, `tax-account-rollforward`. This issue stays open until the product owner accepts the ADR; its eight open questions are in the ADR's "Open questions" section.
